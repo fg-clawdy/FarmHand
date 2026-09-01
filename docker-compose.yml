@@ -19,7 +19,7 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-farmhand}:${POSTGRES_PASSWORD:-farmhand}@postgres:5432/${POSTGRES_DB:-farmhand}
+      DATABASE_URL: postgres://${POSTGRES_USER:-farmhand}:${POSTGRES_PASSWORD:-farmhand}@postgres:5432/${POSTGRES_DB:-farmhand}?connect_timeout=15
       PORT: 3000
       HOST: 0.0.0.0
       NODE_ENV: production

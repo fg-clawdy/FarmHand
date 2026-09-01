@@ -137,3 +137,10 @@ npm test
 ```
 
 Shared package tests cover maturity math and growth stages. API tests cover daily watering reset and cooldown.
+
+Against a running stack:
+
+```bash
+BASE_URL=http://localhost node scripts/smoke.mjs
+```
+
