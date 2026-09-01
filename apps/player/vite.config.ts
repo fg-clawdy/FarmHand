@@ -8,6 +8,10 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["icon.svg"],
+      workbox: {
+        navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/admin/, /^\/api/, /^\/health/],
+      },
       manifest: {
         name: "FarmHand",
         short_name: "FarmHand",
