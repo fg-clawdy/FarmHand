@@ -1,7 +1,8 @@
-import { MASCOT_EMOJI, formatCountdown, type GameConfig, type PublicPlot } from "@farmhand/shared";
+import { formatCountdown, type GameConfig, type PublicPlot } from "@farmhand/shared";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, type GardenPlayer, type HarvestReward } from "../api";
+import { ART, StarIcon, plantArt } from "../art";
 import HarvestCelebration from "../components/HarvestCelebration";
 import IngredientsSheet from "../components/IngredientsSheet";
 import PinPad from "../components/PinPad";
@@ -119,6 +120,7 @@ export default function Garden() {
   if (!player || !config) {
     return (
       <div className="screen">
+        <img className="backdrop dim" src={ART.backdrop} alt="" />
         <div className="topbar">
           <button className="back" type="button" onClick={() => navigate("/")}>
             ←
@@ -144,44 +146,54 @@ export default function Garden() {
 
   return (
     <div className="screen">
+      <img className="backdrop dim" src={ART.backdrop} alt="" />
       <div className="topbar">
         <button className="back" type="button" onClick={() => navigate("/")} aria-label="Back to farm">
           ←
         </button>
         <div className="who">
-          <span>{MASCOT_EMOJI[player.mascot]}</span>
+          <img className="mascot-img" src={ART.mascots[player.mascot]} alt="" />
           <span>{player.name}</span>
         </div>
         <div className="meters">
-          <div className="meter">⭐ {player.points}</div>
-          <div className="meter">🌱 {player.seeds}</div>
-          <div className="meter">🧪 {player.fertilizer}</div>
+          <div className="meter">
+            <StarIcon /> {player.points}
+          </div>
+          <div className="meter">
+            <img src={ART.acorn} alt="" /> {player.seeds}
+          </div>
+          <div className="meter">
+            <img src={ART.beaker} alt="" /> {player.fertilizer}
+          </div>
           <button className="icon-btn" type="button" onClick={() => setOverlay({ type: "ingredients" })}>
-            🧪+
+            <img src={ART.beaker} alt="" />
+            <span>+</span>
           </button>
         </div>
       </div>
       <div className="plots">
-        {plots.map((plot) => (
-          <button
-            key={plot.slot}
-            className={`plot ${plot.state} ${plot.ready ? "ready" : ""}`}
-            type="button"
-            onClick={() =>
-              setOverlay(plot.state === "empty" ? { type: "picker", slot: plot.slot } : { type: "plot", slot: plot.slot })
-            }
-          >
-            {plot.state === "empty" ? (
-              <div className="hint">Plant here</div>
-            ) : (
-              <>
-                <div className="plant-emoji">{plot.emoji}</div>
-                <div className="plant-face">{plot.face}</div>
-                {plot.ready ? <div className="ready-tag">READY</div> : <div>{formatCountdown(plot.remainingMs)}</div>}
-              </>
-            )}
-          </button>
-        ))}
+        {plots.map((plot) => {
+          const src = plantArt(plot);
+          return (
+            <button
+              key={plot.slot}
+              className={`plot ${plot.state} ${plot.ready ? "ready" : ""}`}
+              type="button"
+              onClick={() =>
+                setOverlay(plot.state === "empty" ? { type: "picker", slot: plot.slot } : { type: "plot", slot: plot.slot })
+              }
+            >
+              {plot.state === "empty" ? (
+                <div className="hint">Plant here</div>
+              ) : (
+                <>
+                  {src && <img className="plant-art" src={src} alt="" />}
+                  {plot.ready ? <div className="ready-tag">READY</div> : <div className="plot-time">{formatCountdown(plot.remainingMs)}</div>}
+                </>
+              )}
+            </button>
+          );
+        })}
       </div>
       {overlay?.type === "picker" && (
         <PlantPicker

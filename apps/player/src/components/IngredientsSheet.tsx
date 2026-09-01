@@ -1,5 +1,6 @@
 import type { GameConfig } from "@farmhand/shared";
 import type { GardenPlayer } from "../api";
+import { ART } from "../art";
 import Sheet from "./Sheet";
 
 export default function IngredientsSheet({
@@ -25,29 +26,31 @@ export default function IngredientsSheet({
       </p>
       <div className="ings">
         <div className="ing">
-          <div>🌙</div>
+          <div className="ing-orb dew" />
           <b>Moon Dew</b>
           <div className="qty">{player.ingredients.moonDew}</div>
         </div>
         <div className="ing">
-          <div>🟢</div>
+          <div className="ing-orb goo" />
           <b>Grow Goo</b>
           <div className="qty">{player.ingredients.growGoo}</div>
         </div>
         <div className="ing">
-          <div>🔥</div>
+          <div className="ing-orb ash" />
           <b>Phoenix Ash</b>
           <div className="qty">{player.ingredients.phoenixAsh}</div>
         </div>
       </div>
       <p>
-        Next claim: {player.nextIngredient.emoji} {player.nextIngredient.name}
+        Next claim: {player.nextIngredient.name}
         {player.claimedIngredientToday ? " (already claimed today)" : ""}
       </p>
-      <p>Fertilizer ready: 🧪 {player.fertilizer}</p>
+      <p className="inline-row">
+        Fertilizer ready: <img className="inline-art" src={ART.beaker} alt="" /> {player.fertilizer}
+      </p>
       <div className={`sheet-actions ${busy ? "busy" : ""}`}>
         <button className="btn gold" type="button" disabled={player.claimedIngredientToday} onClick={onClaim}>
-          Claim daily {player.nextIngredient.emoji}
+          Claim daily
         </button>
         <button className="btn primary" type="button" disabled={!player.canMix} onClick={onMix}>
           Mix {config.mixYield} fertilizer

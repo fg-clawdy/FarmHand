@@ -67,6 +67,9 @@ export type FarmPlayerCard = {
   mascot: Mascot;
   seeds: number;
   points: number;
+  fertilizer: number;
+  canWater: boolean;
+  plots: PublicPlot[];
   hasPin: boolean;
   unlocked: boolean;
   isActive: boolean;
