@@ -1,6 +1,6 @@
 import { formatCountdown, type PublicPlot } from "@farmhand/shared";
 import type { GardenPlayer } from "../api";
-import { ART, plantArt } from "../art";
+import { FertilizerBeaker, PlantFigure, WateringCan, plantKind } from "../art";
 import Sheet from "./Sheet";
 
 export default function PlotSheet({
@@ -21,11 +21,11 @@ export default function PlotSheet({
   busy: boolean;
 }) {
   const cooldown = formatCountdown(player.water.cooldownRemainingMs);
-  const src = plantArt(plot);
+  const kind = plantKind(plot);
   return (
     <Sheet title={plot.ready ? "Ready to harvest!" : `Plot ${plot.slot + 1}`} onClose={onClose}>
       <div className="plot-hero">
-        {src && <img src={src} alt="" />}
+        {kind && <PlantFigure className="hero-art" kind={kind} ready={plot.ready} />}
         <p>
           {plot.ready ? (
             <strong className="ready-tag">READY</strong>
@@ -38,7 +38,7 @@ export default function PlotSheet({
           {player.water.cooldownRemainingMs > 0 ? ` · watering can ready in ${cooldown}` : ""}
         </p>
         <p className="inline-row">
-          Fertilizer on hand: <img className="inline-art" src={ART.beaker} alt="" /> {player.fertilizer}
+          Fertilizer on hand: <FertilizerBeaker className="inline-art" /> {player.fertilizer}
         </p>
       </div>
       <div className={`sheet-actions ${busy ? "busy" : ""}`}>
@@ -49,10 +49,10 @@ export default function PlotSheet({
         ) : (
           <>
             <button className="btn water" type="button" disabled={!player.water.canWater} onClick={onWater}>
-              <img className="btn-art" src={ART.wateringCan} alt="" /> Water (−1h)
+              <WateringCan className="btn-art" /> Water (−1h)
             </button>
             <button className="btn primary" type="button" disabled={player.fertilizer < 1} onClick={onFertilize}>
-              <img className="btn-art" src={ART.beaker} alt="" /> Fertilizer
+              <FertilizerBeaker className="btn-art" /> Fertilizer
             </button>
           </>
         )}

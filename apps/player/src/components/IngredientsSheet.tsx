@@ -1,6 +1,6 @@
 import type { GameConfig } from "@farmhand/shared";
 import type { GardenPlayer } from "../api";
-import { ART } from "../art";
+import { FertilizerBeaker, IngredientOrb } from "../art";
 import Sheet from "./Sheet";
 
 export default function IngredientsSheet({
@@ -26,17 +26,17 @@ export default function IngredientsSheet({
       </p>
       <div className="ings">
         <div className="ing">
-          <div className="ing-orb dew" />
+          <IngredientOrb kind="dew" />
           <b>Moon Dew</b>
           <div className="qty">{player.ingredients.moonDew}</div>
         </div>
         <div className="ing">
-          <div className="ing-orb goo" />
+          <IngredientOrb kind="goo" />
           <b>Grow Goo</b>
           <div className="qty">{player.ingredients.growGoo}</div>
         </div>
         <div className="ing">
-          <div className="ing-orb ash" />
+          <IngredientOrb kind="ash" />
           <b>Phoenix Ash</b>
           <div className="qty">{player.ingredients.phoenixAsh}</div>
         </div>
@@ -46,7 +46,7 @@ export default function IngredientsSheet({
         {player.claimedIngredientToday ? " (already claimed today)" : ""}
       </p>
       <p className="inline-row">
-        Fertilizer ready: <img className="inline-art" src={ART.beaker} alt="" /> {player.fertilizer}
+        Fertilizer ready: <FertilizerBeaker className="inline-art" /> {player.fertilizer}
       </p>
       <div className={`sheet-actions ${busy ? "busy" : ""}`}>
         <button className="btn gold" type="button" disabled={player.claimedIngredientToday} onClick={onClaim}>

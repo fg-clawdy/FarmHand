@@ -1,4 +1,4 @@
-import { ART, FarmTitle } from "../art";
+import { FarmTitle, SceneShell, WoodSign } from "../art";
 import { useState } from "react";
 
 export default function PinPad({
@@ -33,15 +33,12 @@ export default function PinPad({
   }
 
   return (
-    <div className="pin">
-      <img className="backdrop dim" src={ART.backdrop} alt="" />
+    <SceneShell dim className="pin">
       <div className="pin-title">
         <FarmTitle />
       </div>
       <div className={`pin-card ${busy ? "busy" : ""}`}>
-        <div className="wood-sign pin-sign" style={{ backgroundImage: `url(${ART.woodSign})` }}>
-          <span>{name.toUpperCase()}</span>
-        </div>
+        <WoodSign className="pin-sign" label={name.toUpperCase()} />
         <p>Enter your 4-digit PIN</p>
         <div className="dots">
           {[0, 1, 2, 3].map((i) => (
@@ -66,6 +63,6 @@ export default function PinPad({
           </button>
         </div>
       </div>
-    </div>
+    </SceneShell>
   );
 }

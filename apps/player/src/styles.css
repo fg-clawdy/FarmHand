@@ -14,36 +14,50 @@ html, body, #root { height: 100%; margin: 0; }
 body {
   font-family: Fredoka, "Trebuchet MS", "Segoe UI", sans-serif;
   color: var(--ink);
-  background: #7ec8e3;
+  background: #5eb6e0;
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
 }
 button, input { font: inherit; }
+.art-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 .scene, .screen, .pin {
   height: 100%;
   position: relative;
   overflow: hidden;
 }
+.screen { display: flex; flex-direction: column; }
+
 .backdrop {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 40%;
+  object-position: center 42%;
   z-index: 0;
   pointer-events: none;
+  filter: saturate(1.12) contrast(1.04);
 }
-.backdrop.dim { filter: saturate(1.05) brightness(0.92); }
-.scene-shade {
+.dimmed .backdrop { filter: saturate(1.08) brightness(0.86) contrast(1.05); }
+
+.scene-light {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.08) 0 18%, transparent 40%, rgba(20,60,10,0.12) 100%);
   z-index: 1;
   pointer-events: none;
+  background:
+    radial-gradient(ellipse 50% 42% at 86% 8%, rgba(255, 230, 120, 0.42), transparent 62%),
+    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(40, 90, 20, 0.16), transparent 55%);
+}
+.scene-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  box-shadow: inset 0 0 120px rgba(20, 40, 10, 0.18);
 }
 
 .title-bar, .pin-title {
@@ -51,72 +65,93 @@ button, input { font: inherit; }
   z-index: 4;
   display: flex;
   justify-content: center;
-  padding: 6px 12px 0;
-  filter: drop-shadow(0 10px 0 rgba(176, 78, 12, 0.28));
+  padding: 4px 12px 0;
+}
+.farm-title {
+  width: min(720px, 78vw);
+  height: auto;
+  filter:
+    drop-shadow(0 3px 0 #fff)
+    drop-shadow(0 10px 0 rgba(176, 70, 8, 0.34))
+    drop-shadow(0 16px 12px rgba(80, 30, 0, 0.22));
 }
 .pin-title .farm-title { width: min(560px, 72vw); }
 
 .card-row {
   position: absolute;
   left: 50%;
-  top: 18%;
+  top: 16%;
   transform: translateX(-50%);
   z-index: 5;
   display: grid;
-  grid-template-columns: repeat(3, minmax(180px, 240px));
-  gap: 22px;
-  width: min(820px, 72vw);
+  grid-template-columns: repeat(3, minmax(188px, 248px));
+  gap: 26px;
+  width: min(840px, 74vw);
 }
 
 .player-col { display: flex; flex-direction: column; align-items: center; }
 
 .wood-sign {
-  width: 86%;
-  height: 52px;
-  background-size: 140% 180%;
-  background-position: center;
-  display: grid;
-  place-items: center;
-  z-index: 2;
-  margin-bottom: -10px;
-  filter: drop-shadow(0 6px 4px rgba(60,30,10,0.35));
+  width: 92%;
+  height: 56px;
+  z-index: 3;
+  margin-bottom: -14px;
 }
-.wood-sign span {
-  color: #fffaf0;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  font-size: 18px;
-  text-shadow: 0 2px 0 #5c3218, 0 3px 4px rgba(0,0,0,0.35);
-}
+.pin-sign { width: 78%; height: 58px; margin: 0 auto 6px; }
 
 .garden-frame {
   width: 100%;
-  min-height: 320px;
-  border: 8px solid #4EA6E6;
-  border-radius: 28px;
-  padding: 22px 12px 12px;
+  min-height: 338px;
+  border: 10px solid #4EA6E6;
+  border-radius: 32px;
+  padding: 18px 10px 10px;
   position: relative;
   cursor: pointer;
   color: inherit;
   display: flex;
   flex-direction: column;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.2) 24%, transparent 48%),
+    linear-gradient(180deg, #fffdf8, #e7f3c8);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.9),
+    inset 0 -10px 16px rgba(40, 70, 20, 0.08),
+    0 4px 0 rgba(255,255,255,0.35),
+    0 16px 0 rgba(40, 70, 20, 0.16),
+    0 26px 28px rgba(20, 40, 10, 0.28),
+    0 0 0 3px var(--accent-glow, rgba(78,166,230,0.4));
 }
 .garden-frame:active { transform: translateY(3px); }
+.garden-frame::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 22px;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.35);
+}
+
+.mini-garden-art {
+  flex: 1;
+  width: 100%;
+  min-height: 210px;
+  filter: drop-shadow(0 6px 8px rgba(20,40,10,0.12));
+}
 
 .badge {
   position: absolute;
-  width: 52px;
-  height: 52px;
-  object-fit: contain;
-  filter: drop-shadow(0 4px 3px rgba(0,0,0,0.28));
-  z-index: 3;
+  width: 56px;
+  height: 56px;
+  z-index: 4;
+  filter: drop-shadow(0 5px 4px rgba(0,0,0,0.28));
 }
-.badge-water { top: 8px; left: 8px; }
-.badge-fert { top: 8px; right: 8px; }
+.badge svg { width: 100%; height: 100%; display: block; }
+.badge-water { top: 10px; left: 8px; }
+.badge-fert { top: 10px; right: 8px; }
 
 .pin-chip {
   position: absolute;
-  top: 10px;
+  top: 12px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -128,82 +163,50 @@ button, input { font: inherit; }
   padding: 3px 10px;
   font-size: 12px;
   letter-spacing: 0.08em;
-  z-index: 3;
+  z-index: 4;
+  box-shadow: 0 4px 0 #2b1a10, inset 0 1px 0 rgba(255,255,255,0.2);
 }
 .lock-icon { width: 16px; height: 16px; }
-
-.mini-garden {
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: 8px;
-  padding: 8px 4px 4px;
-}
-.mini-plot {
-  position: relative;
-  border-radius: 16px;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-}
-.mini-plot .soil {
-  position: absolute;
-  inset: 18% 8% 0;
-  border-radius: 50% 50% 40% 40%;
-  background:
-    radial-gradient(circle at 50% 30%, #a56a3a, #6b3d22 62%, #3d2112);
-  box-shadow: inset 0 6px 8px rgba(0,0,0,0.25);
-}
-.mini-plot img {
-  position: relative;
-  width: 92%;
-  height: 92%;
-  object-fit: contain;
-  filter: drop-shadow(0 4px 2px rgba(0,0,0,0.2));
-}
-.mini-plot.ready img {
-  filter: drop-shadow(0 0 10px #ffe56a) drop-shadow(0 0 16px #fff3a0);
-}
-.sprout-dot {
-  position: relative;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #7d4a28;
-  opacity: 0.45;
-}
 
 .card-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 6px 2px;
+  padding: 2px 8px 2px;
+  background:
+    linear-gradient(#e8c07a, #b06a2c);
+  border-radius: 16px;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,0.35), 0 3px 0 #6b3f18;
 }
 .seed-badge {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   font-weight: 800;
   font-size: 22px;
-  color: #5c3218;
+  color: #fff8ec;
+  text-shadow: 0 2px 0 #5c3218;
 }
-.seed-badge img { width: 34px; height: 34px; object-fit: contain; }
-.points-label { font-weight: 800; font-size: 18px; }
+.seed-badge svg { width: 36px; height: 36px; }
+.points-label {
+  font-weight: 800;
+  font-size: 17px;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.45);
+}
 
 .store-btn {
   position: absolute;
-  right: 1.5%;
-  bottom: 2%;
+  right: 1%;
+  bottom: 1%;
   z-index: 6;
   border: 0;
   background: transparent;
   padding: 0;
-  width: min(250px, 24vw);
+  width: min(268px, 26vw);
   cursor: pointer;
-  filter: drop-shadow(0 14px 10px rgba(20,40,10,0.35));
+  filter: drop-shadow(0 16px 12px rgba(20,40,10,0.35));
 }
-.store-btn img { width: 100%; height: auto; display: block; }
+.store-btn svg { width: 100%; height: auto; display: block; }
 .store-btn:active { transform: translateY(3px); }
 
 .toast {
@@ -216,6 +219,7 @@ button, input { font: inherit; }
   padding: 10px 16px;
   border-radius: 12px;
   z-index: 12;
+  box-shadow: 0 8px 0 #1a1008;
 }
 
 .topbar {
@@ -226,24 +230,25 @@ button, input { font: inherit; }
   gap: 12px;
   padding: 10px 14px;
   background:
-    linear-gradient(#e2b36a, #b06a2c);
+    linear-gradient(180deg, rgba(255,246,216,0.28), transparent 40%),
+    url("/art/wood_grain.jpg") center / 280px,
+    linear-gradient(#e2b36a, #8a4f2a);
   color: var(--cream);
-  box-shadow: 0 8px 0 #5c3218, inset 0 2px 0 rgba(255,255,255,0.35);
+  box-shadow: 0 8px 0 #5c3218, inset 0 2px 0 rgba(255,255,255,0.4);
 }
 .topbar .back, .topbar .icon-btn {
   width: 64px;
   height: 56px;
   border: 0;
   border-radius: 16px;
-  background: linear-gradient(#7a451c, #4d2a12);
+  background: linear-gradient(#9a5a28, #4d2a12);
   color: var(--cream);
-  font-size: 22px;
-  box-shadow: 0 4px 0 #2b1a10, inset 0 2px 0 rgba(255,255,255,0.2);
+  box-shadow: 0 4px 0 #2b1a10, inset 0 2px 0 rgba(255,255,255,0.25);
   display: grid;
   place-items: center;
   position: relative;
 }
-.icon-btn img { width: 36px; height: 36px; object-fit: contain; }
+.topbar .back svg, .icon-btn svg { width: 34px; height: 34px; }
 .icon-btn span { position: absolute; right: 6px; bottom: 4px; font-weight: 800; }
 .topbar .who {
   display: flex;
@@ -252,8 +257,9 @@ button, input { font: inherit; }
   font-size: 28px;
   font-weight: 700;
   flex: 1;
+  text-shadow: 0 2px 0 #4d2a12;
 }
-.mascot-img { width: 58px; height: 58px; object-fit: contain; filter: drop-shadow(0 4px 0 rgba(0,0,0,0.2)); }
+.mascot-img { width: 62px; height: 62px; filter: drop-shadow(0 4px 0 rgba(0,0,0,0.2)); }
 .meters { display: flex; gap: 8px; align-items: center; }
 .meter {
   background: linear-gradient(#fff8e8, #f3e0b8);
@@ -267,7 +273,7 @@ button, input { font: inherit; }
   gap: 6px;
   box-shadow: inset 0 2px 0 #fff, 0 3px 0 rgba(90,50,20,0.25);
 }
-.meter img, .star-icon { width: 28px; height: 28px; object-fit: contain; }
+.meter svg, .star-icon { width: 28px; height: 28px; }
 
 .plots {
   position: relative;
@@ -279,13 +285,15 @@ button, input { font: inherit; }
   gap: 14px;
   padding: 16px 18px 18px;
 }
-.screen { display: flex; flex-direction: column; }
 .plot {
   border: 0;
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at 50% 78%, #8a5634, #3d2112 70%);
-  box-shadow: inset 0 0 0 7px #6b3f18, 0 10px 0 #2b1a10, inset 0 12px 18px rgba(0,0,0,0.25);
+  border-radius: 26px;
+  background: linear-gradient(180deg, #c8e8ff 0 28%, #d8f0a8 52%, #6db344 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.65),
+    inset 0 0 0 7px #8a5a28,
+    0 10px 0 #2b1a10,
+    inset 0 -18px 22px rgba(40, 70, 20, 0.18);
   color: inherit;
   display: flex;
   flex-direction: column;
@@ -296,8 +304,17 @@ button, input { font: inherit; }
   overflow: hidden;
   padding-bottom: 10px;
 }
+.plot-sky, .plot-hill { position: absolute; inset: 0; pointer-events: none; }
+.plot-sky {
+  background: radial-gradient(circle at 80% 12%, rgba(255,229,106,0.55), transparent 36%);
+}
+.plot-hill {
+  background:
+    radial-gradient(120% 70% at 50% 118%, #4f9a32 0 42%, transparent 43%);
+}
 .plot.empty .hint {
-  color: #f7ead0cc;
+  position: relative;
+  color: #fffaf0;
   font-size: 20px;
   font-weight: 700;
   margin-bottom: 18%;
@@ -305,16 +322,19 @@ button, input { font: inherit; }
 }
 .plant-art {
   position: absolute;
-  inset: 4% 8% 18%;
+  inset: 2% 10% 12%;
   width: auto;
   height: auto;
-  max-width: 86%;
-  max-height: 78%;
-  object-fit: contain;
-  filter: drop-shadow(0 8px 4px rgba(0,0,0,0.3));
+  max-width: 78%;
+  max-height: 82%;
+  margin: auto;
 }
 .plot.ready {
-  box-shadow: inset 0 0 0 7px #e8b84a, 0 0 28px #f4d35e, 0 10px 0 #8a6239;
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.7),
+    inset 0 0 0 7px #e8b84a,
+    0 0 28px #f4d35e,
+    0 10px 0 #8a6239;
 }
 .plot.ready .plant-art { filter: drop-shadow(0 0 14px #ffe56a); }
 .ready-tag {
@@ -342,11 +362,17 @@ button, input { font: inherit; }
 .sheet {
   width: min(920px, 100%);
   background:
-    linear-gradient(#fff8e6, #f3e0b8);
-  border: 6px solid #7a451c;
-  border-radius: 28px 28px 18px 18px;
+    linear-gradient(180deg, rgba(255,255,255,0.4), transparent 30%),
+    url("/art/wood_grain.jpg") center / 420px,
+    linear-gradient(#fff8e6, #f0d7a0);
+  border: 7px solid #7a451c;
+  border-radius: 30px 30px 20px 20px;
   padding: 16px 18px 20px;
-  box-shadow: 0 -14px 0 #4d2a12, 0 18px 40px rgba(0,0,0,0.28), inset 0 2px 0 #fff;
+  box-shadow:
+    inset 0 2px 0 #fff,
+    inset 0 0 0 4px rgba(226, 179, 106, 0.7),
+    0 -14px 0 #4d2a12,
+    0 18px 40px rgba(0,0,0,0.28);
   max-height: 86vh;
   overflow: auto;
 }
@@ -375,22 +401,23 @@ button, input { font: inherit; }
 .btn.gold { background: linear-gradient(#ffe56a, #f0b429); color: #2b1a10; }
 .btn.water { background: linear-gradient(#6ec3e0, #2f7fa8); color: #fff; }
 .btn.ghost { background: linear-gradient(#efe0c0, #e0c898); color: var(--ink); }
-.btn-art { width: 36px; height: 36px; object-fit: contain; }
-.inline-art { width: 28px; height: 28px; object-fit: contain; vertical-align: middle; }
+.btn-art { width: 36px; height: 36px; }
+.inline-art { width: 28px; height: 28px; vertical-align: middle; }
 .inline-row { display: flex; align-items: center; gap: 6px; justify-content: center; }
 
 .tier-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .tier {
   border: 4px solid #7a451c;
   border-radius: 20px;
-  background: linear-gradient(#fffdf6, #f4e6c4);
+  background:
+    linear-gradient(180deg, #fffdf6, #e8f3c4);
   padding: 10px 8px;
   text-align: center;
-  min-height: 190px;
+  min-height: 210px;
   box-shadow: 0 6px 0 #5c3218, inset 0 2px 0 #fff;
 }
 .tier.disabled { opacity: 0.4; }
-.tier-art { width: 88px; height: 88px; object-fit: contain; }
+.tier-art { width: 96px; height: 112px; margin: 0 auto; }
 .tier b { display: block; font-size: 15px; margin-bottom: 6px; }
 .picker-intro { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
@@ -398,15 +425,21 @@ button, input { font: inherit; }
 .pin-card {
   position: relative;
   z-index: 3;
-  background: linear-gradient(#fff8e6, #f0d7a0);
-  border: 7px solid #7a451c;
-  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.45), transparent 28%),
+    url("/art/wood_grain.jpg") center / 360px,
+    linear-gradient(#fff8e6, #f0d7a0);
+  border: 8px solid #7a451c;
+  border-radius: 30px;
   padding: 18px 18px 22px;
   width: min(460px, 92vw);
   text-align: center;
-  box-shadow: 0 16px 0 #4d2a12, inset 0 2px 0 #fff;
+  box-shadow:
+    inset 0 2px 0 #fff,
+    inset 0 0 0 4px rgba(226, 179, 106, 0.65),
+    0 16px 0 #4d2a12,
+    0 22px 32px rgba(0,0,0,0.28);
 }
-.pin-sign { width: 70%; margin: 0 auto 8px; }
 .dots { display: flex; justify-content: center; gap: 12px; margin: 12px 0 16px; }
 .dot {
   width: 22px; height: 22px; border-radius: 50%;
@@ -419,7 +452,9 @@ button, input { font: inherit; }
   height: 72px;
   border: 0;
   border-radius: 18px;
-  background: linear-gradient(#e2b36a, #8a4f2a);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.35), transparent 40%),
+    linear-gradient(#e2b36a, #8a4f2a);
   color: #fffaf0;
   font-size: 28px;
   font-weight: 900;
@@ -429,7 +464,7 @@ button, input { font: inherit; }
 .pin-error { color: var(--barn); min-height: 24px; font-weight: 700; }
 
 .celebrate { text-align: center; padding: 8px 8px 4px; }
-.hero-art { width: min(220px, 50%); animation: pop 0.6s ease; }
+.hero-art { width: min(220px, 50%); height: auto; animation: pop 0.6s ease; }
 @keyframes pop {
   0% { transform: scale(0.4) rotate(-12deg); }
   70% { transform: scale(1.12) rotate(6deg); }
@@ -443,19 +478,13 @@ button, input { font: inherit; }
   border-radius: 18px;
   padding: 12px 8px;
   text-align: center;
-  box-shadow: 0 5px 0 #5c3218;
+  box-shadow: 0 5px 0 #5c3218, inset 0 2px 0 #fff;
 }
 .ing .qty { font-size: 28px; font-weight: 900; }
-.ing-orb {
-  width: 48px; height: 48px; border-radius: 50%; margin: 0 auto 8px;
-  box-shadow: inset 0 -6px 8px rgba(0,0,0,0.2), 0 4px 0 rgba(0,0,0,0.15);
-}
-.ing-orb.dew { background: radial-gradient(circle at 30% 30%, #fff, #7ec8e3 40%, #3a6ea8); }
-.ing-orb.goo { background: radial-gradient(circle at 30% 30%, #e8ffb0, #7ed957 40%, #2f8a34); }
-.ing-orb.ash { background: radial-gradient(circle at 30% 30%, #ffe0a0, #ff7a2a 40%, #b32600); }
+.ing-orb-art { width: 56px; height: 56px; margin: 0 auto 8px; }
 
 .plot-hero { text-align: center; }
-.plot-hero img { width: min(180px, 40%); }
+.plot-hero .hero-art { width: min(180px, 40%); }
 
 .busy { opacity: 0.7; pointer-events: none; }
 
@@ -468,5 +497,4 @@ button, input { font: inherit; }
   }
   .store-btn { width: 28vw; }
   .tier-grid { grid-template-columns: repeat(2, 1fr); }
-  .wood-sign span { font-size: 13px; }
 }

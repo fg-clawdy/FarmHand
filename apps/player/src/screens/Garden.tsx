@@ -2,7 +2,7 @@ import { formatCountdown, type GameConfig, type PublicPlot } from "@farmhand/sha
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, type GardenPlayer, type HarvestReward } from "../api";
-import { ART, StarIcon, plantArt } from "../art";
+import { AcornArt, BackArrow, FertilizerBeaker, MascotArt, PlantFigure, SceneShell, StarIcon, plantKind } from "../art";
 import HarvestCelebration from "../components/HarvestCelebration";
 import IngredientsSheet from "../components/IngredientsSheet";
 import PinPad from "../components/PinPad";
@@ -119,16 +119,15 @@ export default function Garden() {
 
   if (!player || !config) {
     return (
-      <div className="screen">
-        <img className="backdrop dim" src={ART.backdrop} alt="" />
+      <SceneShell dim className="screen">
         <div className="topbar">
           <button className="back" type="button" onClick={() => navigate("/")}>
-            ←
+            <BackArrow />
           </button>
           <div className="who">Opening the garden…</div>
         </div>
         {error && <div className="toast">{error}</div>}
-      </div>
+      </SceneShell>
     );
   }
 
@@ -145,14 +144,13 @@ export default function Garden() {
   };
 
   return (
-    <div className="screen">
-      <img className="backdrop dim" src={ART.backdrop} alt="" />
+    <SceneShell dim className="screen">
       <div className="topbar">
         <button className="back" type="button" onClick={() => navigate("/")} aria-label="Back to farm">
-          ←
+          <BackArrow />
         </button>
         <div className="who">
-          <img className="mascot-img" src={ART.mascots[player.mascot]} alt="" />
+          <MascotArt className="mascot-img" mascot={player.mascot} />
           <span>{player.name}</span>
         </div>
         <div className="meters">
@@ -160,20 +158,20 @@ export default function Garden() {
             <StarIcon /> {player.points}
           </div>
           <div className="meter">
-            <img src={ART.acorn} alt="" /> {player.seeds}
+            <AcornArt /> {player.seeds}
           </div>
           <div className="meter">
-            <img src={ART.beaker} alt="" /> {player.fertilizer}
+            <FertilizerBeaker /> {player.fertilizer}
           </div>
           <button className="icon-btn" type="button" onClick={() => setOverlay({ type: "ingredients" })}>
-            <img src={ART.beaker} alt="" />
+            <FertilizerBeaker />
             <span>+</span>
           </button>
         </div>
       </div>
       <div className="plots">
         {plots.map((plot) => {
-          const src = plantArt(plot);
+          const kind = plantKind(plot);
           return (
             <button
               key={plot.slot}
@@ -183,11 +181,13 @@ export default function Garden() {
                 setOverlay(plot.state === "empty" ? { type: "picker", slot: plot.slot } : { type: "plot", slot: plot.slot })
               }
             >
+              <div className="plot-sky" />
+              <div className="plot-hill" />
               {plot.state === "empty" ? (
                 <div className="hint">Plant here</div>
               ) : (
                 <>
-                  {src && <img className="plant-art" src={src} alt="" />}
+                  {kind && <PlantFigure className="plant-art" kind={kind} ready={plot.ready} />}
                   {plot.ready ? <div className="ready-tag">READY</div> : <div className="plot-time">{formatCountdown(plot.remainingMs)}</div>}
                 </>
               )}
@@ -261,7 +261,7 @@ export default function Garden() {
         />
       )}
       {error && <div className="toast">{error}</div>}
-    </div>
+    </SceneShell>
   );
 }
 
