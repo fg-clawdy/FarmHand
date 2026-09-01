@@ -34,7 +34,7 @@ export default function PlotSheet({
         </p>
         <p>
           Waterings left today: {player.water.wateringsLeft}
-          {player.water.cooldownRemainingMs > 0 ? ` · can cools in ${cooldown}` : ""}
+          {player.water.cooldownRemainingMs > 0 ? ` · watering can ready in ${cooldown}` : ""}
         </p>
         <p>Fertilizer on hand: 🧪 {player.fertilizer}</p>
       </div>
