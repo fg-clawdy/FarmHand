@@ -29,9 +29,13 @@ export type GardenPlayer = {
 export type HarvestReward = { points: number; seedsReturned: number; emoji: string; name: string };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const hasBody = init?.body !== undefined;
   const res = await fetch(path, {
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: {
+      ...(hasBody ? { "Content-Type": "application/json" } : {}),
+      ...(init?.headers ?? {}),
+    },
     ...init,
   });
   const data = (await res.json().catch(() => ({}))) as T & { error?: string };

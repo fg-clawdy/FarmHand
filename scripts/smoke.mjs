@@ -11,7 +11,7 @@ async function req(path, { method = "GET", body, cookie } = {}) {
   const res = await fetch(base + path, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body ? JSON.stringify(body) : method === "POST" || method === "PUT" ? "{}" : undefined,
   });
   const setCookie = res.headers.getSetCookie?.() ?? [];
   const data = await res.json().catch(() => ({}));
@@ -19,10 +19,6 @@ async function req(path, { method = "GET", body, cookie } = {}) {
     throw new Error(`${method} ${path} -> ${res.status} ${data.error || JSON.stringify(data)}`);
   }
   return { data, cookie: setCookie.map((c) => c.split(";")[0]).join("; ") };
-}
-
-function jar(prev, next) {
-  return [prev, next].filter(Boolean).join("; ");
 }
 
 const health = await req("/api/health");
@@ -79,6 +75,50 @@ console.log("admin reset PIN ok");
 
 const overview = await req("/api/admin/overview", { cookie: adminCookie });
 console.log("overview", overview.data);
+
+const enter2 = await req(`/api/players/${willow.id}/enter`, { method: "POST", body: { pin: "1111" } });
+const kidCookie2 = enter2.cookie;
+console.log("re-entered after PIN reset");
+
+const long = structuredClone((await req("/api/admin/config", { cookie: adminCookie })).data.config);
+long.tiers = long.tiers.map((t) => (t.tier === 1 ? { ...t, durationMinutes: 120 } : t));
+long.wateringCooldownMinutes = 0;
+await req("/api/admin/config", { method: "PUT", body: { config: long }, cookie: adminCookie });
+
+const garden = await req("/api/garden", { cookie: kidCookie2 });
+const empty2 = garden.data.player.plots.find((p) => p.state === "empty");
+if (!empty2) throw new Error("need a second empty plot for watering");
+const planted2 = await req(`/api/plots/${empty2.slot}/plant`, {
+  method: "POST",
+  body: { tier: 1 },
+  cookie: kidCookie2,
+});
+const before = planted2.data.player.plots.find((p) => p.slot === empty2.slot).remainingMs;
+const watered = await req(`/api/plots/${empty2.slot}/water`, { method: "POST", cookie: kidCookie2 });
+const after = watered.data.player.plots.find((p) => p.slot === empty2.slot).remainingMs;
+if (after >= before) throw new Error(`watering did not reduce time (${before} -> ${after})`);
+console.log("watering reduced remaining ms", before, "->", after);
+
+await req(`/api/admin/players/${willow.id}/resources`, {
+  method: "POST",
+  body: { fertilizer: 1, moonDew: 1, growGoo: 1, phoenixAsh: 1, reason: "smoke mix" },
+  cookie: adminCookie,
+});
+const fertilized = await req(`/api/plots/${empty2.slot}/fertilize`, { method: "POST", cookie: kidCookie2 });
+const afterFert = fertilized.data.player.plots.find((p) => p.slot === empty2.slot).remainingMs;
+if (afterFert >= after) throw new Error("fertilizer did not reduce time");
+console.log("fertilizer reduced remaining ms", after, "->", afterFert);
+
+try {
+  const claimed = await req("/api/ingredients/claim", { method: "POST", cookie: kidCookie2 });
+  console.log("claimed", claimed.data.claimed.name);
+} catch (err) {
+  console.log("claim skipped:", err.message);
+}
+
+const mixed = await req("/api/ingredients/mix", { method: "POST", cookie: kidCookie2 });
+if (mixed.data.player.fertilizer < 1) throw new Error("mix did not produce fertilizer");
+console.log("mixed fertilizer, pouch now", mixed.data.player.fertilizer);
 
 await req("/api/admin/config/reset", { method: "POST", cookie: adminCookie });
 console.log("restored default tunables");
