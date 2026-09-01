@@ -5,7 +5,7 @@ COPY packages/shared/package.json packages/shared/package.json
 COPY apps/api/package.json apps/api/package.json
 COPY apps/player/package.json apps/player/package.json
 COPY apps/admin/package.json apps/admin/package.json
-RUN npm ci
+RUN npm ci --ignore-scripts
 COPY packages/shared ./packages/shared
 COPY apps/admin ./apps/admin
 RUN npm run build -w @farmhand/admin
