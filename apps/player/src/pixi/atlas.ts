@@ -64,16 +64,15 @@ function recolor(src: HTMLCanvasElement, fn: (r: number, g: number, b: number, a
 function dirtToGrass(src: HTMLCanvasElement) {
   return recolor(src, (r, g, b, a) => {
     const lum = (r + g + b) / 3;
-    const isTop = g > 70 && r > 80 && Math.abs(r - g) < 70;
-    if (isTop || lum > 90) {
-      return [
-        Math.min(255, 70 + lum * 0.35),
-        Math.min(255, 150 + lum * 0.4),
-        Math.min(255, 50 + lum * 0.15),
-        a,
-      ];
-    }
-    return [r, g, b, a];
+    // Only the Kenney dirt top-face — keep the brown side facets so diamonds read as tiles.
+    const isTop = lum > 100 && r > 90 && g > 70 && Math.abs(r - g) < 55 && r + 20 > b;
+    if (!isTop) return [r, g, b, a];
+    return [
+      Math.min(255, 55 + lum * 0.32),
+      Math.min(255, 135 + lum * 0.42),
+      Math.min(255, 40 + lum * 0.12),
+      a,
+    ];
   });
 }
 

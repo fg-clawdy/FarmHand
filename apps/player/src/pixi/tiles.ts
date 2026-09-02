@@ -77,9 +77,10 @@ export function createFarmMap(tileset: Texture, width = FARM_MAP.width, height =
         name: "ground",
         tiles: fill(width, height, (x, y) => {
           if (inRect(x, y, FARM_PLOTS)) return TILE_ID.farmland;
-          if ((y === 8 + FARM_SHIFT || y === 15 + FARM_SHIFT) && x > 2 && x < width - 3) return TILE_ID.hay;
-          if (x === 17 + FARM_SHIFT && y > 4 && y < height - 3) return TILE_ID.hay;
-          if ((x + y) % 13 === 0) return TILE_ID.dirt;
+          // hay_N is a prop, not a ground cover — using it here punched sky holes ("blue water").
+          if ((y === 8 + FARM_SHIFT || y === 15 + FARM_SHIFT) && x > 2 && x < width - 3) return TILE_ID.dirt;
+          if (x === 17 + FARM_SHIFT && y > 4 && y < height - 3) return TILE_ID.dirt;
+          if ((x + 3 * y) % 8 === 0) return TILE_ID.dirt;
           return TILE_ID.grass;
         }),
       },
@@ -148,8 +149,8 @@ export function createGardenMap(tileset: Texture, width = GARDEN_MAP.width, heig
         name: "ground",
         tiles: fill(width, height, (x, y) => {
           if (inRect(x, y, GARDEN_PLOT_RECT)) return TILE_ID.farmland;
-          if ((y === 6 + GARDEN_SHIFT || y === 9 + GARDEN_SHIFT) && x > 1 && x < width - 2) return TILE_ID.hay;
-          if ((x + y) % 9 === 0) return TILE_ID.dirt;
+          if ((y === 6 + GARDEN_SHIFT || y === 9 + GARDEN_SHIFT) && x > 1 && x < width - 2) return TILE_ID.dirt;
+          if ((x + 3 * y) % 7 === 0) return TILE_ID.dirt;
           return TILE_ID.grass;
         }),
       },
