@@ -34,7 +34,9 @@ function inRect(x: number, y: number, rect: PlotRect) {
 
 /** Shared homestead gardens on the dashboard (3×2 beds). Fence is a separate overlay. */
 export const FARM_PLOTS: PlotRect = { c0: 4, r0: 2, c1: 6, r1: 3 };
-export const FARM_BARN = { col: 1, row: 6 };
+/** One-tile grass margin around the beds so opposite rails aren't stacked. */
+export const FARM_FENCE: PlotRect = { c0: 3, r0: 1, c1: 6, r1: 5 };
+export const FARM_BARN = { col: 0, row: 7 };
 export const FARM_STORE = { col: 8, row: 0 };
 
 export function createFarmMap(tileset: Texture, width = 12, height = 12): TiledMap {
@@ -71,6 +73,7 @@ export function createFarmMap(tileset: Texture, width = 12, height = 12): TiledM
 
 /** Inclusive tile rect covering the six playable garden slots. */
 export const GARDEN_PLOT_RECT: PlotRect = { c0: 3, r0: 2, c1: 5, r1: 3 };
+export const GARDEN_FENCE: PlotRect = { c0: 2, r0: 1, c1: 6, r1: 4 };
 
 export function createGardenMap(tileset: Texture, width = 10, height = 8): TiledMap {
   const resolved = createMap({

@@ -6,7 +6,7 @@ import type { PixiEngine } from "./engine";
 import { createFenceRing } from "./fence";
 import { FxLayer } from "./fx";
 import { isoGround } from "./iso";
-import { createGardenMap, GARDEN_PLOT_RECT, GARDEN_PLOTS } from "./tiles";
+import { createGardenMap, GARDEN_FENCE, GARDEN_PLOTS } from "./tiles";
 
 function cropKind(tier: number | null | undefined): CropKind {
   return CROP_KINDS[Math.max(0, (tier ?? 1) - 1)] ?? "daisy";
@@ -40,7 +40,7 @@ export class GardenScene {
     this.world.addChild(this.sky);
     const map = createGardenMap(tileset);
     this.world.addChild(map);
-    this.world.addChild(createFenceRing(atlas, GARDEN_PLOT_RECT));
+    this.world.addChild(createFenceRing(atlas, GARDEN_FENCE));
     this.world.addChild(this.plotsLayer, this.fx.root);
     this.world.sortableChildren = true;
     this.root.addChild(this.world);
