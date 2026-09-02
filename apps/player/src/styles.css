@@ -32,7 +32,9 @@ button, input { font: inherit; }
 .garden-hybrid .topbar {
   pointer-events: none;
 }
-.farm-hybrid .title-bar svg,
+.farm-hybrid .title-bar svg {
+  pointer-events: none;
+}
 .garden-hybrid .topbar > * {
   pointer-events: auto;
 }

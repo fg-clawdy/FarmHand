@@ -76,7 +76,16 @@ export function useGardenPixi(onPlot: (slot: number, empty: boolean) => void) {
         return;
       }
       engine = eng;
+      if (dead) {
+        eng.destroy();
+        return;
+      }
       const scene = new GardenScene(eng, atlas, tileset, (slot, empty) => onPlotRef.current(slot, empty));
+      if (dead) {
+        scene.destroy();
+        eng.destroy();
+        return;
+      }
       sceneRef.current = scene;
       setReady((n) => n + 1);
     })();

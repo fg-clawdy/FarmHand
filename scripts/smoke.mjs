@@ -48,7 +48,25 @@ const enter = await req(`/api/players/${willow.id}/enter`, { method: "POST", bod
 const kidCookie = enter.cookie;
 console.log("willow PIN session ok");
 
-const empty = enter.data.player.plots.find((p) => p.state === "empty");
+async function harvestOccupied(plots, cookie) {
+  for (const plot of plots) {
+    if (plot.state === "empty") continue;
+    try {
+      await req(`/api/plots/${plot.slot}/harvest`, { method: "POST", cookie });
+    } catch {
+      /* not ready yet — skip */
+    }
+  }
+}
+
+let plots = enter.data.player.plots;
+let empty = plots.find((p) => p.state === "empty");
+if (!empty) {
+  await harvestOccupied(plots, kidCookie);
+  const garden = await req("/api/garden", { cookie: kidCookie });
+  plots = garden.data.player.plots;
+  empty = plots.find((p) => p.state === "empty");
+}
 if (!empty) throw new Error("no empty plot");
 const planted = await req(`/api/plots/${empty.slot}/plant`, {
   method: "POST",
