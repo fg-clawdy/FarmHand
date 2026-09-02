@@ -6,8 +6,8 @@ import { AmbientAnimal } from "./animals";
 import type { PixiEngine } from "./engine";
 import { createFenceRing } from "./fence";
 import { FxLayer } from "./fx";
-import { isoGround, isoToScreen } from "./iso";
-import { createFarmMap, FARM_BARN, FARM_FENCE, FARM_PLOTS, FARM_STORE } from "./tiles";
+import { isoDepth, isoGround, isoToScreen } from "./iso";
+import { createFarmMap, FARM_BARN, FARM_FENCE, FARM_PLOTS, FARM_PROPS, FARM_STORE } from "./tiles";
 
 function cropKind(tier: number | null | undefined): CropKind {
   return CROP_KINDS[Math.max(0, (tier ?? 1) - 1)] ?? "daisy";
@@ -60,6 +60,15 @@ export class FarmScene {
     this.map = createFarmMap(tileset);
     this.mid.addChild(this.map);
     this.mid.addChild(createFenceRing(atlas, FARM_FENCE));
+    for (const prop of FARM_PROPS) {
+      const spr = new Sprite(atlas.frame(prop.frame));
+      spr.anchor.set(0.5, 0.9);
+      const p = isoGround(prop.col, prop.row);
+      spr.position.set(p.x, p.y);
+      spr.scale.set(prop.scale ?? 1);
+      spr.zIndex = isoDepth(prop.col, prop.row) + 4;
+      this.mid.addChild(spr);
+    }
     this.mid.sortableChildren = true;
 
     this.barn = new Sprite(atlas.frame("prop_barn"));
@@ -93,7 +102,7 @@ export class FarmScene {
     this.app.stage.addChild(this.root);
 
     ANIMAL_KINDS.forEach((kind, i) => {
-      const animal = new AmbientAnimal(atlas, kind, 5 + i * 1.1, 10, { c0: 4, r0: 9, c1: 10, r1: 11 });
+      const animal = new AmbientAnimal(atlas, kind, 4 + i * 1.6, 11, { c0: 3, r0: 8, c1: 16, r1: 16 });
       this.animals.push(animal);
       this.near.addChild(animal.root);
     });
@@ -135,19 +144,17 @@ export class FarmScene {
     this.sky.clear();
     this.sky.rect(0, 0, w, h);
     this.sky.fill({ color: 0x7ec8f0 });
-    this.sky.rect(0, h * 0.42, w, h);
-    this.sky.fill({ color: 0x5fbe4a });
-    this.sky.ellipse(w * 0.86, h * 0.1, 54, 54);
+    this.sky.ellipse(w * 0.88, h * 0.08, 36, 36);
     this.sky.fill({ color: 0xffe56a });
 
     this.rays.clear();
-    this.rays.position.set(w * 0.86, h * 0.1);
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2;
+    this.rays.position.set(w * 0.88, h * 0.08);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
       this.rays.moveTo(0, 0);
-      this.rays.lineTo(Math.cos(a) * 240, Math.sin(a) * 240);
+      this.rays.lineTo(Math.cos(a) * 90, Math.sin(a) * 90);
     }
-    this.rays.stroke({ width: 18, color: 0xffe56a, alpha: 0.16 });
+    this.rays.stroke({ width: 8, color: 0xffe56a, alpha: 0.14 });
 
     const barnP = isoGround(FARM_BARN.col, FARM_BARN.row);
     const storeP = isoGround(FARM_STORE.col, FARM_STORE.row);
@@ -158,7 +165,7 @@ export class FarmScene {
     const storeHalf = 100;
     const margin = 56;
     const spread = storeP.x + storeHalf - (barnP.x - barnHalf);
-    let scale = Math.max(0.8, Math.min(0.96, w / 1320, h / 820, (w - margin * 2) / Math.max(1, spread)));
+    let scale = Math.max(0.72, Math.min(0.9, w / 1480, h / 900, (w - margin * 2) / Math.max(1, spread)));
     this.mid.scale.set(scale);
     this.near.scale.set(scale);
     let ox = w * 0.5 - cx * scale;

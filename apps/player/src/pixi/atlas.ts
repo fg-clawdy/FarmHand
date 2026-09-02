@@ -9,7 +9,8 @@ export type Atlas = {
 
 export const ANIMS = ["sit", "lay", "walk", "run", "eat"] as const;
 export type AnimalAction = (typeof ANIMS)[number];
-export const ANIMAL_KINDS = ["sheep", "duck", "cow", "chicken", "pig"] as const;
+/** Vendor Animal Pack Redux files we actually ship (no sheep still). */
+export const ANIMAL_KINDS = ["cow", "pig", "chicken", "duck", "horse"] as const;
 export type AnimalKind = (typeof ANIMAL_KINDS)[number];
 export const CROP_KINDS = ["daisy", "herbs", "sunflower", "oak"] as const;
 export type CropKind = (typeof CROP_KINDS)[number];
@@ -179,75 +180,24 @@ function glowDot() {
   return c;
 }
 
-const PALETTE: Record<AnimalKind, { body: string; shade: string; accent: string }> = {
-  sheep: { body: "#f4f0e4", shade: "#d4cbb8", accent: "#2a1a0d" },
-  duck: { body: "#f0c84a", shade: "#d4a22a", accent: "#e23a2a" },
-  cow: { body: "#f7f4ea", shade: "#d8d0c0", accent: "#2a1a0d" },
-  chicken: { body: "#fff1c4", shade: "#e8d08a", accent: "#e23a2a" },
-  pig: { body: "#f7b4c4", shade: "#e87898", accent: "#c45a78" },
+const ANIMAL_FILE: Record<AnimalKind, string> = {
+  cow: "cow",
+  pig: "pig",
+  chicken: "chicken",
+  duck: "duck",
+  horse: "horse",
 };
 
-/** Distinct iso clips (walk / eat / idle). sit+lay reuse idle; run reuses walk — see ATTRIBUTION. */
-function isoAnimal(kind: AnimalKind, action: "walk" | "eat" | "idle", frame: number): HTMLCanvasElement {
+/** Pack has stills only. Walk/eat bob the Kenney frame; sit/lay/run reuse — see ATTRIBUTION. */
+function stampAnimal(still: HTMLCanvasElement, action: "walk" | "eat" | "idle", frame: number): HTMLCanvasElement {
   const [c, ctx] = canvas(96, 96);
   const t = (frame / 6) * Math.PI * 2;
-  const pal = PALETTE[kind];
-  const bob = action === "walk" ? Math.abs(Math.sin(t)) * 4 : action === "eat" ? 6 + Math.sin(t) * 2 : Math.sin(t) * 1.2;
-  ctx.translate(48, 62 + bob);
-  ctx.fillStyle = "rgba(26,36,16,0.28)";
+  const bob = action === "walk" ? Math.abs(Math.sin(t)) * 5 : action === "eat" ? 7 + Math.sin(t) * 2 : Math.sin(t) * 1.2;
+  ctx.fillStyle = "rgba(26,36,16,0.22)";
   ctx.beginPath();
-  ctx.ellipse(0, 22, 18, 8, 0, 0, Math.PI * 2);
+  ctx.ellipse(48, 86, 22, 7, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = pal.shade;
-  ctx.beginPath();
-  ctx.ellipse(6, 8, 16, 10, 0.4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = pal.body;
-  ctx.strokeStyle = BIBLE.outline;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.ellipse(-2, 4, 18, 12, -0.35, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  if (kind === "cow") {
-    ctx.fillStyle = pal.accent;
-    ctx.beginPath();
-    ctx.ellipse(-8, 0, 5, 4, 0, 0, Math.PI * 2);
-    ctx.ellipse(6, 8, 4, 3, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  const headDrop = action === "eat" ? 10 : 0;
-  ctx.save();
-  ctx.translate(10, -10 + headDrop);
-  if (action === "eat") ctx.rotate(0.5);
-  ctx.fillStyle = pal.body;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, kind === "chicken" || kind === "duck" ? 8 : 10, 8, -0.3, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = pal.accent;
-  if (kind === "duck" || kind === "chicken") {
-    ctx.beginPath();
-    ctx.moveTo(6, 2);
-    ctx.lineTo(14, 4);
-    ctx.lineTo(6, 6);
-    ctx.fill();
-  }
-  ctx.fillStyle = "#2a1a0d";
-  ctx.beginPath();
-  ctx.arc(-2, -2, 2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-  if (action === "walk") {
-    ctx.strokeStyle = pal.accent;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(-8, 12);
-    ctx.lineTo(-8 + Math.sin(t) * 6, 20);
-    ctx.moveTo(6, 12);
-    ctx.lineTo(6 - Math.sin(t) * 6, 20);
-    ctx.stroke();
-  }
+  ctx.drawImage(still, 8, 6 + bob, 80, 80);
   return c;
 }
 
@@ -335,6 +285,8 @@ export async function buildAtlas(): Promise<{ atlas: Atlas; tileset: Texture }> 
     k("k_roofS", "roofSingle"),
     k("k_chimneyB", "chimneyBase"),
     k("k_chimneyT", "chimneyTop"),
+    k("k_ladder", "ladderStraight"),
+    k("k_planks", "planks"),
   ]);
 
   const dirt = frames.get("k_dirt")!;
@@ -355,6 +307,13 @@ export async function buildAtlas(): Promise<{ atlas: Atlas; tileset: Texture }> 
   frames.set("prop_store", stack([frames.get("k_door")!, frames.get("k_roofS")!, frames.get("k_crate")!]));
   frames.set("prop_fence_sw", frames.get("k_fence")!);
   frames.set("prop_fence_se", flipH(frames.get("k_fence")!));
+  frames.set("prop_hay", frames.get("k_hay")!);
+  frames.set("prop_bales", frames.get("k_bales")!);
+  frames.set("prop_bales_stacked", frames.get("k_bales2")!);
+  frames.set("prop_sack", frames.get("k_sack")!);
+  frames.set("prop_crate", frames.get("k_crate")!);
+  frames.set("prop_ladder", frames.get("k_ladder")!);
+  frames.set("prop_planks", frames.get("k_planks")!);
 
   const hud = async (name: string, src: string, size: number) => {
     try {
@@ -388,18 +347,22 @@ export async function buildAtlas(): Promise<{ atlas: Atlas; tileset: Texture }> 
   frames.set("fx_dot", particleDot());
   frames.set("fx_glow", glowDot());
 
-  for (const kind of ANIMAL_KINDS) {
-    for (let i = 0; i < 6; i++) {
-      const walk = isoAnimal(kind, "walk", i);
-      const eat = isoAnimal(kind, "eat", i);
-      const idle = isoAnimal(kind, "idle", i);
-      frames.set(`animal_${kind}_walk_${i}`, walk);
-      frames.set(`animal_${kind}_run_${i}`, walk);
-      frames.set(`animal_${kind}_eat_${i}`, eat);
-      frames.set(`animal_${kind}_sit_${i}`, idle);
-      frames.set(`animal_${kind}_lay_${i}`, idle);
-    }
-  }
+  await Promise.all(
+    ANIMAL_KINDS.map(async (kind) => {
+      const img = await loadImage(`/art/vendor/kenney/animals/${ANIMAL_FILE[kind]}.png`);
+      const still = fitImage(img, 80, 80);
+      for (let i = 0; i < 6; i++) {
+        const walk = stampAnimal(still, "walk", i);
+        const eat = stampAnimal(still, "eat", i);
+        const idle = stampAnimal(still, "idle", i);
+        frames.set(`animal_${kind}_walk_${i}`, walk);
+        frames.set(`animal_${kind}_run_${i}`, walk);
+        frames.set(`animal_${kind}_eat_${i}`, eat);
+        frames.set(`animal_${kind}_sit_${i}`, idle);
+        frames.set(`animal_${kind}_lay_${i}`, idle);
+      }
+    }),
+  );
 
   const atlas = pack(frames);
   return { atlas, tileset };

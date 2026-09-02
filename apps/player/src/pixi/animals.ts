@@ -24,6 +24,7 @@ export class AmbientAnimal {
     const frames = atlas.animation(`animal_${kind}_walk`);
     this.sprite = new AnimatedSprite(frames);
     this.sprite.anchor.set(0.5, 0.86);
+    this.sprite.scale.set(1.15);
     this.sprite.animationSpeed = 0.14;
     this.sprite.play();
     this.root.addChild(this.sprite);

@@ -5,8 +5,8 @@ import { AmbientAnimal } from "./animals";
 import type { PixiEngine } from "./engine";
 import { createFenceRing } from "./fence";
 import { FxLayer } from "./fx";
-import { isoGround } from "./iso";
-import { createGardenMap, GARDEN_FENCE, GARDEN_PLOTS } from "./tiles";
+import { isoDepth, isoGround } from "./iso";
+import { createGardenMap, GARDEN_FENCE, GARDEN_PLOTS, GARDEN_PROPS } from "./tiles";
 
 function cropKind(tier: number | null | undefined): CropKind {
   return CROP_KINDS[Math.max(0, (tier ?? 1) - 1)] ?? "daisy";
@@ -37,13 +37,20 @@ export class GardenScene {
     this.onPlot = onPlot;
     this.fx = new FxLayer(atlas);
 
-    this.world.addChild(this.sky);
     const map = createGardenMap(tileset);
     this.world.addChild(map);
     this.world.addChild(createFenceRing(atlas, GARDEN_FENCE));
+    for (const prop of GARDEN_PROPS) {
+      const spr = new Sprite(atlas.frame(prop.frame));
+      spr.anchor.set(0.5, 0.9);
+      const p = isoGround(prop.col, prop.row);
+      spr.position.set(p.x, p.y);
+      spr.zIndex = isoDepth(prop.col, prop.row) + 4;
+      this.world.addChild(spr);
+    }
     this.world.addChild(this.plotsLayer, this.fx.root);
     this.world.sortableChildren = true;
-    this.root.addChild(this.world);
+    this.root.addChild(this.sky, this.world);
     this.app.stage.removeChildren();
     this.app.stage.addChild(this.root);
 
@@ -54,7 +61,7 @@ export class GardenScene {
     }
 
     (["chicken", "pig", "duck"] as const).forEach((kind, i) => {
-      const a = new AmbientAnimal(atlas, kind, 2 + i * 2, 6, { c0: 1, r0: 5, c1: 8, r1: 6 });
+      const a = new AmbientAnimal(atlas, kind, 2 + i * 2.2, 7, { c0: 1, r0: 6, c1: 13, r1: 10 });
       this.animals.push(a);
       this.world.addChild(a.root);
     });
@@ -101,15 +108,14 @@ export class GardenScene {
     const w = this.app.screen.width;
     const h = this.app.screen.height;
     this.sky.clear();
-    this.sky.rect(-w, -h, w * 3, h * 3);
+    this.sky.rect(0, 0, w, h);
     this.sky.fill({ color: 0x7ec8f0 });
-    this.sky.rect(-w, h * 0.35, w * 3, h * 2);
-    this.sky.fill({ color: 0x5fbe4a });
-    this.sky.ellipse(w * 0.7, 40, 48, 48);
+    this.sky.ellipse(w * 0.86, h * 0.08, 32, 32);
     this.sky.fill({ color: 0xffe56a });
 
-    this.mapScale = Math.max(0.78, Math.min(w / 1000, h / 640));
-    this.origin = { x: w * 0.5, y: h * 0.22 };
+    const plot = isoGround(4, 2.5);
+    this.mapScale = Math.max(0.7, Math.min(0.92, w / 1180, h / 720));
+    this.origin = { x: w * 0.5 - plot.x * this.mapScale, y: h * 0.36 - plot.y * this.mapScale };
     this.world.position.set(this.origin.x, this.origin.y);
     this.world.scale.set(this.mapScale);
 

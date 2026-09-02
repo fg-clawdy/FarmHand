@@ -648,7 +648,6 @@ export function SceneShell({
 }) {
   return (
     <div className={`${className}${dim ? " dimmed" : ""}`}>
-      <img className="backdrop" src="/art/farm_backdrop.jpg" alt="" />
       <div className="scene-light" />
       <div className="scene-vignette" />
       {children}
