@@ -9,6 +9,16 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# Ensure PostgreSQL is available (the default Cloud Agent base image does not
+# ship it). Skipped when already present, so this stays idempotent.
+if ! command -v pg_ctlcluster >/dev/null 2>&1; then
+  echo "[install] PostgreSQL not found; installing via apt..."
+  sudo apt-get update -qq
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postgresql postgresql-contrib
+else
+  echo "[install] PostgreSQL already installed."
+fi
+
 echo "[install] Installing workspace dependencies with npm..."
 npm install
 
