@@ -101,8 +101,18 @@ export class FarmScene {
     this.app.stage.removeChildren();
     this.app.stage.addChild(this.root);
 
+    // Keep Kenney stills in the framed homestead (barn / plots / store), not under the cards.
+    const paddock = { c0: 1, r0: 4, c1: 11, r1: 8 };
+    const starts: Array<[number, number]> = [
+      [2, 5],
+      [7, 4],
+      [5, 5],
+      [9, 3],
+      [3, 7],
+    ];
     ANIMAL_KINDS.forEach((kind, i) => {
-      const animal = new AmbientAnimal(atlas, kind, 4 + i * 1.6, 11, { c0: 3, r0: 8, c1: 16, r1: 16 });
+      const [col, row] = starts[i] ?? [4, 6];
+      const animal = new AmbientAnimal(atlas, kind, col, row, paddock);
       this.animals.push(animal);
       this.near.addChild(animal.root);
     });

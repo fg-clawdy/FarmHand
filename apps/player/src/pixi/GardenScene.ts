@@ -60,8 +60,16 @@ export class GardenScene {
       this.plotsLayer.addChild(node.root);
     }
 
-    (["chicken", "pig", "duck"] as const).forEach((kind, i) => {
-      const a = new AmbientAnimal(atlas, kind, 2 + i * 2.2, 7, { c0: 1, r0: 6, c1: 13, r1: 10 });
+    (
+      [
+        ["chicken", 1, 6],
+        ["pig", 7, 6],
+        ["duck", 10, 5],
+        ["cow", 2, 8],
+        ["horse", 9, 8],
+      ] as const
+    ).forEach(([kind, col, row]) => {
+      const a = new AmbientAnimal(atlas, kind, col, row, { c0: 1, r0: 5, c1: 13, r1: 10 });
       this.animals.push(a);
       this.world.addChild(a.root);
     });
