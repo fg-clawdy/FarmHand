@@ -7,7 +7,7 @@ import type { PixiEngine } from "./engine";
 import { createFenceRing } from "./fence";
 import { FxLayer } from "./fx";
 import { isoDepth, isoGround, isoToScreen } from "./iso";
-import { createFarmMap, FARM_BARN, FARM_FENCE, FARM_PLOTS, FARM_PROPS, FARM_STORE } from "./tiles";
+import { createFarmMap, FARM_BARN, FARM_FENCE, FARM_PLOTS, FARM_PROPS, FARM_SHIFT, FARM_STORE } from "./tiles";
 
 function cropKind(tier: number | null | undefined): CropKind {
   return CROP_KINDS[Math.max(0, (tier ?? 1) - 1)] ?? "daisy";
@@ -102,13 +102,13 @@ export class FarmScene {
     this.app.stage.addChild(this.root);
 
     // Keep Kenney stills in the framed homestead (barn / plots / store), not under the cards.
-    const paddock = { c0: 1, r0: 4, c1: 11, r1: 8 };
+    const paddock = { c0: 1 + FARM_SHIFT, r0: 4 + FARM_SHIFT, c1: 11 + FARM_SHIFT, r1: 8 + FARM_SHIFT };
     const starts: Array<[number, number]> = [
-      [2, 5],
-      [7, 4],
-      [5, 5],
-      [9, 3],
-      [3, 7],
+      [2 + FARM_SHIFT, 5 + FARM_SHIFT],
+      [7 + FARM_SHIFT, 4 + FARM_SHIFT],
+      [5 + FARM_SHIFT, 5 + FARM_SHIFT],
+      [9 + FARM_SHIFT, 3 + FARM_SHIFT],
+      [3 + FARM_SHIFT, 7 + FARM_SHIFT],
     ];
     ANIMAL_KINDS.forEach((kind, i) => {
       const [col, row] = starts[i] ?? [4, 6];
@@ -175,7 +175,7 @@ export class FarmScene {
     const storeHalf = 100;
     const margin = 56;
     const spread = storeP.x + storeHalf - (barnP.x - barnHalf);
-    let scale = Math.max(0.72, Math.min(0.9, w / 1480, h / 900, (w - margin * 2) / Math.max(1, spread)));
+    let scale = Math.max(0.58, Math.min(0.82, w / 1680, h / 980, (w - margin * 2) / Math.max(1, spread)));
     this.mid.scale.set(scale);
     this.near.scale.set(scale);
     let ox = w * 0.5 - cx * scale;

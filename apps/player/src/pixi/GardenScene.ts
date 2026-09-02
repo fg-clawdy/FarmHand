@@ -6,7 +6,7 @@ import type { PixiEngine } from "./engine";
 import { createFenceRing } from "./fence";
 import { FxLayer } from "./fx";
 import { isoDepth, isoGround } from "./iso";
-import { createGardenMap, GARDEN_FENCE, GARDEN_PLOTS, GARDEN_PROPS } from "./tiles";
+import { createGardenMap, GARDEN_FENCE, GARDEN_PLOTS, GARDEN_PROPS, GARDEN_SHIFT } from "./tiles";
 
 function cropKind(tier: number | null | undefined): CropKind {
   return CROP_KINDS[Math.max(0, (tier ?? 1) - 1)] ?? "daisy";
@@ -62,14 +62,19 @@ export class GardenScene {
 
     (
       [
-        ["chicken", 1, 6],
-        ["pig", 7, 6],
-        ["duck", 10, 5],
-        ["cow", 2, 8],
-        ["horse", 9, 8],
+        ["chicken", 1 + GARDEN_SHIFT, 6 + GARDEN_SHIFT],
+        ["pig", 7 + GARDEN_SHIFT, 6 + GARDEN_SHIFT],
+        ["duck", 10 + GARDEN_SHIFT, 5 + GARDEN_SHIFT],
+        ["cow", 2 + GARDEN_SHIFT, 8 + GARDEN_SHIFT],
+        ["horse", 9 + GARDEN_SHIFT, 8 + GARDEN_SHIFT],
       ] as const
     ).forEach(([kind, col, row]) => {
-      const a = new AmbientAnimal(atlas, kind, col, row, { c0: 1, r0: 5, c1: 13, r1: 10 });
+      const a = new AmbientAnimal(atlas, kind, col, row, {
+        c0: 1 + GARDEN_SHIFT,
+        r0: 5 + GARDEN_SHIFT,
+        c1: 13 + GARDEN_SHIFT,
+        r1: 10 + GARDEN_SHIFT,
+      });
       this.animals.push(a);
       this.world.addChild(a.root);
     });
@@ -121,8 +126,8 @@ export class GardenScene {
     this.sky.ellipse(w * 0.86, h * 0.08, 32, 32);
     this.sky.fill({ color: 0xffe56a });
 
-    const plot = isoGround(4, 2.5);
-    this.mapScale = Math.max(0.7, Math.min(0.92, w / 1180, h / 720));
+    const plot = isoGround(4 + GARDEN_SHIFT, 2.5 + GARDEN_SHIFT);
+    this.mapScale = Math.max(0.58, Math.min(0.84, w / 1320, h / 800));
     this.origin = { x: w * 0.5 - plot.x * this.mapScale, y: h * 0.36 - plot.y * this.mapScale };
     this.world.position.set(this.origin.x, this.origin.y);
     this.world.scale.set(this.mapScale);
