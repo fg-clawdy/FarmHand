@@ -41,6 +41,7 @@ const configRes = await req("/api/admin/config", { cookie: adminCookie });
 const fast = structuredClone(configRes.data.config);
 fast.tiers = fast.tiers.map((t) => (t.tier === 1 ? { ...t, durationMinutes: 0 } : t));
 fast.wateringCooldownMinutes = 0;
+fast.wateringMaxPerDay = 99;
 await req("/api/admin/config", { method: "PUT", body: { config: fast }, cookie: adminCookie });
 console.log("set T1 duration to 0 minutes");
 
@@ -101,6 +102,7 @@ console.log("re-entered after PIN reset");
 const long = structuredClone((await req("/api/admin/config", { cookie: adminCookie })).data.config);
 long.tiers = long.tiers.map((t) => (t.tier === 1 ? { ...t, durationMinutes: 120 } : t));
 long.wateringCooldownMinutes = 0;
+long.wateringMaxPerDay = 99;
 await req("/api/admin/config", { method: "PUT", body: { config: long }, cookie: adminCookie });
 
 const garden = await req("/api/garden", { cookie: kidCookie2 });
