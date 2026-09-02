@@ -12,6 +12,20 @@ function fill(width: number, height: number, pick: (x: number, y: number) => num
   return tiles;
 }
 
+function soilTileset() {
+  return {
+    name: "soil",
+    image: "soil",
+    tilewidth: 64,
+    tileheight: 64,
+    tilecount: 16,
+    columns: 4,
+    imagewidth: 256,
+    imageheight: 256,
+  };
+}
+
+/** Painted backdrop carries the hills; tiles only add path, flowers, and a pond. */
 export function createFarmMap(tileset: Texture, width = 36, height = 20): TiledMap {
   const resolved = createMap({
     width,
@@ -19,30 +33,17 @@ export function createFarmMap(tileset: Texture, width = 36, height = 20): TiledM
     tilewidth: 64,
     tileheight: 64,
     orientation: "orthogonal",
-    tilesets: [
-      {
-        name: "soil",
-        image: "soil",
-        tilewidth: 64,
-        tileheight: 64,
-        tilecount: 16,
-        columns: 4,
-        imagewidth: 256,
-        imageheight: 256,
-      },
-    ],
+    tilesets: [soilTileset()],
     layers: [
       {
         name: "ground",
-        parallaxx: 0.42,
-        parallaxy: 0.42,
+        parallaxx: 0.35,
+        parallaxy: 0.35,
         tiles: fill(width, height, (x, y) => {
-          if (y > height - 4 && x > width - 8) return 6;
-          if ((x + y) % 11 === 0) return 7;
-          if (y === height - 6 && x > 8 && x < width - 6) return 5;
-          if ((x * 3 + y * 7) % 13 === 0) return 1;
-          if ((x * 5 + y) % 17 === 0) return 2;
-          return 0;
+          if (y > height - 5 && x > width - 9) return 6;
+          if (y === height - 7 && x > 4 && x < width - 5) return 5;
+          if (y === height - 6 && x > 6 && x < width - 7) return 5;
+          return null;
         }),
       },
       {
@@ -50,8 +51,9 @@ export function createFarmMap(tileset: Texture, width = 36, height = 20): TiledM
         parallaxx: 0.55,
         parallaxy: 0.55,
         tiles: fill(width, height, (x, y) => {
-          if ((x * 13 + y * 3) % 29 === 0 && y > 8) return 7;
-          if ((x + y * 2) % 23 === 0 && y > 10) return 10;
+          if (y < height - 10) return null;
+          if ((x * 13 + y * 3) % 17 === 0) return 7;
+          if ((x + y * 2) % 19 === 0) return 10;
           return null;
         }),
       },
@@ -60,6 +62,7 @@ export function createFarmMap(tileset: Texture, width = 36, height = 20): TiledM
   return new TiledMap(resolved, { tilesetTextures: new Map([["soil", tileset]]) });
 }
 
+/** Tilled bed under the 2×3 plots; grass/flowers only as a sparse rim. */
 export function createGardenMap(tileset: Texture, width = 24, height = 14): TiledMap {
   const resolved = createMap({
     width,
@@ -67,28 +70,18 @@ export function createGardenMap(tileset: Texture, width = 24, height = 14): Tile
     tilewidth: 64,
     tileheight: 64,
     orientation: "orthogonal",
-    tilesets: [
-      {
-        name: "soil",
-        image: "soil",
-        tilewidth: 64,
-        tileheight: 64,
-        tilecount: 16,
-        columns: 4,
-        imagewidth: 256,
-        imageheight: 256,
-      },
-    ],
+    tilesets: [soilTileset()],
     layers: [
       {
         name: "ground",
-        parallaxx: 0.3,
-        parallaxy: 0.3,
+        parallaxx: 0.22,
+        parallaxy: 0.22,
         tiles: fill(width, height, (x, y) => {
           const inPlot = x >= 6 && x <= 17 && y >= 4 && y <= 10;
           if (inPlot) return (x + y) % 2 === 0 ? 4 : 3;
-          if ((x + y) % 9 === 0) return 7;
-          return y % 3 === 0 ? 1 : 0;
+          if (y >= 3 && y <= 11 && x >= 5 && x <= 18) return 0;
+          if ((x + y) % 9 === 0 && y > 2) return 7;
+          return null;
         }),
       },
     ],

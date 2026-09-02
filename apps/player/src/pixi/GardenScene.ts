@@ -43,6 +43,7 @@ export class GardenScene {
     this.world.addChild(map);
     this.world.addChild(this.plotsLayer, this.fx.root);
     this.root.addChild(this.world);
+    this.app.stage.removeChildren();
     this.app.stage.addChild(this.root);
 
     for (let i = 0; i < 6; i++) {
@@ -59,14 +60,21 @@ export class GardenScene {
 
     this.app.stage.eventMode = "static";
     this.app.stage.hitArea = this.app.screen;
-    this.app.stage.on("pointermove", (ev) => {
-      this.pointer.x = ev.global.x / this.app.screen.width;
-      this.pointer.y = ev.global.y / this.app.screen.height;
-    });
+    this.onMove = (ev: { global: { x: number; y: number } }) => {
+      this.pointer.x = ev.global.x / Math.max(1, this.app.screen.width);
+      this.pointer.y = ev.global.y / Math.max(1, this.app.screen.height);
+    };
+    this.app.stage.on("pointermove", this.onMove);
+    this.onResize = () => this.layout();
+    this.onTick = (ticker: { deltaMS: number }) => this.tick(ticker.deltaMS / 1000);
     this.layout();
-    this.app.renderer.on("resize", () => this.layout());
-    this.app.ticker.add((ticker) => this.tick(ticker.deltaMS / 1000));
+    this.app.renderer.on("resize", this.onResize);
+    this.app.ticker.add(this.onTick);
   }
+
+  private onMove: (ev: { global: { x: number; y: number } }) => void;
+  private onResize: () => void;
+  private onTick: (ticker: { deltaMS: number }) => void;
 
   setPlots(plots: PublicPlot[]) {
     this.slots.forEach((slot) => {
@@ -123,6 +131,9 @@ export class GardenScene {
   }
 
   destroy() {
+    this.app.ticker.remove(this.onTick);
+    this.app.renderer.off("resize", this.onResize);
+    this.app.stage.off("pointermove", this.onMove);
     this.root.removeFromParent();
     this.root.destroy({ children: true });
   }

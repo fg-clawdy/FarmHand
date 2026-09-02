@@ -259,8 +259,10 @@ function grass(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, c
   g.addColorStop(0, color);
   g.addColorStop(1, BIBLE.grassDark);
   ctx.fillStyle = g;
-  ctx.fillRect(x, y, s, s);
-  ctx.strokeStyle = "rgba(255,255,220,0.18)";
+  ctx.beginPath();
+  ctx.roundRect(x - 1, y - 1, s + 2, s + 2, 10);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,220,0.16)";
   ctx.lineWidth = 2;
   for (let i = 0; i < 6; i++) {
     ctx.beginPath();

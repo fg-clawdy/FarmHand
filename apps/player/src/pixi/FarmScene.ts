@@ -64,7 +64,7 @@ export class FarmScene {
     this.far.addChild(this.rays);
 
     const map = createFarmMap(tileset);
-    map.alpha = 0.72;
+    map.alpha = 0.9;
     this.mid.addChild(map);
 
     this.barn = new Sprite(atlas.frame("prop_barn"));
@@ -93,28 +93,36 @@ export class FarmScene {
 
     this.world.addChild(this.far, this.mid, this.near, this.cards, this.fx.root);
     this.root.addChild(this.world);
+    this.app.stage.removeChildren();
     this.app.stage.addChild(this.root);
 
     const kinds = ANIMAL_KINDS;
     kinds.forEach((kind, i) => {
-      const animal = new AmbientAnimal(atlas, kind, 120 + i * 90, 0, { x: 40, y: 0, w: 520, h: 40 });
+      const animal = new AmbientAnimal(atlas, kind, 80 + i * 160, 0, { x: 20, y: 0, w: 980, h: 40 });
       this.animals.push(animal);
       this.near.addChild(animal.root);
     });
 
     this.app.stage.eventMode = "static";
     this.app.stage.hitArea = this.app.screen;
-    this.app.stage.on("pointermove", (ev) => {
+    this.onMove = (ev: { global: { x: number; y: number } }) => {
       const w = this.app.screen.width;
       const h = this.app.screen.height;
-      this.pointer.x = ev.global.x / w;
-      this.pointer.y = ev.global.y / h;
-    });
+      this.pointer.x = ev.global.x / Math.max(1, w);
+      this.pointer.y = ev.global.y / Math.max(1, h);
+    };
+    this.app.stage.on("pointermove", this.onMove);
 
     this.layout();
-    this.app.renderer.on("resize", () => this.layout());
-    this.app.ticker.add((ticker) => this.tick(ticker.deltaMS / 1000));
+    this.onResize = () => this.layout();
+    this.onTick = (ticker: { deltaMS: number }) => this.tick(ticker.deltaMS / 1000);
+    this.app.renderer.on("resize", this.onResize);
+    this.app.ticker.add(this.onTick);
   }
+
+  private onMove: (ev: { global: { x: number; y: number } }) => void;
+  private onResize: () => void;
+  private onTick: (ticker: { deltaMS: number }) => void;
 
   setPlayers(players: FarmPlayerCard[]) {
     while (this.cardNodes.length < players.length) {
@@ -140,8 +148,8 @@ export class FarmScene {
     this.store.position.set(w * 0.86, h * 0.96);
     this.store.scale.set(Math.min(0.72, w / 1600));
 
-    this.mid.position.set(w * 0.5 - 36 * 32, h * 0.58);
-    this.mid.scale.set(Math.max(0.55, w / 1800));
+    this.mid.position.set(w * 0.5 - 36 * 32, h * 0.62);
+    this.mid.scale.set(Math.max(0.5, w / 1900));
 
     this.animals.forEach((a, i) => {
       a.root.y = h * 0.78 + (i % 2) * 18;
@@ -188,6 +196,9 @@ export class FarmScene {
   }
 
   destroy() {
+    this.app.ticker.remove(this.onTick);
+    this.app.renderer.off("resize", this.onResize);
+    this.app.stage.off("pointermove", this.onMove);
     this.root.removeFromParent();
     this.root.destroy({ children: true });
   }
@@ -209,6 +220,7 @@ class CardNode {
   private playerId = "";
   private w = 220;
   private h = 320;
+  private border = 0x4ea6e6;
 
   constructor(private atlas: Atlas, onOpen: (id: string) => void) {
     this.sign = new Sprite(atlas.frame("prop_sign"));
@@ -265,16 +277,20 @@ class CardNode {
 
   private foot: Container;
 
+  private paintFrame() {
+    this.frame.clear();
+    this.frame.roundRect(-this.w / 2, -this.h / 2, this.w, this.h, 28);
+    this.frame.fill({ color: 0xf7fff0 });
+    this.frame.stroke({ width: 10, color: this.border });
+  }
+
   layout(w: number, h: number) {
     this.w = w;
     this.h = h;
     this.shadow.clear();
     this.shadow.ellipse(0, h * 0.48, w * 0.46, 16);
     this.shadow.fill({ color: 0x1a2410, alpha: 0.28 });
-    this.frame.clear();
-    this.frame.roundRect(-w / 2, -h / 2, w, h, 28);
-    this.frame.fill({ color: 0xf4ffe8 });
-    this.frame.stroke({ width: 10, color: 0x4ea6e6 });
+    this.paintFrame();
     this.sign.position.set(0, -h / 2 + 8);
     this.sign.width = w * 0.92;
     this.sign.height = 48;
@@ -296,10 +312,8 @@ class CardNode {
     this.seeds.text = String(player.seeds);
     this.points.text = `${player.points} ${player.points === 1 ? "point" : "points"}`;
     this.points.style.fill = accent.text;
-    this.frame.clear();
-    this.frame.roundRect(-this.w / 2, -this.h / 2, this.w, this.h, 28);
-    this.frame.fill({ color: 0xf7fff0 });
-    this.frame.stroke({ width: 10, color: Number(accent.border.replace("#", "0x")) });
+    this.border = Number(accent.border.replace("#", "0x"));
+    this.paintFrame();
     this.can.visible = player.canWater;
     this.beaker.visible = player.fertilizer >= 1;
     this.pin.visible = player.hasPin && !player.unlocked;
