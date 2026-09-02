@@ -68,6 +68,13 @@ export class FarmScene {
     this.store.anchor.set(0.5, 0.92);
     this.store.eventMode = "static";
     this.store.cursor = "pointer";
+    const storeLabel = new Text({
+      text: "Farm Store",
+      style: { fontFamily: "Fredoka, sans-serif", fontSize: 18, fill: 0xfff8ec, fontWeight: "700", stroke: { color: 0x5c3218, width: 4 } },
+    });
+    storeLabel.anchor.set(0.5, 0);
+    storeLabel.position.set(0, 8);
+    this.store.addChild(storeLabel);
     this.store.on("pointerover", () => this.store.scale.set(this.store.scale.x * 1.06));
     this.store.on("pointerout", () => this.layout());
     this.store.on("pointerdown", () => this.store.scale.set(this.store.scale.x * 0.96));
@@ -147,15 +154,15 @@ export class FarmScene {
     this.mid.position.set(this.origin.x, this.origin.y);
     this.near.position.set(this.origin.x, this.origin.y);
 
-    const barnP = isoToScreen(2, 3);
+    const barnP = isoToScreen(3, 9);
     this.barn.position.set(barnP.x, barnP.y);
-    this.barn.scale.set(0.9);
-    this.barn.zIndex = 5;
+    this.barn.scale.set(1.35);
+    this.barn.zIndex = 12;
 
-    const storeP = isoToScreen(11, 10);
+    const storeP = isoToScreen(10, 9);
     this.store.position.set(storeP.x, storeP.y);
-    this.store.scale.set(0.85);
-    this.store.zIndex = 21;
+    this.store.scale.set(1.25);
+    this.store.zIndex = 19;
 
     this.animals.forEach((a) => a.setOrigin(0, 0));
 
