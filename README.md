@@ -18,10 +18,11 @@ Tablet / browser
 
 Monorepo layout:
 
-- `apps/player` — touch-first PWA
+- `apps/player` — touch-first PWA (PixiJS farm/garden scene + React HUD/PIN/sheets)
 - `apps/admin` — parent ledger at `/admin`
 - `apps/api` — server-authoritative game rules
 - `packages/shared` — types, default tunables, maturity math
+- `assets/ATTRIBUTION.md` — Kenney/OGA inventory, licenses, and custom-art gaps
 - `nginx/` — reverse proxy
 - `docker-compose.yml` — one-command deploy
 

@@ -23,6 +23,21 @@ body {
 button, input { font: inherit; }
 .art-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
+.pixi-host {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.farm-hybrid .title-bar,
+.garden-hybrid .topbar {
+  pointer-events: none;
+}
+.farm-hybrid .title-bar svg,
+.garden-hybrid .topbar > * {
+  pointer-events: auto;
+}
+.garden-hybrid .topbar { z-index: 5; }
+
 .scene, .screen, .pin {
   height: 100%;
   position: relative;

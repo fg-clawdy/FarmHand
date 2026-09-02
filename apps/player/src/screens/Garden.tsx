@@ -1,13 +1,14 @@
-import { formatCountdown, type GameConfig, type PublicPlot } from "@farmhand/shared";
+import { type GameConfig, type PublicPlot } from "@farmhand/shared";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, type GardenPlayer, type HarvestReward } from "../api";
-import { AcornArt, BackArrow, FertilizerBeaker, MascotArt, PlantFigure, SceneShell, StarIcon, plantKind } from "../art";
+import { AcornArt, BackArrow, FertilizerBeaker, MascotArt, SceneShell, StarIcon } from "../art";
 import HarvestCelebration from "../components/HarvestCelebration";
 import IngredientsSheet from "../components/IngredientsSheet";
 import PinPad from "../components/PinPad";
 import PlantPicker from "../components/PlantPicker";
 import PlotSheet from "../components/PlotSheet";
+import { useGardenPixi } from "../pixi/usePixi";
 
 type Overlay =
   | { type: "picker"; slot: number }
@@ -131,6 +132,56 @@ export default function Garden() {
     );
   }
 
+  return (
+    <GardenPlay
+      player={player}
+      config={config}
+      plots={plots}
+      fetchedAt={fetchedAt}
+      now={now}
+      overlay={overlay}
+      setOverlay={setOverlay}
+      busy={busy}
+      error={error}
+      run={run}
+      onBack={() => navigate("/")}
+    />
+  );
+}
+
+function GardenPlay({
+  player,
+  config,
+  plots,
+  fetchedAt,
+  now,
+  overlay,
+  setOverlay,
+  busy,
+  error,
+  run,
+  onBack,
+}: {
+  player: GardenPlayer;
+  config: GameConfig;
+  plots: PublicPlot[];
+  fetchedAt: number;
+  now: number;
+  overlay: Overlay;
+  setOverlay: (o: Overlay) => void;
+  busy: boolean;
+  error: string;
+  run: (action: () => Promise<GardenPlayer>) => Promise<void>;
+  onBack: () => void;
+}) {
+  const { hostRef, sceneRef, ready } = useGardenPixi((slot, empty) => {
+    setOverlay(empty ? { type: "picker", slot } : { type: "plot", slot });
+  });
+
+  useEffect(() => {
+    sceneRef.current?.setPlots(plots);
+  }, [plots, ready, sceneRef]);
+
   const selected = overlay && "slot" in overlay ? plots.find((p) => p.slot === overlay.slot) : null;
   const elapsed = now - fetchedAt;
   const cooldownRemainingMs = Math.max(0, player.water.cooldownRemainingMs - elapsed);
@@ -144,9 +195,10 @@ export default function Garden() {
   };
 
   return (
-    <SceneShell dim className="screen">
+    <div className="screen garden-hybrid">
+      <div className="pixi-host" ref={hostRef} />
       <div className="topbar">
-        <button className="back" type="button" onClick={() => navigate("/")} aria-label="Back to farm">
+        <button className="back" type="button" onClick={onBack} aria-label="Back to farm">
           <BackArrow />
         </button>
         <div className="who">
@@ -168,32 +220,6 @@ export default function Garden() {
             <span>+</span>
           </button>
         </div>
-      </div>
-      <div className="plots">
-        {plots.map((plot) => {
-          const kind = plantKind(plot);
-          return (
-            <button
-              key={plot.slot}
-              className={`plot ${plot.state} ${plot.ready ? "ready" : ""}`}
-              type="button"
-              onClick={() =>
-                setOverlay(plot.state === "empty" ? { type: "picker", slot: plot.slot } : { type: "plot", slot: plot.slot })
-              }
-            >
-              <div className="plot-sky" />
-              <div className="plot-hill" />
-              {plot.state === "empty" ? (
-                <div className="hint">Plant here</div>
-              ) : (
-                <>
-                  {kind && <PlantFigure className="plant-art" kind={kind} ready={plot.ready} />}
-                  {plot.ready ? <div className="ready-tag">READY</div> : <div className="plot-time">{formatCountdown(plot.remainingMs)}</div>}
-                </>
-              )}
-            </button>
-          );
-        })}
       </div>
       {overlay?.type === "picker" && (
         <PlantPicker
@@ -219,18 +245,21 @@ export default function Garden() {
           onWater={() =>
             void run(async () => {
               const data = await api.water(overlay.slot);
+              sceneRef.current?.fxWater(overlay.slot);
               return data.player;
             })
           }
           onFertilize={() =>
             void run(async () => {
               const data = await api.fertilize(overlay.slot);
+              sceneRef.current?.fxFertilizer(overlay.slot);
               return data.player;
             })
           }
           onHarvest={() =>
             void run(async () => {
               const data = await api.harvest(overlay.slot);
+              sceneRef.current?.fxHarvest(overlay.slot);
               setOverlay({ type: "harvest", reward: data.reward });
               return data.player;
             })
@@ -261,7 +290,7 @@ export default function Garden() {
         />
       )}
       {error && <div className="toast">{error}</div>}
-    </SceneShell>
+    </div>
   );
 }
 
