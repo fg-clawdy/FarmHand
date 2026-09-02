@@ -54,7 +54,7 @@ export class FarmScene {
     this.rays = new Graphics();
     this.rays.alpha = 0.32;
 
-    this.far.addChild(this.sky, this.rays);
+    this.far.addChild(this.rays);
 
     this.map = createFarmMap(tileset);
     this.mid.addChild(this.map);
@@ -79,7 +79,7 @@ export class FarmScene {
     this.near.addChild(this.store);
 
     this.world.addChild(this.far, this.mid, this.near, this.cards, this.fx.root);
-    this.root.addChild(this.world);
+    this.root.addChild(this.sky, this.world);
     this.app.stage.removeChildren();
     this.app.stage.addChild(this.root);
 
