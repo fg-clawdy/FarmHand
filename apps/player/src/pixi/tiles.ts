@@ -1,90 +1,94 @@
 import { createMap, TiledMap } from "pixi-tiledmap";
 import type { Texture } from "pixi.js";
+import { TILE_H, TILE_W } from "./iso";
+import { TILE_ID } from "./atlas";
 
 function fill(width: number, height: number, pick: (x: number, y: number) => number | null) {
   const tiles = [];
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const id = pick(x, y);
-      tiles.push(id == null ? null : { tileset: "soil", tileId: id });
+      tiles.push(id == null ? null : { tileset: "iso", tileId: id });
     }
   }
   return tiles;
 }
 
-function soilTileset() {
+function isoTileset() {
   return {
-    name: "soil",
-    image: "soil",
-    tilewidth: 64,
-    tileheight: 64,
-    tilecount: 16,
+    name: "iso",
+    image: "iso",
+    tilewidth: TILE_W,
+    tileheight: 256,
+    tilecount: 8,
     columns: 4,
-    imagewidth: 256,
-    imageheight: 256,
+    imagewidth: 512,
+    imageheight: 512,
   };
 }
 
-/** Painted backdrop carries the hills; tiles only add path, flowers, and a pond. */
-export function createFarmMap(tileset: Texture, width = 36, height = 20): TiledMap {
+export function createFarmMap(tileset: Texture, width = 14, height = 14): TiledMap {
   const resolved = createMap({
     width,
     height,
-    tilewidth: 64,
-    tileheight: 64,
-    orientation: "orthogonal",
-    tilesets: [soilTileset()],
+    tilewidth: TILE_W,
+    tileheight: TILE_H,
+    orientation: "isometric",
+    tilesets: [isoTileset()],
     layers: [
       {
         name: "ground",
-        parallaxx: 0.35,
-        parallaxy: 0.35,
         tiles: fill(width, height, (x, y) => {
-          if (y > height - 5 && x > width - 9) return 6;
-          if (y === height - 7 && x > 4 && x < width - 5) return 5;
-          if (y === height - 6 && x > 6 && x < width - 7) return 5;
-          return null;
+          if (x <= 1 || y <= 1 || x >= width - 2 || y >= height - 2) return TILE_ID.fence;
+          if (x >= 5 && x <= 9 && y >= 5 && y <= 8) return TILE_ID.farmland;
+          if (y === 10 && x > 2 && x < width - 3) return TILE_ID.hay;
+          if ((x + y) % 11 === 0) return TILE_ID.dirt;
+          return TILE_ID.grass;
         }),
       },
       {
         name: "detail",
-        parallaxx: 0.55,
-        parallaxy: 0.55,
         tiles: fill(width, height, (x, y) => {
-          if (y < height - 10) return null;
-          if ((x * 13 + y * 3) % 17 === 0) return 7;
-          if ((x + y * 2) % 19 === 0) return 10;
+          if (x === 3 && y === 11) return TILE_ID.hayBales;
+          if (x === 11 && y === 11) return TILE_ID.crate;
+          if (x === 4 && y === 4) return TILE_ID.sack;
           return null;
         }),
       },
     ],
   });
-  return new TiledMap(resolved, { tilesetTextures: new Map([["soil", tileset]]) });
+  return new TiledMap(resolved, { tilesetTextures: new Map([["iso", tileset]]) });
 }
 
-/** Tilled bed under the 2×3 plots; grass/flowers only as a sparse rim. */
-export function createGardenMap(tileset: Texture, width = 24, height = 14): TiledMap {
+export function createGardenMap(tileset: Texture, width = 10, height = 8): TiledMap {
   const resolved = createMap({
     width,
     height,
-    tilewidth: 64,
-    tileheight: 64,
-    orientation: "orthogonal",
-    tilesets: [soilTileset()],
+    tilewidth: TILE_W,
+    tileheight: TILE_H,
+    orientation: "isometric",
+    tilesets: [isoTileset()],
     layers: [
       {
         name: "ground",
-        parallaxx: 0.22,
-        parallaxy: 0.22,
         tiles: fill(width, height, (x, y) => {
-          const inPlot = x >= 6 && x <= 17 && y >= 4 && y <= 10;
-          if (inPlot) return (x + y) % 2 === 0 ? 4 : 3;
-          if (y >= 3 && y <= 11 && x >= 5 && x <= 18) return 0;
-          if ((x + y) % 9 === 0 && y > 2) return 7;
-          return null;
+          if (x === 0 || y === 0 || x === width - 1 || y === height - 1) return TILE_ID.fence;
+          const inPlot = x >= 3 && x <= 6 && y >= 2 && y <= 4;
+          if (inPlot) return TILE_ID.farmland;
+          if (y === 6 && x > 1 && x < width - 2) return TILE_ID.hay;
+          return TILE_ID.grass;
         }),
       },
     ],
   });
-  return new TiledMap(resolved, { tilesetTextures: new Map([["soil", tileset]]) });
+  return new TiledMap(resolved, { tilesetTextures: new Map([["iso", tileset]]) });
 }
+
+export const GARDEN_PLOTS: Array<[number, number]> = [
+  [3, 2],
+  [4, 2],
+  [5, 2],
+  [3, 3],
+  [4, 3],
+  [5, 3],
+];

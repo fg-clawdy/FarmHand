@@ -2,10 +2,10 @@ import { formatCountdown, type PublicPlot } from "@farmhand/shared";
 import { Container, Graphics, Sprite, Text, type Application } from "pixi.js";
 import { CROP_KINDS, cropFrame, type Atlas, type CropKind } from "./atlas";
 import { AmbientAnimal } from "./animals";
-import { BIBLE } from "./draw";
 import type { PixiEngine } from "./engine";
 import { FxLayer } from "./fx";
-import { createGardenMap } from "./tiles";
+import { isoToScreen } from "./iso";
+import { createGardenMap, GARDEN_PLOTS } from "./tiles";
 
 function cropKind(tier: number | null | undefined): CropKind {
   return CROP_KINDS[Math.max(0, (tier ?? 1) - 1)] ?? "daisy";
@@ -15,6 +15,7 @@ export class GardenScene {
   readonly root = new Container();
   private world = new Container();
   private plotsLayer = new Container();
+  private sky = new Graphics();
   private fx: FxLayer;
   private animals: AmbientAnimal[] = [];
   private slots: PlotNode[] = [];
@@ -22,6 +23,8 @@ export class GardenScene {
   private t = 0;
   private app: Application;
   private onPlot: (slot: number, empty: boolean) => void;
+  private origin = { x: 0, y: 0 };
+  private mapScale = 1;
 
   constructor(
     engine: PixiEngine,
@@ -33,15 +36,11 @@ export class GardenScene {
     this.onPlot = onPlot;
     this.fx = new FxLayer(atlas);
 
-    const backdrop = Sprite.from("/art/farm_backdrop.jpg");
-    backdrop.anchor.set(0.5, 0.4);
-    backdrop.tint = 0xc8d8b8;
-    this.world.addChild(backdrop);
-
+    this.world.addChild(this.sky);
     const map = createGardenMap(tileset);
-    map.alpha = 0.85;
     this.world.addChild(map);
     this.world.addChild(this.plotsLayer, this.fx.root);
+    this.world.sortableChildren = true;
     this.root.addChild(this.world);
     this.app.stage.removeChildren();
     this.app.stage.addChild(this.root);
@@ -53,7 +52,7 @@ export class GardenScene {
     }
 
     (["chicken", "pig", "duck"] as const).forEach((kind, i) => {
-      const a = new AmbientAnimal(atlas, kind, 80 + i * 140, 0, { x: 40, y: 0, w: 900, h: 40 });
+      const a = new AmbientAnimal(atlas, kind, 2 + i * 2, 6, { c0: 1, r0: 5, c1: 8, r1: 6 });
       this.animals.push(a);
       this.world.addChild(a.root);
     });
@@ -99,32 +98,33 @@ export class GardenScene {
   private layout() {
     const w = this.app.screen.width;
     const h = this.app.screen.height;
-    const bg = this.world.children[0] as Sprite;
-    bg.scale.set(Math.max(w / 1600, h / 900) * 1.1);
-    bg.position.set(w / 2, h * 0.42);
-    const map = this.world.children[1];
-    map.position.set(w * 0.5 - 24 * 28, h * 0.28);
-    map.scale.set(Math.max(0.7, w / 1400));
+    this.sky.clear();
+    this.sky.rect(-w, -h, w * 3, h * 3);
+    this.sky.fill({ color: 0x7ec8f0 });
+    this.sky.rect(-w, h * 0.35, w * 3, h * 2);
+    this.sky.fill({ color: 0x5fbe4a });
+    this.sky.ellipse(w * 0.7, 40, 48, 48);
+    this.sky.fill({ color: 0xffe56a });
 
-    const padX = 28;
-    const padY = 18;
-    const cellW = (w - padX * 2) / 3;
-    const cellH = (h - 88 - padY * 2) / 2;
+    this.mapScale = Math.max(0.72, Math.min(w / 1100, h / 700));
+    this.origin = { x: w * 0.5, y: h * 0.28 };
+    this.world.position.set(this.origin.x, this.origin.y);
+    this.world.scale.set(this.mapScale);
+
     this.slots.forEach((slot, i) => {
-      const col = i % 3;
-      const row = Math.floor(i / 3);
-      slot.layout(cellW - 16, cellH - 16);
-      slot.root.position.set(padX + col * cellW + cellW / 2, 78 + padY + row * cellH + cellH / 2);
+      const [col, row] = GARDEN_PLOTS[i];
+      const p = isoToScreen(col, row);
+      slot.root.position.set(p.x, p.y);
+      slot.root.zIndex = col + row + 10;
+      slot.layout(120, 90);
     });
-    this.animals.forEach((a, i) => {
-      a.root.y = h - 36 - (i % 2) * 10;
-    });
+    this.animals.forEach((a) => a.setOrigin(0, 0));
   }
 
   private tick(dt: number) {
     this.t += dt;
     const nx = this.pointer.x - 0.5;
-    this.world.x = nx * -12;
+    this.world.x = this.origin.x + nx * -16;
     this.animals.forEach((a) => a.update(dt));
     this.slots.forEach((s) => s.breathe(this.t));
     this.fx.update(dt);
@@ -154,10 +154,10 @@ class PlotNode {
     this.glow = new Sprite(atlas.frame("fx_glow"));
     this.glow.anchor.set(0.5);
     this.glow.blendMode = "add";
-    this.plant.anchor.set(0.5, 0.92);
+    this.plant.anchor.set(0.5, 0.88);
     this.label = new Text({
       text: "Plant here",
-      style: { fontFamily: "Fredoka, sans-serif", fontSize: 20, fill: 0xfff8ec, fontWeight: "700" },
+      style: { fontFamily: "Fredoka, sans-serif", fontSize: 16, fill: 0xfff8ec, fontWeight: "700" },
     });
     this.label.anchor.set(0.5);
     this.root.addChild(this.bed, this.glow, this.plant, this.label);
@@ -166,18 +166,15 @@ class PlotNode {
     this.root.on("pointerup", () => onOpen(this.slot, this.empty));
   }
 
-  layout(w: number, h: number) {
+  layout(_w: number, _h: number) {
     this.bed.clear();
-    this.bed.roundRect(-w / 2, -h / 2, w, h, 24);
-    this.bed.fill({ color: 0xc8e8ff });
-    this.bed.stroke({ width: 8, color: Number(BIBLE.woodDark.replace("#", "0x")) });
-    this.bed.ellipse(0, h * 0.28, w * 0.32, 16);
-    this.bed.fill({ color: Number(BIBLE.soilDark.replace("#", "0x")) });
-    this.plant.position.set(0, h * 0.22);
-    this.plant.scale.set(Math.min(w, h) / 220);
-    this.glow.position.set(0, 0);
-    this.glow.scale.set(Math.min(w, h) / 90);
-    this.label.position.set(0, 8);
+    this.bed.poly([0, 28, 58, 0, 0, -28, -58, 0]);
+    this.bed.fill({ color: 0x000000, alpha: 0.001 });
+    this.plant.position.set(0, 8);
+    this.plant.scale.set(0.85);
+    this.glow.position.set(0, -10);
+    this.glow.scale.set(1.6);
+    this.label.position.set(0, 36);
   }
 
   sync(plot: PublicPlot | undefined) {
@@ -197,7 +194,10 @@ class PlotNode {
   }
 
   breathe(t: number) {
-    if (this.plant.visible) this.plant.scale.set(this.plant.scale.x, this.plant.scale.x * (1 + Math.sin(t * 1.6 + this.slot) * 0.04));
+    if (this.plant.visible) {
+      const s = 0.85;
+      this.plant.scale.set(s, s * (1 + Math.sin(t * 1.6 + this.slot) * 0.04));
+    }
     if (this.ready) this.glow.alpha = 0.4 + Math.sin(t * 3.2 + this.slot) * 0.22;
   }
 }

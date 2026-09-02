@@ -1,17 +1,11 @@
 import type { FarmPlayerCard, PublicPlot } from "@farmhand/shared";
-import {
-  Container,
-  Graphics,
-  Sprite,
-  Text,
-  type Application,
-} from "pixi.js";
+import { Container, Graphics, Sprite, Text, type Application } from "pixi.js";
 import { ACCENTS } from "../theme";
 import { ANIMAL_KINDS, CROP_KINDS, cropFrame, type Atlas, type CropKind } from "./atlas";
 import { AmbientAnimal } from "./animals";
-import { BIBLE } from "./draw";
 import type { PixiEngine } from "./engine";
 import { FxLayer } from "./fx";
+import { isoToScreen } from "./iso";
 import { createFarmMap } from "./tiles";
 
 function cropKind(tier: number | null | undefined): CropKind {
@@ -30,6 +24,7 @@ export class FarmScene {
   private mid = new Container();
   private near = new Container();
   private cards = new Container();
+  private sky = new Graphics();
   private fx: FxLayer;
   private animals: AmbientAnimal[] = [];
   private rays: Graphics;
@@ -37,11 +32,13 @@ export class FarmScene {
   private cardNodes: CardNode[] = [];
   private store!: Sprite;
   private barn!: Sprite;
+  private map: ReturnType<typeof createFarmMap>;
   private t = 0;
   private onPlayer: (id: string) => void;
   private onStore: () => void;
   private atlas: Atlas;
   private app: Application;
+  private origin = { x: 0, y: 0 };
 
   constructor(
     engine: PixiEngine,
@@ -55,40 +52,30 @@ export class FarmScene {
     this.onStore = handlers.onStore;
     this.fx = new FxLayer(atlas);
     this.rays = new Graphics();
+    this.rays.alpha = 0.32;
 
-    const backdrop = Sprite.from("/art/farm_backdrop.jpg");
-    backdrop.anchor.set(0.5, 0.42);
-    this.far.addChild(backdrop);
+    this.far.addChild(this.sky, this.rays);
 
-    this.rays.alpha = 0.28;
-    this.far.addChild(this.rays);
-
-    const map = createFarmMap(tileset);
-    map.alpha = 0.9;
-    this.mid.addChild(map);
+    this.map = createFarmMap(tileset);
+    this.mid.addChild(this.map);
+    this.mid.sortableChildren = true;
 
     this.barn = new Sprite(atlas.frame("prop_barn"));
-    this.barn.anchor.set(0.5, 1);
+    this.barn.anchor.set(0.5, 0.92);
     this.mid.addChild(this.barn);
 
     this.store = new Sprite(atlas.frame("prop_store"));
-    this.store.anchor.set(0.5, 1);
+    this.store.anchor.set(0.5, 0.92);
     this.store.eventMode = "static";
     this.store.cursor = "pointer";
-    this.store.on("pointerover", () => {
-      this.store.scale.set(1.06);
-    });
-    this.store.on("pointerout", () => {
-      this.store.scale.set(1);
-    });
-    this.store.on("pointerdown", () => {
-      this.store.scale.set(0.96);
-    });
+    this.store.on("pointerover", () => this.store.scale.set(this.store.scale.x * 1.06));
+    this.store.on("pointerout", () => this.layout());
+    this.store.on("pointerdown", () => this.store.scale.set(this.store.scale.x * 0.96));
     this.store.on("pointerup", () => {
-      this.store.scale.set(1.06);
+      this.layout();
       this.onStore();
     });
-    this.store.on("pointerupoutside", () => this.store.scale.set(1));
+    this.store.on("pointerupoutside", () => this.layout());
     this.near.addChild(this.store);
 
     this.world.addChild(this.far, this.mid, this.near, this.cards, this.fx.root);
@@ -96,12 +83,12 @@ export class FarmScene {
     this.app.stage.removeChildren();
     this.app.stage.addChild(this.root);
 
-    const kinds = ANIMAL_KINDS;
-    kinds.forEach((kind, i) => {
-      const animal = new AmbientAnimal(atlas, kind, 80 + i * 160, 0, { x: 20, y: 0, w: 980, h: 40 });
+    ANIMAL_KINDS.forEach((kind, i) => {
+      const animal = new AmbientAnimal(atlas, kind, 4 + i * 1.4, 9, { c0: 3, r0: 8, c1: 11, r1: 11 });
       this.animals.push(animal);
       this.near.addChild(animal.root);
     });
+    this.near.sortableChildren = true;
 
     this.app.stage.eventMode = "static";
     this.app.stage.hitArea = this.app.screen;
@@ -112,7 +99,6 @@ export class FarmScene {
       this.pointer.y = ev.global.y / Math.max(1, h);
     };
     this.app.stage.on("pointermove", this.onMove);
-
     this.layout();
     this.onResize = () => this.layout();
     this.onTick = (ticker: { deltaMS: number }) => this.tick(ticker.deltaMS / 1000);
@@ -137,23 +123,41 @@ export class FarmScene {
   private layout() {
     const w = this.app.screen.width;
     const h = this.app.screen.height;
-    const bg = this.far.children[0] as Sprite;
-    const scale = Math.max(w / 1600, h / 900) * 1.12;
-    bg.scale.set(scale);
-    bg.position.set(w / 2, h * 0.46);
+    this.sky.clear();
+    this.sky.rect(0, 0, w, h);
+    this.sky.fill({ color: 0x7ec8f0 });
+    this.sky.rect(0, h * 0.42, w, h);
+    this.sky.fill({ color: 0x5fbe4a });
+    this.sky.ellipse(w * 0.86, h * 0.1, 54, 54);
+    this.sky.fill({ color: 0xffe56a });
 
-    this.barn.position.set(w * 0.16, h * 0.62);
-    this.barn.scale.set(Math.min(0.85, w / 1400));
+    this.rays.clear();
+    this.rays.position.set(w * 0.86, h * 0.1);
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      this.rays.moveTo(0, 0);
+      this.rays.lineTo(Math.cos(a) * 240, Math.sin(a) * 240);
+    }
+    this.rays.stroke({ width: 18, color: 0xffe56a, alpha: 0.16 });
 
-    this.store.position.set(w * 0.86, h * 0.96);
-    this.store.scale.set(Math.min(0.72, w / 1600));
+    const scale = Math.max(0.55, Math.min(w / 1400, h / 900));
+    this.mid.scale.set(scale);
+    this.near.scale.set(scale);
+    this.origin = { x: w * 0.5, y: h * 0.34 };
+    this.mid.position.set(this.origin.x, this.origin.y);
+    this.near.position.set(this.origin.x, this.origin.y);
 
-    this.mid.position.set(w * 0.5 - 36 * 32, h * 0.62);
-    this.mid.scale.set(Math.max(0.5, w / 1900));
+    const barnP = isoToScreen(2, 3);
+    this.barn.position.set(barnP.x, barnP.y);
+    this.barn.scale.set(0.9);
+    this.barn.zIndex = 5;
 
-    this.animals.forEach((a, i) => {
-      a.root.y = h * 0.78 + (i % 2) * 18;
-    });
+    const storeP = isoToScreen(11, 10);
+    this.store.position.set(storeP.x, storeP.y);
+    this.store.scale.set(0.85);
+    this.store.zIndex = 21;
+
+    this.animals.forEach((a) => a.setOrigin(0, 0));
 
     const n = Math.max(1, this.cardNodes.length);
     const cardW = Math.min(248, w * 0.22);
@@ -161,35 +165,23 @@ export class FarmScene {
     const total = n * cardW + (n - 1) * gap;
     const x0 = (w - total) / 2;
     this.cardNodes.forEach((node, i) => {
-      node.layout(cardW, Math.min(360, h * 0.56));
-      node.root.position.set(x0 + i * (cardW + gap) + cardW / 2, h * 0.5);
+      node.layout(cardW, Math.min(340, h * 0.5));
+      node.root.position.set(x0 + i * (cardW + gap) + cardW / 2, h * 0.48);
     });
-
-    this.rays.clear();
-    const sx = w * 0.86;
-    const sy = h * 0.1;
-    this.rays.position.set(sx, sy);
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2;
-      this.rays.moveTo(0, 0);
-      this.rays.lineTo(Math.cos(a) * 220, Math.sin(a) * 220);
-    }
-    this.rays.stroke({ width: 18, color: 0xffe56a, alpha: 0.18 });
   }
 
   private tick(dt: number) {
     this.t += dt;
     const nx = this.pointer.x - 0.5;
     const ny = this.pointer.y - 0.5;
-    this.far.x = nx * -14;
-    this.far.y = ny * -8 + Math.sin(this.t * 0.35) * 2;
-    this.mid.x = nx * -28;
-    this.mid.y = ny * -12;
-    this.near.x = nx * -40;
-    this.near.y = ny * -16;
+    this.far.x = nx * -10;
+    this.far.y = ny * -6;
+    this.mid.x = this.origin.x + nx * -22;
+    this.mid.y = this.origin.y + ny * -12;
+    this.near.x = this.origin.x + nx * -30;
+    this.near.y = this.origin.y + ny * -16;
     this.cards.y = Math.sin(this.t * 0.7) * 3;
     this.rays.rotation += dt * 0.08;
-    this.barn.pivot.y = Math.sin(this.t * 0.6) * 4;
     this.animals.forEach((a) => a.update(dt));
     this.cardNodes.forEach((c) => c.breathe(this.t));
     this.fx.update(dt);
@@ -221,6 +213,7 @@ class CardNode {
   private w = 220;
   private h = 320;
   private border = 0x4ea6e6;
+  private foot: Container;
 
   constructor(private atlas: Atlas, onOpen: (id: string) => void) {
     this.sign = new Sprite(atlas.frame("prop_sign"));
@@ -254,14 +247,12 @@ class CardNode {
     acorn.anchor.set(0.5);
     acorn.scale.set(0.55);
     acorn.position.set(-70, 0);
-
     this.root.addChild(this.shadow, this.frame, this.glow, this.plants, this.sign, this.nameText, this.can, this.beaker, this.pin);
-    const foot = new Container();
-    foot.addChild(acorn, this.seeds, this.points);
+    this.foot = new Container();
+    this.foot.addChild(acorn, this.seeds, this.points);
     this.seeds.position.set(-42, -10);
     this.points.anchor.set(1, 0.5);
-    foot.position.set(0, 0);
-    this.root.addChild(foot);
+    this.root.addChild(this.foot);
     this.root.eventMode = "static";
     this.root.cursor = "pointer";
     this.root.on("pointerdown", () => this.root.scale.set(0.97));
@@ -272,10 +263,7 @@ class CardNode {
     this.root.on("pointerupoutside", () => this.root.scale.set(1));
     this.root.on("pointerover", () => this.root.scale.set(1.03));
     this.root.on("pointerout", () => this.root.scale.set(1));
-    this.foot = foot;
   }
-
-  private foot: Container;
 
   private paintFrame() {
     this.frame.clear();
@@ -323,18 +311,15 @@ class CardNode {
     plots.forEach((plot, i) => {
       const col = i % 3;
       const row = Math.floor(i / 3);
-      const x = -this.w * 0.28 + col * (this.w * 0.28);
-      const y = -20 + row * 70;
-      const mound = new Graphics();
-      mound.ellipse(x, y + 28, 28, 10);
-      mound.fill({ color: Number(BIBLE.soilDark.replace("#", "0x")) });
-      this.plants.addChild(mound);
+      const p = isoToScreen(col, row, 48, 24);
+      const x = p.x;
+      const y = p.y - 8;
       const st = stageOf(plot);
       if (st) {
         const spr = new Sprite(cropFrame(this.atlas, cropKind(plot?.tier), st));
-        spr.anchor.set(0.5, 0.9);
-        spr.position.set(x, y + 30);
-        spr.scale.set(0.42);
+        spr.anchor.set(0.5, 0.86);
+        spr.position.set(x, y + 36);
+        spr.scale.set(0.28);
         this.plants.addChild(spr);
         if (plot?.ready) ready = true;
       }

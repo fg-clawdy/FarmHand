@@ -1,64 +1,102 @@
 import { AnimatedSprite, Container } from "pixi.js";
 import type { AnimalAction, AnimalKind, Atlas } from "./atlas";
+import { isoDepth, isoToScreen } from "./iso";
 
 export class AmbientAnimal {
   readonly root = new Container();
   private sprite: AnimatedSprite;
   private timer = 1;
-  private vx = 0.6;
-  private bounds = { x: 40, y: 0, w: 400, h: 80 };
+  private col: number;
+  private row: number;
+  private dCol = 0;
+  private dRow = 0;
+  private origin = { x: 0, y: 0 };
 
   constructor(
     private atlas: Atlas,
     readonly kind: AnimalKind,
-    x: number,
-    y: number,
-    bounds: { x: number; y: number; w: number; h: number },
+    col: number,
+    row: number,
+    private bounds: { c0: number; r0: number; c1: number; r1: number },
   ) {
-    this.bounds = bounds;
+    this.col = col;
+    this.row = row;
     const frames = atlas.animation(`animal_${kind}_walk`);
     this.sprite = new AnimatedSprite(frames);
-    this.sprite.anchor.set(0.5, 0.9);
+    this.sprite.anchor.set(0.5, 0.86);
     this.sprite.animationSpeed = 0.14;
     this.sprite.play();
     this.root.addChild(this.sprite);
-    this.root.position.set(x, y);
     this.pick();
+    this.syncPos();
+  }
+
+  setOrigin(x: number, y: number) {
+    this.origin = { x, y };
+    this.syncPos();
   }
 
   private play(action: AnimalAction) {
     const frames = this.atlas.animation(`animal_${this.kind}_${action}`);
     if (frames.length) {
       this.sprite.textures = frames;
-      this.sprite.animationSpeed = action === "run" ? 0.22 : action === "walk" ? 0.14 : 0.09;
+      this.sprite.animationSpeed = action === "run" ? 0.22 : action === "walk" ? 0.14 : 0.08;
       this.sprite.gotoAndPlay(0);
     }
-    this.vx = action === "run" ? 1.6 : action === "walk" ? 0.7 : 0;
+    const moving = action === "walk" || action === "run";
+    const speed = action === "run" ? 0.9 : 0.45;
+    if (moving) {
+      if (Math.random() < 0.5) {
+        this.dCol = Math.random() < 0.5 ? -speed : speed;
+        this.dRow = 0;
+      } else {
+        this.dCol = 0;
+        this.dRow = Math.random() < 0.5 ? -speed : speed;
+      }
+    } else {
+      this.dCol = 0;
+      this.dRow = 0;
+    }
   }
 
   private pick() {
     const roll = Math.random();
-    const next: AnimalAction = roll < 0.28 ? "walk" : roll < 0.4 ? "run" : roll < 0.58 ? "eat" : roll < 0.78 ? "sit" : "lay";
+    const next: AnimalAction =
+      roll < 0.34 ? "walk" : roll < 0.46 ? "run" : roll < 0.66 ? "eat" : roll < 0.84 ? "sit" : "lay";
     this.play(next);
     this.timer = 2.2 + Math.random() * 3.4;
-    if (Math.random() < 0.5) this.vx *= -1;
+  }
+
+  private syncPos() {
+    const p = isoToScreen(this.col, this.row);
+    this.root.position.set(this.origin.x + p.x, this.origin.y + p.y);
+    this.root.zIndex = isoDepth(this.col, this.row);
+    if (this.dCol !== 0 || this.dRow !== 0) {
+      this.sprite.scale.x = Math.abs(this.sprite.scale.x) * (this.dCol + this.dRow >= 0 ? 1 : -1);
+    }
   }
 
   update(dt: number) {
     this.timer -= dt;
     if (this.timer <= 0) this.pick();
-    if (this.vx !== 0) {
-      this.root.x += this.vx * dt * 60;
-      const min = this.bounds.x;
-      const max = this.bounds.x + this.bounds.w;
-      if (this.root.x < min) {
-        this.root.x = min;
-        this.vx = Math.abs(this.vx);
-      } else if (this.root.x > max) {
-        this.root.x = max;
-        this.vx = -Math.abs(this.vx);
+    if (this.dCol !== 0 || this.dRow !== 0) {
+      this.col += this.dCol * dt;
+      this.row += this.dRow * dt;
+      if (this.col < this.bounds.c0) {
+        this.col = this.bounds.c0;
+        this.dCol = Math.abs(this.dCol);
+      } else if (this.col > this.bounds.c1) {
+        this.col = this.bounds.c1;
+        this.dCol = -Math.abs(this.dCol);
       }
-      this.sprite.scale.x = Math.abs(this.sprite.scale.x) * (this.vx >= 0 ? 1 : -1);
+      if (this.row < this.bounds.r0) {
+        this.row = this.bounds.r0;
+        this.dRow = Math.abs(this.dRow);
+      } else if (this.row > this.bounds.r1) {
+        this.row = this.bounds.r1;
+        this.dRow = -Math.abs(this.dRow);
+      }
     }
+    this.syncPos();
   }
 }

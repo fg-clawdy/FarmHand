@@ -1,5 +1,5 @@
 import { Rectangle, Texture } from "pixi.js";
-import { BIBLE, canvas, ellipseShadow, fitImage, loadImage, roundRect } from "./draw";
+import { BIBLE, canvas, fitImage, imageCanvas, loadImage } from "./draw";
 
 export type Atlas = {
   texture: Texture;
@@ -7,335 +7,151 @@ export type Atlas = {
   animation: (name: string) => Texture[];
 };
 
-const ANIMS = ["sit", "lay", "walk", "run", "eat"] as const;
+export const ANIMS = ["sit", "lay", "walk", "run", "eat"] as const;
 export type AnimalAction = (typeof ANIMS)[number];
 export const ANIMAL_KINDS = ["sheep", "duck", "cow", "chicken", "pig"] as const;
 export type AnimalKind = (typeof ANIMAL_KINDS)[number];
 export const CROP_KINDS = ["daisy", "herbs", "sunflower", "oak"] as const;
 export type CropKind = (typeof CROP_KINDS)[number];
 
-function poseSheet(src: HTMLCanvasElement, action: AnimalAction): HTMLCanvasElement[] {
-  const frames = 6;
-  const out: HTMLCanvasElement[] = [];
-  for (let i = 0; i < frames; i++) {
-    const t = (i / frames) * Math.PI * 2;
-    const [c, ctx] = canvas(src.width, src.height);
-    const cx = src.width / 2;
-    const cy = src.height * 0.62;
-    ctx.translate(cx, cy);
-    if (action === "walk") {
-      ctx.translate(Math.sin(t) * 4, Math.abs(Math.sin(t)) * -5);
-      ctx.scale(1 + Math.sin(t) * 0.03, 1 - Math.abs(Math.sin(t)) * 0.05);
-    } else if (action === "run") {
-      ctx.translate(Math.sin(t * 1.5) * 7, Math.abs(Math.sin(t * 1.5)) * -8);
-      ctx.scale(1.06 + Math.sin(t) * 0.05, 0.94 - Math.abs(Math.sin(t)) * 0.06);
-    } else if (action === "sit") {
-      ctx.translate(0, 10 + Math.sin(t) * 1.5);
-      ctx.scale(1.08, 0.72 + Math.sin(t) * 0.015);
-    } else if (action === "lay") {
-      ctx.rotate(-0.85 + Math.sin(t) * 0.03);
-      ctx.translate(0, 16);
-      ctx.scale(1.12, 0.55);
-    } else {
-      ctx.rotate(0.35 + Math.sin(t) * 0.08);
-      ctx.translate(2, 8 + Math.sin(t) * 2);
-      ctx.scale(1, 0.92);
-    }
-    ctx.drawImage(src, -src.width / 2, -src.height / 2);
-    out.push(c);
+const KENNEY = "/art/vendor/kenney/iso-miniature-farm";
+
+const TILE_KEYS = [
+  "grass",
+  "dirt",
+  "farmland",
+  "hay",
+  "hayBales",
+  "fence",
+  "sack",
+  "crate",
+] as const;
+export type TileKey = (typeof TILE_KEYS)[number];
+export const TILE_ID: Record<TileKey, number> = {
+  grass: 0,
+  dirt: 1,
+  farmland: 2,
+  hay: 3,
+  hayBales: 4,
+  fence: 5,
+  sack: 6,
+  crate: 7,
+};
+
+async function kenney(name: string): Promise<HTMLCanvasElement> {
+  const img = await loadImage(`${KENNEY}/${name}_N.png`);
+  return imageCanvas(img);
+}
+
+function recolor(src: HTMLCanvasElement, fn: (r: number, g: number, b: number, a: number) => [number, number, number, number]) {
+  const [c, ctx] = canvas(src.width, src.height);
+  ctx.drawImage(src, 0, 0);
+  const data = ctx.getImageData(0, 0, c.width, c.height);
+  const d = data.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 8) continue;
+    const [r, g, b, a] = fn(d[i], d[i + 1], d[i + 2], d[i + 3]);
+    d[i] = r;
+    d[i + 1] = g;
+    d[i + 2] = b;
+    d[i + 3] = a;
   }
-  return out;
-}
-
-function drawCow(size: number): HTMLCanvasElement {
-  const [c, ctx] = canvas(size, size);
-  ellipseShadow(ctx, size * 0.5, size * 0.86, size * 0.28, size * 0.08);
-  ctx.fillStyle = "#f7f4ea";
-  ctx.strokeStyle = BIBLE.outline;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.ellipse(size * 0.5, size * 0.55, size * 0.28, size * 0.22, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = "#2a1a0d";
-  ctx.beginPath();
-  ctx.ellipse(size * 0.38, size * 0.48, size * 0.08, size * 0.07, 0, 0, Math.PI * 2);
-  ctx.ellipse(size * 0.62, size * 0.6, size * 0.07, size * 0.06, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#f4b4c8";
-  ctx.beginPath();
-  ctx.ellipse(size * 0.5, size * 0.66, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#2a1a0d";
-  ctx.beginPath();
-  ctx.arc(size * 0.42, size * 0.48, 4, 0, Math.PI * 2);
-  ctx.arc(size * 0.58, size * 0.48, 4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#fff";
-  ctx.beginPath();
-  ctx.arc(size * 0.41, size * 0.47, 1.5, 0, Math.PI * 2);
-  ctx.arc(size * 0.57, size * 0.47, 1.5, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.putImageData(data, 0, 0);
   return c;
 }
 
-function drawChicken(size: number): HTMLCanvasElement {
-  const [c, ctx] = canvas(size, size);
-  ellipseShadow(ctx, size * 0.5, size * 0.86, size * 0.22, size * 0.07);
-  ctx.fillStyle = "#fff1c4";
-  ctx.strokeStyle = BIBLE.outline;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.ellipse(size * 0.5, size * 0.56, size * 0.22, size * 0.2, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = "#e23a2a";
-  ctx.beginPath();
-  ctx.moveTo(size * 0.42, size * 0.38);
-  ctx.quadraticCurveTo(size * 0.5, size * 0.22, size * 0.58, size * 0.38);
-  ctx.fill();
-  ctx.fillStyle = "#f0a12a";
-  ctx.beginPath();
-  ctx.moveTo(size * 0.5, size * 0.56);
-  ctx.lineTo(size * 0.64, size * 0.6);
-  ctx.lineTo(size * 0.5, size * 0.64);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#2a1a0d";
-  ctx.beginPath();
-  ctx.arc(size * 0.46, size * 0.52, 3.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#fff";
-  ctx.beginPath();
-  ctx.arc(size * 0.45, size * 0.51, 1.2, 0, Math.PI * 2);
-  ctx.fill();
-  return c;
-}
-
-function drawPig(size: number): HTMLCanvasElement {
-  const [c, ctx] = canvas(size, size);
-  ellipseShadow(ctx, size * 0.5, size * 0.86, size * 0.26, size * 0.08);
-  ctx.fillStyle = "#f7b4c4";
-  ctx.strokeStyle = BIBLE.outline;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.ellipse(size * 0.5, size * 0.56, size * 0.26, size * 0.2, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = "#e87898";
-  ctx.beginPath();
-  ctx.ellipse(size * 0.5, size * 0.66, size * 0.12, size * 0.08, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#2a1a0d";
-  ctx.beginPath();
-  ctx.arc(size * 0.42, size * 0.5, 3.5, 0, Math.PI * 2);
-  ctx.arc(size * 0.58, size * 0.5, 3.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#fff";
-  ctx.beginPath();
-  ctx.arc(size * 0.41, size * 0.49, 1.2, 0, Math.PI * 2);
-  ctx.arc(size * 0.57, size * 0.49, 1.2, 0, Math.PI * 2);
-  ctx.fill();
-  return c;
-}
-
-function drawSeed(): HTMLCanvasElement {
-  const [c, ctx] = canvas(96, 96);
-  ellipseShadow(ctx, 48, 78, 22, 8, 0.22);
-  const g = ctx.createRadialGradient(40, 70, 4, 48, 76, 26);
-  g.addColorStop(0, "#c4844a");
-  g.addColorStop(1, "#3d2110");
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.ellipse(48, 76, 24, 10, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#a85a22";
-  ctx.strokeStyle = BIBLE.outline;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.ellipse(48, 62, 8, 11, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  return c;
-}
-
-function drawGrown(kind: CropKind): HTMLCanvasElement {
-  const [c, ctx] = canvas(128, 144);
-  ellipseShadow(ctx, 64, 128, 28, 9, 0.22);
-  const soil = ctx.createRadialGradient(56, 120, 6, 64, 126, 30);
-  soil.addColorStop(0, "#c4844a");
-  soil.addColorStop(1, "#3d2110");
-  ctx.fillStyle = soil;
-  ctx.beginPath();
-  ctx.ellipse(64, 126, 30, 12, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = BIBLE.outline;
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = "#2f8a34";
-  ctx.beginPath();
-  ctx.moveTo(64, 126);
-  ctx.quadraticCurveTo(60, 90, 64, 58);
-  ctx.stroke();
-  ctx.fillStyle = "#5fbe58";
-  ctx.beginPath();
-  ctx.ellipse(48, 88, 16, 9, -0.6, 0, Math.PI * 2);
-  ctx.ellipse(80, 86, 16, 9, 0.6, 0, Math.PI * 2);
-  ctx.fill();
-  if (kind === "oak") {
-    ctx.fillStyle = "#3f8a3a";
-    ctx.beginPath();
-    ctx.arc(64, 62, 22, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (kind === "sunflower") {
-    ctx.fillStyle = "#ffd24a";
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.ellipse(64 + Math.cos(a) * 14, 56 + Math.sin(a) * 14, 6, 12, a, 0, Math.PI * 2);
-      ctx.fill();
+function dirtToGrass(src: HTMLCanvasElement) {
+  return recolor(src, (r, g, b, a) => {
+    const lum = (r + g + b) / 3;
+    const isTop = g > 70 && r > 80 && Math.abs(r - g) < 70;
+    if (isTop || lum > 90) {
+      return [
+        Math.min(255, 70 + lum * 0.35),
+        Math.min(255, 150 + lum * 0.4),
+        Math.min(255, 50 + lum * 0.15),
+        a,
+      ];
     }
-    ctx.fillStyle = "#8a4f2a";
+    return [r, g, b, a];
+  });
+}
+
+function cropTint(src: HTMLCanvasElement, kind: CropKind) {
+  if (kind === "herbs") {
+    return recolor(src, (r, g, b, a) => [r * 0.75, Math.min(255, g * 1.15 + 12), b * 0.7, a]);
+  }
+  if (kind === "sunflower") {
+    return recolor(src, (r, g, b, a) => {
+      if (g > r && g > 80) return [Math.min(255, r + 50), Math.min(255, g + 10), Math.max(0, b - 20), a];
+      return [Math.min(255, r + 18), g, b, a];
+    });
+  }
+  if (kind === "daisy") {
+    return recolor(src, (r, g, b, a) => {
+      if (g > 90 && g >= r) return [Math.min(255, r + 40), Math.min(255, g + 8), Math.min(255, b + 30), a];
+      return [r, g, b, a];
+    });
+  }
+  return recolor(src, (r, g, b, a) => [Math.min(255, r * 0.85 + 20), Math.min(255, g * 0.95), b * 0.7, a]);
+}
+
+function overlayOak(src: HTMLCanvasElement) {
+  const [c, ctx] = canvas(src.width, src.height);
+  ctx.drawImage(src, 0, 0);
+  ctx.fillStyle = "#3f8a3a";
+  ctx.beginPath();
+  ctx.ellipse(src.width * 0.5, src.height * 0.42, 28, 18, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#2f6a2c";
+  ctx.beginPath();
+  ctx.ellipse(src.width * 0.42, src.height * 0.46, 18, 12, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+  return c;
+}
+
+function overlayDaisy(src: HTMLCanvasElement) {
+  const [c, ctx] = canvas(src.width, src.height);
+  ctx.drawImage(src, 0, 0);
+  ctx.fillStyle = "#fffdf6";
+  for (const [x, y] of [
+    [0.42, 0.34],
+    [0.55, 0.32],
+    [0.48, 0.4],
+  ] as const) {
     ctx.beginPath();
-    ctx.arc(64, 56, 10, 0, Math.PI * 2);
+    ctx.arc(src.width * x, src.height * y, 5, 0, Math.PI * 2);
     ctx.fill();
-  } else if (kind === "herbs") {
-    ctx.strokeStyle = "#2f8a34";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(52, 126);
-    ctx.lineTo(48, 70);
-    ctx.moveTo(76, 126);
-    ctx.lineTo(80, 68);
-    ctx.stroke();
-    ctx.fillStyle = "#7ed957";
-    ctx.beginPath();
-    ctx.ellipse(46, 74, 8, 5, -0.5, 0, Math.PI * 2);
-    ctx.ellipse(82, 72, 8, 5, 0.5, 0, Math.PI * 2);
-    ctx.fill();
-  } else {
-    ctx.fillStyle = "#fffdf6";
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.ellipse(64 + Math.cos(a) * 12, 54 + Math.sin(a) * 12, 5, 10, a, 0, Math.PI * 2);
-      ctx.fill();
-    }
     ctx.fillStyle = "#ffc84a";
     ctx.beginPath();
-    ctx.arc(64, 54, 8, 0, Math.PI * 2);
+    ctx.arc(src.width * x, src.height * y, 2, 0, Math.PI * 2);
     ctx.fill();
+    ctx.fillStyle = "#fffdf6";
   }
   return c;
 }
 
-function drawTileset(): HTMLCanvasElement {
-  const tile = 64;
-  const cols = 4;
-  const [c, ctx] = canvas(tile * cols, tile * cols);
-  const paints: Array<(x: number, y: number) => void> = [
-    (x, y) => grass(ctx, x, y, tile, BIBLE.grass),
-    (x, y) => grass(ctx, x, y, tile, "#6dcc52"),
-    (x, y) => grass(ctx, x, y, tile, BIBLE.grassDark),
-    (x, y) => dirt(ctx, x, y, tile, false),
-    (x, y) => dirt(ctx, x, y, tile, true),
-    (x, y) => path(ctx, x, y, tile),
-    (x, y) => water(ctx, x, y, tile),
-    (x, y) => flower(ctx, x, y, tile),
-    (x, y) => dirt(ctx, x, y, tile, true),
-    (x, y) => grass(ctx, x, y, tile, "#4aa03a"),
-    (x, y) => hay(ctx, x, y, tile),
-    (x, y) => grass(ctx, x, y, tile, "#7ad45c"),
-    (x, y) => dirt(ctx, x, y, tile, false),
-    (x, y) => flower(ctx, x, y, tile),
-    (x, y) => path(ctx, x, y, tile),
-    (x, y) => grass(ctx, x, y, tile, BIBLE.grass),
-  ];
-  paints.forEach((fn, i) => fn((i % cols) * tile, Math.floor(i / cols) * tile));
-  return c;
-}
-
-function grass(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string) {
-  const g = ctx.createLinearGradient(x, y, x, y + s);
-  g.addColorStop(0, color);
-  g.addColorStop(1, BIBLE.grassDark);
-  ctx.fillStyle = g;
+function seedOn(farmland: HTMLCanvasElement) {
+  const [c, ctx] = canvas(farmland.width, farmland.height);
+  ctx.drawImage(farmland, 0, 0);
+  ctx.fillStyle = "#a85a22";
   ctx.beginPath();
-  ctx.roundRect(x - 1, y - 1, s + 2, s + 2, 10);
+  ctx.ellipse(farmland.width * 0.5, farmland.height * 0.72, 6, 4, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,220,0.16)";
-  ctx.lineWidth = 2;
-  for (let i = 0; i < 6; i++) {
-    ctx.beginPath();
-    ctx.moveTo(x + 8 + i * 9, y + s - 6);
-    ctx.quadraticCurveTo(x + 10 + i * 9, y + s - 22, x + 6 + i * 9, y + s - 28);
-    ctx.stroke();
-  }
-}
-
-function dirt(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, tilled: boolean) {
-  const g = ctx.createLinearGradient(x, y, x + s, y + s);
-  g.addColorStop(0, "#b87a44");
-  g.addColorStop(1, BIBLE.soilDark);
-  ctx.fillStyle = g;
-  ctx.fillRect(x, y, s, s);
-  if (tilled) {
-    ctx.strokeStyle = "rgba(40,20,10,0.35)";
-    ctx.lineWidth = 3;
-    for (let i = 0; i < 4; i++) {
-      ctx.beginPath();
-      ctx.moveTo(x + 4, y + 12 + i * 14);
-      ctx.lineTo(x + s - 4, y + 10 + i * 14);
-      ctx.stroke();
-    }
-  }
-}
-
-function path(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
-  ctx.fillStyle = "#d2b48c";
-  ctx.fillRect(x, y, s, s);
-  ctx.fillStyle = "#c4a574";
-  ctx.beginPath();
-  ctx.ellipse(x + 20, y + 28, 8, 5, 0, 0, Math.PI * 2);
-  ctx.ellipse(x + 44, y + 40, 7, 4, 0, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function water(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
-  const g = ctx.createLinearGradient(x, y, x, y + s);
-  g.addColorStop(0, "#7ec8e3");
-  g.addColorStop(1, "#2f7fa8");
-  ctx.fillStyle = g;
-  ctx.fillRect(x, y, s, s);
-  ctx.strokeStyle = "rgba(255,255,255,0.35)";
-  ctx.beginPath();
-  ctx.arc(x + 24, y + 28, 10, 0.2, 2.2);
+  ctx.strokeStyle = BIBLE.outline;
+  ctx.lineWidth = 1.5;
   ctx.stroke();
+  return c;
 }
 
-function flower(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
-  grass(ctx, x, y, s, BIBLE.grass);
-  ctx.fillStyle = "#ffe56a";
-  ctx.beginPath();
-  ctx.arc(x + 22, y + 28, 5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#fff";
-  ctx.beginPath();
-  ctx.arc(x + 44, y + 38, 4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#c46ad0";
-  ctx.beginPath();
-  ctx.arc(x + 32, y + 48, 4, 0, Math.PI * 2);
-  ctx.fill();
+function stack(layers: HTMLCanvasElement[]) {
+  const w = Math.max(...layers.map((l) => l.width));
+  const h = Math.max(...layers.map((l) => l.height));
+  const [c, ctx] = canvas(w, h);
+  for (const layer of layers) ctx.drawImage(layer, (w - layer.width) / 2, h - layer.height);
+  return c;
 }
 
-function hay(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
-  grass(ctx, x, y, s, BIBLE.grass);
-  ctx.fillStyle = "#e2b36a";
-  roundRect(ctx, x + 16, y + 28, 32, 22, 6);
-  ctx.fill();
-}
-
-function particleDot(): HTMLCanvasElement {
+function particleDot() {
   const [c, ctx] = canvas(24, 24);
   const g = ctx.createRadialGradient(12, 12, 1, 12, 12, 12);
   g.addColorStop(0, "#fff");
@@ -345,13 +161,85 @@ function particleDot(): HTMLCanvasElement {
   return c;
 }
 
-function glowDot(): HTMLCanvasElement {
+function glowDot() {
   const [c, ctx] = canvas(96, 96);
   const g = ctx.createRadialGradient(48, 48, 8, 48, 48, 48);
   g.addColorStop(0, "rgba(255,229,106,0.85)");
   g.addColorStop(1, "rgba(255,229,106,0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 96, 96);
+  return c;
+}
+
+const PALETTE: Record<AnimalKind, { body: string; shade: string; accent: string }> = {
+  sheep: { body: "#f4f0e4", shade: "#d4cbb8", accent: "#2a1a0d" },
+  duck: { body: "#f0c84a", shade: "#d4a22a", accent: "#e23a2a" },
+  cow: { body: "#f7f4ea", shade: "#d8d0c0", accent: "#2a1a0d" },
+  chicken: { body: "#fff1c4", shade: "#e8d08a", accent: "#e23a2a" },
+  pig: { body: "#f7b4c4", shade: "#e87898", accent: "#c45a78" },
+};
+
+/** Distinct iso clips (walk / eat / idle). sit+lay reuse idle; run reuses walk — see ATTRIBUTION. */
+function isoAnimal(kind: AnimalKind, action: "walk" | "eat" | "idle", frame: number): HTMLCanvasElement {
+  const [c, ctx] = canvas(96, 96);
+  const t = (frame / 6) * Math.PI * 2;
+  const pal = PALETTE[kind];
+  const bob = action === "walk" ? Math.abs(Math.sin(t)) * 4 : action === "eat" ? 6 + Math.sin(t) * 2 : Math.sin(t) * 1.2;
+  ctx.translate(48, 62 + bob);
+  ctx.fillStyle = "rgba(26,36,16,0.28)";
+  ctx.beginPath();
+  ctx.ellipse(0, 22, 18, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = pal.shade;
+  ctx.beginPath();
+  ctx.ellipse(6, 8, 16, 10, 0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = pal.body;
+  ctx.strokeStyle = BIBLE.outline;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(-2, 4, 18, 12, -0.35, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  if (kind === "cow") {
+    ctx.fillStyle = pal.accent;
+    ctx.beginPath();
+    ctx.ellipse(-8, 0, 5, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(6, 8, 4, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const headDrop = action === "eat" ? 10 : 0;
+  ctx.save();
+  ctx.translate(10, -10 + headDrop);
+  if (action === "eat") ctx.rotate(0.5);
+  ctx.fillStyle = pal.body;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, kind === "chicken" || kind === "duck" ? 8 : 10, 8, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = pal.accent;
+  if (kind === "duck" || kind === "chicken") {
+    ctx.beginPath();
+    ctx.moveTo(6, 2);
+    ctx.lineTo(14, 4);
+    ctx.lineTo(6, 6);
+    ctx.fill();
+  }
+  ctx.fillStyle = "#2a1a0d";
+  ctx.beginPath();
+  ctx.arc(-2, -2, 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  if (action === "walk") {
+    ctx.strokeStyle = pal.accent;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-8, 12);
+    ctx.lineTo(-8 + Math.sin(t) * 6, 20);
+    ctx.moveTo(6, 12);
+    ctx.lineTo(6 - Math.sin(t) * 6, 20);
+    ctx.stroke();
+  }
   return c;
 }
 
@@ -402,58 +290,109 @@ function pack(frames: Map<string, HTMLCanvasElement>): Atlas {
   };
 }
 
+function packTileset(tiles: HTMLCanvasElement[]): Texture {
+  const tw = 128;
+  const th = 256;
+  const cols = 4;
+  const rows = 2;
+  const [c, ctx] = canvas(tw * cols, th * rows);
+  tiles.forEach((tile, i) => {
+    ctx.drawImage(fitImage(tile, tw, th), (i % cols) * tw, Math.floor(i / cols) * th);
+  });
+  return Texture.from(c);
+}
+
 export async function buildAtlas(): Promise<{ atlas: Atlas; tileset: Texture }> {
   const frames = new Map<string, HTMLCanvasElement>();
-  const tilesetCanvas = drawTileset();
-  frames.set("tileset", tilesetCanvas);
-
-  const png = async (name: string, src: string, size: number) => {
-    try {
-      const img = await loadImage(src);
-      frames.set(name, fitImage(img, size));
-    } catch {
-      /* gap filled procedurally */
-    }
+  const k = async (key: string, file: string) => {
+    frames.set(key, await kenney(file));
   };
-
   await Promise.all([
-    png("prop_barn", "/art/sprites/barn.png", 280),
-    png("prop_store", "/art/sprites/store.png", 260),
-    png("prop_sign", "/art/sprites/sign.png", 220),
-    png("ui_can", "/art/sprites/can.png", 96),
-    png("ui_beaker", "/art/sprites/beaker.png", 96),
-    png("ui_acorn", "/art/sprites/acorn.png", 72),
-    png("crop_daisy_4", "/art/sprites/daisy.png", 160),
-    png("crop_sunflower_4", "/art/sprites/sunflower.png", 160),
-    png("crop_oak_4", "/art/sprites/oak.png", 160),
-    png("crop_sprout", "/art/sprites/sprout.png", 120),
-    png("animal_sheep_still", "/art/sprites/sheep.png", 140),
-    png("animal_duck_still", "/art/sprites/duck.png", 120),
+    k("k_dirt", "dirt"),
+    k("k_farmland", "dirtFarmland"),
+    k("k_young", "cornYoung"),
+    k("k_young2", "cornYoungDouble"),
+    k("k_corn", "corn"),
+    k("k_double", "cornDouble"),
+    k("k_hay", "hay"),
+    k("k_bales", "hayBales"),
+    k("k_bales2", "hayBalesStacked"),
+    k("k_fence", "fenceLow"),
+    k("k_sack", "sack"),
+    k("k_crate", "sacksCrate"),
+    k("k_wall", "woodWall"),
+    k("k_door", "woodWallDoorClosed"),
+    k("k_window", "woodWallWindowGlass"),
+    k("k_roof", "roof"),
+    k("k_roofS", "roofSingle"),
+    k("k_chimneyB", "chimneyBase"),
+    k("k_chimneyT", "chimneyTop"),
   ]);
 
-  frames.set("animal_cow_still", drawCow(140));
-  frames.set("animal_chicken_still", drawChicken(120));
-  frames.set("animal_pig_still", drawPig(130));
-  frames.set("crop_seed", drawSeed());
+  const dirt = frames.get("k_dirt")!;
+  const farmland = frames.get("k_farmland")!;
+  const grass = dirtToGrass(dirt);
+  const tileset = packTileset([
+    grass,
+    dirt,
+    farmland,
+    frames.get("k_hay")!,
+    frames.get("k_bales")!,
+    frames.get("k_fence")!,
+    frames.get("k_sack")!,
+    frames.get("k_crate")!,
+  ]);
+
+  frames.set("prop_barn", stack([frames.get("k_wall")!, frames.get("k_roof")!, frames.get("k_chimneyB")!, frames.get("k_chimneyT")!]));
+  frames.set("prop_store", stack([frames.get("k_door")!, frames.get("k_roofS")!, frames.get("k_crate")!]));
+
+  const hud = async (name: string, src: string, size: number) => {
+    try {
+      const img = await loadImage(src);
+      frames.set(name, fitImage(img, size, size));
+    } catch {
+      /* HUD gap */
+    }
+  };
+  await Promise.all([
+    hud("ui_can", "/art/sprites/can.png", 96),
+    hud("ui_beaker", "/art/sprites/beaker.png", 96),
+    hud("ui_acorn", "/art/sprites/acorn.png", 72),
+    hud("prop_sign", "/art/sprites/sign.png", 220),
+  ]);
+
+  const young = frames.get("k_young")!;
+  const mid = frames.get("k_corn")!;
+  const grown = frames.get("k_young2")!;
+  const mature = frames.get("k_double")!;
   for (const kind of CROP_KINDS) {
-    frames.set(`crop_${kind}_1`, frames.get("crop_seed")!);
-    frames.set(`crop_${kind}_2`, frames.get("crop_sprout") ?? drawGrown(kind));
-    frames.set(`crop_${kind}_3`, drawGrown(kind));
-    if (!frames.has(`crop_${kind}_4`)) frames.set(`crop_${kind}_4`, drawGrown(kind));
+    frames.set(`crop_${kind}_1`, seedOn(farmland));
+    frames.set(`crop_${kind}_2`, cropTint(young, kind));
+    frames.set(`crop_${kind}_3`, cropTint(kind === "herbs" ? grown : mid, kind));
+    let ripe = cropTint(mature, kind);
+    if (kind === "oak") ripe = overlayOak(ripe);
+    if (kind === "daisy") ripe = overlayDaisy(ripe);
+    frames.set(`crop_${kind}_4`, ripe);
   }
+
   frames.set("fx_dot", particleDot());
   frames.set("fx_glow", glowDot());
 
   for (const kind of ANIMAL_KINDS) {
-    const still = frames.get(`animal_${kind}_still`);
-    if (!still) continue;
-    for (const action of ANIMS) {
-      poseSheet(still, action).forEach((frame, i) => frames.set(`animal_${kind}_${action}_${i}`, frame));
+    for (let i = 0; i < 6; i++) {
+      const walk = isoAnimal(kind, "walk", i);
+      const eat = isoAnimal(kind, "eat", i);
+      const idle = isoAnimal(kind, "idle", i);
+      frames.set(`animal_${kind}_walk_${i}`, walk);
+      frames.set(`animal_${kind}_run_${i}`, walk);
+      frames.set(`animal_${kind}_eat_${i}`, eat);
+      frames.set(`animal_${kind}_sit_${i}`, idle);
+      frames.set(`animal_${kind}_lay_${i}`, idle);
     }
   }
 
   const atlas = pack(frames);
-  return { atlas, tileset: atlas.frame("tileset") };
+  return { atlas, tileset };
 }
 
 export function cropFrame(atlas: Atlas, kind: CropKind, stage: 1 | 2 | 3 | 4): Texture {

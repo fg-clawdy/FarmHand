@@ -1,9 +1,10 @@
-/** Shared 3/4 painted-cartoon drawing helpers. Light from upper-right, shadows lower-left. */
+/** Isometric cartoon bible, locked to Kenney Miniature Farm (30°×45°, CC0). */
 
 export const BIBLE = {
   outline: "#3d2a16",
-  sky: "#6ec8f0",
-  grass: "#5fbe4a",
+  sky: "#7ec8f0",
+  skyDeep: "#4ea6d8",
+  grass: "#6dcc52",
   grassDark: "#3f8a32",
   soil: "#8a5634",
   soilDark: "#4a2a16",
@@ -40,15 +41,6 @@ export function roundRect(
   ctx.closePath();
 }
 
-export function ellipseShadow(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, a = 0.28) {
-  ctx.save();
-  ctx.fillStyle = `rgba(26, 36, 16, ${a})`;
-  ctx.beginPath();
-  ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
-
 export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -59,11 +51,14 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-export function fitImage(img: HTMLImageElement, size: number): HTMLCanvasElement {
-  const [c, ctx] = canvas(size, size);
-  const s = Math.min(size / img.width, size / img.height);
-  const w = img.width * s;
-  const h = img.height * s;
-  ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+export function imageCanvas(img: HTMLImageElement): HTMLCanvasElement {
+  const [c, ctx] = canvas(img.naturalWidth || img.width, img.naturalHeight || img.height);
+  ctx.drawImage(img, 0, 0);
+  return c;
+}
+
+export function fitImage(img: CanvasImageSource, dw: number, dh: number): HTMLCanvasElement {
+  const [c, ctx] = canvas(dw, dh);
+  ctx.drawImage(img, 0, 0, dw, dh);
   return c;
 }
