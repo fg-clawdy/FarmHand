@@ -93,7 +93,7 @@ export class FarmScene {
     this.app.stage.addChild(this.root);
 
     ANIMAL_KINDS.forEach((kind, i) => {
-      const animal = new AmbientAnimal(atlas, kind, 4 + i * 1.2, 7, { c0: 3, r0: 6, c1: 9, r1: 9 });
+      const animal = new AmbientAnimal(atlas, kind, 5 + i * 1.1, 10, { c0: 4, r0: 9, c1: 10, r1: 11 });
       this.animals.push(animal);
       this.near.addChild(animal.root);
     });
@@ -154,13 +154,19 @@ export class FarmScene {
     const plotP = isoGround((FARM_PLOTS.c0 + FARM_PLOTS.c1) / 2, (FARM_PLOTS.r0 + FARM_PLOTS.r1) / 2);
     const cx = (barnP.x + storeP.x + plotP.x) / 3;
     const cy = (barnP.y + storeP.y + plotP.y) / 3;
-    const scale = Math.max(0.82, Math.min(0.98, w / 1320, h / 820));
+    const barnHalf = 90;
+    const storeHalf = 100;
+    const margin = 56;
+    const spread = storeP.x + storeHalf - (barnP.x - barnHalf);
+    let scale = Math.max(0.8, Math.min(0.96, w / 1320, h / 820, (w - margin * 2) / Math.max(1, spread)));
     this.mid.scale.set(scale);
     this.near.scale.set(scale);
-    this.origin = {
-      x: w * 0.5 - cx * scale,
-      y: h * 0.4 - cy * scale,
-    };
+    let ox = w * 0.5 - cx * scale;
+    const barnLeft = ox + barnP.x * scale - barnHalf * scale;
+    const storeRight = ox + storeP.x * scale + storeHalf * scale;
+    if (barnLeft < margin) ox += margin - barnLeft;
+    if (storeRight > w - margin) ox -= storeRight - (w - margin);
+    this.origin = { x: ox, y: h * 0.4 - cy * scale };
     this.mid.position.set(this.origin.x, this.origin.y);
     this.near.position.set(this.origin.x, this.origin.y);
 
