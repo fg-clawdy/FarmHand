@@ -3,9 +3,10 @@ import { Container, Graphics, Sprite, Text, type Application } from "pixi.js";
 import { CROP_KINDS, cropFrame, type Atlas, type CropKind } from "./atlas";
 import { AmbientAnimal } from "./animals";
 import type { PixiEngine } from "./engine";
+import { createFenceRing } from "./fence";
 import { FxLayer } from "./fx";
-import { isoToScreen } from "./iso";
-import { createGardenMap, GARDEN_PLOTS } from "./tiles";
+import { isoGround } from "./iso";
+import { createGardenMap, GARDEN_PLOT_RECT, GARDEN_PLOTS } from "./tiles";
 
 function cropKind(tier: number | null | undefined): CropKind {
   return CROP_KINDS[Math.max(0, (tier ?? 1) - 1)] ?? "daisy";
@@ -39,6 +40,7 @@ export class GardenScene {
     this.world.addChild(this.sky);
     const map = createGardenMap(tileset);
     this.world.addChild(map);
+    this.world.addChild(createFenceRing(atlas, GARDEN_PLOT_RECT));
     this.world.addChild(this.plotsLayer, this.fx.root);
     this.world.sortableChildren = true;
     this.root.addChild(this.world);
@@ -106,14 +108,14 @@ export class GardenScene {
     this.sky.ellipse(w * 0.7, 40, 48, 48);
     this.sky.fill({ color: 0xffe56a });
 
-    this.mapScale = Math.max(0.72, Math.min(w / 1100, h / 700));
-    this.origin = { x: w * 0.5, y: h * 0.28 };
+    this.mapScale = Math.max(0.78, Math.min(w / 1000, h / 640));
+    this.origin = { x: w * 0.5, y: h * 0.22 };
     this.world.position.set(this.origin.x, this.origin.y);
     this.world.scale.set(this.mapScale);
 
     this.slots.forEach((slot, i) => {
       const [col, row] = GARDEN_PLOTS[i];
-      const p = isoToScreen(col, row);
+      const p = isoGround(col, row);
       slot.root.position.set(p.x, p.y);
       slot.root.zIndex = col + row + 10;
       slot.layout(120, 90);

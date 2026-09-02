@@ -1,6 +1,6 @@
 import { AnimatedSprite, Container } from "pixi.js";
 import type { AnimalAction, AnimalKind, Atlas } from "./atlas";
-import { isoDepth, isoToScreen } from "./iso";
+import { isoDepth, isoGround } from "./iso";
 
 export class AmbientAnimal {
   readonly root = new Container();
@@ -68,7 +68,7 @@ export class AmbientAnimal {
   }
 
   private syncPos() {
-    const p = isoToScreen(this.col, this.row);
+    const p = isoGround(this.col, this.row);
     this.root.position.set(this.origin.x + p.x, this.origin.y + p.y);
     this.root.zIndex = isoDepth(this.col, this.row);
     if (this.dCol !== 0 || this.dRow !== 0) {

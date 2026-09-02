@@ -4,9 +4,10 @@ import { ACCENTS } from "../theme";
 import { ANIMAL_KINDS, CROP_KINDS, cropFrame, type Atlas, type CropKind } from "./atlas";
 import { AmbientAnimal } from "./animals";
 import type { PixiEngine } from "./engine";
+import { createFenceRing, fenceBounds } from "./fence";
 import { FxLayer } from "./fx";
-import { isoToScreen } from "./iso";
-import { createFarmMap } from "./tiles";
+import { isoGround, isoToScreen } from "./iso";
+import { createFarmMap, FARM_BARN, FARM_PLOTS, FARM_STORE } from "./tiles";
 
 function cropKind(tier: number | null | undefined): CropKind {
   return CROP_KINDS[Math.max(0, (tier ?? 1) - 1)] ?? "daisy";
@@ -58,6 +59,7 @@ export class FarmScene {
 
     this.map = createFarmMap(tileset);
     this.mid.addChild(this.map);
+    this.mid.addChild(createFenceRing(atlas, FARM_PLOTS));
     this.mid.sortableChildren = true;
 
     this.barn = new Sprite(atlas.frame("prop_barn"));
@@ -91,7 +93,7 @@ export class FarmScene {
     this.app.stage.addChild(this.root);
 
     ANIMAL_KINDS.forEach((kind, i) => {
-      const animal = new AmbientAnimal(atlas, kind, 4 + i * 1.4, 9, { c0: 3, r0: 8, c1: 11, r1: 11 });
+      const animal = new AmbientAnimal(atlas, kind, 4 + i * 1.2, 7, { c0: 3, r0: 6, c1: 9, r1: 9 });
       this.animals.push(animal);
       this.near.addChild(animal.root);
     });
@@ -147,22 +149,39 @@ export class FarmScene {
     }
     this.rays.stroke({ width: 18, color: 0xffe56a, alpha: 0.16 });
 
-    const scale = Math.max(0.55, Math.min(w / 1400, h / 900));
+    const barnP = isoGround(FARM_BARN.col, FARM_BARN.row);
+    const storeP = isoGround(FARM_STORE.col, FARM_STORE.row);
+    const plots = fenceBounds(FARM_PLOTS);
+    const yard = isoGround(6, 8);
+
+    const barnH = 256 * 1.35 * 0.92;
+    const storeH = 256 * 1.25 * 0.92;
+    const minX = Math.min(barnP.x - 110, storeP.x - 110, plots.minX);
+    const maxX = Math.max(barnP.x + 110, storeP.x + 110, plots.maxX);
+    const minY = Math.min(barnP.y - barnH, storeP.y - storeH, plots.minY);
+    const maxY = Math.max(barnP.y + 36, storeP.y + 36, plots.maxY, yard.y + 48);
+
+    const boxW = Math.max(1, maxX - minX);
+    const boxH = Math.max(1, maxY - minY);
+    const top = h * 0.07;
+    const bottom = h * 0.16;
+    const scale = Math.max(0.78, Math.min(1.06, (w * 0.92) / boxW, (h - top - bottom) / boxH));
     this.mid.scale.set(scale);
     this.near.scale.set(scale);
-    this.origin = { x: w * 0.5, y: h * 0.34 };
+    this.origin = {
+      x: w * 0.5 - ((minX + maxX) / 2) * scale,
+      y: top - minY * scale,
+    };
     this.mid.position.set(this.origin.x, this.origin.y);
     this.near.position.set(this.origin.x, this.origin.y);
 
-    const barnP = isoToScreen(3, 9);
     this.barn.position.set(barnP.x, barnP.y);
     this.barn.scale.set(1.35);
-    this.barn.zIndex = 12;
+    this.barn.zIndex = FARM_BARN.col + FARM_BARN.row + 8;
 
-    const storeP = isoToScreen(10, 9);
     this.store.position.set(storeP.x, storeP.y);
     this.store.scale.set(1.25);
-    this.store.zIndex = 19;
+    this.store.zIndex = FARM_STORE.col + FARM_STORE.row + 8;
 
     this.animals.forEach((a) => a.setOrigin(0, 0));
 
@@ -172,8 +191,8 @@ export class FarmScene {
     const total = n * cardW + (n - 1) * gap;
     const x0 = (w - total) / 2;
     this.cardNodes.forEach((node, i) => {
-      node.layout(cardW, Math.min(340, h * 0.5));
-      node.root.position.set(x0 + i * (cardW + gap) + cardW / 2, h * 0.48);
+      node.layout(cardW, Math.min(292, h * 0.36));
+      node.root.position.set(x0 + i * (cardW + gap) + cardW / 2, h * 0.6);
     });
   }
 

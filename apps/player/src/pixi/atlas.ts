@@ -345,6 +345,7 @@ export async function buildAtlas(): Promise<{ atlas: Atlas; tileset: Texture }> 
 
   frames.set("prop_barn", stack([frames.get("k_wall")!, frames.get("k_roof")!, frames.get("k_chimneyB")!, frames.get("k_chimneyT")!]));
   frames.set("prop_store", stack([frames.get("k_door")!, frames.get("k_roofS")!, frames.get("k_crate")!]));
+  frames.set("prop_fence", frames.get("k_fence")!);
 
   const hud = async (name: string, src: string, size: number) => {
     try {
