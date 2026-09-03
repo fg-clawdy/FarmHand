@@ -10,7 +10,7 @@ Camera: 3/4 isometric look, but the **visible world is not a tile diamond**. A p
 
 | Asset | Source | License | Where |
 | --- | --- | --- | --- |
-| Full-bleed farm / garden ground (grass, dirt path, tilled rows to every edge) | Original generated paintings | original | `/art/generated/ground/farm.png`, `/art/generated/ground/garden.png` — loaded as standalone textures and cover-fit to the canvas. A grass Graphics fill (`#3d8a32`) sits underneath as a failsafe. |
+| Full-bleed farm / garden ground (grass, dirt path, tilled rows to every edge) | Original generated paintings | original | `/art/generated/ground/farm.jpg`, `/art/generated/ground/garden.jpg` — loaded as standalone textures and cover-fit to the canvas. A grass Graphics fill (`#3d8a32`) sits underneath as a failsafe. |
 | Barn + general store | Original generated building sprites | original | `/art/generated/buildings/` |
 | Vintage truck, stone well, post-and-rail fence | Original generated props | original | `/art/generated/props/truck.png`, `well.png`, `rail.png` |
 | Hay, crates, sacks, barrels, bushes | Original generated props | original | `/art/generated/props/` |

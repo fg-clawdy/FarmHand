@@ -10,6 +10,7 @@ export default defineConfig({
       includeAssets: ["icon.svg", "art/*"],
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,jpg,webp,ico,webmanifest}"],
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/admin/, /^\/api/, /^\/health/],
       },
@@ -18,7 +19,7 @@ export default defineConfig({
         short_name: "FarmHand",
         description: "A shared homestead garden for the family tablet.",
         theme_color: "#9B2C1F",
-        background_color: "#7EC8E3",
+        background_color: "#3d8a32",
         display: "standalone",
         orientation: "landscape",
         start_url: "/",

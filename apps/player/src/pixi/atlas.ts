@@ -168,8 +168,8 @@ export async function buildAtlas(): Promise<{
   frames.set("fx_sparkle", sparkleStar());
 
   const [farmGround, gardenGround] = await Promise.all([
-    gen("ground/farm.png"),
-    gen("ground/garden.png"),
+    gen("ground/farm.jpg"),
+    gen("ground/garden.jpg"),
   ]);
 
   const atlas = pack(frames);
