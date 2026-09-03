@@ -14,7 +14,7 @@ html, body, #root { height: 100%; margin: 0; }
 body {
   font-family: Fredoka, "Trebuchet MS", "Segoe UI", sans-serif;
   color: var(--ink);
-  background: #5eb6e0;
+  background: #3d8a32;
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;

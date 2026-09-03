@@ -57,6 +57,15 @@ export function imageCanvas(img: HTMLImageElement): HTMLCanvasElement {
   return c;
 }
 
+export function coverFit(width: number, height: number, texW: number, texH: number) {
+  const scale = Math.max(width / Math.max(1, texW), height / Math.max(1, texH));
+  return {
+    scale,
+    x: (width - texW * scale) / 2,
+    y: (height - texH * scale) / 2,
+  };
+}
+
 export function fitImage(img: CanvasImageSource, dw: number, dh: number): HTMLCanvasElement {
   const [c, ctx] = canvas(dw, dh);
   ctx.drawImage(img, 0, 0, dw, dh);

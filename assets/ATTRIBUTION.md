@@ -1,34 +1,35 @@
 # FarmHand art attribution
 
-Player farm/garden scenes are a PixiJS hybrid with an **isometric cartoon** camera. React still owns PIN, sheets, HUD chrome, and the entire admin app. The attached painted dashboard mockup is **mood only** (warm colors, three kid cards, Farm Store).
+Player farm/garden scenes are a PixiJS hybrid with a **full-bleed painted homestead**. React still owns PIN, sheets, HUD chrome, and the entire admin app. The attached FarmVille 2 / Hay Day still is **craft and camera only** (ground to every edge, barn left, crop rows in the foreground). Original art — not copied from Zynga or Supercell.
 
 ## Art bible
 
-Camera: classic farm-tycoon isometric (diamond tiles). Lighting: sun upper-right, contact shadows lower-left. Style: glossy casual farm sim (FarmVille / Hay Day craft) — original generated art, not copied from Zynga or Supercell. Palette: lush grass greens, barn red, sky blue, warm wood, honey hay.
+Camera: 3/4 isometric look, but the **visible world is not a tile diamond**. A painted grass/dirt ground plane cover-fits the tablet canvas so ground fills 100% of the viewport. Lighting: sun upper-right, contact shadows lower-left. Style: glossy casual farm sim (FarmVille / Hay Day craft). Palette: lush grass greens, barn red, warm wood, honey hay. No blue sky wash around a floating plot.
 
 ## Used on-screen
 
 | Asset | Source | License | Where |
 | --- | --- | --- | --- |
-| Terrain (grass, dirt, tilled farmland, cobble path) | Original generated iso tiles | original | `/art/generated/tiles/`, packed into a `pixi-tiledmap` iso ground (farm 40×40, garden 36×28) with the homestead in the diamond center |
-| White picket fence (one paddock ring) | Original generated SW/SE pieces | original | `/art/generated/fence/` |
+| Full-bleed farm / garden ground (grass, dirt path, tilled rows to every edge) | Original generated paintings | original | `/art/generated/ground/farm.png`, `/art/generated/ground/garden.png` — loaded as standalone textures and cover-fit to the canvas. A grass Graphics fill (`#3d8a32`) sits underneath as a failsafe. |
 | Barn + general store | Original generated building sprites | original | `/art/generated/buildings/` |
-| Crop stages seed → sprout → grown → mature (+ harvest glow) for daisy / herbs / sunflower / oak | Original generated sheet, sliced into atlas frames | original | `/art/generated/crops/` — wired to server `growthStage` 1–4 / READY |
-| Ambient animals (cow, chicken, pig, sheep, horse) × sit / lay / walk / run / eat | Original generated sheet; walk/run/eat interpolate extra bob frames from stills | original | `/art/generated/animals/` |
-| Hay, crates, sacks, barrels, bushes, ladder, wooden garden signs | Original generated props | original | `/art/generated/props/` |
-| Rolling hills + sky + smiling sun | Original generated backdrop | original | `/art/generated/backdrop/hills.jpg` — sits *behind* the iso map so tiles still fill the playfield |
-| HUD watering can, fertilizer bottle, acorn, name sign | Same generated prop set | original | Pixi cards / React resource chrome |
+| Vintage truck, stone well, post-and-rail fence | Original generated props | original | `/art/generated/props/truck.png`, `well.png`, `rail.png` |
+| Hay, crates, sacks, barrels, bushes | Original generated props | original | `/art/generated/props/` |
+| Crop stages seed → sprout → grown → mature for daisy / herbs / sunflower / oak | Original generated sheet | original | `/art/generated/crops/` — wired to server `growthStage` 1–4 / READY. Ready crops get golden harvest sparkles. |
+| Ambient animals (cow, chicken, pig, sheep, horse) × sit / lay / walk / run / eat | Original generated sheet | original | `/art/generated/animals/` — wander in screen space on the painted yard |
+| HUD chips, watering can, fertilizer bottle, acorn, name sign | Same generated prop set | original | Slim edge HUD + React resource chrome |
 
-`pixi-tiledmap` (MIT) renders isometric Tiled maps (`orientation: "isometric"`, 128×64 diamonds). Sprites are packed at boot into one atlas texture.
+The iso `pixi-tiledmap` diamond and the rolling-hills / sky backdrop are **not drawn**. Kid gardens are 2×3 plot clusters sitting in the painted world; compact name chips stay at the bottom edge.
 
 ## Leftover / not on the farm world
 
 | Pack | License | Status |
 | --- | --- | --- |
+| Generated iso tiles + picket fence pieces | original | **Unused at runtime.** Files remain under `/art/generated/tiles/` and `/art/generated/fence/`. |
+| Rolling hills + sky + smiling sun `backdrop/hills.jpg` | original | **Unused at runtime.** Do not show sky around the farm. |
 | [Kenney Isometric Miniature Farm](https://kenney.nl/assets/isometric-miniature-farm) | CC0 | **Unused at runtime.** Files remain under `/art/vendor/kenney/iso-miniature-farm/`. |
 | [Kenney Animal Pack Redux](https://kenney.nl/assets/animal-pack-remastered) | CC0 | **Unused at runtime.** Files remain under `/art/vendor/kenney/animals/`. |
 | [Kenney Tiny Farm](https://kenney.nl/assets/tiny-farm) | CC0 | License file kept; not drawn. |
-| Painted 3/4 homestead `farm_backdrop.jpg` | original (previous bible) | **Removed.** Do not composite over the iso map. |
+| Painted 3/4 homestead `farm_backdrop.jpg` | original (previous bible) | **Removed.** |
 | [LPC style farm animals](https://opengameart.org/content/lpc-style-farm-animals) (Daniel Eddeland) | CC-BY 3.0 / GPL 2.0 | Not copied. |
 | [Levi Art Isometric Cartoon Farm](https://leviart.itch.io/isometric-cartoon-farm-tycoon-strategy-game-assets) | paid | **Not used** — not licensed. Do not pirate. |
 
@@ -37,5 +38,4 @@ Kenney CC0 does not require credit; we still credit [Kenney.nl](https://www.kenn
 ## Runtime libraries
 
 - PixiJS v8 — WebGL farm/garden scene
-- pixi-tiledmap v2 — isometric Tiled maps + packed tile layers
 - React + CSS — PIN, pickers, sheets, resource bar, admin

@@ -24,7 +24,7 @@ export function useFarmPixi(handlers: { onPlayer: (id: string) => void; onStore:
     let dead = false;
     let engine: PixiEngine | undefined;
     void (async () => {
-      const [{ atlas, tileset }, eng] = await Promise.all([loadAtlas(), createEngine(host)]);
+      const [{ atlas, grounds }, eng] = await Promise.all([loadAtlas(), createEngine(host)]);
       if (dead) {
         eng.destroy();
         return;
@@ -34,7 +34,7 @@ export function useFarmPixi(handlers: { onPlayer: (id: string) => void; onStore:
         eng.destroy();
         return;
       }
-      const scene = new FarmScene(eng, atlas, tileset, {
+      const scene = new FarmScene(eng, atlas, grounds.farm, {
         onPlayer: (id) => handlersRef.current.onPlayer(id),
         onStore: () => handlersRef.current.onStore(),
       });
@@ -70,7 +70,7 @@ export function useGardenPixi(onPlot: (slot: number, empty: boolean) => void) {
     let dead = false;
     let engine: PixiEngine | undefined;
     void (async () => {
-      const [{ atlas, tileset }, eng] = await Promise.all([loadAtlas(), createEngine(host)]);
+      const [{ atlas, grounds }, eng] = await Promise.all([loadAtlas(), createEngine(host)]);
       if (dead) {
         eng.destroy();
         return;
@@ -80,7 +80,7 @@ export function useGardenPixi(onPlot: (slot: number, empty: boolean) => void) {
         eng.destroy();
         return;
       }
-      const scene = new GardenScene(eng, atlas, tileset, (slot, empty) => onPlotRef.current(slot, empty));
+      const scene = new GardenScene(eng, atlas, grounds.garden, (slot, empty) => onPlotRef.current(slot, empty));
       if (dead) {
         scene.destroy();
         eng.destroy();

@@ -109,7 +109,11 @@ function packTileset(tiles: HTMLCanvasElement[]): Texture {
   return Texture.from(c);
 }
 
-export async function buildAtlas(): Promise<{ atlas: Atlas; tileset: Texture }> {
+export async function buildAtlas(): Promise<{
+  atlas: Atlas;
+  tileset: Texture;
+  grounds: { farm: Texture; garden: Texture };
+}> {
   const frames = new Map<string, HTMLCanvasElement>();
   const put = async (key: string, path: string) => {
     frames.set(key, await gen(path));
@@ -133,10 +137,12 @@ export async function buildAtlas(): Promise<{ atlas: Atlas; tileset: Texture }> 
     put("prop_bush", "props/bush.png"),
     put("prop_ladder", "props/ladder.png"),
     put("prop_sign", "props/sign.png"),
+    put("prop_truck", "props/truck.png"),
+    put("prop_well", "props/well.png"),
+    put("prop_rail", "props/rail.png"),
     put("ui_can", "props/can.png"),
     put("ui_beaker", "props/beaker.png"),
     put("ui_acorn", "props/acorn.png"),
-    put("backdrop_hills", "backdrop/hills.jpg"),
     ...CROP_KINDS.flatMap((kind) =>
       ([1, 2, 3, 4] as const).map((stage) => put(`crop_${kind}_${stage}`, `crops/${kind}_${stage}.png`)),
     ),
@@ -159,9 +165,42 @@ export async function buildAtlas(): Promise<{ atlas: Atlas; tileset: Texture }> 
 
   frames.set("fx_dot", particleDot());
   frames.set("fx_glow", glowDot());
+  frames.set("fx_sparkle", sparkleStar());
+
+  const [farmGround, gardenGround] = await Promise.all([
+    gen("ground/farm.png"),
+    gen("ground/garden.png"),
+  ]);
 
   const atlas = pack(frames);
-  return { atlas, tileset };
+  return {
+    atlas,
+    tileset,
+    grounds: {
+      farm: Texture.from(farmGround),
+      garden: Texture.from(gardenGround),
+    },
+  };
+}
+
+function sparkleStar() {
+  const [c, ctx] = canvas(48, 48);
+  ctx.translate(24, 24);
+  ctx.shadowColor = "rgba(255, 243, 160, 0.95)";
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = "#ffe56a";
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const r = i % 2 === 0 ? 18 : 5.5;
+    const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
+    const x = Math.cos(a) * r;
+    const y = Math.sin(a) * r;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fill();
+  return c;
 }
 
 export function cropFrame(atlas: Atlas, kind: CropKind, stage: 1 | 2 | 3 | 4): Texture {

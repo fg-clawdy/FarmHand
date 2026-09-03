@@ -21,7 +21,8 @@ async function sharedApp(): Promise<Application> {
   boot ??= (async () => {
     const app = new Application();
     await app.init({
-      backgroundAlpha: 0,
+      background: 0x3d8a32,
+      backgroundAlpha: 1,
       antialias: true,
       autoDensity: true,
       resolution: Math.min(window.devicePixelRatio || 1, 2),

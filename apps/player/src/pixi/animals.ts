@@ -101,3 +101,106 @@ export class AmbientAnimal {
     this.syncPos();
   }
 }
+
+/** Pixel-space wanderer for the full-bleed farm (not iso diamond coords). */
+export class YardWanderer {
+  readonly root = new Container();
+  private sprite: AnimatedSprite;
+  private timer = 1;
+  private x: number;
+  private y: number;
+  private dx = 0;
+  private dy = 0;
+
+  constructor(
+    private atlas: Atlas,
+    readonly kind: AnimalKind,
+    x: number,
+    y: number,
+    private bounds: { x0: number; y0: number; x1: number; y1: number },
+  ) {
+    this.x = x;
+    this.y = y;
+    const frames = atlas.animation(`animal_${kind}_walk`);
+    this.sprite = new AnimatedSprite(frames);
+    this.sprite.anchor.set(0.5, 0.88);
+    this.sprite.scale.set(0.42);
+    this.sprite.animationSpeed = 0.14;
+    this.sprite.play();
+    this.root.addChild(this.sprite);
+    this.pick();
+    this.syncPos();
+  }
+
+  setBounds(bounds: { x0: number; y0: number; x1: number; y1: number }) {
+    this.bounds = bounds;
+    this.x = Math.min(bounds.x1, Math.max(bounds.x0, this.x));
+    this.y = Math.min(bounds.y1, Math.max(bounds.y0, this.y));
+    this.syncPos();
+  }
+
+  place(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+    this.syncPos();
+  }
+
+  private play(action: AnimalAction) {
+    const frames = this.atlas.animation(`animal_${this.kind}_${action}`);
+    if (frames.length) {
+      this.sprite.textures = frames;
+      this.sprite.animationSpeed = action === "run" ? 0.22 : action === "walk" ? 0.14 : 0.08;
+      this.sprite.gotoAndPlay(0);
+    }
+    const moving = action === "walk" || action === "run";
+    const speed = action === "run" ? 46 : 24;
+    if (moving) {
+      const a = Math.random() * Math.PI * 2;
+      this.dx = Math.cos(a) * speed;
+      this.dy = Math.sin(a) * speed * 0.55;
+    } else {
+      this.dx = 0;
+      this.dy = 0;
+    }
+  }
+
+  private pick() {
+    const roll = Math.random();
+    const next: AnimalAction =
+      roll < 0.34 ? "walk" : roll < 0.46 ? "run" : roll < 0.66 ? "eat" : roll < 0.84 ? "sit" : "lay";
+    this.play(next);
+    this.timer = 2.2 + Math.random() * 3.4;
+  }
+
+  private syncPos() {
+    this.root.position.set(this.x, this.y);
+    this.root.zIndex = Math.round(this.y);
+    if (this.dx !== 0) {
+      this.sprite.scale.x = Math.abs(this.sprite.scale.x) * (this.dx >= 0 ? 1 : -1);
+    }
+  }
+
+  update(dt: number) {
+    this.timer -= dt;
+    if (this.timer <= 0) this.pick();
+    if (this.dx !== 0 || this.dy !== 0) {
+      this.x += this.dx * dt;
+      this.y += this.dy * dt;
+      if (this.x < this.bounds.x0) {
+        this.x = this.bounds.x0;
+        this.dx = Math.abs(this.dx);
+      } else if (this.x > this.bounds.x1) {
+        this.x = this.bounds.x1;
+        this.dx = -Math.abs(this.dx);
+      }
+      if (this.y < this.bounds.y0) {
+        this.y = this.bounds.y0;
+        this.dy = Math.abs(this.dy);
+      } else if (this.y > this.bounds.y1) {
+        this.y = this.bounds.y1;
+        this.dy = -Math.abs(this.dy);
+      }
+    }
+    this.syncPos();
+  }
+}
