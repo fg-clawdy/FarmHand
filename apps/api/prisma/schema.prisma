@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Mascot {
+  cow
+  chicken
+  pig
+  sheep
+  horse
+}
+
+model Admin {
+  id           String         @id @default(uuid())
+  username     String         @unique
+  passwordHash String
+  createdAt    DateTime       @default(now())
+  sessions     AdminSession[]
+  auditLogs    AuditLog[]
+}
+
+model AdminSession {
+  id        String   @id @default(uuid())
+  adminId   String
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+model Player {
+  id                      String          @id @default(uuid())
+  name                    String
+  mascot                  Mascot
+  pinHash                 String?
+  seeds                   Int             @default(10)
+  points                  Int             @default(0)
+  fertilizer              Int             @default(0)
+  moonDew                 Int             @default(0)
+  growGoo                 Int             @default(0)
+  phoenixAsh              Int             @default(0)
+  lastIngredientClaimDate String?
+  nextIngredientIndex     Int             @default(0)
+  wateringsOnDate         String?
+  wateringsCount          Int             @default(0)
+  lastWateredAt           DateTime?
+  isActive                Boolean         @default(true)
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+  plots                   Plot[]
+  sessions                PlayerSession[]
+  activity                ActivityLog[]
+  auditLogs               AuditLog[]
+}
+
+model Plot {
+  id                         String   @id @default(uuid())
+  playerId                   String
+  player                     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  slot                       Int
+  plantTier                  Int?
+  plantedAt                  DateTime?
+  waterReductionMinutes      Int      @default(0)
+  fertilizerReductionMinutes Int      @default(0)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@unique([playerId, slot])
+}
+
+model PlayerSession {
+  id        String   @id @default(uuid())
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+model GameConfigRow {
+  id        String   @id @default("default")
+  data      Json
+  updatedAt DateTime @updatedAt
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  playerId  String?
+  player    Player?  @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  action    String
+  details   Json?
+  createdAt DateTime @default(now())
+
+  @@index([playerId, createdAt])
+  @@index([action, createdAt])
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  adminId        String?
+  admin          Admin?   @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  targetPlayerId String?
+  targetPlayer   Player?  @relation(fields: [targetPlayerId], references: [id], onDelete: SetNull)
+  action         String
+  details        Json?
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+}

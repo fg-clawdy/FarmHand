@@ -1,0 +1,21 @@
+{
+  "name": "farmhand",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Family homestead farming game for a shared tablet, plus a parent admin panel.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @farmhand/api",
+    "dev:player": "npm run dev -w @farmhand/player",
+    "dev:admin": "npm run dev -w @farmhand/admin",
+    "build": "npm run build -w @farmhand/shared && npm run build -w @farmhand/api && npm run build -w @farmhand/player && npm run build -w @farmhand/admin",
+    "test": "npm run test -w @farmhand/shared && npm run test -w @farmhand/api",
+    "postinstall": "npm run prisma:generate -w @farmhand/api"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

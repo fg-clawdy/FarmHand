@@ -1,0 +1,29 @@
+{
+  "name": "@farmhand/player",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host --port 5173",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "preview": "vite preview --host --port 5173"
+  },
+  "dependencies": {
+    "@farmhand/shared": "*",
+    "@fontsource/fredoka": "^5.3.0",
+    "@fontsource/luckiest-guy": "^5.3.0",
+    "pixi-tiledmap": "^2.8.5",
+    "pixi.js": "^8.20.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.2",
+    "vite-plugin-pwa": "^0.21.1"
+  }
+}
