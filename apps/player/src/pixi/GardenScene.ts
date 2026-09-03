@@ -127,7 +127,7 @@ export class GardenScene {
     this.hills.position.set(0, 0);
 
     const plot = isoGround(4 + GARDEN_SHIFT, 2.5 + GARDEN_SHIFT);
-    this.mapScale = Math.max(0.58, Math.min(0.84, w / 1320, h / 800));
+    this.mapScale = Math.max(0.52, Math.min(0.74, w / 1400, h / 860));
     this.origin = { x: w * 0.5 - plot.x * this.mapScale, y: h * 0.36 - plot.y * this.mapScale };
     this.world.position.set(this.origin.x, this.origin.y);
     this.world.scale.set(this.mapScale);

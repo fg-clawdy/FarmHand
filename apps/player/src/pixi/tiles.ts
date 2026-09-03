@@ -88,7 +88,7 @@ export function createFarmMap(tileset: Texture, width = FARM_MAP.width, height =
 }
 
 /** Inclusive tile rect covering the six playable garden slots. */
-export const GARDEN_SHIFT = 8;
+export const GARDEN_SHIFT = 10;
 export const GARDEN_PLOT_RECT: PlotRect = {
   c0: 3 + GARDEN_SHIFT,
   r0: 2 + GARDEN_SHIFT,
@@ -96,7 +96,7 @@ export const GARDEN_PLOT_RECT: PlotRect = {
   r1: 3 + GARDEN_SHIFT,
 };
 export const GARDEN_FENCE: PlotRect = { c0: 2 + GARDEN_SHIFT, r0: 1 + GARDEN_SHIFT, c1: 6 + GARDEN_SHIFT, r1: 4 + GARDEN_SHIFT };
-export const GARDEN_MAP = { width: 28, height: 22 };
+export const GARDEN_MAP = { width: 36, height: 28 };
 export const GARDEN_PROPS: Array<{ frame: string; col: number; row: number; scale?: number }> = [
   { frame: "prop_bales_stacked", col: 1 + GARDEN_SHIFT, row: 6 + GARDEN_SHIFT, scale: 0.72 },
   { frame: "prop_bush", col: 8 + GARDEN_SHIFT, row: 6 + GARDEN_SHIFT, scale: 0.75 },
