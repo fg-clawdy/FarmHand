@@ -1,16 +1,16 @@
-/** Isometric cartoon bible, locked to Kenney Miniature Farm (30°×45°, CC0). */
+/** Glossy casual isometric bible (original FarmVille-like set). Lighting from upper-right. */
 
 export const BIBLE = {
   outline: "#3d2a16",
-  sky: "#7ec8f0",
-  skyDeep: "#4ea6d8",
-  grass: "#6dcc52",
-  grassDark: "#3f8a32",
+  sky: "#5eb4f0",
+  skyDeep: "#3d8fd4",
+  grass: "#76c442",
+  grassDark: "#2d5a27",
   soil: "#8a5634",
   soilDark: "#4a2a16",
   wood: "#c9892a",
   woodDark: "#6b3f12",
-  sun: "#ffe56a",
+  sun: "#ffd700",
 };
 
 export function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {

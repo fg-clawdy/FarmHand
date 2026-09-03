@@ -16,7 +16,7 @@ export class GardenScene {
   readonly root = new Container();
   private world = new Container();
   private plotsLayer = new Container();
-  private sky = new Graphics();
+  private hills: Sprite;
   private fx: FxLayer;
   private animals: AmbientAnimal[] = [];
   private slots: PlotNode[] = [];
@@ -45,12 +45,14 @@ export class GardenScene {
       spr.anchor.set(0.5, 0.9);
       const p = isoGround(prop.col, prop.row);
       spr.position.set(p.x, p.y);
+      spr.scale.set(prop.scale ?? 0.7);
       spr.zIndex = isoDepth(prop.col, prop.row) + 4;
       this.world.addChild(spr);
     }
     this.world.addChild(this.plotsLayer, this.fx.root);
     this.world.sortableChildren = true;
-    this.root.addChild(this.sky, this.world);
+    this.hills = new Sprite(atlas.frame("backdrop_hills"));
+    this.root.addChild(this.hills, this.world);
     this.app.stage.removeChildren();
     this.app.stage.addChild(this.root);
 
@@ -64,7 +66,7 @@ export class GardenScene {
       [
         ["chicken", 1 + GARDEN_SHIFT, 6 + GARDEN_SHIFT],
         ["pig", 7 + GARDEN_SHIFT, 6 + GARDEN_SHIFT],
-        ["duck", 10 + GARDEN_SHIFT, 5 + GARDEN_SHIFT],
+        ["sheep", 10 + GARDEN_SHIFT, 5 + GARDEN_SHIFT],
         ["cow", 2 + GARDEN_SHIFT, 8 + GARDEN_SHIFT],
         ["horse", 9 + GARDEN_SHIFT, 8 + GARDEN_SHIFT],
       ] as const
@@ -120,11 +122,9 @@ export class GardenScene {
   private layout() {
     const w = this.app.screen.width;
     const h = this.app.screen.height;
-    this.sky.clear();
-    this.sky.rect(0, 0, w, h);
-    this.sky.fill({ color: 0x7ec8f0 });
-    this.sky.ellipse(w * 0.86, h * 0.08, 32, 32);
-    this.sky.fill({ color: 0xffe56a });
+    this.hills.width = w;
+    this.hills.height = h;
+    this.hills.position.set(0, 0);
 
     const plot = isoGround(4 + GARDEN_SHIFT, 2.5 + GARDEN_SHIFT);
     this.mapScale = Math.max(0.58, Math.min(0.84, w / 1320, h / 800));

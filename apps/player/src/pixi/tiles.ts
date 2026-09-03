@@ -21,9 +21,9 @@ function isoTileset() {
     image: "iso",
     tilewidth: TILE_W,
     tileheight: 256,
-    tilecount: 8,
-    columns: 4,
-    imagewidth: 512,
+    tilecount: 4,
+    columns: 2,
+    imagewidth: 256,
     imageheight: 512,
   };
 }
@@ -33,7 +33,7 @@ function inRect(x: number, y: number, rect: PlotRect) {
 }
 
 /**
- * Homestead cluster sits in the middle of a large Kenney diamond so grass/dirt
+ * Homestead cluster sits in the middle of a large generated grass diamond so
  * tiles reach the viewport edges. Relative barn/store/plot spacing is unchanged.
  */
 export const FARM_SHIFT = 14;
@@ -45,23 +45,22 @@ export const FARM_BARN = { col: 1 + FARM_SHIFT, row: 6 + FARM_SHIFT };
 export const FARM_STORE = { col: 8 + FARM_SHIFT, row: 1 + FARM_SHIFT };
 export const FARM_MAP = { width: 40, height: 40 };
 
-/** Extra Kenney props sitting on the iso ground (not a filled fence wall). */
+/** Painted props sitting on the iso ground (not a filled fence wall). */
 export const FARM_PROPS: Array<{ frame: string; col: number; row: number; scale?: number }> = [
-  { frame: "prop_bales", col: 3 + FARM_SHIFT, row: 8 + FARM_SHIFT },
-  { frame: "prop_bales_stacked", col: 2 + FARM_SHIFT, row: 9 + FARM_SHIFT },
-  { frame: "prop_bales", col: 5 + FARM_SHIFT, row: 10 + FARM_SHIFT },
-  { frame: "prop_crate", col: 10 + FARM_SHIFT, row: 5 + FARM_SHIFT },
-  { frame: "prop_crate", col: 9 + FARM_SHIFT, row: 7 + FARM_SHIFT },
-  { frame: "prop_sack", col: 2 + FARM_SHIFT, row: 4 + FARM_SHIFT },
-  { frame: "prop_sack", col: 11 + FARM_SHIFT, row: 3 + FARM_SHIFT },
-  { frame: "prop_sack", col: 7 + FARM_SHIFT, row: 9 + FARM_SHIFT },
-  { frame: "prop_hay", col: 6 + FARM_SHIFT, row: 8 + FARM_SHIFT },
-  { frame: "prop_bales", col: 14 + FARM_SHIFT, row: 7 + FARM_SHIFT },
-  { frame: "prop_crate", col: 13 + FARM_SHIFT, row: 11 + FARM_SHIFT },
-  { frame: "prop_sack", col: 16 + FARM_SHIFT, row: 9 + FARM_SHIFT },
-  { frame: "prop_bales_stacked", col: 12 + FARM_SHIFT, row: 14 + FARM_SHIFT },
-  { frame: "prop_ladder", col: 1 + FARM_SHIFT, row: 5 + FARM_SHIFT },
-  { frame: "prop_planks", col: 4 + FARM_SHIFT, row: 12 + FARM_SHIFT },
+  { frame: "prop_bales_stacked", col: 3 + FARM_SHIFT, row: 8 + FARM_SHIFT, scale: 0.72 },
+  { frame: "prop_hay", col: 2 + FARM_SHIFT, row: 9 + FARM_SHIFT, scale: 0.7 },
+  { frame: "prop_barrel", col: 5 + FARM_SHIFT, row: 10 + FARM_SHIFT, scale: 0.68 },
+  { frame: "prop_crate", col: 10 + FARM_SHIFT, row: 5 + FARM_SHIFT, scale: 0.7 },
+  { frame: "prop_crate", col: 9 + FARM_SHIFT, row: 7 + FARM_SHIFT, scale: 0.7 },
+  { frame: "prop_sack", col: 2 + FARM_SHIFT, row: 4 + FARM_SHIFT, scale: 0.68 },
+  { frame: "prop_bush", col: 11 + FARM_SHIFT, row: 3 + FARM_SHIFT, scale: 0.75 },
+  { frame: "prop_sack", col: 7 + FARM_SHIFT, row: 9 + FARM_SHIFT, scale: 0.68 },
+  { frame: "prop_hay", col: 6 + FARM_SHIFT, row: 8 + FARM_SHIFT, scale: 0.7 },
+  { frame: "prop_bales_stacked", col: 14 + FARM_SHIFT, row: 7 + FARM_SHIFT, scale: 0.72 },
+  { frame: "prop_crate", col: 13 + FARM_SHIFT, row: 11 + FARM_SHIFT, scale: 0.7 },
+  { frame: "prop_barrel", col: 16 + FARM_SHIFT, row: 9 + FARM_SHIFT, scale: 0.68 },
+  { frame: "prop_bush", col: 12 + FARM_SHIFT, row: 14 + FARM_SHIFT, scale: 0.75 },
+  { frame: "prop_ladder", col: 1 + FARM_SHIFT, row: 5 + FARM_SHIFT, scale: 0.7 },
 ];
 
 export function createFarmMap(tileset: Texture, width = FARM_MAP.width, height = FARM_MAP.height): TiledMap {
@@ -77,40 +76,10 @@ export function createFarmMap(tileset: Texture, width = FARM_MAP.width, height =
         name: "ground",
         tiles: fill(width, height, (x, y) => {
           if (inRect(x, y, FARM_PLOTS)) return TILE_ID.farmland;
-          // hay_N is a prop, not a ground cover — using it here punched sky holes ("blue water").
-          if ((y === 8 + FARM_SHIFT || y === 15 + FARM_SHIFT) && x > 2 && x < width - 3) return TILE_ID.dirt;
-          if (x === 17 + FARM_SHIFT && y > 4 && y < height - 3) return TILE_ID.dirt;
+          if ((y === 8 + FARM_SHIFT || y === 15 + FARM_SHIFT) && x > 2 && x < width - 3) return TILE_ID.path;
+          if (x === 17 + FARM_SHIFT && y > 4 && y < height - 3) return TILE_ID.path;
           if ((x + 3 * y) % 8 === 0) return TILE_ID.dirt;
           return TILE_ID.grass;
-        }),
-      },
-      {
-        name: "detail",
-        tiles: fill(width, height, (x, y) => {
-          if (
-            (x === 3 + FARM_SHIFT && y === 8 + FARM_SHIFT) ||
-            (x === 5 + FARM_SHIFT && y === 11 + FARM_SHIFT) ||
-            (x === 14 + FARM_SHIFT && y === 8 + FARM_SHIFT) ||
-            (x === 18 + FARM_SHIFT && y === 16 + FARM_SHIFT)
-          ) {
-            return TILE_ID.hayBales;
-          }
-          if (
-            (x === 10 + FARM_SHIFT && y === 6 + FARM_SHIFT) ||
-            (x === 13 + FARM_SHIFT && y === 12 + FARM_SHIFT) ||
-            (x === 19 + FARM_SHIFT && y === 7 + FARM_SHIFT)
-          ) {
-            return TILE_ID.crate;
-          }
-          if (
-            (x === 2 + FARM_SHIFT && y === 3 + FARM_SHIFT) ||
-            (x === 11 + FARM_SHIFT && y === 4 + FARM_SHIFT) ||
-            (x === 16 + FARM_SHIFT && y === 10 + FARM_SHIFT) ||
-            (x === 8 + FARM_SHIFT && y === 17 + FARM_SHIFT)
-          ) {
-            return TILE_ID.sack;
-          }
-          return null;
         }),
       },
     ],
@@ -128,12 +97,12 @@ export const GARDEN_PLOT_RECT: PlotRect = {
 };
 export const GARDEN_FENCE: PlotRect = { c0: 2 + GARDEN_SHIFT, r0: 1 + GARDEN_SHIFT, c1: 6 + GARDEN_SHIFT, r1: 4 + GARDEN_SHIFT };
 export const GARDEN_MAP = { width: 28, height: 22 };
-export const GARDEN_PROPS: Array<{ frame: string; col: number; row: number }> = [
-  { frame: "prop_bales", col: 1 + GARDEN_SHIFT, row: 6 + GARDEN_SHIFT },
-  { frame: "prop_bales_stacked", col: 8 + GARDEN_SHIFT, row: 6 + GARDEN_SHIFT },
-  { frame: "prop_sack", col: 9 + GARDEN_SHIFT, row: 3 + GARDEN_SHIFT },
-  { frame: "prop_crate", col: 10 + GARDEN_SHIFT, row: 7 + GARDEN_SHIFT },
-  { frame: "prop_hay", col: 4 + GARDEN_SHIFT, row: 7 + GARDEN_SHIFT },
+export const GARDEN_PROPS: Array<{ frame: string; col: number; row: number; scale?: number }> = [
+  { frame: "prop_bales_stacked", col: 1 + GARDEN_SHIFT, row: 6 + GARDEN_SHIFT, scale: 0.72 },
+  { frame: "prop_bush", col: 8 + GARDEN_SHIFT, row: 6 + GARDEN_SHIFT, scale: 0.75 },
+  { frame: "prop_sack", col: 9 + GARDEN_SHIFT, row: 3 + GARDEN_SHIFT, scale: 0.68 },
+  { frame: "prop_crate", col: 10 + GARDEN_SHIFT, row: 7 + GARDEN_SHIFT, scale: 0.7 },
+  { frame: "prop_hay", col: 4 + GARDEN_SHIFT, row: 7 + GARDEN_SHIFT, scale: 0.7 },
 ];
 
 export function createGardenMap(tileset: Texture, width = GARDEN_MAP.width, height = GARDEN_MAP.height): TiledMap {
@@ -149,18 +118,9 @@ export function createGardenMap(tileset: Texture, width = GARDEN_MAP.width, heig
         name: "ground",
         tiles: fill(width, height, (x, y) => {
           if (inRect(x, y, GARDEN_PLOT_RECT)) return TILE_ID.farmland;
-          if ((y === 6 + GARDEN_SHIFT || y === 9 + GARDEN_SHIFT) && x > 1 && x < width - 2) return TILE_ID.dirt;
+          if ((y === 6 + GARDEN_SHIFT || y === 9 + GARDEN_SHIFT) && x > 1 && x < width - 2) return TILE_ID.path;
           if ((x + 3 * y) % 7 === 0) return TILE_ID.dirt;
           return TILE_ID.grass;
-        }),
-      },
-      {
-        name: "detail",
-        tiles: fill(width, height, (x, y) => {
-          if (x === 1 + GARDEN_SHIFT && y === 7 + GARDEN_SHIFT) return TILE_ID.hayBales;
-          if (x === 12 + GARDEN_SHIFT && y === 5 + GARDEN_SHIFT) return TILE_ID.crate;
-          if (x === 8 + GARDEN_SHIFT && y === 8 + GARDEN_SHIFT) return TILE_ID.sack;
-          return null;
         }),
       },
     ],

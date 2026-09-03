@@ -25,10 +25,10 @@ export class FarmScene {
   private mid = new Container();
   private near = new Container();
   private cards = new Container();
-  private sky = new Graphics();
+  private hills: Sprite;
   private fx: FxLayer;
   private animals: AmbientAnimal[] = [];
-  private rays: Graphics;
+  private signs: Array<{ root: Container; label: Text }> = [];
   private pointer = { x: 0.5, y: 0.5 };
   private cardNodes: CardNode[] = [];
   private store!: Sprite;
@@ -52,10 +52,7 @@ export class FarmScene {
     this.onPlayer = handlers.onPlayer;
     this.onStore = handlers.onStore;
     this.fx = new FxLayer(atlas);
-    this.rays = new Graphics();
-    this.rays.alpha = 0.32;
-
-    this.far.addChild(this.rays);
+    this.hills = new Sprite(atlas.frame("backdrop_hills"));
 
     this.map = createFarmMap(tileset);
     this.mid.addChild(this.map);
@@ -97,11 +94,32 @@ export class FarmScene {
     this.near.addChild(this.store);
 
     this.world.addChild(this.far, this.mid, this.near, this.cards, this.fx.root);
-    this.root.addChild(this.sky, this.world);
+    this.root.addChild(this.hills, this.world);
+
+    for (let i = 0; i < 3; i++) {
+      const root = new Container();
+      const spr = new Sprite(atlas.frame("prop_sign"));
+      spr.anchor.set(0.5, 0.92);
+      spr.scale.set(0.42);
+      const label = new Text({
+        text: "",
+        style: {
+          fontFamily: "Fredoka, sans-serif",
+          fontSize: 14,
+          fill: 0x5c3218,
+          fontWeight: "700",
+        },
+      });
+      label.anchor.set(0.5, 0.5);
+      label.position.set(0, -40);
+      root.addChild(spr, label);
+      this.mid.addChild(root);
+      this.signs.push({ root, label });
+    }
     this.app.stage.removeChildren();
     this.app.stage.addChild(this.root);
 
-    // Keep Kenney stills in the framed homestead (barn / plots / store), not under the cards.
+    // Keep yard animals in the framed homestead (barn / plots / store), not under the cards.
     const paddock = { c0: 1 + FARM_SHIFT, r0: 4 + FARM_SHIFT, c1: 11 + FARM_SHIFT, r1: 8 + FARM_SHIFT };
     const starts: Array<[number, number]> = [
       [2 + FARM_SHIFT, 5 + FARM_SHIFT],
@@ -144,35 +162,28 @@ export class FarmScene {
       this.cards.addChild(node.root);
       this.cardNodes.push(node);
     }
-    players.forEach((player, i) => this.cardNodes[i]?.sync(player, ACCENTS[i % ACCENTS.length]));
+    players.forEach((player, i) => {
+      this.cardNodes[i]?.sync(player, ACCENTS[i % ACCENTS.length]);
+      const sign = this.signs[i];
+      if (sign) sign.label.text = `${player.name}'s Garden`;
+    });
     this.layout();
   }
 
   private layout() {
     const w = this.app.screen.width;
     const h = this.app.screen.height;
-    this.sky.clear();
-    this.sky.rect(0, 0, w, h);
-    this.sky.fill({ color: 0x7ec8f0 });
-    this.sky.ellipse(w * 0.88, h * 0.08, 36, 36);
-    this.sky.fill({ color: 0xffe56a });
-
-    this.rays.clear();
-    this.rays.position.set(w * 0.88, h * 0.08);
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      this.rays.moveTo(0, 0);
-      this.rays.lineTo(Math.cos(a) * 90, Math.sin(a) * 90);
-    }
-    this.rays.stroke({ width: 8, color: 0xffe56a, alpha: 0.14 });
+    this.hills.width = w;
+    this.hills.height = h;
+    this.hills.position.set(0, 0);
 
     const barnP = isoGround(FARM_BARN.col, FARM_BARN.row);
     const storeP = isoGround(FARM_STORE.col, FARM_STORE.row);
     const plotP = isoGround((FARM_PLOTS.c0 + FARM_PLOTS.c1) / 2, (FARM_PLOTS.r0 + FARM_PLOTS.r1) / 2);
     const cx = (barnP.x + storeP.x + plotP.x) / 3;
     const cy = (barnP.y + storeP.y + plotP.y) / 3;
-    const barnHalf = 90;
-    const storeHalf = 100;
+    const barnHalf = 150;
+    const storeHalf = 150;
     const margin = 56;
     const spread = storeP.x + storeHalf - (barnP.x - barnHalf);
     let scale = Math.max(0.58, Math.min(0.82, w / 1680, h / 980, (w - margin * 2) / Math.max(1, spread)));
@@ -188,12 +199,20 @@ export class FarmScene {
     this.near.position.set(this.origin.x, this.origin.y);
 
     this.barn.position.set(barnP.x, barnP.y);
-    this.barn.scale.set(1.05);
+    this.barn.scale.set(0.62);
     this.barn.zIndex = FARM_BARN.col + FARM_BARN.row + 8;
 
     this.store.position.set(storeP.x, storeP.y);
-    this.store.scale.set(1.0);
+    this.store.scale.set(0.58);
     this.store.zIndex = FARM_STORE.col + FARM_STORE.row + 8;
+
+    this.signs.forEach((sign, i) => {
+      const col = FARM_PLOTS.c0 + i;
+      const row = FARM_FENCE.r1 + 1;
+      const p = isoGround(col, row);
+      sign.root.position.set(p.x, p.y);
+      sign.root.zIndex = isoDepth(col, row) + 6;
+    });
 
     this.animals.forEach((a) => a.setOrigin(0, 0));
 
@@ -219,7 +238,8 @@ export class FarmScene {
     this.near.x = this.origin.x + nx * -30;
     this.near.y = this.origin.y + ny * -16;
     this.cards.y = Math.sin(this.t * 0.7) * 3;
-    this.rays.rotation += dt * 0.08;
+    this.hills.x = nx * -8;
+    this.hills.y = ny * -4;
     this.animals.forEach((a) => a.update(dt));
     this.cardNodes.forEach((c) => c.breathe(this.t));
     this.fx.update(dt);
