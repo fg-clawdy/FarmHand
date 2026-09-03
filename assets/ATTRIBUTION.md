@@ -10,7 +10,7 @@ Camera: classic farm-tycoon isometric (diamond tiles). Lighting: sun upper-right
 
 | Asset | Source | License | Where |
 | --- | --- | --- | --- |
-| Terrain (grass, dirt, tilled farmland, cobble path) | Original generated iso tiles | original | `/art/generated/tiles/`, packed into a `pixi-tiledmap` iso ground (farm 40×40, garden 28×22) with the homestead in the diamond center |
+| Terrain (grass, dirt, tilled farmland, cobble path) | Original generated iso tiles | original | `/art/generated/tiles/`, packed into a `pixi-tiledmap` iso ground (farm 40×40, garden 36×28) with the homestead in the diamond center |
 | White picket fence (one paddock ring) | Original generated SW/SE pieces | original | `/art/generated/fence/` |
 | Barn + general store | Original generated building sprites | original | `/art/generated/buildings/` |
 | Crop stages seed → sprout → grown → mature (+ harvest glow) for daisy / herbs / sunflower / oak | Original generated sheet, sliced into atlas frames | original | `/art/generated/crops/` — wired to server `growthStage` 1–4 / READY |
