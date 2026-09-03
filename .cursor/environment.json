@@ -1,0 +1,20 @@
+{
+  "name": "FarmHand",
+  "install": "bash scripts/cloud-agent-install.sh",
+  "start": "bash scripts/cloud-agent-start.sh",
+  "terminals": [
+    {
+      "name": "api",
+      "command": "DATABASE_URL=postgres://farmhand:farmhand@localhost:5432/farmhand ADMIN_BOOTSTRAP_USER=admin ADMIN_BOOTSTRAP_PASSWORD=farmhand-dev COOKIE_SECURE=false npm run dev:api"
+    },
+    {
+      "name": "player",
+      "command": "npm run dev:player"
+    },
+    {
+      "name": "admin",
+      "command": "npm run dev:admin"
+    }
+  ],
+  "ports": [3000, 5173, 5174]
+}
