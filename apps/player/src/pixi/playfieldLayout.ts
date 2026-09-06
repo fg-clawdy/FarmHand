@@ -25,17 +25,17 @@ export const PLAYFIELD_TEXTURE = { width: 1536, height: 1024 } as const;
 export const PLAYFIELD_LAYOUT = {
   /** Mouth of the tractor’s vertical exhaust stack (texture px 419, 258). */
   exhaustTip: { u: 0.273, v: 0.252 } satisfies Uv,
-  /** Clear grass left of the baked mama cow, below the tractor, above the fences. */
-  cowStart: { u: 0.36, v: 0.372 } satisfies Uv,
+  /** Grass right of mama cow, left of the stand, above the garden fences. */
+  cowStart: { u: 0.58, v: 0.36 } satisfies Uv,
   /** Barn-side meadow — stays above the garden fence line; props are holes. */
-  cowRoam: { u0: 0.06, v0: 0.12, u1: 0.58, v1: 0.4 } satisfies UvRect,
+  cowRoam: { u0: 0.08, v0: 0.16, u1: 0.64, v1: 0.4 } satisfies UvRect,
   storeHit: { u0: 0.68, v0: 0.02, u1: 0.97, v1: 0.36 } satisfies UvRect,
   /** Solid footprints the roaming cow must weave around (plus garden hits). */
   blockers: {
     barn: { u0: 0.02, v0: 0.0, u1: 0.24, v1: 0.22 } satisfies UvRect,
     hay: { u0: 0.0, v0: 0.08, u1: 0.12, v1: 0.24 } satisfies UvRect,
-    tractor: { u0: 0.18, v0: 0.14, u1: 0.33, v1: 0.34 } satisfies UvRect,
-    mamaCow: { u0: 0.38, v0: 0.18, u1: 0.52, v1: 0.33 } satisfies UvRect,
+    tractor: { u0: 0.18, v0: 0.14, u1: 0.32, v1: 0.33 } satisfies UvRect,
+    mamaCow: { u0: 0.4, v0: 0.18, u1: 0.5, v1: 0.32 } satisfies UvRect,
     stand: { u0: 0.66, v0: 0.0, u1: 0.98, v1: 0.38 } satisfies UvRect,
   },
   gardens: [
@@ -96,7 +96,10 @@ export function padUvRect(rect: UvRect, pad: number): UvRect {
 }
 
 /** Extra padding so the cow’s body (pivot at feet) does not clip a prop. */
-const BLOCKER_PAD = 0.02;
+const BLOCKER_PAD = 0.018;
+
+/** On-field calf size in playfield pixels. Collision uses this, not just the hooves. */
+export const COW_ON_FIELD = { height: 88, halfW: 70, below: 6 } as const;
 
 export function cowForbiddenUv(
   layout: typeof PLAYFIELD_LAYOUT = PLAYFIELD_LAYOUT,
@@ -114,6 +117,24 @@ export function cowForbiddenUv(
 
 export function cowForbiddenRects(texW: number, texH: number): PixelRect[] {
   return cowForbiddenUv().map((rect) => uvRectToLocal(rect, texW, texH));
+}
+
+export function cowBodyRect(x: number, y: number): PixelRect {
+  return {
+    x0: x - COW_ON_FIELD.halfW,
+    y0: y - COW_ON_FIELD.height,
+    x1: x + COW_ON_FIELD.halfW,
+    y1: y + COW_ON_FIELD.below,
+  };
+}
+
+export function pixelRectsOverlap(a: PixelRect, b: PixelRect) {
+  return a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+}
+
+export function cowBodyHitsForbidden(x: number, y: number, forbidden: readonly PixelRect[]) {
+  const body = cowBodyRect(x, y);
+  return forbidden.some((rect) => pixelRectsOverlap(body, rect));
 }
 
 export function segmentsIntersect(
@@ -150,7 +171,12 @@ export function pathHitsForbidden(
   y1: number,
   forbidden: readonly PixelRect[],
 ) {
-  return forbidden.some((rect) => segmentHitsRect(x0, y0, x1, y1, rect));
+  if (cowBodyHitsForbidden(x1, y1, forbidden)) return true;
+  if (forbidden.some((rect) => segmentHitsRect(x0, y0, x1, y1, rect))) return true;
+  for (let t = 0.25; t < 1; t += 0.25) {
+    if (cowBodyHitsForbidden(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, forbidden)) return true;
+  }
+  return false;
 }
 
 export function cowRoamAvoidsGardens(
@@ -187,14 +213,14 @@ export function pickRoamTarget(
   for (let i = 0; i < 28; i++) {
     const x = roam.x0 + rand() * (roam.x1 - roam.x0);
     const y = roam.y0 + rand() * (roam.y1 - roam.y0);
-    if (forbidden.some((rect) => pointInRect(x, y, rect))) continue;
+    if (cowBodyHitsForbidden(x, y, forbidden)) continue;
     if (from && pathHitsForbidden(from.x, from.y, x, y, forbidden)) continue;
     return { x, y };
   }
   for (let i = 0; i < 28; i++) {
     const x = roam.x0 + rand() * (roam.x1 - roam.x0);
     const y = roam.y0 + rand() * (roam.y1 - roam.y0);
-    if (!forbidden.some((rect) => pointInRect(x, y, rect))) return { x, y };
+    if (!cowBodyHitsForbidden(x, y, forbidden)) return { x, y };
   }
   return { x: roam.x0 + 12, y: roam.y1 - 12 };
 }

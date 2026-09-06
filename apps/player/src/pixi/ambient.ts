@@ -1,8 +1,12 @@
 import { AnimatedSprite, Container, type Texture } from "pixi.js";
-import { facingFromDx, pathHitsForbidden, pickRoamTarget, pointInRect, type PixelRect } from "./playfieldLayout";
-
-/** On-field height in playfield pixels so large walk textures stay calf-sized. */
-const COW_TARGET_HEIGHT = 110;
+import {
+  COW_ON_FIELD,
+  facingFromDx,
+  pathHitsForbidden,
+  pickRoamTarget,
+  pointInRect,
+  type PixelRect,
+} from "./playfieldLayout";
 
 export class ExhaustPuff {
   readonly root = new Container();
@@ -154,6 +158,6 @@ function clamp(n: number, lo: number, hi: number) {
 
 function cowFitScale(walk: Texture[], eat: Texture[]) {
   const heights = [...walk, ...eat].map((tex) => tex.height).filter((h) => h > 0);
-  const h = heights.length ? Math.max(...heights) : COW_TARGET_HEIGHT;
-  return COW_TARGET_HEIGHT / h;
+  const h = heights.length ? Math.max(...heights) : COW_ON_FIELD.height;
+  return COW_ON_FIELD.height / h;
 }

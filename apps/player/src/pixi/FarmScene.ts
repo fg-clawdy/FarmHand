@@ -233,9 +233,9 @@ class GardenHotspot {
     this.hit.rect(rect.x0, rect.y0, rect.x1 - rect.x0, rect.y1 - rect.y0);
     this.hit.fill({ color: 0xffffff, alpha: 0.001 });
     this.plaque.position.set(sign.x, sign.y);
-    const nameSize = Math.max(28, (rect.x1 - rect.x0) * 0.11);
+    const nameSize = Math.max(30, (rect.x1 - rect.x0) * 0.12);
     this.nameText.style.fontSize = nameSize;
-    this.statsText.style.fontSize = Math.max(16, nameSize * 0.48);
+    this.statsText.style.fontSize = Math.max(18, nameSize * 0.52);
     this.nameText.position.set(0, -2);
     this.statsText.position.set(0, 2);
     const soil = uvRectToLocal(this.spec.soil, texW, texH);
