@@ -12,7 +12,7 @@
     "dev:player": "npm run dev -w @farmhand/player",
     "dev:admin": "npm run dev -w @farmhand/admin",
     "build": "npm run build -w @farmhand/shared && npm run build -w @farmhand/api && npm run build -w @farmhand/player && npm run build -w @farmhand/admin",
-    "test": "npm run test -w @farmhand/shared && npm run test -w @farmhand/api",
+    "test": "npm run test -w @farmhand/shared && npm run test -w @farmhand/api && npm run test -w @farmhand/player",
     "postinstall": "npm run prisma:generate -w @farmhand/api"
   },
   "engines": {

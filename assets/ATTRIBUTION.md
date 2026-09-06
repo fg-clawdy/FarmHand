@@ -1,29 +1,31 @@
 # FarmHand art attribution
 
-Player farm/garden scenes are a PixiJS hybrid with a **full-bleed painted homestead**. React still owns PIN, sheets, HUD chrome, and the entire admin app. The attached FarmVille 2 / Hay Day still is **craft and camera only** (ground to every edge, barn left, crop rows in the foreground). Original art — not copied from Zynga or Supercell.
+Player farm/garden scenes are a PixiJS hybrid. The **farm dashboard** uses a ¾ painted cartoon playfield with ambient dressing; React still owns PIN, sheets, HUD chrome, and the entire admin app. Garden close-up still uses the generated full-bleed ground. Original art — not copied from Zynga or Supercell.
 
 ## Art bible
 
-Camera: 3/4 isometric look, but the **visible world is not a tile diamond**. A painted grass/dirt ground plane cover-fits the tablet canvas so ground fills 100% of the viewport. Lighting: sun upper-right, contact shadows lower-left. Style: glossy casual farm sim (FarmVille / Hay Day craft). Palette: lush grass greens, barn red, warm wood, honey hay. No blue sky wash around a floating plot.
+Farm camera: ¾ painted landscape (barn left, market stall right, three fenced gardens mid-field). The painting cover-fits the tablet canvas. Lighting is soft and sunny. Palette: lush grass greens, barn red, warm wood, cream sign boards. Child names are **never baked into the art** — Pixi text sits on the blank wooden signs.
 
 ## Used on-screen
 
 | Asset | Source | License | Where |
 | --- | --- | --- | --- |
-| Full-bleed farm / garden ground (grass, dirt path, tilled rows to every edge) | Original generated paintings | original | `/art/generated/ground/farm.jpg`, `/art/generated/ground/garden.jpg` — loaded as standalone textures and cover-fit to the canvas. A grass Graphics fill (`#3d8a32`) sits underneath as a failsafe. |
-| Barn + general store | Original generated building sprites | original | `/art/generated/buildings/` |
-| Vintage truck, stone well, post-and-rail fence | Original generated props | original | `/art/generated/props/truck.png`, `well.png`, `rail.png` |
-| Hay, crates, sacks, barrels, bushes | Original generated props | original | `/art/generated/props/` |
-| Crop stages seed → sprout → grown → mature for daisy / herbs / sunflower / oak | Original generated sheet | original | `/art/generated/crops/` — wired to server `growthStage` 1–4 / READY. Ready crops get golden harvest sparkles. |
-| Ambient animals (cow, chicken, pig, sheep, horse) × sit / lay / walk / run / eat | Original generated sheet | original | `/art/generated/animals/` — wander in screen space on the painted yard |
-| HUD chips, watering can, fertilizer bottle, acorn, name sign | Same generated prop set | original | Slim edge HUD + React resource chrome |
+| Painted farm playfield (barn, tractor, stall, three gardens with **blank** signs) | Original painted cartoon | original | `/art/painted/farmhand_painted_playfield_v2_blank_signs.jpg` — cover-fit. A grass Graphics fill (`#3d8a32`) sits underneath. |
+| Tractor exhaust smoke (6-frame puff) | Original painted sheet | original | `/art/painted/tractor_exhaust_smoke_sheet.png` — looped at UV `(0.280, 0.318)` (exhaust pipe tip). |
+| Cow walk (4) + eat/graze (3) | Original painted sheet | original | `/art/painted/cow_walk_eat_sheet.png` — roam/eat state machine in the paddock above the gardens. A static cow remains in the painting; the sprite covers it when nearby. |
+| Live garden names | Pixi `Text` from `/api/farm` `player.name` | — | Centered on each blank sign. Admin **Edit → Name** updates the same field; the farm polls every 8s. |
+| Garden close-up ground | Original generated painting | original | `/art/generated/ground/garden.jpg` |
+| Crop stages + harvest sparkles | Original generated sheet | original | `/art/generated/crops/` + sparkles on ready farm gardens |
+| HUD chips, watering can, fertilizer bottle | Same generated prop set | original | Slim edge HUD + React resource chrome |
 
-The iso `pixi-tiledmap` diamond and the rolling-hills / sky backdrop are **not drawn**. Kid gardens are 2×3 plot clusters sitting in the painted world; compact name chips stay at the bottom edge.
+The iso `pixi-tiledmap` diamond and the rolling-hills / sky backdrop are **not drawn**. Farm gardens are the three painted plots; compact seed/point chips stay at the bottom edge.
 
 ## Leftover / not on the farm world
 
 | Pack | License | Status |
 | --- | --- | --- |
+| Previous generated farm ground `ground/farm.jpg` + barn/truck/rail props | original | **Unused on the farm dashboard** (replaced by the painted playfield). Garden close-up still uses `ground/garden.jpg`. |
+| Generated ambient animal sheets | original | **Unused on the farm dashboard** (replaced by the painted cow). Still used in the garden close-up. |
 | Generated iso tiles + picket fence pieces | original | **Unused at runtime.** Files remain under `/art/generated/tiles/` and `/art/generated/fence/`. |
 | Rolling hills + sky + smiling sun `backdrop/hills.jpg` | original | **Unused at runtime.** Do not show sky around the farm. |
 | [Kenney Isometric Miniature Farm](https://kenney.nl/assets/isometric-miniature-farm) | CC0 | **Unused at runtime.** Files remain under `/art/vendor/kenney/iso-miniature-farm/`. |

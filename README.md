@@ -58,7 +58,7 @@ Change `ADMIN_BOOTSTRAP_*` in `.env` **before** the first boot if you do not wan
 
 ## How to play
 
-1. Open the farm dashboard. Each kid has a wooden name sign, mascot, live seeds/stars, and a lock if a PIN is set.
+1. Open the farm dashboard. The painted playfield shows three gardens with **live names** on the blank wooden signs (from `/api/farm`; change a name in Admin and it updates on the next poll). Tap a garden, or use the seed/point chips along the bottom.
 2. Tap a garden. Enter the 4-digit PIN. A successful PIN starts a **30-minute server session**; coming back during that window skips the pad.
 3. Plant on an empty plot. Unaffordable tiers are disabled.
 4. Water (free, 4h cooldown, max 3/day) or fertilize while a plant is growing. Countdown and READY state come from the server.
