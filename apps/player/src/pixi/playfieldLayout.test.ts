@@ -34,23 +34,25 @@ test("cover-fit local pixels match the 1536×1024 painting", () => {
   assert.equal(Math.round(tip.y), 258);
 });
 
-test("cow blockers include barn, tractor, hay, mama cow, stand, and gardens", () => {
+test("cow blockers include barn, tractor, hay, stand, and gardens", () => {
   const keys = Object.keys(PLAYFIELD_LAYOUT.blockers);
-  for (const key of ["barn", "hay", "tractor", "mamaCow", "stand"]) {
+  for (const key of ["barn", "hay", "tractor", "stand"]) {
     assert.ok(keys.includes(key), key);
   }
-  assert.equal(cowForbiddenRects(1536, 1024).length, 8);
+  assert.ok(!keys.includes("mamaCow"));
+  assert.equal(cowForbiddenRects(1536, 1024).length, 7);
 });
 
 test("cow roam box never overlaps the three garden plots", () => {
   assert.equal(cowRoamAvoidsGardens(), true);
   const roam = uvRectToLocal(PLAYFIELD_LAYOUT.cowRoam, 1536, 1024);
   const forbidden = cowForbiddenRects(1536, 1024);
-  const target = pickRoamTarget(roam, forbidden, () => 0.5);
-  assert.equal(
-    forbidden.some((rect) => pointInRect(target.x, target.y, rect)),
-    false,
-  );
+  let n = 0;
+  const target = pickRoamTarget(roam, forbidden, () => {
+    n += 0.173;
+    return n % 1;
+  });
+  assert.equal(cowBodyHitsForbidden(target.x, target.y, forbidden), false);
 });
 
 test("cow start sits on clear grass, not inside a blocker", () => {

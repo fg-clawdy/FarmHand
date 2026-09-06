@@ -5,16 +5,17 @@ export const CROP_STAGE_FRAMES = 4;
 /** Equal slice width on every crop sheet (1568 / 4). */
 export const CROP_FRAME_WIDTH = 392;
 
-/** Padded 4-frame eat/graze sheet (equal cells; Pixi insets so frames never share pixels). */
-export const COW_EAT_SHEET = { width: 1896, height: 300, frames: 4 } as const;
-/** Each standalone walk texture is one full cow on this canvas. */
-export const COW_WALK_FRAME = { width: 474, height: 300 } as const;
+/** Padded 4-frame eat/graze PNG with real alpha (equal cells; Pixi insets so frames never share pixels). */
+export const COW_EAT_SHEET = { width: 1704, height: 304, frames: 4 } as const;
+/** Each standalone walk PNG is one full cow on this canvas. */
+export const COW_WALK_FRAME = { width: 426, height: 304 } as const;
 
 export const PAINTED_ART = {
-  playfield: "/art/painted/farmhand_painted_playfield_v2_blank_signs.jpg",
+  playfield: "/art/painted/farmhand_painted_playfield_v3_no_static_cow.jpg",
   smoke: "/art/painted/tractor_exhaust_smoke_sheet.png",
-  /** Two separate textures — never sliced from a combined walk/eat sheet. */
+  /** Two separate PNGs with real alpha — never sliced from a combined walk/eat sheet. */
   cowWalk: ["/art/painted/cow_walk_frame_a.png", "/art/painted/cow_walk_frame_b.png"],
+  /** Must stay PNG so eat frames keep a transparent background. */
   cowEat: "/art/painted/cow_eat_sheet.png",
   crops: {
     corn: "/art/painted/plants/plant_corn_stages.png",

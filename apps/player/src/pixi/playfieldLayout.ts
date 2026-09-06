@@ -1,19 +1,17 @@
 /**
- * UV anchors on `farmhand_painted_playfield_v2_blank_signs.jpg` (1536×1024).
+ * UV anchors on `farmhand_painted_playfield_v3_no_static_cow.jpg` (1536×1024).
  * Values are fractions of the texture (not the screen). Cover-fit the painting
  * and multiply by texture width/height to get local pixels.
  *
- * Measured on the v2 blank-sign painting:
+ * Measured on the v3 painting (no baked Holstein):
  *   exhaust tip  ~ (419, 258)  = UV (0.273, 0.252)  — mouth at the TOP of the
- *     vertical stack (the black pipe on the tractor hood, upper-left cluster).
- *     Not the pipe base on the red body (~430, 326). Smoke puffs rise from here.
+ *     vertical stack (the black pipe on the tractor hood).
  *   left sign    ~ (250, 496)  = UV (0.163, 0.484)
  *   center sign  ~ (760, 492)  = UV (0.495, 0.480)
  *   right sign   ~ (1221, 496) = UV (0.795, 0.484)
  *
- * A static Holstein / mama cow is baked into the grass. The animated calf
- * starts on a clear patch beside her and treats her (plus barn, tractor, hay,
- * market stand, and garden fences) as solid blockers.
+ * Only the animated cow is drawn. Barn, tractor, hay, market stand, and the
+ * three garden fences are solid blockers.
  */
 
 export type Uv = { u: number; v: number };
@@ -25,18 +23,17 @@ export const PLAYFIELD_TEXTURE = { width: 1536, height: 1024 } as const;
 export const PLAYFIELD_LAYOUT = {
   /** Mouth of the tractor’s vertical exhaust stack (texture px 419, 258). */
   exhaustTip: { u: 0.273, v: 0.252 } satisfies Uv,
-  /** Grass right of mama cow, left of the stand, above the garden fences. */
-  cowStart: { u: 0.58, v: 0.36 } satisfies Uv,
-  /** Barn-side meadow — stays above the garden fence line; props are holes. */
-  cowRoam: { u0: 0.08, v0: 0.16, u1: 0.64, v1: 0.4 } satisfies UvRect,
-  storeHit: { u0: 0.68, v0: 0.02, u1: 0.97, v1: 0.36 } satisfies UvRect,
-  /** Solid footprints the roaming cow must weave around (plus garden hits). */
+  /** Open grass right of the tractor, above the garden fences. */
+  cowStart: { u: 0.48, v: 0.38 } satisfies Uv,
+  /** Barn-side corridor — props punch holes; stays above the garden fence line. */
+  cowRoam: { u0: 0.12, v0: 0.22, u1: 0.62, v1: 0.4 } satisfies UvRect,
+  storeHit: { u0: 0.64, v0: 0.02, u1: 0.98, v1: 0.38 } satisfies UvRect,
+  /** Solid footprints — tractor chassis is intentionally large so the calf cannot climb the hood. */
   blockers: {
-    barn: { u0: 0.02, v0: 0.0, u1: 0.24, v1: 0.22 } satisfies UvRect,
-    hay: { u0: 0.0, v0: 0.08, u1: 0.12, v1: 0.24 } satisfies UvRect,
-    tractor: { u0: 0.18, v0: 0.14, u1: 0.32, v1: 0.33 } satisfies UvRect,
-    mamaCow: { u0: 0.4, v0: 0.18, u1: 0.5, v1: 0.32 } satisfies UvRect,
-    stand: { u0: 0.66, v0: 0.0, u1: 0.98, v1: 0.38 } satisfies UvRect,
+    barn: { u0: 0.0, v0: 0.0, u1: 0.26, v1: 0.26 } satisfies UvRect,
+    hay: { u0: 0.0, v0: 0.08, u1: 0.14, v1: 0.28 } satisfies UvRect,
+    tractor: { u0: 0.14, v0: 0.1, u1: 0.4, v1: 0.38 } satisfies UvRect,
+    stand: { u0: 0.64, v0: 0.0, u1: 0.99, v1: 0.4 } satisfies UvRect,
   },
   gardens: [
     {
@@ -109,7 +106,6 @@ export function cowForbiddenUv(
     layout.blockers.barn,
     layout.blockers.hay,
     layout.blockers.tractor,
-    layout.blockers.mamaCow,
     layout.blockers.stand,
     ...layout.gardens.map((garden) => garden.hit),
   ].map((rect) => padUvRect(rect, pad));
@@ -222,5 +218,5 @@ export function pickRoamTarget(
     const y = roam.y0 + rand() * (roam.y1 - roam.y0);
     if (!cowBodyHitsForbidden(x, y, forbidden)) return { x, y };
   }
-  return { x: roam.x0 + 12, y: roam.y1 - 12 };
+  return { x: roam.x1 - 24, y: roam.y1 - 16 };
 }

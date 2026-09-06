@@ -8,6 +8,9 @@ test("walk uses two separate textures, not a combined walk/eat sheet", () => {
   assert.equal(PAINTED_ART.cowWalk[1], "/art/painted/cow_walk_frame_b.png");
   assert.equal(PAINTED_ART.cowEat, "/art/painted/cow_eat_sheet.png");
   assert.ok(!JSON.stringify(PAINTED_ART).includes("cow_walk_eat_sheet"));
+  assert.ok(PAINTED_ART.cowEat.endsWith(".png"));
+  assert.ok(PAINTED_ART.cowWalk.every((url) => url.endsWith(".png")));
+  assert.ok(PAINTED_ART.playfield.includes("v3_no_static_cow"));
 });
 
 test("eat sheet frames are equal, in-bounds, and do not share pixels", () => {
