@@ -4,7 +4,9 @@
  * and multiply by texture width/height to get local pixels.
  *
  * Measured on the v2 blank-sign painting:
- *   exhaust tip  ~ (430, 326)  = UV (0.280, 0.318)  — top of the vertical pipe
+ *   exhaust tip  ~ (419, 258)  = UV (0.273, 0.252)  — mouth at the TOP of the
+ *     vertical stack (the black pipe on the tractor hood, upper-left cluster).
+ *     Not the pipe base on the red body (~430, 326). Smoke puffs rise from here.
  *   left sign    ~ (250, 496)  = UV (0.163, 0.484)
  *   center sign  ~ (760, 492)  = UV (0.495, 0.480)
  *   right sign   ~ (1221, 496) = UV (0.795, 0.484)
@@ -20,7 +22,8 @@ export type PixelRect = { x0: number; y0: number; x1: number; y1: number };
 export const PLAYFIELD_TEXTURE = { width: 1536, height: 1024 } as const;
 
 export const PLAYFIELD_LAYOUT = {
-  exhaustTip: { u: 0.28, v: 0.318 } satisfies Uv,
+  /** Mouth of the tractor’s vertical exhaust stack (texture px 419, 258). */
+  exhaustTip: { u: 0.273, v: 0.252 } satisfies Uv,
   cowStart: { u: 0.4, v: 0.26 } satisfies Uv,
   /** Grass between the barn and the garden signs — stays above the plots. */
   cowRoam: { u0: 0.2, v0: 0.22, u1: 0.6, v1: 0.4 } satisfies UvRect,

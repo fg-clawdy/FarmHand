@@ -15,8 +15,8 @@ import {
 
 test("exhaust and signs are documented in texture UV space", () => {
   const { exhaustTip, gardens } = PLAYFIELD_LAYOUT;
-  assert.ok(exhaustTip.u > 0.2 && exhaustTip.u < 0.35);
-  assert.ok(exhaustTip.v > 0.25 && exhaustTip.v < 0.38);
+  assert.ok(exhaustTip.u > 0.26 && exhaustTip.u < 0.28);
+  assert.ok(exhaustTip.v > 0.24 && exhaustTip.v < 0.27);
   assert.equal(gardens.length, 3);
   assert.deepEqual(
     gardens.map((g) => Number(g.sign.u.toFixed(3))),
@@ -26,8 +26,8 @@ test("exhaust and signs are documented in texture UV space", () => {
 
 test("cover-fit local pixels match the 1536×1024 painting", () => {
   const tip = uvToLocal(PLAYFIELD_LAYOUT.exhaustTip, PLAYFIELD_TEXTURE.width, PLAYFIELD_TEXTURE.height);
-  assert.equal(Math.round(tip.x), 430);
-  assert.equal(Math.round(tip.y), 326);
+  assert.equal(Math.round(tip.x), 419);
+  assert.equal(Math.round(tip.y), 258);
 });
 
 test("cow roam box never overlaps the three garden plots", () => {
