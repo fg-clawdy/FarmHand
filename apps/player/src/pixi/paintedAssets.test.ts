@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { sheetFrameRects, SHEET_INSET } from "./paintedAssets.ts";
+import { COW_EAT_SHEET, PAINTED_ART, sheetFrameRects, SHEET_INSET } from "./paintedAssets.ts";
 
-test("cow sheet frames are equal, in-bounds, and do not share pixels", () => {
-  const sheetW = 1736;
-  const sheetH = 247;
-  const frames = 7;
+test("walk uses two separate textures, not a combined walk/eat sheet", () => {
+  assert.equal(PAINTED_ART.cowWalk.length, 2);
+  assert.equal(PAINTED_ART.cowWalk[0], "/art/painted/cow_walk_frame_a.png");
+  assert.equal(PAINTED_ART.cowWalk[1], "/art/painted/cow_walk_frame_b.png");
+  assert.equal(PAINTED_ART.cowEat, "/art/painted/cow_eat_sheet.png");
+  assert.ok(!JSON.stringify(PAINTED_ART).includes("cow_walk_eat_sheet"));
+});
+
+test("eat sheet frames are equal, in-bounds, and do not share pixels", () => {
+  const { width: sheetW, height: sheetH, frames } = COW_EAT_SHEET;
   const rects = sheetFrameRects(sheetW, sheetH, frames);
   assert.equal(rects.length, frames);
   const cell = Math.floor(sheetW / frames);

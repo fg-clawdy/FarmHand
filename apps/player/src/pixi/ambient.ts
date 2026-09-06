@@ -1,5 +1,8 @@
 import { AnimatedSprite, Container, type Texture } from "pixi.js";
-import { facingFromDx, pickRoamTarget, pointInRect, type PixelRect } from "./playfieldLayout";
+import { facingFromDx, pathHitsForbidden, pickRoamTarget, pointInRect, type PixelRect } from "./playfieldLayout";
+
+/** On-field height in playfield pixels so large walk textures stay calf-sized. */
+const COW_TARGET_HEIGHT = 128;
 
 export class ExhaustPuff {
   readonly root = new Container();
@@ -29,8 +32,8 @@ export class PaintedCow {
   private ty: number;
   private readonly walk: Texture[];
   private readonly eat: Texture[];
-  private readonly scale = 0.5;
-  /** Sheet faces right. -1 flips horizontally for left roam. */
+  private readonly scale: number;
+  /** Art faces right. -1 flips horizontally for left roam. */
   private facing: 1 | -1 = 1;
 
   constructor(
@@ -42,12 +45,13 @@ export class PaintedCow {
   ) {
     this.walk = frames.walk;
     this.eat = frames.eat;
+    this.scale = cowFitScale(frames.walk, frames.eat);
     this.x = x;
     this.y = y;
     this.tx = x;
     this.ty = y;
     this.sprite = new AnimatedSprite(this.walk);
-    // Pivot at the hooves so walk ↔ eat doesn't make the head look detached.
+    // Pivot at the hooves so walk ↔ eat stays planted on the grass.
     this.sprite.anchor.set(0.5, 0.94);
     this.sprite.animationSpeed = 0.1;
     this.sprite.scale.set(this.scale);
@@ -89,11 +93,15 @@ export class PaintedCow {
 
   private enterWalk() {
     this.state = "walk";
-    const target = pickRoamTarget(this.roam, this.forbidden);
+    const target = pickRoamTarget(this.roam, this.forbidden, Math.random, { x: this.x, y: this.y });
+    if (pathHitsForbidden(this.x, this.y, target.x, target.y, this.forbidden)) {
+      this.enterIdle();
+      return;
+    }
     this.tx = target.x;
     this.ty = target.y;
     this.facing = facingFromDx(this.tx - this.x, this.facing);
-    this.play(this.walk, 0.11);
+    this.play(this.walk, 0.18);
     this.timer = 3.2 + Math.random() * 2.4;
   }
 
@@ -120,8 +128,11 @@ export class PaintedCow {
       } else {
         const nx = this.x + (dx / dist) * speed * dt;
         const ny = this.y + (dy / dist) * speed * dt;
-        if (this.forbidden.some((rect) => pointInRect(nx, ny, rect))) {
-          this.enterIdle();
+        if (
+          this.forbidden.some((rect) => pointInRect(nx, ny, rect)) ||
+          pathHitsForbidden(nx, ny, this.tx, this.ty, this.forbidden)
+        ) {
+          this.enterWalk();
         } else {
           this.x = clamp(nx, this.roam.x0, this.roam.x1);
           this.y = clamp(ny, this.roam.y0, this.roam.y1);
@@ -139,4 +150,10 @@ export class PaintedCow {
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.min(hi, Math.max(lo, n));
+}
+
+function cowFitScale(walk: Texture[], eat: Texture[]) {
+  const heights = [...walk, ...eat].map((tex) => tex.height).filter((h) => h > 0);
+  const h = heights.length ? Math.max(...heights) : COW_TARGET_HEIGHT;
+  return COW_TARGET_HEIGHT / h;
 }

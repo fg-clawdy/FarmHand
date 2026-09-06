@@ -5,11 +5,17 @@ export const CROP_STAGE_FRAMES = 4;
 /** Equal slice width on every crop sheet (1568 / 4). */
 export const CROP_FRAME_WIDTH = 392;
 
+/** Padded 4-frame eat/graze sheet (equal cells; Pixi insets so frames never share pixels). */
+export const COW_EAT_SHEET = { width: 1880, height: 296, frames: 4 } as const;
+/** Each standalone walk texture is one full cow on this canvas. */
+export const COW_WALK_FRAME = { width: 470, height: 296 } as const;
+
 export const PAINTED_ART = {
   playfield: "/art/painted/farmhand_painted_playfield_v2_blank_signs.jpg",
   smoke: "/art/painted/tractor_exhaust_smoke_sheet.png",
-  /** Prefer v2 when present; both are 7 equal cells (walk 0–3, eat 4–6). */
-  cow: "/art/painted/cow_walk_eat_sheet_v2.png",
+  /** Two separate textures — never sliced from a combined walk/eat sheet. */
+  cowWalk: ["/art/painted/cow_walk_frame_a.png", "/art/painted/cow_walk_frame_b.png"],
+  cowEat: "/art/painted/cow_eat_sheet.png",
   crops: {
     corn: "/art/painted/plants/plant_corn_stages.png",
     strawberry: "/art/painted/plants/plant_strawberry_stages.png",
@@ -58,13 +64,14 @@ export function cropStageFrame(crops: Record<CropKind, Texture[]>, kind: CropKin
 }
 
 export async function loadPaintedArt(): Promise<PaintedArt> {
-  const [playfield, smoke, cow, ...cropSheets] = await Promise.all([
+  const [playfield, smoke, walkA, walkB, eat, ...cropSheets] = await Promise.all([
     Assets.load<Texture>(PAINTED_ART.playfield),
     Assets.load<Texture>(PAINTED_ART.smoke),
-    Assets.load<Texture>(PAINTED_ART.cow),
+    Assets.load<Texture>(PAINTED_ART.cowWalk[0]),
+    Assets.load<Texture>(PAINTED_ART.cowWalk[1]),
+    Assets.load<Texture>(PAINTED_ART.cowEat),
     ...CROP_KINDS.map((kind) => Assets.load<Texture>(PAINTED_ART.crops[kind])),
   ]);
-  const cowFrames = sliceSheet(cow, 7);
   const crops = {} as Record<CropKind, Texture[]>;
   CROP_KINDS.forEach((kind, i) => {
     crops[kind] = sliceSheet(cropSheets[i]!, CROP_STAGE_FRAMES);
@@ -72,8 +79,8 @@ export async function loadPaintedArt(): Promise<PaintedArt> {
   return {
     playfield,
     smokeFrames: sliceSheet(smoke, 6),
-    cowWalk: cowFrames.slice(0, 4),
-    cowEat: cowFrames.slice(4, 7),
+    cowWalk: [walkA, walkB],
+    cowEat: sliceSheet(eat, COW_EAT_SHEET.frames),
     crops,
   };
 }
