@@ -12,7 +12,7 @@ Farm camera: ¾ painted landscape (barn left, market stall right, three fenced g
 | --- | --- | --- | --- |
 | Painted farm playfield (barn, tractor, stall, three gardens with **blank** signs) | Original painted cartoon | original | `/art/painted/farmhand_painted_playfield_v2_blank_signs.jpg` — cover-fit. A grass Graphics fill (`#3d8a32`) sits underneath. |
 | Tractor exhaust smoke (6-frame puff) | Original painted sheet | original | `/art/painted/tractor_exhaust_smoke_sheet.png` — looped at UV `(0.280, 0.318)` (exhaust pipe tip). |
-| Cow walk (4) + eat/graze (3) | Original painted sheet | original | `/art/painted/cow_walk_eat_sheet.png` — roam/eat state machine in the paddock above the gardens. A static cow remains in the painting; the sprite covers it when nearby. |
+| Cow walk (4) + eat/graze (3) | Original painted sheet | original | `/art/painted/cow_walk_eat_sheet.png` — faces right only; left roam flips `scale.x = -1`. A static cow remains in the painting; the sprite covers it when nearby. |
 | Live garden names | Pixi `Text` from `/api/farm` `player.name` | — | Centered on each blank sign. Admin **Edit → Name** updates the same field; the farm polls every 8s. |
 | Garden close-up ground | Original generated painting | original | `/art/generated/ground/garden.jpg` |
 | Crop stages + harvest sparkles | Original generated sheet | original | `/art/generated/crops/` + sparkles on ready farm gardens |
