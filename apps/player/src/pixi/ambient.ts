@@ -47,7 +47,8 @@ export class PaintedCow {
     this.tx = x;
     this.ty = y;
     this.sprite = new AnimatedSprite(this.walk);
-    this.sprite.anchor.set(0.5, 0.88);
+    // Pivot at the hooves so walk ↔ eat doesn't make the head look detached.
+    this.sprite.anchor.set(0.5, 0.94);
     this.sprite.animationSpeed = 0.1;
     this.sprite.scale.set(this.scale);
     this.sprite.play();

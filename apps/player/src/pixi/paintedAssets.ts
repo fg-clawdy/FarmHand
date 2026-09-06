@@ -8,7 +8,8 @@ export const CROP_FRAME_WIDTH = 392;
 export const PAINTED_ART = {
   playfield: "/art/painted/farmhand_painted_playfield_v2_blank_signs.jpg",
   smoke: "/art/painted/tractor_exhaust_smoke_sheet.png",
-  cow: "/art/painted/cow_walk_eat_sheet.png",
+  /** Prefer v2 when present; both are 7 equal cells (walk 0–3, eat 4–6). */
+  cow: "/art/painted/cow_walk_eat_sheet_v2.png",
   crops: {
     corn: "/art/painted/plants/plant_corn_stages.png",
     strawberry: "/art/painted/plants/plant_strawberry_stages.png",
@@ -24,15 +25,32 @@ export type PaintedArt = {
   crops: Record<CropKind, Texture[]>;
 };
 
-export function sliceSheet(texture: Texture, frames: number): Texture[] {
-  const width = texture.width / frames;
-  const height = texture.height;
-  return Array.from({ length: frames }, (_, i) => {
-    return new Texture({
-      source: texture.source,
-      frame: new Rectangle(Math.round(i * width), 0, Math.round(width), height),
-    });
-  });
+/** 2px inset so adjacent frames never share an edge pixel (stops filter bleed). */
+export const SHEET_INSET = 2;
+
+export function sheetFrameRects(
+  sheetW: number,
+  sheetH: number,
+  frames: number,
+  inset: number = SHEET_INSET,
+): Array<{ x: number; y: number; w: number; h: number }> {
+  const cell = Math.floor(sheetW / frames);
+  return Array.from({ length: frames }, (_, i) => ({
+    x: i * cell + inset,
+    y: inset,
+    w: cell - inset * 2,
+    h: sheetH - inset * 2,
+  }));
+}
+
+export function sliceSheet(texture: Texture, frames: number, inset: number = SHEET_INSET): Texture[] {
+  return sheetFrameRects(texture.width, texture.height, frames, inset).map(
+    (rect) =>
+      new Texture({
+        source: texture.source,
+        frame: new Rectangle(rect.x, rect.y, rect.w, rect.h),
+      }),
+  );
 }
 
 export function cropStageFrame(crops: Record<CropKind, Texture[]>, kind: CropKind, stage: 1 | 2 | 3 | 4): Texture {

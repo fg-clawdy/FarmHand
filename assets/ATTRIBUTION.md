@@ -12,7 +12,7 @@ Farm camera: ¾ painted landscape (barn left, market stall right, three fenced g
 | --- | --- | --- | --- |
 | Painted farm playfield (barn, tractor, stall, three gardens with **blank** signs) | Original painted cartoon | original | `/art/painted/farmhand_painted_playfield_v2_blank_signs.jpg` — cover-fit. A grass Graphics fill (`#3d8a32`) sits underneath. |
 | Tractor exhaust smoke (6-frame puff) | Original painted sheet | original | `/art/painted/tractor_exhaust_smoke_sheet.png` — looped at UV `(0.273, 0.252)` ≈ px `(419, 258)` (mouth at the top of the vertical stack). |
-| Cow walk (4) + eat/graze (3) | Original painted sheet | original | `/art/painted/cow_walk_eat_sheet.png` — faces right only; left roam flips `scale.x = -1`. A static cow remains in the painting; the sprite covers it when nearby. |
+| Cow walk (4) + eat/graze (3) | Original painted sheet (repacked v2) | original | `/art/painted/cow_walk_eat_sheet_v2.png` — 7 equal padded cells; faces right only; left roam flips `scale.x = -1`. Anchor at the hooves. |
 | Live garden names | Pixi `Text` from `/api/farm` `player.name` | — | Centered on each blank sign. Admin **Edit → Name** updates the same field; the farm polls every 8s. |
 | Garden close-up ground | Original generated painting | original | `/art/generated/ground/garden.jpg` |
 | Crop stages (corn, strawberry, cotton × seed/seedling/buds/ripe) | Original painted sheets | original | `/art/painted/plants/plant_*_stages.png` — Pixi on farm mounds + garden close-up. Names stay in UI text. |
