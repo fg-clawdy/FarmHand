@@ -174,23 +174,23 @@ export class GardenScene {
       place(spr, nx, ny, hh);
     });
 
-    // Full 3×3 on the painted tilled patch — large enough for a wall tablet tap.
-    const originX = w * 0.56;
-    const originY = h * 0.46;
-    const stepX = 88 * s;
-    const stepY = 46 * s;
+    // Regular 3×3 on the tilled patch — three columns, three rows, tablet-sized hits.
+    const originX = w * 0.58;
+    const originY = h * 0.5;
+    const colGap = 148 * s;
+    const rowGap = 118 * s;
     this.slots.forEach((slot, i) => {
       const col = i % 3;
       const row = Math.floor(i / 3);
-      const x = originX + (col - row) * stepX;
-      const y = originY + (col + row) * stepY;
+      const x = originX + (col - 1) * colGap + (row - 1) * -22 * s;
+      const y = originY + (row - 1) * rowGap;
       slot.root.position.set(x, y);
       slot.root.zIndex = Math.round(y + 20);
       slot.layout(s);
     });
     this.plotsLayer.zIndex = Math.round(originY + 20);
 
-    const paddock = { x0: w * 0.1, y0: h * 0.34, x1: w * 0.38, y1: h * 0.74 };
+    const paddock = { x0: w * 0.05, y0: h * 0.3, x1: w * 0.28, y1: h * 0.78 };
     this.animals.forEach((a, i) => {
       a.setBounds(paddock);
       if (!this.animalPlaced) {
