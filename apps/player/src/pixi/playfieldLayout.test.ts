@@ -4,6 +4,7 @@ import {
   PLAYFIELD_LAYOUT,
   PLAYFIELD_TEXTURE,
   cowRoamAvoidsGardens,
+  facingFromDx,
   gardenSignName,
   pickRoamTarget,
   pointInRect,
@@ -43,4 +44,10 @@ test("sign overlays use the live child name from farm/admin data", () => {
   assert.equal(gardenSignName("Willow"), "Willow");
   assert.equal(gardenSignName("  Finn  "), "Finn");
   assert.equal(gardenSignName(""), "Garden");
+});
+
+test("right-facing cow sheet flips via scale.x when roaming left", () => {
+  assert.equal(facingFromDx(12, 1), 1);
+  assert.equal(facingFromDx(-8, 1), -1);
+  assert.equal(facingFromDx(0, -1), -1, "hold last facing on a vertical step");
 });

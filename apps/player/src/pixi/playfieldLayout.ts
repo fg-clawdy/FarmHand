@@ -73,6 +73,16 @@ export function gardenSignName(name: string) {
   return name.trim() || "Garden";
 }
 
+/**
+ * The cow sheet faces right only. Negative travel means flip with scale.x = -1.
+ * Zero dx keeps the current facing (idle / mostly-vertical steps).
+ */
+export function facingFromDx(dx: number, current: 1 | -1 = 1): 1 | -1 {
+  if (dx < 0) return -1;
+  if (dx > 0) return 1;
+  return current;
+}
+
 export function pickRoamTarget(
   roam: PixelRect,
   forbidden: readonly PixelRect[],

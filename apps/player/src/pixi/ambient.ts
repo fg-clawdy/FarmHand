@@ -1,5 +1,5 @@
 import { AnimatedSprite, Container, type Texture } from "pixi.js";
-import { pickRoamTarget, pointInRect, type PixelRect } from "./playfieldLayout";
+import { facingFromDx, pickRoamTarget, pointInRect, type PixelRect } from "./playfieldLayout";
 
 export class ExhaustPuff {
   readonly root = new Container();
@@ -30,6 +30,8 @@ export class PaintedCow {
   private readonly walk: Texture[];
   private readonly eat: Texture[];
   private readonly scale = 0.5;
+  /** Sheet faces right. -1 flips horizontally for left roam. */
+  private facing: 1 | -1 = 1;
 
   constructor(
     frames: { walk: Texture[]; eat: Texture[] },
@@ -68,12 +70,19 @@ export class PaintedCow {
     this.sprite.textures = textures;
     this.sprite.animationSpeed = speed;
     this.sprite.gotoAndPlay(0);
+    this.applyFacing();
+  }
+
+  private applyFacing() {
+    this.sprite.scale.x = this.scale * this.facing;
+    this.sprite.scale.y = this.scale;
   }
 
   private enterIdle() {
     this.state = "idle";
     this.play(this.walk, 0);
     this.sprite.gotoAndStop(0);
+    this.applyFacing();
     this.timer = 1.1 + Math.random() * 1.4;
   }
 
@@ -82,6 +91,7 @@ export class PaintedCow {
     const target = pickRoamTarget(this.roam, this.forbidden);
     this.tx = target.x;
     this.ty = target.y;
+    this.facing = facingFromDx(this.tx - this.x, this.facing);
     this.play(this.walk, 0.11);
     this.timer = 3.2 + Math.random() * 2.4;
   }
@@ -90,11 +100,6 @@ export class PaintedCow {
     this.state = "eat";
     this.play(this.eat, 0.08);
     this.timer = 2 + Math.random() * 2;
-  }
-
-  private face(dx: number) {
-    if (Math.abs(dx) < 0.4) return;
-    this.sprite.scale.x = this.scale * (dx >= 0 ? 1 : -1);
   }
 
   private sync() {
@@ -119,7 +124,8 @@ export class PaintedCow {
         } else {
           this.x = clamp(nx, this.roam.x0, this.roam.x1);
           this.y = clamp(ny, this.roam.y0, this.roam.y1);
-          this.face(dx);
+          this.facing = facingFromDx(dx, this.facing);
+          this.applyFacing();
         }
       }
     } else if (this.timer <= 0) {
