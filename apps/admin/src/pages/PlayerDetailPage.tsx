@@ -50,7 +50,7 @@ export default function PlayerDetailPage() {
       </p>
 
       <h2>Garden (read only)</h2>
-      <div className="grid6 plots-readonly">
+      <div className="plots-grid plots-readonly">
         {player.plots.map((plot) => (
           <div key={plot.slot} className={`mini-plot ${plot.ready ? "ready" : ""}`} title={plot.state}>
             {plot.state === "empty" ? "·" : plot.ready ? `${plot.emoji}!` : plot.emoji}

@@ -422,7 +422,7 @@ export function MiniGarden({
 }) {
   const p = useUid("mini");
   return (
-    <svg className="mini-garden-art" viewBox="0 0 240 210" aria-hidden>
+    <svg className="mini-garden-art" viewBox="0 0 240 250" aria-hidden>
       <defs>
         <linearGradient id={`${p}-sky`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#E7F6FF" />
@@ -438,14 +438,14 @@ export function MiniGarden({
       <ellipse cx="200" cy="28" rx="22" ry="22" fill="#FFE56A" opacity="0.55" />
       <path d={`M0 92 Q 70 68 140 90 T 240 80 L 240 210 L 0 210 Z`} fill={`url(#${p}-hill)`} />
       <path d="M0 128 Q 90 108 160 130 T 240 120 L 240 210 L 0 210 Z" fill="#4F9A32" opacity="0.55" />
-      {Array.from({ length: 6 }, (_, slot) => {
+      {Array.from({ length: 9 }, (_, slot) => {
         const plot = plots[slot];
         const kind = plot ? plantKind(plot) : null;
         const stage = plot?.growthStage ?? 4;
         const col = slot % 3;
         const row = Math.floor(slot / 3);
         const x = 18 + col * 74;
-        const y = 86 + row * 58;
+        const y = 58 + row * 58;
         return (
           <g key={slot} transform={`translate(${x} ${y})`}>
             <ellipse cx="32" cy="48" rx="28" ry="11" fill="#1a2410" opacity="0.18" />

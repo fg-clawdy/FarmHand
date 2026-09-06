@@ -1,12 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import { serializePlot } from "@farmhand/shared";
 import { prisma } from "../db.js";
-import { loadConfig, wateringState } from "../game.js";
+import { ensurePlots, loadConfig, syncAllPlayerPlots, wateringState } from "../game.js";
 import { getPlayerSession } from "../auth.js";
 
 export async function farmRoutes(app: FastifyInstance) {
   app.get("/api/farm", async (request) => {
     const config = await loadConfig();
+    await syncAllPlayerPlots(config.plotCount);
     const session = await getPlayerSession(request);
     const players = await prisma.player.findMany({
       where: { isActive: true },
@@ -27,7 +28,7 @@ export async function farmRoutes(app: FastifyInstance) {
           points: player.points,
           fertilizer: player.fertilizer,
           canWater: water.canWater,
-          plots: player.plots.map((plot) => serializePlot(plot, config)),
+          plots: ensurePlots(player.plots, config.plotCount).map((plot) => serializePlot(plot, config)),
           hasPin: Boolean(player.pinHash),
           unlocked: session?.playerId === player.id,
           isActive: player.isActive,

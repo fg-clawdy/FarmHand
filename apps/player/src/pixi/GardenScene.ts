@@ -1,5 +1,5 @@
-import { cropKindForTier, formatCountdown, type PublicPlot } from "@farmhand/shared";
-import { Container, Graphics, Sprite, Text, Texture, type Application } from "pixi.js";
+import { cropKindForTier, formatCountdown, PLOTS_PER_GARDEN, type PublicPlot } from "@farmhand/shared";
+import { Container, Graphics, Rectangle, Sprite, Text, Texture, type Application } from "pixi.js";
 import type { Atlas } from "./atlas";
 import { YardWanderer } from "./animals";
 import { coverFit } from "./draw";
@@ -70,7 +70,7 @@ export class GardenScene {
     this.world.sortableChildren = true;
     this.world.addChild(this.well, ...this.rails, ...this.props, this.plotsLayer, this.fx.root);
 
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < PLOTS_PER_GARDEN; i++) {
       const node = new PlotNode(atlas, painted, i, (slot, empty) => this.onPlot(slot, empty));
       this.slots.push(node);
       this.plotsLayer.addChild(node.root);
@@ -174,11 +174,11 @@ export class GardenScene {
       place(spr, nx, ny, hh);
     });
 
-    // Six plots on the painted tilled patch (center-right of the garden ground).
-    const originX = w * 0.58;
-    const originY = h * 0.52;
-    const stepX = 78 * s;
-    const stepY = 40 * s;
+    // Full 3×3 on the painted tilled patch — large enough for a wall tablet tap.
+    const originX = w * 0.56;
+    const originY = h * 0.46;
+    const stepX = 88 * s;
+    const stepY = 46 * s;
     this.slots.forEach((slot, i) => {
       const col = i % 3;
       const row = Math.floor(i / 3);
@@ -255,19 +255,21 @@ class PlotNode {
   }
 
   layout(s: number) {
-    this.cropScale = (96 * s) / CROP_FRAME_WIDTH;
+    this.cropScale = (118 * s) / CROP_FRAME_WIDTH;
     this.bed.clear();
-    this.bed.poly([0, 22 * s, 48 * s, 0, 0, -22 * s, -48 * s, 0]);
-    this.bed.fill({ color: 0x6b3a1e, alpha: 0.55 });
-    this.bed.stroke({ width: 2, color: 0x3d2010, alpha: 0.7 });
-    this.plant.position.set(0, 6 * s);
+    this.bed.ellipse(0, 10 * s, 50 * s, 22 * s);
+    this.bed.fill({ color: 0x6b3a1e, alpha: 0.72 });
+    this.bed.ellipse(0, 6 * s, 42 * s, 16 * s);
+    this.bed.fill({ color: 0x8a5330, alpha: 0.85 });
+    this.plant.position.set(0, 8 * s);
     this.plant.scale.set(this.cropScale);
-    this.glow.position.set(0, -12 * s);
-    this.glow.scale.set(1.8 * s);
-    this.sparkle.root.position.set(0, -8 * s);
-    this.sparkle.setArea(40 * s, 28 * s);
-    this.label.position.set(0, 34 * s);
-    this.label.style.fontSize = Math.max(13, 15 * s);
+    this.glow.position.set(0, -16 * s);
+    this.glow.scale.set(2.1 * s);
+    this.sparkle.root.position.set(0, -10 * s);
+    this.sparkle.setArea(48 * s, 32 * s);
+    this.label.position.set(0, 40 * s);
+    this.label.style.fontSize = Math.max(14, 16 * s);
+    this.root.hitArea = new Rectangle(-58 * s, -48 * s, 116 * s, 100 * s);
   }
 
   sync(plot: PublicPlot | undefined) {

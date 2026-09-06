@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_GAME_CONFIG, mergeGameConfig } from "./config.js";
-import { cropKindForTier } from "./types.js";
+import { cropKindForTier, PLOTS_PER_GARDEN } from "./types.js";
 
 describe("v1 crop kinds", () => {
   it("maps three tiers to corn, strawberry, and cotton", () => {
@@ -31,5 +31,11 @@ describe("v1 crop kinds", () => {
     assert.equal(merged.tiers[1]?.kind, "strawberry");
     assert.equal(merged.tiers[2]?.kind, "cotton");
     assert.equal(merged.tiers[2]?.points, 13);
+  });
+
+  it("raises leftover 6-plot gardens to a full 3×3", () => {
+    const merged = mergeGameConfig({ plotCount: 6 });
+    assert.equal(merged.plotCount, PLOTS_PER_GARDEN);
+    assert.equal(DEFAULT_GAME_CONFIG.plotCount, 9);
   });
 });

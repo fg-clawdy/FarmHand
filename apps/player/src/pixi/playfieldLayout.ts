@@ -1,3 +1,5 @@
+import { GARDEN_PLOT_COLS, PLOTS_PER_GARDEN } from "@farmhand/shared";
+
 /**
  * UV anchors on `farmhand_painted_playfield_v3_no_static_cow.jpg` (1536×1024).
  * Values are fractions of the texture (not the screen). Cover-fit the painting
@@ -11,7 +13,7 @@
  *   right sign   ~ (1221, 496) = UV (0.795, 0.484)
  *
  * Only the animated cow is drawn. Barn, tractor, hay, market stand, and the
- * three garden fences are solid blockers.
+ * three garden fences (full 3×3 soil + plaques) are solid blockers.
  */
 
 export type Uv = { u: number; v: number };
@@ -24,9 +26,9 @@ export const PLAYFIELD_LAYOUT = {
   /** Mouth of the tractor’s vertical exhaust stack (texture px 419, 258). */
   exhaustTip: { u: 0.273, v: 0.252 } satisfies Uv,
   /** Open grass right of the tractor, above the garden fences. */
-  cowStart: { u: 0.48, v: 0.38 } satisfies Uv,
-  /** Barn-side corridor — props punch holes; stays above the garden fence line. */
-  cowRoam: { u0: 0.12, v0: 0.22, u1: 0.62, v1: 0.4 } satisfies UvRect,
+  cowStart: { u: 0.5, v: 0.3 } satisfies Uv,
+  /** Barn-side corridor — stays above the garden fence / plaque line. */
+  cowRoam: { u0: 0.12, v0: 0.2, u1: 0.6, v1: 0.36 } satisfies UvRect,
   storeHit: { u0: 0.64, v0: 0.02, u1: 0.98, v1: 0.38 } satisfies UvRect,
   /** Solid footprints — tractor chassis is intentionally large so the calf cannot climb the hood. */
   blockers: {
@@ -37,33 +39,33 @@ export const PLAYFIELD_LAYOUT = {
   },
   gardens: [
     {
-      hit: { u0: 0.04, v0: 0.42, u1: 0.3, v1: 0.88 } satisfies UvRect,
+      hit: { u0: 0.02, v0: 0.4, u1: 0.32, v1: 0.9 } satisfies UvRect,
       sign: { u: 0.163, v: 0.484 } satisfies Uv,
       soil: { u0: 0.07, v0: 0.62, u1: 0.27, v1: 0.86 } satisfies UvRect,
     },
     {
-      hit: { u0: 0.36, v0: 0.42, u1: 0.64, v1: 0.88 } satisfies UvRect,
+      hit: { u0: 0.34, v0: 0.4, u1: 0.66, v1: 0.9 } satisfies UvRect,
       sign: { u: 0.495, v: 0.48 } satisfies Uv,
       soil: { u0: 0.39, v0: 0.62, u1: 0.61, v1: 0.86 } satisfies UvRect,
     },
     {
-      hit: { u0: 0.68, v0: 0.42, u1: 0.97, v1: 0.88 } satisfies UvRect,
+      hit: { u0: 0.66, v0: 0.4, u1: 0.99, v1: 0.9 } satisfies UvRect,
       sign: { u: 0.795, v: 0.484 } satisfies Uv,
       soil: { u0: 0.71, v0: 0.62, u1: 0.93, v1: 0.86 } satisfies UvRect,
     },
   ],
 } as const;
 
-/** Painted gardens are 3×3 mounds; gameplay uses 6 slots on the front two rows. */
-export const MOUND_COLS = 3;
-export const PLAYABLE_PLOT_SLOTS = 6;
+/** Painted gardens are a full 3×3 of plantable mounds. */
+export const MOUND_COLS = GARDEN_PLOT_COLS;
+export const PLAYABLE_PLOT_SLOTS = PLOTS_PER_GARDEN;
 
 export function moundUv(soil: UvRect, slot: number): Uv {
   const col = ((slot % MOUND_COLS) + MOUND_COLS) % MOUND_COLS;
-  const row = Math.min(1, Math.floor(Math.max(0, slot) / MOUND_COLS));
+  const row = Math.min(MOUND_COLS - 1, Math.floor(Math.max(0, slot) / MOUND_COLS));
   return {
     u: soil.u0 + ((col + 0.5) / MOUND_COLS) * (soil.u1 - soil.u0),
-    v: soil.v0 + ((row + 0.5) / 2) * (soil.v1 - soil.v0),
+    v: soil.v0 + ((row + 0.5) / MOUND_COLS) * (soil.v1 - soil.v0),
   };
 }
 
@@ -93,7 +95,7 @@ export function padUvRect(rect: UvRect, pad: number): UvRect {
 }
 
 /** Extra padding so the cow’s body (pivot at feet) does not clip a prop. */
-const BLOCKER_PAD = 0.018;
+const BLOCKER_PAD = 0.022;
 
 /** On-field calf size in playfield pixels. Collision uses this, not just the hooves. */
 export const COW_ON_FIELD = { height: 88, halfW: 70, below: 6 } as const;

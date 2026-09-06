@@ -43,6 +43,16 @@ test("cow blockers include barn, tractor, hay, stand, and gardens", () => {
   assert.equal(cowForbiddenRects(1536, 1024).length, 7);
 });
 
+test("cow body cannot sit on garden soil, plaque, or fence", () => {
+  const forbidden = cowForbiddenRects(1536, 1024);
+  for (const garden of PLAYFIELD_LAYOUT.gardens) {
+    const soil = uvToLocal({ u: (garden.soil.u0 + garden.soil.u1) / 2, v: (garden.soil.v0 + garden.soil.v1) / 2 }, 1536, 1024);
+    const sign = uvToLocal(garden.sign, 1536, 1024);
+    assert.equal(cowBodyHitsForbidden(soil.x, soil.y, forbidden), true, "soil");
+    assert.equal(cowBodyHitsForbidden(sign.x, sign.y, forbidden), true, "plaque");
+  }
+});
+
 test("cow roam box never overlaps the three garden plots", () => {
   assert.equal(cowRoamAvoidsGardens(), true);
   const roam = uvRectToLocal(PLAYFIELD_LAYOUT.cowRoam, 1536, 1024);
@@ -92,11 +102,11 @@ test("garden plaques show seeds and points under the name", () => {
   assert.equal(gardenSignStats(3, 12), "3 seeds · 12 pts");
 });
 
-test("six playable mounds sit on the front two soil rows", () => {
+test("nine playable mounds fill the painted 3×3 soil", () => {
   const soil = PLAYFIELD_LAYOUT.gardens[0].soil;
-  const slots = [0, 1, 2, 3, 4, 5].map((slot) => moundUv(soil, slot));
+  const slots = [0, 1, 2, 3, 4, 5, 6, 7, 8].map((slot) => moundUv(soil, slot));
   assert.ok(slots[0].u < slots[1].u && slots[1].u < slots[2].u);
-  assert.ok(slots[0].v < slots[3].v, "slot 0 is the back row, slot 3 the front");
+  assert.ok(slots[0].v < slots[3].v && slots[3].v < slots[6].v, "row 0 back, row 2 front");
   for (const uv of slots) {
     assert.ok(uv.u > soil.u0 && uv.u < soil.u1);
     assert.ok(uv.v > soil.v0 && uv.v < soil.v1);

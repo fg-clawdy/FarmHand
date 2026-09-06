@@ -11,7 +11,7 @@ import {
   requirePlayer,
   verifySecret,
 } from "../auth.js";
-import { loadConfig, publicPlayer, wateringState } from "../game.js";
+import { loadConfig, publicPlayer, syncPlayerPlots, wateringState } from "../game.js";
 import { todayKey } from "../tz.js";
 
 function pinError() {
@@ -49,7 +49,12 @@ export async function playerRoutes(app: FastifyInstance) {
     const existing = await getPlayerSession(request);
     if (existing?.playerId === player.id) {
       const config = await loadConfig();
-      return { player: publicPlayer(player, config, true), config, skippedPin: true };
+      await syncPlayerPlots(player.id, config.plotCount);
+      const fresh = await prisma.player.findUniqueOrThrow({
+        where: { id: player.id },
+        include: { plots: { orderBy: { slot: "asc" } } },
+      });
+      return { player: publicPlayer(fresh, config, true), config, skippedPin: true };
     }
 
     if (player.pinHash) {
@@ -60,6 +65,7 @@ export async function playerRoutes(app: FastifyInstance) {
     }
 
     const config = await loadConfig();
+    await syncPlayerPlots(player.id, config.plotCount);
     const token = newToken();
     const expiresAt = new Date(Date.now() + config.sessionMinutes * 60 * 1000);
     await prisma.playerSession.create({
@@ -70,13 +76,18 @@ export async function playerRoutes(app: FastifyInstance) {
     });
     reply.setCookie(PLAYER_COOKIE, token, cookieOpts(config.sessionMinutes * 60));
     reply.clearCookie(ADMIN_COOKIE, { path: "/" });
-    return { player: publicPlayer(player, config, true), config, skippedPin: false, expiresAt };
+    const fresh = await prisma.player.findUniqueOrThrow({
+      where: { id: player.id },
+      include: { plots: { orderBy: { slot: "asc" } } },
+    });
+    return { player: publicPlayer(fresh, config, true), config, skippedPin: false, expiresAt };
   });
 
   app.get("/api/garden", async (request, reply) => {
     const session = await requirePlayer(request, reply);
     if (!session) return;
     const config = await loadConfig();
+    await syncPlayerPlots(session.playerId, config.plotCount);
     const player = await prisma.player.findUniqueOrThrow({
       where: { id: session.playerId },
       include: { plots: { orderBy: { slot: "asc" } } },
@@ -97,8 +108,12 @@ export async function playerRoutes(app: FastifyInstance) {
           where: { id: session.playerId },
           include: { plots: true },
         });
-        const plot = player.plots.find((p) => p.slot === slot);
-        if (!plot) throw Object.assign(new Error("No plot there."), { statusCode: 404 });
+        if (!Number.isInteger(slot) || slot < 0 || slot >= config.plotCount) {
+          throw Object.assign(new Error("No plot there."), { statusCode: 404 });
+        }
+        const plot =
+          player.plots.find((p) => p.slot === slot) ??
+          (await tx.plot.create({ data: { playerId: player.id, slot } }));
         if (plot.plantedAt) throw Object.assign(new Error("That plot already has a plant."), { statusCode: 400 });
         const plantTier = getTier(config, Number(tier));
         if (player.seeds < plantTier.seedCost) {

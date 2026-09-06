@@ -35,7 +35,7 @@ export default function ConfigPage() {
           <Num label="Starting seeds" value={config.startingSeeds} onChange={(v) => num("startingSeeds", v)} />
           <Num label="Starting points" value={config.startingPoints} onChange={(v) => num("startingPoints", v)} />
           <Num label="Starting fertilizer" value={config.startingFertilizer} onChange={(v) => num("startingFertilizer", v)} />
-          <Num label="Plot count" value={config.plotCount} onChange={(v) => num("plotCount", v)} />
+          <Num label="Plot count (3×3, min 9)" value={config.plotCount} onChange={(v) => num("plotCount", v)} />
           <Num label="Harvest seed return" value={config.harvestSeedReturn} onChange={(v) => num("harvestSeedReturn", v)} />
         </div>
         <div className="row">

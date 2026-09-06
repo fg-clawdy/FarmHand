@@ -1,4 +1,4 @@
-import type { GameConfig } from "./types.js";
+import { PLOTS_PER_GARDEN, type GameConfig } from "./types.js";
 
 export const DEFAULT_GAME_CONFIG: GameConfig = {
   timezone: "America/Chicago",
@@ -10,7 +10,7 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   wateringMaxPerDay: 3,
   wateringReductionMinutes: 60,
   harvestSeedReturn: 1,
-  plotCount: 6,
+  plotCount: PLOTS_PER_GARDEN,
   mixYield: 1,
   ingredients: [
     { id: "moonDew", name: "Moon Dew", emoji: "🌙" },
@@ -91,6 +91,7 @@ export function mergeGameConfig(raw: unknown): GameConfig {
     ...DEFAULT_GAME_CONFIG,
     ...incoming,
     timezone: incoming.timezone || DEFAULT_GAME_CONFIG.timezone,
+    plotCount: Math.max(PLOTS_PER_GARDEN, Number(incoming.plotCount) || 0),
     tiers,
     ingredients,
   };

@@ -11,7 +11,13 @@ import { todayKey } from "./tz.js";
 
 export async function loadConfig(): Promise<GameConfig> {
   const row = await prisma.gameConfigRow.findUnique({ where: { id: "default" } });
-  return mergeGameConfig(row?.data);
+  const merged = mergeGameConfig(row?.data);
+  const stored =
+    row?.data && typeof row.data === "object" ? Number((row.data as { plotCount?: number }).plotCount) : NaN;
+  if (stored !== merged.plotCount) {
+    return saveConfig(merged);
+  }
+  return merged;
 }
 
 export async function saveConfig(config: GameConfig) {
@@ -21,6 +27,7 @@ export async function saveConfig(config: GameConfig) {
     update: { data: merged as Prisma.InputJsonValue },
     create: { id: "default", data: merged as Prisma.InputJsonValue },
   });
+  await syncAllPlayerPlots(merged.plotCount);
   return merged;
 }
 
@@ -46,6 +53,23 @@ export function wateringState(
     cooldownRemainingMs,
     canWater: count < config.wateringMaxPerDay && cooldownRemainingMs === 0,
   };
+}
+
+export async function syncPlayerPlots(playerId: string, plotCount: number) {
+  const existing = await prisma.plot.findMany({ where: { playerId }, select: { slot: true } });
+  const have = new Set(existing.map((plot) => plot.slot));
+  const missing = Array.from({ length: plotCount }, (_, slot) => slot)
+    .filter((slot) => !have.has(slot))
+    .map((slot) => ({ playerId, slot }));
+  if (missing.length === 0) return;
+  await prisma.plot.createMany({ data: missing, skipDuplicates: true });
+}
+
+export async function syncAllPlayerPlots(plotCount: number) {
+  const players = await prisma.player.findMany({ select: { id: true } });
+  for (const player of players) {
+    await syncPlayerPlots(player.id, plotCount);
+  }
 }
 
 export function publicPlayer(player: {
@@ -95,10 +119,7 @@ export function publicPlayer(player: {
     isActive: player.isActive,
     unlocked,
     water,
-    plots: player.plots
-      .slice()
-      .sort((a, b) => a.slot - b.slot)
-      .map((plot) => serializePlot(plot, config)),
+    plots: ensurePlots(player.plots, config.plotCount).map((plot) => serializePlot(plot, config)),
   };
 }
 

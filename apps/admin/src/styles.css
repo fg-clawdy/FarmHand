@@ -71,7 +71,8 @@ th, td { border-bottom: 1px solid var(--rule); padding: 10px 8px; text-align: le
   border-radius: 8px;
   background: #fffaf0;
 }
-.grid6 {
+.grid6,
+.plots-grid {
   display: grid;
   grid-template-columns: repeat(3, 80px);
   gap: 8px;

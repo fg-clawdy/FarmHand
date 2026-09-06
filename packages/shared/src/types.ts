@@ -14,6 +14,10 @@ export type IngredientId = (typeof INGREDIENT_IDS)[number];
 
 export type PlotState = "empty" | "growing" | "mature";
 
+/** Each child’s garden is a painted 3×3 of plantable mounds. */
+export const GARDEN_PLOT_COLS = 3;
+export const PLOTS_PER_GARDEN = 9;
+
 export const CROP_KINDS = ["corn", "strawberry", "cotton"] as const;
 export type CropKind = (typeof CROP_KINDS)[number];
 

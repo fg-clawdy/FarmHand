@@ -1,4 +1,4 @@
-import { type GameConfig, type PublicPlot } from "@farmhand/shared";
+import { PLOTS_PER_GARDEN, type GameConfig, type PublicPlot } from "@farmhand/shared";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, type GardenPlayer, type HarvestReward } from "../api";
@@ -93,8 +93,12 @@ export default function Garden() {
 
   const plots = useMemo(() => {
     if (!player) return [];
-    return player.plots.map((plot) => livePlot(plot, now));
-  }, [player, now]);
+    const count = config?.plotCount ?? PLOTS_PER_GARDEN;
+    return Array.from({ length: count }, (_, slot) => {
+      const plot = player.plots.find((p) => p.slot === slot);
+      return livePlot(plot ?? emptyPlot(slot), now);
+    });
+  }, [player, config, now]);
 
   async function run(action: () => Promise<GardenPlayer>) {
     setBusy(true);
@@ -203,7 +207,7 @@ function GardenPlay({
         </button>
         <div className="who">
           <MascotArt className="mascot-img" mascot={player.mascot} />
-          <span>{player.name}</span>
+          <span>{player.name}'s garden</span>
         </div>
         <div className="meters">
           <div className="meter">
@@ -292,6 +296,21 @@ function GardenPlay({
       {error && <div className="toast">{error}</div>}
     </div>
   );
+}
+
+function emptyPlot(slot: number): PublicPlot {
+  return {
+    slot,
+    state: "empty",
+    tier: null,
+    plantedAt: null,
+    maturesAt: null,
+    remainingMs: 0,
+    growthStage: null,
+    emoji: null,
+    face: null,
+    ready: false,
+  };
 }
 
 function livePlot(plot: PublicPlot, now: number): PublicPlot {

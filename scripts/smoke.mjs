@@ -61,7 +61,9 @@ async function harvestOccupied(plots, cookie) {
 }
 
 let plots = enter.data.player.plots;
-let empty = plots.find((p) => p.state === "empty");
+if (plots.length !== 9) throw new Error(`expected 9 garden plots, got ${plots.length}`);
+const backRow = plots.find((p) => p.slot === 8 && p.state === "empty") ?? plots.find((p) => p.state === "empty");
+let empty = backRow;
 if (!empty) {
   await harvestOccupied(plots, kidCookie);
   const garden = await req("/api/garden", { cookie: kidCookie });

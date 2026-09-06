@@ -1,7 +1,8 @@
 import { prisma } from "./db.js";
-import { DEFAULT_GAME_CONFIG } from "@farmhand/shared";
+import { DEFAULT_GAME_CONFIG, mergeGameConfig } from "@farmhand/shared";
 import { hashSecret } from "./auth.js";
 import type { Mascot } from "@prisma/client";
+import { syncAllPlayerPlots } from "./game.js";
 
 const DEMO_KIDS: Array<{ name: string; mascot: Mascot; pin: string }> = [
   { name: "Willow", mascot: "cow", pin: "1111" },
@@ -13,10 +14,12 @@ export async function seedIfEmpty() {
   const adminUser = process.env.ADMIN_BOOTSTRAP_USER || "admin";
   const adminPass = process.env.ADMIN_BOOTSTRAP_PASSWORD || "farmhand-dev";
 
+  const existingConfig = await prisma.gameConfigRow.findUnique({ where: { id: "default" } });
+  const config = mergeGameConfig(existingConfig?.data ?? DEFAULT_GAME_CONFIG);
   await prisma.gameConfigRow.upsert({
     where: { id: "default" },
-    update: {},
-    create: { id: "default", data: DEFAULT_GAME_CONFIG as object },
+    update: { data: config as object },
+    create: { id: "default", data: config as object },
   });
 
   const adminCount = await prisma.admin.count();
@@ -32,7 +35,6 @@ export async function seedIfEmpty() {
 
   const playerCount = await prisma.player.count();
   if (playerCount === 0) {
-    const config = DEFAULT_GAME_CONFIG;
     for (const kid of DEMO_KIDS) {
       await prisma.player.create({
         data: {
@@ -49,6 +51,8 @@ export async function seedIfEmpty() {
       });
     }
     console.log("Seeded demo kids: Willow/1111, Finn/2222, Sage/3333");
+  } else {
+    await syncAllPlayerPlots(config.plotCount);
   }
 }
 
