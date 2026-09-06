@@ -2,7 +2,7 @@ import { AnimatedSprite, Container, type Texture } from "pixi.js";
 import { facingFromDx, pathHitsForbidden, pickRoamTarget, pointInRect, type PixelRect } from "./playfieldLayout";
 
 /** On-field height in playfield pixels so large walk textures stay calf-sized. */
-const COW_TARGET_HEIGHT = 128;
+const COW_TARGET_HEIGHT = 110;
 
 export class ExhaustPuff {
   readonly root = new Container();
