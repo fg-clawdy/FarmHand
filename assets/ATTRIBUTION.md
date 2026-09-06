@@ -15,7 +15,8 @@ Farm camera: ¾ painted landscape (barn left, market stall right, three fenced g
 | Cow walk (4) + eat/graze (3) | Original painted sheet | original | `/art/painted/cow_walk_eat_sheet.png` — faces right only; left roam flips `scale.x = -1`. A static cow remains in the painting; the sprite covers it when nearby. |
 | Live garden names | Pixi `Text` from `/api/farm` `player.name` | — | Centered on each blank sign. Admin **Edit → Name** updates the same field; the farm polls every 8s. |
 | Garden close-up ground | Original generated painting | original | `/art/generated/ground/garden.jpg` |
-| Crop stages + harvest sparkles | Original generated sheet | original | `/art/generated/crops/` + sparkles on ready farm gardens |
+| Crop stages (corn, strawberry, cotton × seed/seedling/buds/ripe) | Original painted sheets | original | `/art/painted/plants/plant_*_stages.png` — Pixi on farm mounds + garden close-up. Names stay in UI text. |
+| Harvest sparkles | Original generated sheet | original | Sparkles on READY farm gardens |
 | HUD chips, watering can, fertilizer bottle | Same generated prop set | original | Slim edge HUD + React resource chrome |
 
 The iso `pixi-tiledmap` diamond and the rolling-hills / sky backdrop are **not drawn**. Farm gardens are the three painted plots; compact seed/point chips stay at the bottom edge.

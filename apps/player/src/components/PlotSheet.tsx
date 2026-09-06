@@ -25,7 +25,9 @@ export default function PlotSheet({
   return (
     <Sheet title={plot.ready ? "Ready to harvest!" : `Plot ${plot.slot + 1}`} onClose={onClose}>
       <div className="plot-hero">
-        {kind && <PlantFigure className="hero-art" kind={kind} ready={plot.ready} />}
+        {kind && (
+          <PlantFigure className="hero-art" kind={kind} stage={plot.growthStage ?? 4} ready={plot.ready} />
+        )}
         <p>
           {plot.ready ? (
             <strong className="ready-tag">READY</strong>

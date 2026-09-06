@@ -10,10 +10,10 @@ export type PlotInput = {
 
 export function getTier(config: GameConfig, tier: number): PlantTier {
   const found = config.tiers.find((t) => t.tier === tier);
-  if (!found) {
-    throw new Error(`Unknown plant tier ${tier}`);
-  }
-  return found;
+  if (found) return found;
+  const last = config.tiers[config.tiers.length - 1];
+  if (last) return last;
+  throw new Error(`Unknown plant tier ${tier}`);
 }
 
 export function asDate(value: Date | string | null | undefined): Date | null {

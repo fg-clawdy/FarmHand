@@ -6,6 +6,7 @@ import {
   cowRoamAvoidsGardens,
   facingFromDx,
   gardenSignName,
+  moundUv,
   pickRoamTarget,
   pointInRect,
   uvRectToLocal,
@@ -44,6 +45,17 @@ test("sign overlays use the live child name from farm/admin data", () => {
   assert.equal(gardenSignName("Willow"), "Willow");
   assert.equal(gardenSignName("  Finn  "), "Finn");
   assert.equal(gardenSignName(""), "Garden");
+});
+
+test("six playable mounds sit on the front two soil rows", () => {
+  const soil = PLAYFIELD_LAYOUT.gardens[0].soil;
+  const slots = [0, 1, 2, 3, 4, 5].map((slot) => moundUv(soil, slot));
+  assert.ok(slots[0].u < slots[1].u && slots[1].u < slots[2].u);
+  assert.ok(slots[0].v < slots[3].v, "slot 0 is the back row, slot 3 the front");
+  for (const uv of slots) {
+    assert.ok(uv.u > soil.u0 && uv.u < soil.u1);
+    assert.ok(uv.v > soil.v0 && uv.v < soil.v1);
+  }
 });
 
 test("right-facing cow sheet flips via scale.x when roaming left", () => {

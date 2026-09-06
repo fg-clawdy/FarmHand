@@ -1,4 +1,4 @@
-import type { FarmPlayerCard, GameConfig, PublicPlot } from "@farmhand/shared";
+import type { CropKind, FarmPlayerCard, GameConfig, PublicPlot } from "@farmhand/shared";
 
 export type WaterState = {
   today: string;
@@ -26,7 +26,13 @@ export type GardenPlayer = {
   plots: PublicPlot[];
 };
 
-export type HarvestReward = { points: number; seedsReturned: number; emoji: string; name: string };
+export type HarvestReward = {
+  points: number;
+  seedsReturned: number;
+  emoji: string;
+  name: string;
+  kind?: CropKind;
+};
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const hasBody = init?.body !== undefined;

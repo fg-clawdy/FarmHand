@@ -14,8 +14,17 @@ export type IngredientId = (typeof INGREDIENT_IDS)[number];
 
 export type PlotState = "empty" | "growing" | "mature";
 
+export const CROP_KINDS = ["corn", "strawberry", "cotton"] as const;
+export type CropKind = (typeof CROP_KINDS)[number];
+
+export function cropKindForTier(tier: number | null | undefined): CropKind {
+  const index = Math.max(0, (tier ?? 1) - 1);
+  return CROP_KINDS[Math.min(index, CROP_KINDS.length - 1)] ?? "corn";
+}
+
 export type PlantTier = {
   tier: number;
+  kind: CropKind;
   emoji: string;
   name: string;
   seedCost: number;

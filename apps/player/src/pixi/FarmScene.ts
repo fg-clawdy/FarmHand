@@ -1,4 +1,4 @@
-import type { FarmPlayerCard } from "@farmhand/shared";
+import { cropKindForTier, type FarmPlayerCard } from "@farmhand/shared";
 import { Container, Graphics, Sprite, Text, type Application } from "pixi.js";
 import { ACCENTS } from "../theme";
 import { ExhaustPuff, PaintedCow } from "./ambient";
@@ -6,11 +6,13 @@ import type { Atlas } from "./atlas";
 import { coverFit } from "./draw";
 import type { PixiEngine } from "./engine";
 import { SparkleField } from "./fx";
-import type { PaintedArt } from "./paintedAssets";
+import { CROP_FRAME_WIDTH, cropStageFrame, type PaintedArt } from "./paintedAssets";
 import {
+  PLAYABLE_PLOT_SLOTS,
   PLAYFIELD_TEXTURE,
   PLAYFIELD_LAYOUT,
   gardenSignName,
+  moundUv,
   uvRectToLocal,
   uvToLocal,
 } from "./playfieldLayout";
@@ -65,7 +67,7 @@ export class FarmScene {
     this.playfield.addChild(this.store);
 
     for (let i = 0; i < 3; i++) {
-      const bed = new GardenHotspot(atlas, PLAYFIELD_LAYOUT.gardens[i]!, (id) => this.onPlayer(id));
+      const bed = new GardenHotspot(atlas, painted, PLAYFIELD_LAYOUT.gardens[i]!, (id) => this.onPlayer(id));
       bed.place(tw, th);
       this.beds.push(bed);
       this.playfield.addChild(bed.root);
@@ -171,15 +173,20 @@ class GardenHotspot {
   private hit = new Graphics();
   private nameText: Text;
   private sparkle: SparkleField;
+  private plants: Sprite[] = [];
+  private cropScale = 0.16;
   private playerId = "";
   private spec: (typeof PLAYFIELD_LAYOUT.gardens)[number];
+  private painted: PaintedArt;
 
   constructor(
     atlas: Atlas,
+    painted: PaintedArt,
     spec: (typeof PLAYFIELD_LAYOUT.gardens)[number],
     onOpen: (id: string) => void,
   ) {
     this.spec = spec;
+    this.painted = painted;
     this.nameText = new Text({
       text: "",
       style: {
@@ -199,7 +206,13 @@ class GardenHotspot {
     });
     this.nameText.anchor.set(0.5, 0.55);
     this.sparkle = new SparkleField(atlas, 8);
-    this.root.addChild(this.hit, this.sparkle.root, this.nameText);
+    for (let i = 0; i < PLAYABLE_PLOT_SLOTS; i++) {
+      const spr = new Sprite();
+      spr.anchor.set(0.5, 0.9);
+      spr.visible = false;
+      this.plants.push(spr);
+    }
+    this.root.addChild(this.hit, ...this.plants, this.sparkle.root, this.nameText);
     this.root.eventMode = "static";
     this.root.cursor = "pointer";
     this.root.on("pointerdown", () => this.root.scale.set(0.99));
@@ -218,8 +231,17 @@ class GardenHotspot {
     this.hit.fill({ color: 0xffffff, alpha: 0.001 });
     this.nameText.position.set(sign.x, sign.y);
     this.nameText.style.fontSize = Math.max(40, (rect.x1 - rect.x0) * 0.16);
-    this.sparkle.root.position.set((rect.x0 + rect.x1) / 2, (rect.y0 + rect.y1) / 2 + 20);
-    this.sparkle.setArea((rect.x1 - rect.x0) * 0.28, (rect.y1 - rect.y0) * 0.18);
+    const soil = uvRectToLocal(this.spec.soil, texW, texH);
+    const cellW = (soil.x1 - soil.x0) / 3;
+    this.cropScale = cellW / CROP_FRAME_WIDTH;
+    this.plants.forEach((spr, slot) => {
+      const uv = moundUv(this.spec.soil, slot);
+      const p = uvToLocal(uv, texW, texH);
+      spr.position.set(p.x, p.y);
+      spr.scale.set(this.cropScale);
+    });
+    this.sparkle.root.position.set((soil.x0 + soil.x1) / 2, (soil.y0 + soil.y1) / 2);
+    this.sparkle.setArea((soil.x1 - soil.x0) * 0.36, (soil.y1 - soil.y0) * 0.22);
     this.root.zIndex = 3500;
   }
 
@@ -229,9 +251,26 @@ class GardenHotspot {
     this.nameText.style.fill = 0xfff6df;
     this.nameText.style.stroke = { color: Number(accent.border.replace("#", "0x")), width: 6 };
     this.sparkle.setActive(player.plots?.some((p) => p.ready) ?? false);
+    const plots = Array.from({ length: PLAYABLE_PLOT_SLOTS }, (_, slot) => player.plots?.find((p) => p.slot === slot));
+    this.plants.forEach((spr, slot) => {
+      const plot = plots[slot];
+      const stage = plot?.growthStage;
+      if (!plot || plot.state === "empty" || !stage || !plot.tier) {
+        spr.visible = false;
+        return;
+      }
+      spr.texture = cropStageFrame(this.painted.crops, cropKindForTier(plot.tier), stage);
+      spr.visible = true;
+      spr.scale.set(this.cropScale);
+    });
   }
 
   breathe(t: number) {
+    this.plants.forEach((spr, i) => {
+      if (!spr.visible) return;
+      const s = this.cropScale;
+      spr.scale.set(s, s * (1 + Math.sin(t * 1.5 + i) * 0.03));
+    });
     this.sparkle.update(t);
   }
 }

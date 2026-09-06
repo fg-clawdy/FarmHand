@@ -1,4 +1,4 @@
-import type { Mascot, PublicPlot } from "@farmhand/shared";
+import { cropKindForTier, type CropKind, type Mascot, type PublicPlot } from "@farmhand/shared";
 import { useId, type ReactNode, type SVGProps } from "react";
 
 type ArtProps = SVGProps<SVGSVGElement> & { title?: string };
@@ -247,155 +247,168 @@ function SoilMound() {
   );
 }
 
-export type PlantKind = "sprout" | "daisy" | "herbs" | "sunflower" | "oak";
+export type PlantKind = CropKind;
+
+const CROP_SHEETS: Record<CropKind, string> = {
+  corn: "/art/painted/plants/plant_corn_stages.png",
+  strawberry: "/art/painted/plants/plant_strawberry_stages.png",
+  cotton: "/art/painted/plants/plant_cotton_stages.png",
+};
 
 export function plantKind(plot: Pick<PublicPlot, "state" | "tier" | "growthStage" | "ready">): PlantKind | null {
   if (plot.state === "empty" || !plot.tier) return null;
-  const stage = plot.growthStage ?? 1;
-  if (plot.ready || stage >= 3) {
-    if (plot.tier === 2) return "herbs";
-    if (plot.tier === 3) return "sunflower";
-    if (plot.tier === 4) return "oak";
-    return "daisy";
-  }
-  return "sprout";
+  return cropKindForTier(plot.tier);
 }
 
-function PlantGlyph({ kind, ready }: { kind: PlantKind; ready?: boolean }) {
+function PlantGlyph({ kind, stage, ready }: { kind: PlantKind; stage: 1 | 2 | 3 | 4; ready?: boolean }) {
   return (
     <g filter={ready ? "url(#fhReadyGlow)" : "url(#fhSoftShadow)"}>
       <SoilMound />
-      {kind === "sprout" && <SproutBody />}
-      {kind === "daisy" && <DaisyBody />}
-      {kind === "herbs" && <HerbBody />}
-      {kind === "sunflower" && <SunflowerBody />}
-      {kind === "oak" && <OakBody />}
+      {kind === "corn" && <CornBody stage={stage} />}
+      {kind === "strawberry" && <StrawberryBody stage={stage} />}
+      {kind === "cotton" && <CottonBody stage={stage} />}
     </g>
   );
 }
 
 export function PlantFigure({
   kind,
+  stage = 4,
   ready,
   className,
 }: {
   kind: PlantKind;
+  stage?: 1 | 2 | 3 | 4;
   ready?: boolean;
   className?: string;
 }) {
+  const frame = Math.min(4, Math.max(1, stage));
   return (
-    <svg
-      className={`${className ?? ""} ${ready ? "is-ready" : ""}`}
-      viewBox="0 0 96 112"
+    <span
+      className={`crop-stage-art ${className ?? ""} ${ready ? "is-ready" : ""}`}
       role="img"
       aria-label={kind}
-    >
-      <PlantGlyph kind={kind} ready={ready} />
-    </svg>
+      style={{
+        backgroundImage: `url(${CROP_SHEETS[kind]})`,
+        backgroundPosition: `${((frame - 1) / 3) * 100}% 100%`,
+      }}
+    />
   );
 }
 
-function SproutBody() {
-  return (
-    <g>
-      <path d="M48 98v-28" stroke="#2F8A34" strokeWidth="5" strokeLinecap="round" />
-      <path d="M48 78c-16-2-22-16-18-28 8 6 16 14 18 28z" fill="url(#fhLeaf)" />
-      <path d="M48 76c16-2 22-16 18-28-8 6-16 14-18 28z" fill="url(#fhLeaf)" />
-      <ellipse cx="34" cy="62" rx="5" ry="3" fill="#fff" opacity="0.35" transform="rotate(-30 34 62)" />
-    </g>
-  );
-}
-
-function DaisyBody() {
-  const petals = Array.from({ length: 10 }, (_, i) => i * 36);
-  return (
-    <g>
-      <path d="M48 98v-34" stroke="#2F8A34" strokeWidth="5" strokeLinecap="round" />
-      <path d="M48 82c-18 2-22-12-16-24 10 6 14 14 16 24z" fill="url(#fhLeaf)" />
-      <path d="M48 84c16 4 24-8 18-22-8 6-14 14-18 22z" fill="url(#fhLeaf)" />
-      <g transform="translate(48 46)">
-        {petals.map((deg) => (
-          <ellipse
-            key={deg}
-            cx="0"
-            cy="-16"
-            rx="6.5"
-            ry="13"
-            fill="#FFFDF6"
-            stroke="#F0D8A8"
-            strokeWidth="0.8"
-            transform={`rotate(${deg})`}
-          />
+function CornBody({ stage }: { stage: 1 | 2 | 3 | 4 }) {
+  if (stage <= 1) {
+    return (
+      <g>
+        {[36, 48, 60, 42].map((x, i) => (
+          <ellipse key={i} cx={x} cy={96 - (i % 2) * 3} rx="4" ry="3" fill="#F4D24A" />
         ))}
-        <circle r="10" fill="#FFC84A" />
-        <circle r="6.5" fill="#F0A12A" />
-        <circle cx="-3" cy="-3" r="2" fill="#fff" opacity="0.5" />
       </g>
-    </g>
-  );
-}
-
-function HerbBody() {
-  return (
-    <g>
-      {[
-        ["M36 98c-2-22 2-36 0-48", "M36 70c-12-2-14-16-8-24", "M36 64c10-2 12-14 8-22"],
-        ["M48 98c0-26 0-40 0-54", "M48 66c-14-4-16-18-10-28", "M48 62c14-2 16-16 10-26"],
-        ["M60 98c2-20 0-34 2-46", "M60 72c-10 0-14-14-8-22", "M60 66c12-2 12-14 6-22"],
-      ].map((paths, i) => (
-        <g key={i}>
-          <path d={paths[0]} fill="none" stroke="#2F8A34" strokeWidth="3.4" strokeLinecap="round" />
-          <path d={paths[1]} fill="url(#fhLeaf)" />
-          <path d={paths[2]} fill="url(#fhLeaf)" />
-        </g>
-      ))}
-    </g>
-  );
-}
-
-function SunflowerBody() {
-  const petals = Array.from({ length: 14 }, (_, i) => i * (360 / 14));
-  return (
-    <g>
-      <path d="M48 98v-28" stroke="#2F8A34" strokeWidth="6" strokeLinecap="round" />
-      <path d="M48 84c-20 4-24-10-16-24 12 6 16 16 16 24z" fill="url(#fhLeaf)" />
-      <path d="M48 86c20 2 24-12 16-24-10 8-14 16-16 24z" fill="url(#fhLeaf)" />
-      <g transform="translate(48 44)">
-        {petals.map((deg) => (
-          <ellipse
-            key={deg}
-            cx="0"
-            cy="-18"
-            rx="6"
-            ry="15"
-            fill="#FFD24A"
-            stroke="#E08A10"
-            strokeWidth="0.8"
-            transform={`rotate(${deg})`}
-          />
-        ))}
-        <circle r="13" fill="#8A4F2A" />
-        <circle r="9" fill="#5C3218" />
-        {[-5, 0, 5, -3, 3].map((x, i) => (
-          <circle key={i} cx={x} cy={i % 2 ? 3 : -2} r="1.3" fill="#C9892A" />
-        ))}
-        <circle cx="-4" cy="-4" r="2.2" fill="#fff" opacity="0.25" />
+    );
+  }
+  if (stage === 2) {
+    return (
+      <g>
+        <path d="M48 98v-26" stroke="#2F8A34" strokeWidth="4" strokeLinecap="round" />
+        <path d="M48 80c-14-2-18-14-12-24 8 6 12 14 12 24z" fill="url(#fhLeaf)" />
+        <path d="M48 78c14-2 18-14 12-24-8 6-12 14-12 24z" fill="url(#fhLeaf)" />
       </g>
+    );
+  }
+  return (
+    <g>
+      <path d="M48 98v-52" stroke="#2F8A34" strokeWidth="5" strokeLinecap="round" />
+      <path d="M48 78c-20 2-24-12-16-26 12 8 16 16 16 26z" fill="url(#fhLeaf)" />
+      <path d="M48 70c18 4 24-10 16-24-10 8-14 16-16 24z" fill="url(#fhLeaf)" />
+      <ellipse cx="40" cy={stage >= 4 ? 62 : 66} rx="6" ry="10" fill={stage >= 4 ? "#F4D24A" : "#6FBE4A"} transform="rotate(-18 40 64)" />
+      <ellipse cx="56" cy={stage >= 4 ? 58 : 62} rx="6" ry="10" fill={stage >= 4 ? "#F4D24A" : "#6FBE4A"} transform="rotate(16 56 60)" />
+      {stage >= 4 && <path d="M48 46c-4-10 4-16 0-22" stroke="#C9892A" strokeWidth="2" fill="none" />}
     </g>
   );
 }
 
-function OakBody() {
+function StrawberryBody({ stage }: { stage: 1 | 2 | 3 | 4 }) {
+  if (stage <= 1) {
+    return (
+      <g>
+        {[40, 48, 56].map((x) => (
+          <ellipse key={x} cx={x} cy="97" rx="3.5" ry="5" fill="#C4844A" />
+        ))}
+      </g>
+    );
+  }
+  if (stage === 2) {
+    return (
+      <g>
+        <path d="M48 98v-18" stroke="#2F8A34" strokeWidth="4" strokeLinecap="round" />
+        <ellipse cx="40" cy="78" rx="8" ry="6" fill="url(#fhLeaf)" />
+        <ellipse cx="56" cy="76" rx="8" ry="6" fill="url(#fhLeaf)" />
+      </g>
+    );
+  }
   return (
     <g>
-      <path d="M48 100v-28" stroke="#8A4F2A" strokeWidth="8" strokeLinecap="round" />
-      <path d="M48 78c-10-8-16-4-18 4" fill="none" stroke="#8A4F2A" strokeWidth="4" strokeLinecap="round" />
-      <path d="M48 74c10-8 16-2 18 6" fill="none" stroke="#8A4F2A" strokeWidth="4" strokeLinecap="round" />
-      <circle cx="36" cy="50" r="16" fill="#3F8A3A" />
-      <circle cx="60" cy="52" r="15" fill="#2F7A32" />
-      <circle cx="48" cy="40" r="17" fill="#5FBE58" />
-      <circle cx="42" cy="46" r="10" fill="#7ED957" opacity="0.85" />
-      <circle cx="38" cy="42" r="4" fill="#fff" opacity="0.22" />
+      <ellipse cx="36" cy="72" rx="12" ry="9" fill="url(#fhLeaf)" />
+      <ellipse cx="60" cy="70" rx="12" ry="9" fill="url(#fhLeaf)" />
+      <ellipse cx="48" cy="60" rx="14" ry="10" fill="#4DB83A" />
+      {stage === 3 && (
+        <>
+          <circle cx="40" cy="58" r="5" fill="#FFFDF6" />
+          <circle cx="40" cy="58" r="2" fill="#FFC84A" />
+          <ellipse cx="58" cy="64" rx="5" ry="6" fill="#B6F06A" />
+        </>
+      )}
+      {stage >= 4 && (
+        <>
+          <path d="M38 70c-6-2-8 8-2 12 4 3 8 2 10-2z" fill="#E23A3A" />
+          <path d="M56 66c-6-2-8 8-2 12 4 3 8 2 10-2z" fill="#D23A2A" />
+          <path d="M47 58c-6-2-8 8-2 12 4 3 8 2 10-2z" fill="#F04A4A" />
+        </>
+      )}
+    </g>
+  );
+}
+
+function CottonBody({ stage }: { stage: 1 | 2 | 3 | 4 }) {
+  if (stage <= 1) {
+    return (
+      <g>
+        {[38, 48, 58, 44].map((x, i) => (
+          <ellipse key={i} cx={x} cy={97 - (i % 2)} rx="4.5" ry="3.2" fill="#5C3218" />
+        ))}
+      </g>
+    );
+  }
+  if (stage === 2) {
+    return (
+      <g>
+        <path d="M48 98v-20" stroke="#2F8A34" strokeWidth="4" strokeLinecap="round" />
+        <ellipse cx="42" cy="76" rx="7" ry="6" fill="url(#fhLeaf)" />
+        <ellipse cx="54" cy="74" rx="7" ry="6" fill="url(#fhLeaf)" />
+      </g>
+    );
+  }
+  return (
+    <g>
+      <path d="M48 98v-40" stroke={stage >= 4 ? "#8A4F2A" : "#2F8A34"} strokeWidth="5" strokeLinecap="round" />
+      <path d="M48 78c-16 0-18-14-10-22" fill="none" stroke="#2F8A34" strokeWidth="3" />
+      <path d="M48 74c16 0 18-14 10-22" fill="none" stroke="#2F8A34" strokeWidth="3" />
+      <ellipse cx="34" cy="68" rx="10" ry="8" fill="url(#fhLeaf)" />
+      <ellipse cx="62" cy="66" rx="10" ry="8" fill="url(#fhLeaf)" />
+      {stage === 3 && (
+        <>
+          <ellipse cx="36" cy="54" rx="6" ry="8" fill="#6FBE4A" />
+          <ellipse cx="60" cy="52" rx="6" ry="8" fill="#6FBE4A" />
+          <ellipse cx="48" cy="46" rx="6" ry="8" fill="#6FBE4A" />
+        </>
+      )}
+      {stage >= 4 && (
+        <>
+          <circle cx="36" cy="52" r="8" fill="#FFFDF6" />
+          <circle cx="60" cy="50" r="8" fill="#FFF6E4" />
+          <circle cx="48" cy="42" r="9" fill="#FFFFFF" />
+        </>
+      )}
     </g>
   );
 }
@@ -428,6 +441,7 @@ export function MiniGarden({
       {Array.from({ length: 6 }, (_, slot) => {
         const plot = plots[slot];
         const kind = plot ? plantKind(plot) : null;
+        const stage = plot?.growthStage ?? 4;
         const col = slot % 3;
         const row = Math.floor(slot / 3);
         const x = 18 + col * 74;
@@ -438,7 +452,7 @@ export function MiniGarden({
             <ellipse cx="32" cy="44" rx="26" ry="12" fill="url(#fhSoil)" />
             {kind ? (
               <g transform="translate(8 -8) scale(0.48)">
-                <PlantGlyph kind={kind} ready={plot?.ready} />
+                <PlantGlyph kind={kind} stage={stage} ready={plot?.ready} />
               </g>
             ) : (
               <ellipse cx="32" cy="42" rx="5" ry="3" fill="#5C3218" opacity="0.35" />

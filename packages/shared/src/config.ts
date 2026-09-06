@@ -20,57 +20,63 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   tiers: [
     {
       tier: 1,
-      emoji: "🌼",
-      name: "Prairie Daisy",
+      kind: "corn",
+      emoji: "🌽",
+      name: "Sweet Corn",
       seedCost: 1,
       durationMinutes: 24 * 60,
       points: 1,
       fertilizerReductionMinutes: 4 * 60,
-      stages: ["🌱", "🌿", "🌸", "🌼"],
+      stages: ["🌱", "🌿", "🌽", "🌽"],
       faces: ["😌", "🙂", "😊", "😄"],
     },
     {
       tier: 2,
-      emoji: "🌿",
-      name: "Kitchen Herbs",
+      kind: "strawberry",
+      emoji: "🍓",
+      name: "Strawberry",
       seedCost: 2,
       durationMinutes: 48 * 60,
       points: 2,
       fertilizerReductionMinutes: 6 * 60,
-      stages: ["🌱", "🍀", "🥬", "🌿"],
+      stages: ["🌱", "🌿", "🌸", "🍓"],
       faces: ["😌", "🙂", "😊", "😄"],
     },
     {
       tier: 3,
-      emoji: "🌻",
-      name: "Sunflower",
+      kind: "cotton",
+      emoji: "☁️",
+      name: "Cotton",
       seedCost: 3,
       durationMinutes: 72 * 60,
       points: 4,
       fertilizerReductionMinutes: 8 * 60,
-      stages: ["🌱", "🌾", "🌼", "🌻"],
-      faces: ["😌", "🙂", "😊", "😄"],
-    },
-    {
-      tier: 4,
-      emoji: "🌳",
-      name: "Homestead Oak",
-      seedCost: 4,
-      durationMinutes: 96 * 60,
-      points: 8,
-      fertilizerReductionMinutes: 10 * 60,
-      stages: ["🌱", "🌿", "🌲", "🌳"],
+      stages: ["🌱", "🌿", "🟢", "☁️"],
       faces: ["😌", "🙂", "😊", "😄"],
     },
   ],
 };
 
+const LEGACY_TIER_NAMES = new Set(["Prairie Daisy", "Kitchen Herbs", "Sunflower", "Homestead Oak"]);
+
 export function mergeGameConfig(raw: unknown): GameConfig {
   const incoming = raw && typeof raw === "object" ? (raw as Partial<GameConfig>) : {};
-  const tiers = Array.isArray(incoming.tiers)
+  const incomingTiers = Array.isArray(incoming.tiers) ? incoming.tiers : undefined;
+  const legacy = incomingTiers?.some((t) => t?.name && LEGACY_TIER_NAMES.has(t.name));
+  const tiers = incomingTiers
     ? DEFAULT_GAME_CONFIG.tiers.map((tier) => {
-        const match = incoming.tiers?.find((t) => t.tier === tier.tier);
-        return match ? { ...tier, ...match, stages: match.stages ?? tier.stages, faces: match.faces ?? tier.faces } : tier;
+        const match = incomingTiers.find((t) => t.tier === tier.tier);
+        if (!match) return tier;
+        if (legacy) {
+          return {
+            ...tier,
+            seedCost: match.seedCost ?? tier.seedCost,
+            durationMinutes: match.durationMinutes ?? tier.durationMinutes,
+            points: match.points ?? tier.points,
+            fertilizerReductionMinutes: match.fertilizerReductionMinutes ?? tier.fertilizerReductionMinutes,
+          };
+        }
+        return { ...tier, ...match, kind: match.kind ?? tier.kind, stages: match.stages ?? tier.stages, faces: match.faces ?? tier.faces };
       })
     : DEFAULT_GAME_CONFIG.tiers;
 

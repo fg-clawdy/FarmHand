@@ -282,7 +282,16 @@ export async function playerRoutes(app: FastifyInstance) {
           where: { id: player.id },
           include: { plots: { orderBy: { slot: "asc" } } },
         });
-        return { player: updated, reward: { points: tier.points, seedsReturned: config.harvestSeedReturn, emoji: tier.emoji, name: tier.name } };
+        return {
+          player: updated,
+          reward: {
+            points: tier.points,
+            seedsReturned: config.harvestSeedReturn,
+            emoji: tier.emoji,
+            name: tier.name,
+            kind: tier.kind,
+          },
+        };
       });
       return { player: publicPlayer(result.player, config, true), reward: result.reward };
     } catch (err) {

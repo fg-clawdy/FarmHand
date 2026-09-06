@@ -1,14 +1,11 @@
-import { formatCountdown, type PublicPlot } from "@farmhand/shared";
+import { cropKindForTier, formatCountdown, type PublicPlot } from "@farmhand/shared";
 import { Container, Graphics, Sprite, Text, Texture, type Application } from "pixi.js";
-import { CROP_KINDS, cropFrame, type Atlas, type CropKind } from "./atlas";
+import type { Atlas } from "./atlas";
 import { YardWanderer } from "./animals";
 import { coverFit } from "./draw";
 import type { PixiEngine } from "./engine";
 import { FxLayer, SparkleField } from "./fx";
-
-function cropKind(tier: number | null | undefined): CropKind {
-  return CROP_KINDS[Math.max(0, (tier ?? 1) - 1)] ?? "daisy";
-}
+import { CROP_FRAME_WIDTH, cropStageFrame, type PaintedArt } from "./paintedAssets";
 
 function fitHeight(spr: Sprite, height: number) {
   const th = Math.max(1, spr.texture.height);
@@ -43,7 +40,13 @@ export class GardenScene {
   private onPlot: (slot: number, empty: boolean) => void;
   private animalPlaced = false;
 
-  constructor(engine: PixiEngine, atlas: Atlas, ground: Texture, onPlot: (slot: number, empty: boolean) => void) {
+  constructor(
+    engine: PixiEngine,
+    atlas: Atlas,
+    ground: Texture,
+    painted: PaintedArt,
+    onPlot: (slot: number, empty: boolean) => void,
+  ) {
     this.app = engine.app;
     this.onPlot = onPlot;
     this.fx = new FxLayer(atlas);
@@ -68,7 +71,7 @@ export class GardenScene {
     this.world.addChild(this.well, ...this.rails, ...this.props, this.plotsLayer, this.fx.root);
 
     for (let i = 0; i < 6; i++) {
-      const node = new PlotNode(atlas, i, (slot, empty) => this.onPlot(slot, empty));
+      const node = new PlotNode(atlas, painted, i, (slot, empty) => this.onPlot(slot, empty));
       this.slots.push(node);
       this.plotsLayer.addChild(node.root);
     }
@@ -228,7 +231,12 @@ class PlotNode {
   private ready = false;
   private cropScale = 0.7;
 
-  constructor(private atlas: Atlas, slot: number, onOpen: (slot: number, empty: boolean) => void) {
+  constructor(
+    atlas: Atlas,
+    private painted: PaintedArt,
+    slot: number,
+    onOpen: (slot: number, empty: boolean) => void,
+  ) {
     this.slot = slot;
     this.glow = new Sprite(atlas.frame("fx_glow"));
     this.glow.anchor.set(0.5);
@@ -247,7 +255,7 @@ class PlotNode {
   }
 
   layout(s: number) {
-    this.cropScale = (150 * s) / 220;
+    this.cropScale = (96 * s) / CROP_FRAME_WIDTH;
     this.bed.clear();
     this.bed.poly([0, 22 * s, 48 * s, 0, 0, -22 * s, -48 * s, 0]);
     this.bed.fill({ color: 0x6b3a1e, alpha: 0.55 });
@@ -267,13 +275,14 @@ class PlotNode {
     this.ready = !!plot?.ready;
     this.glow.visible = this.ready;
     this.sparkle.setActive(this.ready);
+    this.bed.visible = this.empty;
     if (this.empty || !plot?.growthStage || !plot.tier) {
       this.plant.visible = false;
       this.label.text = "Plant here";
       this.label.visible = true;
       return;
     }
-    this.plant.texture = cropFrame(this.atlas, cropKind(plot.tier), plot.growthStage);
+    this.plant.texture = cropStageFrame(this.painted.crops, cropKindForTier(plot.tier), plot.growthStage);
     this.plant.visible = true;
     this.label.visible = true;
     this.label.text = plot.ready ? "READY" : formatCountdown(plot.remainingMs);

@@ -1,8 +1,6 @@
-import { formatDuration, type GameConfig } from "@farmhand/shared";
+import { cropKindForTier, formatDuration, type GameConfig } from "@farmhand/shared";
 import { AcornArt, ClockIcon, PlantFigure, StarIcon } from "../art";
 import Sheet from "./Sheet";
-
-const TIER_KIND = ["daisy", "herbs", "sunflower", "oak"] as const;
 
 export default function PlantPicker({
   config,
@@ -23,7 +21,7 @@ export default function PlantPicker({
       <div className="tier-grid">
         {config.tiers.map((tier) => {
           const affordable = seeds >= tier.seedCost;
-          const kind = TIER_KIND[tier.tier - 1] ?? "daisy";
+          const kind = tier.kind ?? cropKindForTier(tier.tier);
           return (
             <button
               key={tier.tier}
@@ -32,7 +30,7 @@ export default function PlantPicker({
               disabled={!affordable}
               onClick={() => onPick(tier.tier)}
             >
-              <PlantFigure className="tier-art" kind={kind} ready />
+              <PlantFigure className="tier-art" kind={kind} stage={4} ready />
               <b>
                 T{tier.tier} {tier.name}
               </b>

@@ -77,7 +77,7 @@ export function useGardenPixi(onPlot: (slot: number, empty: boolean) => void) {
     let dead = false;
     let engine: PixiEngine | undefined;
     void (async () => {
-      const [{ atlas, grounds }, eng] = await Promise.all([loadAtlas(), createEngine(host)]);
+      const [{ atlas, grounds }, painted, eng] = await Promise.all([loadAtlas(), loadPainted(), createEngine(host)]);
       if (dead) {
         eng.destroy();
         return;
@@ -87,7 +87,7 @@ export function useGardenPixi(onPlot: (slot: number, empty: boolean) => void) {
         eng.destroy();
         return;
       }
-      const scene = new GardenScene(eng, atlas, grounds.garden, (slot, empty) => onPlotRef.current(slot, empty));
+      const scene = new GardenScene(eng, atlas, grounds.garden, painted, (slot, empty) => onPlotRef.current(slot, empty));
       if (dead) {
         scene.destroy();
         eng.destroy();

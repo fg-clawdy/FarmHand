@@ -72,10 +72,9 @@ Default tiers:
 
 | Tier | Plant | Seeds | Time | Stars | Fertilizer shave |
 | --- | --- | --- | --- | --- | --- |
-| 1 🌼 | Prairie Daisy | 1 | 24h | 1 | 4h |
-| 2 🌿 | Kitchen Herbs | 2 | 48h | 2 | 6h |
-| 3 🌻 | Sunflower | 3 | 72h | 4 | 8h |
-| 4 🌳 | Homestead Oak | 4 | 96h | 8 | 10h |
+| 1 🌽 | Sweet Corn | 1 | 24h | 1 | 4h |
+| 2 🍓 | Strawberry | 2 | 48h | 2 | 6h |
+| 3 ☁️ | Cotton | 3 | 72h | 4 | 8h |
 
 Watering knocks **60 minutes** off remaining time.
 

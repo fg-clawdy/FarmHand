@@ -29,17 +29,33 @@ export const PLAYFIELD_LAYOUT = {
     {
       hit: { u0: 0.04, v0: 0.42, u1: 0.3, v1: 0.88 } satisfies UvRect,
       sign: { u: 0.163, v: 0.484 } satisfies Uv,
+      soil: { u0: 0.07, v0: 0.62, u1: 0.27, v1: 0.86 } satisfies UvRect,
     },
     {
       hit: { u0: 0.36, v0: 0.42, u1: 0.64, v1: 0.88 } satisfies UvRect,
       sign: { u: 0.495, v: 0.48 } satisfies Uv,
+      soil: { u0: 0.39, v0: 0.62, u1: 0.61, v1: 0.86 } satisfies UvRect,
     },
     {
       hit: { u0: 0.68, v0: 0.42, u1: 0.97, v1: 0.88 } satisfies UvRect,
       sign: { u: 0.795, v: 0.484 } satisfies Uv,
+      soil: { u0: 0.71, v0: 0.62, u1: 0.93, v1: 0.86 } satisfies UvRect,
     },
   ],
 } as const;
+
+/** Painted gardens are 3×3 mounds; gameplay uses 6 slots on the front two rows. */
+export const MOUND_COLS = 3;
+export const PLAYABLE_PLOT_SLOTS = 6;
+
+export function moundUv(soil: UvRect, slot: number): Uv {
+  const col = ((slot % MOUND_COLS) + MOUND_COLS) % MOUND_COLS;
+  const row = Math.min(1, Math.floor(Math.max(0, slot) / MOUND_COLS));
+  return {
+    u: soil.u0 + ((col + 0.5) / MOUND_COLS) * (soil.u1 - soil.u0),
+    v: soil.v0 + ((row + 0.5) / 2) * (soil.v1 - soil.v0),
+  };
+}
 
 export function uvToLocal(uv: Uv, texW: number, texH: number) {
   return { x: uv.u * texW, y: uv.v * texH };
