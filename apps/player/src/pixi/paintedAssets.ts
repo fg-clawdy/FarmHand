@@ -6,9 +6,9 @@ export const CROP_STAGE_FRAMES = 4;
 export const CROP_FRAME_WIDTH = 392;
 
 /** Padded 4-frame eat/graze sheet (equal cells; Pixi insets so frames never share pixels). */
-export const COW_EAT_SHEET = { width: 1880, height: 296, frames: 4 } as const;
+export const COW_EAT_SHEET = { width: 1896, height: 300, frames: 4 } as const;
 /** Each standalone walk texture is one full cow on this canvas. */
-export const COW_WALK_FRAME = { width: 470, height: 296 } as const;
+export const COW_WALK_FRAME = { width: 474, height: 300 } as const;
 
 export const PAINTED_ART = {
   playfield: "/art/painted/farmhand_painted_playfield_v2_blank_signs.jpg",
