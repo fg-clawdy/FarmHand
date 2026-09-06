@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   PLAYFIELD_LAYOUT,
   PLAYFIELD_TEXTURE,
+  cowBodyHitsForbidden,
   cowForbiddenRects,
   cowRoamAvoidsGardens,
   facingFromDx,
@@ -33,6 +34,14 @@ test("cover-fit local pixels match the 1536×1024 painting", () => {
   assert.equal(Math.round(tip.y), 258);
 });
 
+test("cow blockers include barn, tractor, hay, mama cow, stand, and gardens", () => {
+  const keys = Object.keys(PLAYFIELD_LAYOUT.blockers);
+  for (const key of ["barn", "hay", "tractor", "mamaCow", "stand"]) {
+    assert.ok(keys.includes(key), key);
+  }
+  assert.equal(cowForbiddenRects(1536, 1024).length, 8);
+});
+
 test("cow roam box never overlaps the three garden plots", () => {
   assert.equal(cowRoamAvoidsGardens(), true);
   const roam = uvRectToLocal(PLAYFIELD_LAYOUT.cowRoam, 1536, 1024);
@@ -47,12 +56,18 @@ test("cow roam box never overlaps the three garden plots", () => {
 test("cow start sits on clear grass, not inside a blocker", () => {
   const start = uvToLocal(PLAYFIELD_LAYOUT.cowStart, 1536, 1024);
   const forbidden = cowForbiddenRects(1536, 1024);
-  assert.equal(
-    forbidden.some((rect) => pointInRect(start.x, start.y, rect)),
-    false,
-  );
+  assert.equal(cowBodyHitsForbidden(start.x, start.y, forbidden), false);
   const roam = uvRectToLocal(PLAYFIELD_LAYOUT.cowRoam, 1536, 1024);
   assert.equal(pointInRect(start.x, start.y, roam), true);
+});
+
+test("cow body box, not just the hooves, is blocked by the tractor", () => {
+  const tractor = uvRectToLocal(PLAYFIELD_LAYOUT.blockers.tractor, 1536, 1024);
+  const midX = (tractor.x0 + tractor.x1) / 2;
+  const midY = (tractor.y0 + tractor.y1) / 2;
+  assert.equal(cowBodyHitsForbidden(midX, midY, [tractor]), true);
+  const start = uvToLocal(PLAYFIELD_LAYOUT.cowStart, 1536, 1024);
+  assert.equal(cowBodyHitsForbidden(start.x, start.y, [tractor]), false);
 });
 
 test("a path through the tractor is rejected", () => {
