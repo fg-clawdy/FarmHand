@@ -26,7 +26,7 @@ export const PLAYFIELD_LAYOUT = {
   /** Mouth of the tractor’s vertical exhaust stack (texture px 419, 258). */
   exhaustTip: { u: 0.273, v: 0.252 } satisfies Uv,
   /** Clear grass left of the baked mama cow, below the tractor, above the fences. */
-  cowStart: { u: 0.28, v: 0.388 } satisfies Uv,
+  cowStart: { u: 0.36, v: 0.372 } satisfies Uv,
   /** Barn-side meadow — stays above the garden fence line; props are holes. */
   cowRoam: { u0: 0.06, v0: 0.12, u1: 0.58, v1: 0.4 } satisfies UvRect,
   storeHit: { u0: 0.68, v0: 0.02, u1: 0.97, v1: 0.36 } satisfies UvRect,
@@ -34,8 +34,8 @@ export const PLAYFIELD_LAYOUT = {
   blockers: {
     barn: { u0: 0.02, v0: 0.0, u1: 0.24, v1: 0.22 } satisfies UvRect,
     hay: { u0: 0.0, v0: 0.08, u1: 0.12, v1: 0.24 } satisfies UvRect,
-    tractor: { u0: 0.2, v0: 0.16, u1: 0.36, v1: 0.36 } satisfies UvRect,
-    mamaCow: { u0: 0.34, v0: 0.18, u1: 0.5, v1: 0.34 } satisfies UvRect,
+    tractor: { u0: 0.18, v0: 0.14, u1: 0.33, v1: 0.34 } satisfies UvRect,
+    mamaCow: { u0: 0.38, v0: 0.18, u1: 0.52, v1: 0.33 } satisfies UvRect,
     stand: { u0: 0.66, v0: 0.0, u1: 0.98, v1: 0.38 } satisfies UvRect,
   },
   gardens: [
@@ -96,7 +96,7 @@ export function padUvRect(rect: UvRect, pad: number): UvRect {
 }
 
 /** Extra padding so the cow’s body (pivot at feet) does not clip a prop. */
-const BLOCKER_PAD = 0.014;
+const BLOCKER_PAD = 0.02;
 
 export function cowForbiddenUv(
   layout: typeof PLAYFIELD_LAYOUT = PLAYFIELD_LAYOUT,
