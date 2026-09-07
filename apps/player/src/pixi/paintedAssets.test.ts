@@ -56,7 +56,7 @@ test("cover scale makes the soil disc match the painted mound diameter", () => {
   assert.ok(Math.abs(zoom * d - ZOOM_MOUND_COVER_PX) < 0.01);
   assert.ok(Math.abs(farm * d - FARM_MOUND_COVER_PX) < 0.01);
   assert.ok(ZOOM_MOUND_COVER_PX >= 200);
-  assert.ok(FARM_MOUND_COVER_PX >= 40);
+  assert.ok(FARM_MOUND_COVER_PX >= 70);
 });
 
 test("crop sheet slices are equal, in-bounds, and do not share pixels", () => {
