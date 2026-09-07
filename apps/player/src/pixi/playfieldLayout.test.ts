@@ -117,8 +117,8 @@ test("nine playable mounds sit on measured mound peaks, not a soil-rect lerp", (
   assert.ok(slots[6].v - slots[0].v > 0.11);
   assert.ok(slots[0].u > 0.09 && slots[0].u < 0.13);
   assert.ok(slots[8].u > 0.23 && slots[8].u < 0.27);
-  assert.ok(slots[0].v > 0.64 && slots[0].v < 0.67, "back row is the rear mound peaks, not the soil above them");
-  assert.ok(slots[6].v > 0.76 && slots[6].v < 0.79, "front row stays on dirt, above the picket gate");
+  assert.ok(slots[0].v >= 0.63 && slots[0].v < 0.66, "back row is the rear pebble-ring centers");
+  assert.ok(slots[6].v > 0.75 && slots[6].v < 0.77, "front row stays on dirt, above the picket gate");
 });
 
 test("each farm garden has its own 9 mound anchors", () => {

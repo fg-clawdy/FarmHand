@@ -11,9 +11,10 @@ import {
 } from "./gardenLayout";
 import {
   CROP_FRAME_HEIGHT,
-  PLANT_STEM_ANCHOR,
+  ZOOM_PLANT_BURY_PX,
   ZOOM_PLANT_HEIGHT_PX,
   cropStageFrame,
+  cropStemAnchor,
   type PaintedArt,
 } from "./paintedAssets";
 import { uvToLocal } from "./playfieldLayout";
@@ -178,7 +179,7 @@ class PlotNode {
     this.glow.blendMode = "add";
     this.glow.visible = false;
     this.sparkle = new SparkleField(atlas, 8);
-    this.plant.anchor.set(PLANT_STEM_ANCHOR.x, PLANT_STEM_ANCHOR.y);
+    this.plant.anchor.set(0.5, 1);
     this.label = new Text({
       text: "",
       style: {
@@ -200,6 +201,7 @@ class PlotNode {
     const { rx, ry } = GARDEN_ZOOM_LAYOUT.hit;
     this.cropScale = (ZOOM_PLANT_HEIGHT_PX * s) / CROP_FRAME_HEIGHT;
     this.plant.scale.set(this.cropScale);
+    this.plant.position.set(0, ZOOM_PLANT_BURY_PX * s);
     this.glow.position.set(0, -18 * s);
     this.glow.scale.set(2.2 * s);
     this.sparkle.root.position.set(0, -22 * s);
@@ -224,7 +226,10 @@ class PlotNode {
       this.label.visible = false;
       return;
     }
-    this.plant.texture = cropStageFrame(this.painted.crops, cropKindForTier(plot.tier), plot.growthStage);
+    const kind = cropKindForTier(plot.tier);
+    this.plant.texture = cropStageFrame(this.painted.crops, kind, plot.growthStage);
+    const pivot = cropStemAnchor(kind, plot.growthStage);
+    this.plant.anchor.set(pivot.x, pivot.y);
     this.plant.visible = true;
     this.label.visible = true;
     this.label.text = plot.ready ? "READY" : formatCountdown(plot.remainingMs);

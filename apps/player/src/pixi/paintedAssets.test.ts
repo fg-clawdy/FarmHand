@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CROP_FRAME_WIDTH, CROP_SHEET, COW_EAT_SHEET, PAINTED_ART, sheetFrameRects, SHEET_INSET } from "./paintedAssets.ts";
+import {
+  CROP_FRAME_WIDTH,
+  CROP_SHEET,
+  COW_EAT_SHEET,
+  PAINTED_ART,
+  cropStemAnchor,
+  sheetFrameRects,
+  SHEET_INSET,
+} from "./paintedAssets.ts";
 
 test("walk uses two separate textures, not a combined walk/eat sheet", () => {
   assert.equal(PAINTED_ART.cowWalk.length, 2);
@@ -12,6 +20,16 @@ test("walk uses two separate textures, not a combined walk/eat sheet", () => {
   assert.ok(PAINTED_ART.cowWalk.every((url) => url.endsWith(".png")));
   assert.ok(PAINTED_ART.playfield.includes("v3_no_static_cow"));
   assert.equal(PAINTED_ART.gardenZoom, "/art/painted/garden/garden_zoom_3x3.jpg");
+});
+
+test("cleaned crop frames pivot on a centered stem, not the cell midpoint leftover", () => {
+  for (const kind of ["corn", "strawberry", "cotton"] as const) {
+    for (const stage of [1, 2, 3, 4] as const) {
+      const a = cropStemAnchor(kind, stage);
+      assert.ok(Math.abs(a.x - 0.5) < 0.03, `${kind} ${stage} x=${a.x}`);
+      assert.ok(a.y > 0.98 && a.y <= 1, `${kind} ${stage} y=${a.y}`);
+    }
+  }
 });
 
 test("crop sheets are plant-only equal cells with stem at the bottom", () => {

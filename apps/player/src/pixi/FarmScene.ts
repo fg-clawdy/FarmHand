@@ -8,9 +8,10 @@ import type { PixiEngine } from "./engine";
 import { SparkleField } from "./fx";
 import {
   CROP_FRAME_HEIGHT,
+  FARM_PLANT_BURY_PX,
   FARM_PLANT_HEIGHT_PX,
-  PLANT_STEM_ANCHOR,
   cropStageFrame,
+  cropStemAnchor,
   type PaintedArt,
 } from "./paintedAssets";
 import {
@@ -217,7 +218,7 @@ class GardenHotspot {
     this.sparkle = new SparkleField(atlas, 8);
     for (let i = 0; i < PLAYABLE_PLOT_SLOTS; i++) {
       const spr = new Sprite();
-      spr.anchor.set(PLANT_STEM_ANCHOR.x, PLANT_STEM_ANCHOR.y);
+      spr.anchor.set(0.5, 1);
       spr.visible = false;
       this.plants.push(spr);
     }
@@ -249,7 +250,7 @@ class GardenHotspot {
     this.plants.forEach((spr, slot) => {
       const uv = moundUv(this.spec, slot);
       const p = uvToLocal(uv, texW, texH);
-      spr.position.set(p.x, p.y);
+      spr.position.set(p.x, p.y + FARM_PLANT_BURY_PX);
       spr.scale.set(this.cropScale);
     });
     this.sparkle.root.position.set((soil.x0 + soil.x1) / 2, (soil.y0 + soil.y1) / 2);
@@ -275,7 +276,10 @@ class GardenHotspot {
         spr.visible = false;
         return;
       }
-      spr.texture = cropStageFrame(this.painted.crops, cropKindForTier(plot.tier), stage);
+      const kind = cropKindForTier(plot.tier);
+      spr.texture = cropStageFrame(this.painted.crops, kind, stage);
+      const pivot = cropStemAnchor(kind, stage);
+      spr.anchor.set(pivot.x, pivot.y);
       spr.visible = true;
       spr.scale.set(this.cropScale);
     });
