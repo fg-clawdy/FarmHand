@@ -36,15 +36,22 @@ The user tablet JPEG was not present on this VM (`plant-align-ship/user_garden_z
 
 After clean-pack every frame has **exactly 1 blob** and stem ≈ (180, 712). See [`after/sheet_corn_f0.png`](after/sheet_corn_f0.png) and [`sheets/`](sheets/).
 
-## Live Pixi (one planted plot)
+## Live Pixi (Willow zoom, after `45fed9e` rebuild)
 
-`GardenScene` / `FarmScene` expose `__farmhandGardenDebug()` / `__farmhandFarmDebug()`. After recapture, JSON dumps live in [`after/zoom_willow_pixi.json`](after/zoom_willow_pixi.json).
+`__farmhandGardenDebug()` on a planted plot (full dump: [`zoom_willow_pixi.json`](zoom_willow_pixi.json)):
 
-Expected for a planted zoom plot:
+| slot | crop | frame x,y,w,h | sprites | anchor | scale | stem vs mound |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | corn stage 4 | 1082, 2, 356, 716 | **1** | 0.5 / 0.992 | 0.160 | dx=0, dy=+12 |
+| 4 | strawberry 4 | 1082, 2, 356, 716 | **1** | 0.5 / 0.992 | 0.160 | dx=0, dy=+12 |
+| 5 | corn seed | **2**, 2, 356, 716 | **1** | 0.5 / 0.992 | 0.160 | dx=0, dy=+12 |
+| 8 | corn stage 4 | 1082, 2, 356, 716 | **1** | 0.5 / 0.992 | 0.160 | dx=0, dy=+12 |
 
-- `spritesOnPlot`: glow/sparkle sprites may exist, but **one** crop `Sprite` whose `frame.w` ≈ 356 and `frame.h` ≈ 716 (360×720 minus 2px inset)
-- `anchor` ≈ `{ x: 0.5, y: 0.992 }`
-- `world` stem sits on the mound, a few pixels below the UV (`ZOOM_PLANT_BURY_PX = 12`)
+Empty slots: `visible=false`, `spritesOnPlot=0`. Farm planted plots use the same frames at scale 0.047 with bury dy=+4.
+
+Pixel check on the 1536×1024 canvas (yellow/green/red vs UV): strawberry and the corn **seed** stem land on the UV (`d≈(0,+9)`). Mature corn “stem” numbers that go left are drooping-leaf lowest pixels, not a second sprite.
+
+Canvas after: [`02_zoom_willow.png`](02_zoom_willow.png) · [`01_farm.png`](01_farm.png) · per-mound [`zoom_willow_slots_sheet.jpg`](zoom_willow_slots_sheet.jpg)
 
 ## UV tables (1536×1024)
 
