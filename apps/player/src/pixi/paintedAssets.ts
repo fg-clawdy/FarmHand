@@ -19,12 +19,15 @@ export const CROP_STEM_IN_CELL: Record<CropKind, ReadonlyArray<{ x: number; y: n
 /** Fallback when a frame has no measured stem. */
 export const PLANT_STEM_ANCHOR = { x: 0.5, y: 1 } as const;
 /** On-texture height of a full crop frame on the farm playfield. */
-export const FARM_PLANT_HEIGHT_PX = 46;
+export const FARM_PLANT_HEIGHT_PX = 34;
 /** Extra pixels down so the stem sits in the dirt, not on the highlight. */
-export const FARM_PLANT_BURY_PX = 3;
-/** On-texture height of a full crop frame in the zoomed garden. */
-export const ZOOM_PLANT_HEIGHT_PX = 200;
-export const ZOOM_PLANT_BURY_PX = 10;
+export const FARM_PLANT_BURY_PX = 4;
+/**
+ * Zoom height of a full 720px frame. Row spacing is ~223px — keep the mature
+ * stalk inside its own mound so it does not draw on the plot above.
+ */
+export const ZOOM_PLANT_HEIGHT_PX = 115;
+export const ZOOM_PLANT_BURY_PX = 12;
 
 /** Padded 4-frame eat/graze PNG with real alpha (equal cells; Pixi insets so frames never share pixels). */
 export const COW_EAT_SHEET = { width: 1704, height: 304, frames: 4 } as const;
