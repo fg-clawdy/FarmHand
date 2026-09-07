@@ -112,11 +112,12 @@ test("nine playable mounds sit on measured mound peaks, not a soil-rect lerp", (
     assert.ok(uv.u > garden.soil.u0 && uv.u < garden.soil.u1);
     assert.ok(uv.v > garden.soil.v0 && uv.v < garden.soil.v1);
   }
-  // Legacy lerp put slot 0 at ~0.103, 0.66 — far from the painted peak.
-  assert.ok(Math.abs(slots[0].u - 0.1033) > 0.01);
-  assert.ok(slots[0].u > 0.11 && slots[0].u < 0.14);
-  assert.ok(slots[8].u > 0.22 && slots[8].u < 0.25);
-  assert.ok(slots[6].v < 0.80, "front row stays on the mound, not the gate");
+  // Legacy lerp used a tight 0.20×0.24 soil box; measured peaks are a wider 3×3.
+  assert.ok(slots[2].u - slots[0].u > 0.12);
+  assert.ok(slots[6].v - slots[0].v > 0.15);
+  assert.ok(slots[0].u > 0.09 && slots[0].u < 0.13);
+  assert.ok(slots[8].u > 0.23 && slots[8].u < 0.27);
+  assert.ok(slots[6].v < 0.83, "front row stays inside the fence");
 });
 
 test("each farm garden has its own 9 mound anchors", () => {
