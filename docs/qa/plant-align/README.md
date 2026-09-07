@@ -1,70 +1,31 @@
 # Plant alignment QA
 
-The tablet shot was not a “slightly off UV” problem. Each planted mound drew **more than one plant fragment** because the 1440×720 / 4×360 sheets packed leftover foliage from the next stage into the **same cell**.
+Locked look: **approved `plant_*_stages.png` with plant + clumpy soil disc as one unit.** Do not ship plant-only cutouts.
 
-A 0.5 / 1.0 Pixi pivot then sat the real stem left of the mound and the leftover scrap on the right/top — exactly “kernel on the left + mystery leaf on the right.”
+## Before (tablet / tiny icons)
 
-## What was wrong (Hypothesis A, measured)
+The live zoom was drawing plant-only scraps at ~115px — leftover kernels and fragments that did not cover the painted mound. See [`before/`](before/) and the previous canvas `02_zoom_willow.png` from the plant-only pass.
 
-Broken sheets from `32547ec` (the rejected “UV peaks” commit):
+## Restore
 
-| Sheet | Frame | Opaque blobs in the 360×720 cell |
+Original soil-disc sheets from `58d7d89` (1568 wide, 4×392 cells):
+
+| Crop | Size | Disc (stage 1) |
 | --- | --- | --- |
-| corn | 0 | kernel **and** a leaf scrap |
-| corn | 1 | sprout **and** 3 leaf slivers on the right edge |
-| strawberry | 0 | seed **and** clipped leaves |
-| cotton | 0 | seed **and** 2 sprout scraps |
+| corn | 1568×854 | center ≈ (196, 762), Ø 316 |
+| strawberry | 1568×464 | center ≈ (160, 363), Ø 290 |
+| cotton | 1568×623 | center ≈ (195, 520), Ø 325 |
 
-Frame boundaries at x=360/720/1080 were clean (zero shared pixels). The engine was not slicing the wrong cell — **the cell itself contained multiple plants.**
+Right-gutter packing scraps were zeroed (alpha) **without moving the plant**. Each cell is one soil+plant blob.
 
-See:
+## Place + scale
 
-- [`before/sheet_corn_broken_f0.png`](before/sheet_corn_broken_f0.png) — kernel + floating leaf
-- [`before/sheet_corn_broken_f1.png`](before/sheet_corn_broken_f1.png) — sprout + 3 scraps
-- [`before/00_tablet_bug_reconstruction.jpg`](before/00_tablet_bug_reconstruction.jpg) — those frames dropped on the zoom painting at the slots the tablet showed
-
-The user tablet JPEG was not present on this VM (`plant-align-ship/user_garden_zoom_broken.jpg`). The reconstruction uses the same broken frames the live player was serving.
-
-## Fix
-
-1. Keep only the stem-bearing blob in each cell (the component with the lowest pixels, `n ≥ 80`). Drop gutter scraps.
-2. Recenter that stem to **(180, 712)** in the 360×720 cell.
-3. Pixi `sliceSheet` still uses 4 equal cells with `SHEET_INSET = 2`.
-4. `cropStemAnchor` pivots on that stem (`≈ 0.5, 0.992`).
-5. One `Sprite` per plot. Farm height 34px; zoom height **115px** (row gap ≈ 223px — 200px mature corn grew into the mound above and looked like a second plant).
-6. Farm / zoom UVs are hand-picked pebble-ring centers (slightly deep in the dirt), not dark-pixel CV (that locked onto shadow troughs and the picket gate).
-
-After clean-pack every frame has **exactly 1 blob** and stem ≈ (180, 712). See [`after/sheet_corn_f0.png`](after/sheet_corn_f0.png) and [`sheets/`](sheets/).
-
-## Live Pixi (Willow zoom, after `45fed9e` rebuild)
-
-`__farmhandGardenDebug()` on a planted plot (full dump: [`zoom_willow_pixi.json`](zoom_willow_pixi.json)):
-
-| slot | crop | frame x,y,w,h | sprites | anchor | scale | stem vs mound |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | corn stage 4 | 1082, 2, 356, 716 | **1** | 0.5 / 0.992 | 0.160 | dx=0, dy=+12 |
-| 4 | strawberry 4 | 1082, 2, 356, 716 | **1** | 0.5 / 0.992 | 0.160 | dx=0, dy=+12 |
-| 5 | corn seed | **2**, 2, 356, 716 | **1** | 0.5 / 0.992 | 0.160 | dx=0, dy=+12 |
-| 8 | corn stage 4 | 1082, 2, 356, 716 | **1** | 0.5 / 0.992 | 0.160 | dx=0, dy=+12 |
-
-Empty slots: `visible=false`, `spritesOnPlot=0`. Farm planted plots use the same frames at scale 0.047 with bury dy=+4.
-
-Pixel check on the 1536×1024 canvas (yellow/green/red vs UV): strawberry and the corn **seed** stem land on the UV (`d≈(0,+9)`). Mature corn “stem” numbers that go left are drooping-leaf lowest pixels, not a second sprite.
-
-Canvas after: [`02_zoom_willow.png`](02_zoom_willow.png) · [`01_farm.png`](01_farm.png) · per-mound [`zoom_willow_slots_sheet.jpg`](zoom_willow_slots_sheet.jpg)
-
-## UV tables (1536×1024)
-
-Zoom mounds:
-
-```
-(0.28, 0.31) (0.50, 0.31) (0.72, 0.31)
-(0.28, 0.528) (0.50, 0.528) (0.72, 0.528)
-(0.28, 0.742) (0.50, 0.742) (0.72, 0.742)
-```
-
-Farm left / mid / right: see `playfieldLayout.ts`. Overlay copies [`01_farm_uv.jpg`](01_farm_uv.jpg) and [`01_farm_true_centers.jpg`](01_farm_true_centers.jpg) use the **same** points — those UVs *are* the hand-picked painted centers.
+- One sprite per plot; frame = growth stage only.
+- Pixi pivot = **soil-disc center** (`cropDiscAnchor`), so a left-packed disc still lands on the mound UV.
+- Zoom disc diameter **220px** (covers the pebble-ring). Farm mini-mounds **52px**.
+- Soft umber ellipse under the zoom disc to hide any leftover painted ring.
+- Empty plots keep the painted dirt.
 
 ## Pass bar
 
-A human can name the crop on each planted mound (corn kernel, corn stalk, strawberry, cotton). No leftover leaves on empty dirt. Empty mounds stay empty.
+A human can name corn seed vs sprout vs stalk, strawberry, and cotton. The disc *is* the plot. No pink, no floating scraps.

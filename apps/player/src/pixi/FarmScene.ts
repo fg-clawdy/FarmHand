@@ -7,11 +7,10 @@ import { coverFit } from "./draw";
 import type { PixiEngine } from "./engine";
 import { SparkleField } from "./fx";
 import {
-  CROP_FRAME_HEIGHT,
-  FARM_PLANT_BURY_PX,
-  FARM_PLANT_HEIGHT_PX,
+  FARM_MOUND_COVER_PX,
+  cropCoverScale,
+  cropDiscAnchor,
   cropStageFrame,
-  cropStemAnchor,
   type PaintedArt,
 } from "./paintedAssets";
 import {
@@ -264,12 +263,10 @@ class GardenHotspot {
     this.nameText.position.set(0, -2);
     this.statsText.position.set(0, 2);
     const soil = uvRectToLocal(this.spec.soil, texW, texH);
-    this.cropScale = FARM_PLANT_HEIGHT_PX / CROP_FRAME_HEIGHT;
     this.plants.forEach((spr, slot) => {
       const uv = moundUv(this.spec, slot);
       const p = uvToLocal(uv, texW, texH);
-      spr.position.set(p.x, p.y + FARM_PLANT_BURY_PX);
-      spr.scale.set(this.cropScale);
+      spr.position.set(p.x, p.y);
     });
     this.sparkle.root.position.set((soil.x0 + soil.x1) / 2, (soil.y0 + soil.y1) / 2);
     this.sparkle.setArea((soil.x1 - soil.x0) * 0.36, (soil.y1 - soil.y0) * 0.22);
@@ -296,18 +293,19 @@ class GardenHotspot {
       }
       const kind = cropKindForTier(plot.tier);
       spr.texture = cropStageFrame(this.painted.crops, kind, stage);
-      const pivot = cropStemAnchor(kind, stage);
+      const pivot = cropDiscAnchor(kind, stage);
       spr.anchor.set(pivot.x, pivot.y);
-      spr.visible = true;
+      this.cropScale = cropCoverScale(kind, stage, FARM_MOUND_COVER_PX);
       spr.scale.set(this.cropScale);
+      spr.visible = true;
     });
   }
 
   breathe(t: number) {
     this.plants.forEach((spr, i) => {
       if (!spr.visible) return;
-      const s = this.cropScale;
-      spr.scale.set(s, s * (1 + Math.sin(t * 1.5 + i) * 0.03));
+      const s = spr.scale.x;
+      spr.scale.set(s, s * (1 + Math.sin(t * 1.5 + i) * 0.01));
     });
     this.sparkle.update(t);
   }
@@ -316,7 +314,7 @@ class GardenHotspot {
     return this.plants.map((spr, slot) => {
       const frame = spr.texture.frame;
       const world = spr.getGlobalPosition();
-      const mound = this.root.toGlobal(new Point(spr.x, spr.y - FARM_PLANT_BURY_PX));
+      const mound = this.root.toGlobal(new Point(spr.x, spr.y));
       return {
         garden,
         slot,

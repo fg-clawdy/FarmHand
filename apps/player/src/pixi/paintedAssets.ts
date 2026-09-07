@@ -2,32 +2,60 @@ import { CROP_KINDS, type CropKind } from "@farmhand/shared";
 import { Assets, Rectangle, Texture } from "pixi.js";
 
 export const CROP_STAGE_FRAMES = 4;
-/** Plant-only sheets: 1440×720, four equal cells. Stems are NOT at cell-center. */
-export const CROP_SHEET = { width: 1440, height: 720, frames: 4 } as const;
+/**
+ * Approved crop sheets: plant + clumpy soil disc as one unit.
+ * All three are 1568 wide / 4 equal cells (392). Heights differ.
+ */
+export const CROP_SHEET = { width: 1568, frames: 4 } as const;
 export const CROP_FRAME_WIDTH = CROP_SHEET.width / CROP_SHEET.frames;
-export const CROP_FRAME_HEIGHT = CROP_SHEET.height;
-/**
- * Stem/seed in each cleaned 360×720 cell (gutter scraps removed, stem recentered).
- * One connected blob per frame; pivot is bottom-center of that stem.
- */
-const STEM = { x: 180, y: 712 } as const;
-export const CROP_STEM_IN_CELL: Record<CropKind, ReadonlyArray<{ x: number; y: number }>> = {
-  corn: [STEM, STEM, STEM, STEM],
-  strawberry: [STEM, STEM, STEM, STEM],
-  cotton: [STEM, STEM, STEM, STEM],
+export const CROP_SHEET_HEIGHT: Record<CropKind, number> = {
+  corn: 854,
+  strawberry: 464,
+  cotton: 623,
 };
-/** Fallback when a frame has no measured stem. */
-export const PLANT_STEM_ANCHOR = { x: 0.5, y: 1 } as const;
-/** On-texture height of a full crop frame on the farm playfield. */
-export const FARM_PLANT_HEIGHT_PX = 34;
-/** Extra pixels down so the stem sits in the dirt, not on the highlight. */
-export const FARM_PLANT_BURY_PX = 4;
+
+type Disc = { x: number; y: number; d: number };
+
 /**
- * Zoom height of a full 720px frame. Row spacing is ~223px — keep the mature
- * stalk inside its own mound so it does not draw on the plot above.
+ * Soil-disc center and diameter in each 392-wide cell (brown pixels, no re-pack).
+ * Pivot the sprite here so the disc — not the cell midpoint — sits on the mound UV.
  */
-export const ZOOM_PLANT_HEIGHT_PX = 115;
-export const ZOOM_PLANT_BURY_PX = 12;
+export const CROP_DISC_IN_CELL: Record<CropKind, readonly Disc[]> = {
+  corn: [
+    { x: 196, y: 762, d: 316 },
+    { x: 161, y: 763, d: 312 },
+    { x: 154, y: 760, d: 300 },
+    { x: 188, y: 763, d: 311 },
+  ],
+  strawberry: [
+    { x: 160, y: 363, d: 290 },
+    { x: 146, y: 357, d: 284 },
+    { x: 146, y: 357, d: 283 },
+    { x: 177, y: 371, d: 290 },
+  ],
+  cotton: [
+    { x: 195, y: 520, d: 325 },
+    { x: 167, y: 513, d: 320 },
+    { x: 158, y: 501, d: 307 },
+    { x: 185, y: 512, d: 322 },
+  ],
+};
+
+/** Fallback when a frame has no measured disc. */
+export const PLANT_DISC_ANCHOR = { x: 0.5, y: 0.88 } as const;
+
+/** On-texture diameter of the painted zoom pebble-ring to cover. */
+export const ZOOM_MOUND_COVER_PX = 220;
+/** On-texture diameter of a farm mini-mound to cover. */
+export const FARM_MOUND_COVER_PX = 52;
+
+/** @deprecated plant-only leftover; disc cover is the live scale. */
+export const FARM_PLANT_HEIGHT_PX = FARM_MOUND_COVER_PX;
+export const FARM_PLANT_BURY_PX = 0;
+export const ZOOM_PLANT_HEIGHT_PX = ZOOM_MOUND_COVER_PX;
+export const ZOOM_PLANT_BURY_PX = 0;
+/** @deprecated use CROP_SHEET_HEIGHT[kind] */
+export const CROP_FRAME_HEIGHT = CROP_SHEET_HEIGHT.corn;
 
 /** Padded 4-frame eat/graze PNG with real alpha (equal cells; Pixi insets so frames never share pixels). */
 export const COW_EAT_SHEET = { width: 1704, height: 304, frames: 4 } as const;
@@ -90,16 +118,30 @@ export function cropStageFrame(crops: Record<CropKind, Texture[]>, kind: CropKin
   return crops[kind]?.[stage - 1] ?? Texture.EMPTY;
 }
 
-/** Pixi pivot for a sliced crop frame so the stem, not the cell midpoint, sits on the UV. */
-export function cropStemAnchor(kind: CropKind, stage: 1 | 2 | 3 | 4) {
-  const cell = CROP_STEM_IN_CELL[kind]?.[stage - 1];
-  if (!cell) return { x: PLANT_STEM_ANCHOR.x, y: PLANT_STEM_ANCHOR.y };
+export function cropDisc(kind: CropKind, stage: 1 | 2 | 3 | 4): Disc | undefined {
+  return CROP_DISC_IN_CELL[kind]?.[stage - 1];
+}
+
+/** Pixi pivot so the soil-disc center sits on the mound UV. */
+export function cropDiscAnchor(kind: CropKind, stage: 1 | 2 | 3 | 4) {
+  const disc = cropDisc(kind, stage);
+  if (!disc) return { x: PLANT_DISC_ANCHOR.x, y: PLANT_DISC_ANCHOR.y };
   const fw = CROP_FRAME_WIDTH - SHEET_INSET * 2;
-  const fh = CROP_FRAME_HEIGHT - SHEET_INSET * 2;
+  const fh = CROP_SHEET_HEIGHT[kind] - SHEET_INSET * 2;
   return {
-    x: (cell.x - SHEET_INSET) / fw,
-    y: (cell.y - SHEET_INSET) / fh,
+    x: (disc.x - SHEET_INSET) / fw,
+    y: (disc.y - SHEET_INSET) / fh,
   };
+}
+
+/** @deprecated name from the plant-only pass; same as cropDiscAnchor. */
+export const cropStemAnchor = cropDiscAnchor;
+
+/** Uniform scale so this frame's soil disc matches `coverPx` on the playfield. */
+export function cropCoverScale(kind: CropKind, stage: 1 | 2 | 3 | 4, coverPx: number) {
+  const disc = cropDisc(kind, stage);
+  const d = disc?.d || CROP_FRAME_WIDTH;
+  return coverPx / d;
 }
 
 export async function loadPaintedArt(): Promise<PaintedArt> {

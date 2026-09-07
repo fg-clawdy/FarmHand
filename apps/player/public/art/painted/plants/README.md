@@ -1,20 +1,20 @@
 # Painted crop stages
 
-Horizontal **plant-only** sheets (no soil discs / dirt cookies). Four equal frames, left → right:
+Approved horizontal sheets: **plant + clumpy dark soil disc as one unit**. Four equal frames, left → right:
 
-1. Seed / kernel
+1. Seed on the disc
 2. Seedling
-3. Growing with buds / flowers
+3. Growing with buds / flowers / cobs
 4. Mature / ripe
 
-Stem and seed bases fade into transparency so they composite onto the painted garden mounds. Anchor sprites at **bottom-center** of each frame.
+Do not replace these with plant-only cutouts. The disc is the planted plot — scale it to cover the painted pebble-ring.
 
-| File | Crop kind (code) |
-| --- | --- |
-| `plant_corn_stages.png` | `corn` |
-| `plant_strawberry_stages.png` | `strawberry` |
-| `plant_cotton_stages.png` | `cotton` |
+| File | Crop kind (code) | Sheet |
+| --- | --- | --- |
+| `plant_corn_stages.png` | `corn` | 1568×854 |
+| `plant_strawberry_stages.png` | `strawberry` | 1568×464 |
+| `plant_cotton_stages.png` | `cotton` | 1568×623 |
 
-Each sheet is **1440×720**; each frame is **360×720**. Do not bake crop names into the pixels — names live in game config / UI text.
+Each frame is **392px** wide. Pivot on the **soil-disc center**, not the cell midpoint or stem tip.
 
-Gameplay maps `growthStage` 1–4 (from the plant timer) onto these frames. Tier 1–3 map to corn / strawberry / cotton.
+Gameplay maps `growthStage` 1–4 onto these frames. Tier 1–3 map to corn / strawberry / cotton.
