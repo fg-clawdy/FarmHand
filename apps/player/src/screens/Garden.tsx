@@ -8,6 +8,15 @@ import IngredientsSheet from "../components/IngredientsSheet";
 import PinPad from "../components/PinPad";
 import PlantPicker from "../components/PlantPicker";
 import PlotSheet from "../components/PlotSheet";
+import {
+  cheapestSeedCost,
+  GARDEN_TOOL_ART,
+  GARDEN_TOOL_LABEL,
+  GARDEN_TOOLS,
+  glowingSlots,
+  plotAcceptsTool,
+  type GardenTool,
+} from "../pixi/gardenLayout";
 import { useGardenPixi } from "../pixi/usePixi";
 
 type Overlay =
@@ -26,6 +35,7 @@ export default function Garden() {
   const [needsPin, setNeedsPin] = useState(false);
   const [playerName, setPlayerName] = useState("Friend");
   const [overlay, setOverlay] = useState<Overlay>(null);
+  const [tool, setTool] = useState<GardenTool | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [now, setNow] = useState(Date.now());
@@ -145,6 +155,8 @@ export default function Garden() {
       now={now}
       overlay={overlay}
       setOverlay={setOverlay}
+      tool={tool}
+      setTool={setTool}
       busy={busy}
       error={error}
       run={run}
@@ -161,6 +173,8 @@ function GardenPlay({
   now,
   overlay,
   setOverlay,
+  tool,
+  setTool,
   busy,
   error,
   run,
@@ -173,28 +187,69 @@ function GardenPlay({
   now: number;
   overlay: Overlay;
   setOverlay: (o: Overlay) => void;
+  tool: GardenTool | null;
+  setTool: (t: GardenTool | null) => void;
   busy: boolean;
   error: string;
   run: (action: () => Promise<GardenPlayer>) => Promise<void>;
   onBack: () => void;
 }) {
-  const { hostRef, sceneRef, ready } = useGardenPixi((slot, empty) => {
-    setOverlay(empty ? { type: "picker", slot } : { type: "plot", slot });
+  const cheapestSeed = cheapestSeedCost(config.tiers);
+  const elapsed = now - fetchedAt;
+  const cooldownRemainingMs = Math.max(0, player.water.cooldownRemainingMs - elapsed);
+  const canWater = player.water.wateringsLeft > 0 && cooldownRemainingMs === 0;
+  const toolCtx = { seeds: player.seeds, fertilizer: player.fertilizer, canWater, cheapestSeed };
+  const glow = useMemo(
+    () => glowingSlots(tool, plots, toolCtx),
+    [tool, plots, player.seeds, player.fertilizer, canWater, cheapestSeed],
+  );
+
+  const { hostRef, sceneRef, ready } = useGardenPixi((slot) => {
+    const plot = plots.find((p) => p.slot === slot);
+    if (!plot || busy) return;
+    if (tool) {
+      if (!plotAcceptsTool(tool, plot, toolCtx)) {
+        if (plot.ready) setOverlay({ type: "plot", slot });
+        return;
+      }
+      if (tool === "seed") {
+        setOverlay({ type: "picker", slot });
+        return;
+      }
+      if (tool === "water") {
+        void run(async () => {
+          const data = await api.water(slot);
+          sceneRef.current?.fxWater(slot);
+          return data.player;
+        });
+        return;
+      }
+      void run(async () => {
+        const data = await api.fertilize(slot);
+        sceneRef.current?.fxFertilizer(slot);
+        return data.player;
+      });
+      return;
+    }
+    setOverlay(plot.state === "empty" ? { type: "picker", slot } : { type: "plot", slot });
   });
 
   useEffect(() => {
     sceneRef.current?.setPlots(plots);
-  }, [plots, ready, sceneRef]);
+    sceneRef.current?.setName(`${player.name}'s garden`);
+  }, [plots, player.name, ready, sceneRef]);
+
+  useEffect(() => {
+    sceneRef.current?.setGlow(glow);
+  }, [glow, ready, sceneRef]);
 
   const selected = overlay && "slot" in overlay ? plots.find((p) => p.slot === overlay.slot) : null;
-  const elapsed = now - fetchedAt;
-  const cooldownRemainingMs = Math.max(0, player.water.cooldownRemainingMs - elapsed);
   const livePlayer: GardenPlayer = {
     ...player,
     water: {
       ...player.water,
       cooldownRemainingMs,
-      canWater: player.water.wateringsLeft > 0 && cooldownRemainingMs === 0,
+      canWater,
     },
   };
 
@@ -224,6 +279,21 @@ function GardenPlay({
             <span>+</span>
           </button>
         </div>
+      </div>
+      <div className="garden-tools" role="toolbar" aria-label="Garden tools">
+        {GARDEN_TOOLS.map((id) => (
+          <button
+            key={id}
+            type="button"
+            className={`garden-tool ${tool === id ? "selected" : ""}`}
+            aria-pressed={tool === id}
+            aria-label={GARDEN_TOOL_LABEL[id]}
+            onClick={() => setTool(tool === id ? null : id)}
+          >
+            <img src={GARDEN_TOOL_ART[id]} alt="" draggable={false} />
+            <span>{GARDEN_TOOL_LABEL[id]}</span>
+          </button>
+        ))}
       </div>
       {overlay?.type === "picker" && (
         <PlantPicker

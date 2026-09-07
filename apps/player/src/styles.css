@@ -509,6 +509,45 @@ button, input { font: inherit; }
 .ing .qty { font-size: 28px; font-weight: 900; }
 .ing-orb-art { width: 56px; height: 56px; margin: 0 auto 8px; }
 
+.garden-tools {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 14px;
+  pointer-events: auto;
+}
+.garden-tool {
+  width: 108px;
+  min-height: 112px;
+  border: 0;
+  border-radius: 24px;
+  padding: 8px 8px 6px;
+  background: linear-gradient(#fff8e6, #e8c98a);
+  box-shadow: 0 6px 0 #5c3218, inset 0 2px 0 #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 14px;
+}
+.garden-tool img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  pointer-events: none;
+}
+.garden-tool.selected {
+  background: linear-gradient(#ffe56a, #f0b429);
+  box-shadow: 0 6px 0 #8a4f2a, 0 0 0 4px #fff6df, 0 0 22px rgba(255, 229, 106, 0.85);
+  transform: translateY(-4px);
+}
+.garden-tool:active { transform: translateY(2px); }
+
 .plot-hero { text-align: center; }
 .plot-hero .hero-art { width: min(180px, 40%); }
 

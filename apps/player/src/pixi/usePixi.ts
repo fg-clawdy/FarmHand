@@ -64,7 +64,7 @@ export function useFarmPixi(handlers: { onPlayer: (id: string) => void; onStore:
   return { hostRef, sceneRef, ready };
 }
 
-export function useGardenPixi(onPlot: (slot: number, empty: boolean) => void) {
+export function useGardenPixi(onPlot: (slot: number) => void) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<GardenScene | null>(null);
   const [ready, setReady] = useState(0);
@@ -77,7 +77,7 @@ export function useGardenPixi(onPlot: (slot: number, empty: boolean) => void) {
     let dead = false;
     let engine: PixiEngine | undefined;
     void (async () => {
-      const [{ atlas, grounds }, painted, eng] = await Promise.all([loadAtlas(), loadPainted(), createEngine(host)]);
+      const [{ atlas }, painted, eng] = await Promise.all([loadAtlas(), loadPainted(), createEngine(host)]);
       if (dead) {
         eng.destroy();
         return;
@@ -87,7 +87,7 @@ export function useGardenPixi(onPlot: (slot: number, empty: boolean) => void) {
         eng.destroy();
         return;
       }
-      const scene = new GardenScene(eng, atlas, grounds.garden, painted, (slot, empty) => onPlotRef.current(slot, empty));
+      const scene = new GardenScene(eng, atlas, painted, (slot) => onPlotRef.current(slot));
       if (dead) {
         scene.destroy();
         eng.destroy();

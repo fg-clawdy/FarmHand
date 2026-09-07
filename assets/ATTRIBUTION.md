@@ -15,7 +15,8 @@ Farm camera: ¾ painted landscape (barn left, market stall right, three fenced g
 | Cow walk (2 standalone poses) | Original painted frames | original | `/art/painted/cow_walk_frame_a.png` + `cow_walk_frame_b.png` — loaded as two full textures (no sheet slice). Faces right only; left roam flips `scale.x = -1`. Anchor at the hooves. |
 | Cow eat/graze (4) | Original painted PNG with real alpha | original | `/art/painted/cow_eat_sheet.png` — 4 equal padded cells; must stay PNG. Old `cow_walk_eat_sheet*.png` is unused. |
 | Live garden plaques | Pixi `Text` from `/api/farm` | — | Child **name** (primary) plus `seeds · pts` on each blank sign. Admin **Edit → Name** updates the same field; the farm polls every 8s. |
-| Garden close-up ground | Original generated painting | original | `/art/generated/ground/garden.jpg` |
+| Garden close-up ground | Original painted 3×3 zoom | original | `/art/painted/garden/garden_zoom_3x3.jpg` — cover-fit. No animals. |
+| Garden tools (seeds bag, watering can, fertilizer flask) | Original painted PNG with real alpha | original | `/art/painted/garden/tool_*.png` — React toolbar; selected tool glows eligible mounds. |
 | Crop stages (corn, strawberry, cotton × seed/seedling/buds/ripe) | Original painted sheets | original | `/art/painted/plants/plant_*_stages.png` — Pixi on farm mounds + garden close-up. Names stay in UI text. |
 | Harvest sparkles | Original generated sheet | original | Sparkles on READY farm gardens |
 | HUD chips, watering can, fertilizer bottle | Same generated prop set | original | Slim edge HUD + React resource chrome |
@@ -27,7 +28,7 @@ The iso `pixi-tiledmap` diamond and the rolling-hills / sky backdrop are **not d
 | Pack | License | Status |
 | --- | --- | --- |
 | Previous generated farm ground `ground/farm.jpg` + barn/truck/rail props | original | **Unused on the farm dashboard** (replaced by the painted playfield). Garden close-up still uses `ground/garden.jpg`. |
-| Generated ambient animal sheets | original | **Unused on the farm dashboard** (replaced by the painted cow). Still used in the garden close-up. |
+| Generated ambient animal sheets | original | **Unused on the farm dashboard and garden zoom** (garden close-up has no animals). |
 | Generated iso tiles + picket fence pieces | original | **Unused at runtime.** Files remain under `/art/generated/tiles/` and `/art/generated/fence/`. |
 | Rolling hills + sky + smiling sun `backdrop/hills.jpg` | original | **Unused at runtime.** Do not show sky around the farm. |
 | [Kenney Isometric Miniature Farm](https://kenney.nl/assets/isometric-miniature-farm) | CC0 | **Unused at runtime.** Files remain under `/art/vendor/kenney/iso-miniature-farm/`. |

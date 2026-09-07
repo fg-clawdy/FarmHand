@@ -12,6 +12,7 @@ export const COW_WALK_FRAME = { width: 426, height: 304 } as const;
 
 export const PAINTED_ART = {
   playfield: "/art/painted/farmhand_painted_playfield_v3_no_static_cow.jpg",
+  gardenZoom: "/art/painted/garden/garden_zoom_3x3.jpg",
   smoke: "/art/painted/tractor_exhaust_smoke_sheet.png",
   /** Two separate PNGs with real alpha — never sliced from a combined walk/eat sheet. */
   cowWalk: ["/art/painted/cow_walk_frame_a.png", "/art/painted/cow_walk_frame_b.png"],
@@ -26,6 +27,7 @@ export const PAINTED_ART = {
 
 export type PaintedArt = {
   playfield: Texture;
+  gardenZoom: Texture;
   smokeFrames: Texture[];
   cowWalk: Texture[];
   cowEat: Texture[];
@@ -65,8 +67,9 @@ export function cropStageFrame(crops: Record<CropKind, Texture[]>, kind: CropKin
 }
 
 export async function loadPaintedArt(): Promise<PaintedArt> {
-  const [playfield, smoke, walkA, walkB, eat, ...cropSheets] = await Promise.all([
+  const [playfield, gardenZoom, smoke, walkA, walkB, eat, ...cropSheets] = await Promise.all([
     Assets.load<Texture>(PAINTED_ART.playfield),
+    Assets.load<Texture>(PAINTED_ART.gardenZoom),
     Assets.load<Texture>(PAINTED_ART.smoke),
     Assets.load<Texture>(PAINTED_ART.cowWalk[0]),
     Assets.load<Texture>(PAINTED_ART.cowWalk[1]),
@@ -79,6 +82,7 @@ export async function loadPaintedArt(): Promise<PaintedArt> {
   });
   return {
     playfield,
+    gardenZoom,
     smokeFrames: sliceSheet(smoke, 6),
     cowWalk: [walkA, walkB],
     cowEat: sliceSheet(eat, COW_EAT_SHEET.frames),
