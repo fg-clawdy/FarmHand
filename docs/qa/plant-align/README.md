@@ -22,7 +22,7 @@ Right-gutter packing scraps were zeroed (alpha) **without moving the plant**. Ea
 
 - One sprite per plot; frame = growth stage only.
 - Pixi pivot = **soil-disc center** (`cropDiscAnchor`), so a left-packed disc still lands on the mound UV.
-- Zoom disc diameter **220px** (covers the pebble-ring). Farm mini-mounds **52px**.
+- Zoom disc diameter **220px** (covers the pebble-ring). Farm mini-mounds **80px**.
 - Soft umber ellipse under the zoom disc to hide any leftover painted ring.
 - Empty plots keep the painted dirt.
 
