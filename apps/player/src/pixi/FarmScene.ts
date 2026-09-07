@@ -1,5 +1,5 @@
 import { cropKindForTier, type FarmPlayerCard } from "@farmhand/shared";
-import { Container, Graphics, Sprite, Text, type Application } from "pixi.js";
+import { Container, Graphics, Point, Sprite, Text, type Application } from "pixi.js";
 import { ACCENTS } from "../theme";
 import { ExhaustPuff, PaintedCow } from "./ambient";
 import type { Atlas } from "./atlas";
@@ -83,6 +83,7 @@ export class FarmScene {
     this.root.addChild(this.fill, this.playfield);
     this.app.stage.removeChildren();
     this.app.stage.addChild(this.root);
+    exposeFarmDebug(this);
 
     this.layout();
     this.onResize = () => this.layout();
@@ -151,9 +152,26 @@ export class FarmScene {
   destroy() {
     this.app.ticker.remove(this.onTick);
     this.app.renderer.off("resize", this.onResize);
+    if (farmDebugOwner === this) {
+      farmDebugOwner = null;
+      const w = globalThis as { __farmhandFarmDebug?: unknown };
+      if (w.__farmhandFarmDebug) delete w.__farmhandFarmDebug;
+    }
     this.root.removeFromParent();
     this.root.destroy({ children: true });
   }
+
+  debugPlants() {
+    return this.beds.flatMap((bed, garden) => bed.debugPlants(garden));
+  }
+}
+
+let farmDebugOwner: FarmScene | null = null;
+
+function exposeFarmDebug(scene: FarmScene) {
+  farmDebugOwner = scene;
+  (globalThis as { __farmhandFarmDebug?: () => ReturnType<FarmScene["debugPlants"]> }).__farmhandFarmDebug = () =>
+    scene.debugPlants();
 }
 
 /** Invisible garden tap target + live name on the blank wooden sign. */
@@ -292,5 +310,26 @@ class GardenHotspot {
       spr.scale.set(s, s * (1 + Math.sin(t * 1.5 + i) * 0.03));
     });
     this.sparkle.update(t);
+  }
+
+  debugPlants(garden: number) {
+    return this.plants.map((spr, slot) => {
+      const frame = spr.texture.frame;
+      const world = spr.getGlobalPosition();
+      const mound = this.root.toGlobal(new Point(spr.x, spr.y - FARM_PLANT_BURY_PX));
+      return {
+        garden,
+        slot,
+        visible: spr.visible,
+        frame: { x: frame.x, y: frame.y, w: frame.width, h: frame.height },
+        anchor: { x: spr.anchor.x, y: spr.anchor.y },
+        scale: { x: spr.scale.x, y: spr.scale.y },
+        local: { x: spr.x, y: spr.y },
+        world: { x: world.x, y: world.y },
+        mound: { x: mound.x, y: mound.y },
+        dx: world.x - mound.x,
+        dy: world.y - mound.y,
+      };
+    });
   }
 }

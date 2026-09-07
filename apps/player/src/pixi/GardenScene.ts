@@ -84,6 +84,7 @@ export class GardenScene {
     this.root.addChild(this.fill, this.playfield);
     this.app.stage.removeChildren();
     this.app.stage.addChild(this.root);
+    exposeGardenDebug(this);
 
     this.layout();
     this.onResize = () => this.layout();
@@ -151,9 +152,27 @@ export class GardenScene {
   destroy() {
     this.app.ticker.remove(this.onTick);
     this.app.renderer.off("resize", this.onResize);
+    if (gardenDebugOwner === this) {
+      gardenDebugOwner = null;
+      const w = globalThis as { __farmhandGardenDebug?: unknown };
+      if (w.__farmhandGardenDebug) delete w.__farmhandGardenDebug;
+    }
     this.root.removeFromParent();
     this.root.destroy({ children: true });
   }
+
+  /** Live QA: one sprite per plot, frame rect, anchor, scale, world vs mound. */
+  debugPlants() {
+    return this.slots.map((slot) => slot.debug());
+  }
+}
+
+let gardenDebugOwner: GardenScene | null = null;
+
+function exposeGardenDebug(scene: GardenScene) {
+  gardenDebugOwner = scene;
+  (globalThis as { __farmhandGardenDebug?: () => ReturnType<GardenScene["debugPlants"]> }).__farmhandGardenDebug =
+    () => scene.debugPlants();
 }
 
 class PlotNode {
@@ -242,5 +261,25 @@ class PlotNode {
     }
     if (this.toolGlow) this.glow.alpha = 0.55 + Math.sin(t * 3.4 + this.slot) * 0.28;
     this.sparkle.update(t);
+  }
+
+  debug() {
+    const frame = this.plant.texture.frame;
+    const world = this.plant.getGlobalPosition();
+    const mound = this.root.getGlobalPosition();
+    const visibleSprites = this.root.children.filter((c) => c instanceof Sprite && c.visible).length;
+    return {
+      slot: this.slot,
+      visible: this.plant.visible,
+      spritesOnPlot: visibleSprites,
+      frame: { x: frame.x, y: frame.y, w: frame.width, h: frame.height },
+      anchor: { x: this.plant.anchor.x, y: this.plant.anchor.y },
+      scale: { x: this.plant.scale.x, y: this.plant.scale.y },
+      local: { x: this.plant.x, y: this.plant.y },
+      world: { x: world.x, y: world.y },
+      mound: { x: mound.x, y: mound.y },
+      dx: world.x - mound.x,
+      dy: world.y - mound.y,
+    };
   }
 }

@@ -32,6 +32,21 @@ test("cleaned crop frames pivot on a centered stem, not the cell midpoint leftov
   }
 });
 
+test("crop sheet slices are equal, in-bounds, and do not share pixels", () => {
+  const rects = sheetFrameRects(CROP_SHEET.width, CROP_SHEET.height, CROP_SHEET.frames);
+  assert.equal(rects.length, 4);
+  for (let i = 0; i < rects.length; i++) {
+    const r = rects[i]!;
+    assert.equal(r.x, i * CROP_FRAME_WIDTH + SHEET_INSET);
+    assert.equal(r.w, CROP_FRAME_WIDTH - SHEET_INSET * 2);
+    assert.equal(r.h, CROP_SHEET.height - SHEET_INSET * 2);
+    if (i > 0) {
+      const prev = rects[i - 1]!;
+      assert.ok(prev.x + prev.w <= r.x, "adjacent crop frames must not share an x pixel");
+    }
+  }
+});
+
 test("crop sheets are plant-only equal cells with stem at the bottom", () => {
   assert.equal(CROP_SHEET.width, 1440);
   assert.equal(CROP_SHEET.height, 720);
