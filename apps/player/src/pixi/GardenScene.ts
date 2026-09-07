@@ -231,7 +231,7 @@ class PlotNode {
     this.glow.scale.set(2.2 * s);
     this.sparkle.root.position.set(0, -cover * 0.28);
     this.sparkle.setArea(rx * s * 0.7, ry * s * 0.7);
-    this.label.position.set(0, cover * 0.48);
+    this.label.position.set(0, cover * 0.34);
     this.label.style.fontSize = Math.max(14, 18 * s);
     this.root.hitArea = new Ellipse(0, 0, rx * s, ry * s);
   }
