@@ -23,20 +23,20 @@ export const GARDEN_TOOL_LABEL: Record<GardenTool, string> = {
 
 /**
  * UV layout on the zoomed 3×3 garden painting.
- * Mound UVs are pebble-ring / mound-peak centers (stem sits at the apex).
+ * Regular 3×3 on the painted pebble-ring centers (stem at the apex).
  */
 export const GARDEN_ZOOM_LAYOUT = {
   sign: { u: 0.5, v: 0.145 } satisfies Uv,
   mounds: [
-    { u: 0.269, v: 0.301 },
-    { u: 0.495, v: 0.304 },
-    { u: 0.722, v: 0.301 },
-    { u: 0.266, v: 0.515 },
-    { u: 0.496, v: 0.517 },
-    { u: 0.724, v: 0.517 },
-    { u: 0.268, v: 0.73 },
-    { u: 0.497, v: 0.73 },
-    { u: 0.723, v: 0.73 },
+    { u: 0.28, v: 0.285 },
+    { u: 0.5, v: 0.285 },
+    { u: 0.72, v: 0.285 },
+    { u: 0.28, v: 0.505 },
+    { u: 0.5, v: 0.505 },
+    { u: 0.72, v: 0.505 },
+    { u: 0.28, v: 0.725 },
+    { u: 0.5, v: 0.725 },
+    { u: 0.72, v: 0.725 },
   ] as const satisfies readonly Uv[],
   /** Hit ellipse in texture pixels around each mound center. */
   hit: { rx: 110, ry: 78 } as const,
