@@ -1,11 +1,13 @@
 # Painted crop stages
 
-Horizontal sheets, **four equal frames**, left → right:
+Horizontal **plant-only** sheets (no soil discs / dirt cookies). Four equal frames, left → right:
 
-1. Seed on the soil mound
+1. Seed / kernel
 2. Seedling
 3. Growing with buds / flowers
 4. Mature / ripe
+
+Stem and seed bases fade into transparency so they composite onto the painted garden mounds. Anchor sprites at **bottom-center** of each frame.
 
 | File | Crop kind (code) |
 | --- | --- |
@@ -13,6 +15,6 @@ Horizontal sheets, **four equal frames**, left → right:
 | `plant_strawberry_stages.png` | `strawberry` |
 | `plant_cotton_stages.png` | `cotton` |
 
-Each frame is **392px** wide. Sheets have transparent backgrounds and a shared soil-mound base so they can sit on the painted garden mounds. Do not bake crop names into the pixels — names live in game config / UI text.
+Each sheet is **1440×720**; each frame is **360×720**. Do not bake crop names into the pixels — names live in game config / UI text.
 
 Gameplay maps `growthStage` 1–4 (from the plant timer) onto these frames. Tier 1–3 map to corn / strawberry / cotton.

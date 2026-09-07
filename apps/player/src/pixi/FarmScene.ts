@@ -6,7 +6,13 @@ import type { Atlas } from "./atlas";
 import { coverFit } from "./draw";
 import type { PixiEngine } from "./engine";
 import { SparkleField } from "./fx";
-import { CROP_FRAME_WIDTH, cropStageFrame, type PaintedArt } from "./paintedAssets";
+import {
+  CROP_FRAME_HEIGHT,
+  FARM_PLANT_HEIGHT_PX,
+  PLANT_STEM_ANCHOR,
+  cropStageFrame,
+  type PaintedArt,
+} from "./paintedAssets";
 import {
   PLAYABLE_PLOT_SLOTS,
   PLAYFIELD_TEXTURE,
@@ -211,7 +217,7 @@ class GardenHotspot {
     this.sparkle = new SparkleField(atlas, 8);
     for (let i = 0; i < PLAYABLE_PLOT_SLOTS; i++) {
       const spr = new Sprite();
-      spr.anchor.set(0.5, 0.9);
+      spr.anchor.set(PLANT_STEM_ANCHOR.x, PLANT_STEM_ANCHOR.y);
       spr.visible = false;
       this.plants.push(spr);
     }
@@ -239,10 +245,9 @@ class GardenHotspot {
     this.nameText.position.set(0, -2);
     this.statsText.position.set(0, 2);
     const soil = uvRectToLocal(this.spec.soil, texW, texH);
-    const cellW = (soil.x1 - soil.x0) / 3;
-    this.cropScale = cellW / CROP_FRAME_WIDTH;
+    this.cropScale = FARM_PLANT_HEIGHT_PX / CROP_FRAME_HEIGHT;
     this.plants.forEach((spr, slot) => {
-      const uv = moundUv(this.spec.soil, slot);
+      const uv = moundUv(this.spec, slot);
       const p = uvToLocal(uv, texW, texH);
       spr.position.set(p.x, p.y);
       spr.scale.set(this.cropScale);

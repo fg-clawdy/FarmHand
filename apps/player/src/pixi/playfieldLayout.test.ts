@@ -102,15 +102,34 @@ test("garden plaques show seeds and points under the name", () => {
   assert.equal(gardenSignStats(3, 12), "3 seeds · 12 pts");
 });
 
-test("nine playable mounds fill the painted 3×3 soil", () => {
-  const soil = PLAYFIELD_LAYOUT.gardens[0].soil;
-  const slots = [0, 1, 2, 3, 4, 5, 6, 7, 8].map((slot) => moundUv(soil, slot));
+test("nine playable mounds sit on measured mound peaks, not a soil-rect lerp", () => {
+  const garden = PLAYFIELD_LAYOUT.gardens[0];
+  const slots = [0, 1, 2, 3, 4, 5, 6, 7, 8].map((slot) => moundUv(garden, slot));
+  assert.equal(garden.mounds.length, 9);
   assert.ok(slots[0].u < slots[1].u && slots[1].u < slots[2].u);
   assert.ok(slots[0].v < slots[3].v && slots[3].v < slots[6].v, "row 0 back, row 2 front");
   for (const uv of slots) {
-    assert.ok(uv.u > soil.u0 && uv.u < soil.u1);
-    assert.ok(uv.v > soil.v0 && uv.v < soil.v1);
+    assert.ok(uv.u > garden.soil.u0 && uv.u < garden.soil.u1);
+    assert.ok(uv.v > garden.soil.v0 && uv.v < garden.soil.v1);
   }
+  // Legacy lerp put slot 0 at ~0.103, 0.66 — far from the painted peak.
+  assert.ok(Math.abs(slots[0].u - 0.1033) > 0.01);
+  assert.ok(slots[0].u > 0.11 && slots[0].u < 0.14);
+  assert.ok(slots[8].u > 0.22 && slots[8].u < 0.25);
+  assert.ok(slots[6].v < 0.77, "front row stays on the mound, not the gate");
+});
+
+test("each farm garden has its own 9 mound anchors", () => {
+  for (const garden of PLAYFIELD_LAYOUT.gardens) {
+    assert.equal(garden.mounds.length, 9);
+    const mid = moundUv(garden, 4);
+    assert.ok(mid.u > garden.soil.u0 && mid.u < garden.soil.u1);
+    assert.ok(mid.v > garden.soil.v0 && mid.v < garden.soil.v1);
+  }
+  const left = moundUv(PLAYFIELD_LAYOUT.gardens[0], 4);
+  const center = moundUv(PLAYFIELD_LAYOUT.gardens[1], 4);
+  const right = moundUv(PLAYFIELD_LAYOUT.gardens[2], 4);
+  assert.ok(left.u < center.u && center.u < right.u);
 });
 
 test("right-facing cow sheet flips via scale.x when roaming left", () => {

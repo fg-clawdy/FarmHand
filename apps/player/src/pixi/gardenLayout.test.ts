@@ -34,9 +34,11 @@ test("zoomed garden has nine mound UVs inside the dirt", () => {
   assert.ok(slots[0]!.u < slots[1]!.u && slots[1]!.u < slots[2]!.u);
   assert.ok(slots[0]!.v < slots[3]!.v && slots[3]!.v < slots[6]!.v);
   for (const uv of slots) {
-    assert.ok(uv.u > 0.2 && uv.u < 0.8);
-    assert.ok(uv.v > 0.25 && uv.v < 0.85);
+    assert.ok(uv.u > 0.25 && uv.u < 0.75);
+    assert.ok(uv.v > 0.32 && uv.v < 0.78);
   }
+  assert.ok(Math.abs(slots[4]!.u - 0.5) < 0.01);
+  assert.ok(slots[0]!.v > 0.36, "back row sits on the painted mounds, not the sign");
 });
 
 test("tool art stays PNG with real alpha paths", () => {

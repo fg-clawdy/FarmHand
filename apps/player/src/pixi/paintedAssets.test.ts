@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { COW_EAT_SHEET, PAINTED_ART, sheetFrameRects, SHEET_INSET } from "./paintedAssets.ts";
+import { CROP_FRAME_WIDTH, CROP_SHEET, COW_EAT_SHEET, PAINTED_ART, sheetFrameRects, SHEET_INSET } from "./paintedAssets.ts";
 
 test("walk uses two separate textures, not a combined walk/eat sheet", () => {
   assert.equal(PAINTED_ART.cowWalk.length, 2);
@@ -12,6 +12,16 @@ test("walk uses two separate textures, not a combined walk/eat sheet", () => {
   assert.ok(PAINTED_ART.cowWalk.every((url) => url.endsWith(".png")));
   assert.ok(PAINTED_ART.playfield.includes("v3_no_static_cow"));
   assert.equal(PAINTED_ART.gardenZoom, "/art/painted/garden/garden_zoom_3x3.jpg");
+});
+
+test("crop sheets are plant-only equal cells with stem at the bottom", () => {
+  assert.equal(CROP_SHEET.width, 1440);
+  assert.equal(CROP_SHEET.height, 720);
+  assert.equal(CROP_SHEET.frames, 4);
+  assert.equal(CROP_FRAME_WIDTH, 360);
+  assert.ok(PAINTED_ART.crops.corn.endsWith(".png"));
+  assert.ok(PAINTED_ART.crops.strawberry.endsWith(".png"));
+  assert.ok(PAINTED_ART.crops.cotton.endsWith(".png"));
 });
 
 test("eat sheet frames are equal, in-bounds, and do not share pixels", () => {

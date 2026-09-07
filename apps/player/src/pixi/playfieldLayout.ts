@@ -41,17 +41,51 @@ export const PLAYFIELD_LAYOUT = {
     {
       hit: { u0: 0.02, v0: 0.4, u1: 0.32, v1: 0.9 } satisfies UvRect,
       sign: { u: 0.163, v: 0.484 } satisfies Uv,
-      soil: { u0: 0.07, v0: 0.62, u1: 0.27, v1: 0.86 } satisfies UvRect,
+      soil: { u0: 0.09, v0: 0.615, u1: 0.266, v1: 0.785 } satisfies UvRect,
+      /** Stem anchors: pebble-ring / mound-peak centers, measured on the v3 painting. */
+      mounds: [
+        { u: 0.12, v: 0.648 },
+        { u: 0.178, v: 0.648 },
+        { u: 0.236, v: 0.648 },
+        { u: 0.12, v: 0.698 },
+        { u: 0.178, v: 0.698 },
+        { u: 0.236, v: 0.698 },
+        { u: 0.12, v: 0.748 },
+        { u: 0.178, v: 0.748 },
+        { u: 0.236, v: 0.748 },
+      ] as const satisfies readonly Uv[],
     },
     {
       hit: { u0: 0.34, v0: 0.4, u1: 0.66, v1: 0.9 } satisfies UvRect,
       sign: { u: 0.495, v: 0.48 } satisfies Uv,
-      soil: { u0: 0.39, v0: 0.62, u1: 0.61, v1: 0.86 } satisfies UvRect,
+      soil: { u0: 0.412, v0: 0.615, u1: 0.588, v1: 0.785 } satisfies UvRect,
+      mounds: [
+        { u: 0.442, v: 0.648 },
+        { u: 0.5, v: 0.648 },
+        { u: 0.558, v: 0.648 },
+        { u: 0.442, v: 0.698 },
+        { u: 0.5, v: 0.698 },
+        { u: 0.558, v: 0.698 },
+        { u: 0.442, v: 0.748 },
+        { u: 0.5, v: 0.748 },
+        { u: 0.558, v: 0.748 },
+      ] as const satisfies readonly Uv[],
     },
     {
       hit: { u0: 0.66, v0: 0.4, u1: 0.99, v1: 0.9 } satisfies UvRect,
       sign: { u: 0.795, v: 0.484 } satisfies Uv,
-      soil: { u0: 0.71, v0: 0.62, u1: 0.93, v1: 0.86 } satisfies UvRect,
+      soil: { u0: 0.742, v0: 0.615, u1: 0.918, v1: 0.785 } satisfies UvRect,
+      mounds: [
+        { u: 0.772, v: 0.648 },
+        { u: 0.83, v: 0.648 },
+        { u: 0.888, v: 0.648 },
+        { u: 0.772, v: 0.698 },
+        { u: 0.83, v: 0.698 },
+        { u: 0.888, v: 0.698 },
+        { u: 0.772, v: 0.748 },
+        { u: 0.83, v: 0.748 },
+        { u: 0.888, v: 0.748 },
+      ] as const satisfies readonly Uv[],
     },
   ],
 } as const;
@@ -60,13 +94,9 @@ export const PLAYFIELD_LAYOUT = {
 export const MOUND_COLS = GARDEN_PLOT_COLS;
 export const PLAYABLE_PLOT_SLOTS = PLOTS_PER_GARDEN;
 
-export function moundUv(soil: UvRect, slot: number): Uv {
-  const col = ((slot % MOUND_COLS) + MOUND_COLS) % MOUND_COLS;
-  const row = Math.min(MOUND_COLS - 1, Math.floor(Math.max(0, slot) / MOUND_COLS));
-  return {
-    u: soil.u0 + ((col + 0.5) / MOUND_COLS) * (soil.u1 - soil.u0),
-    v: soil.v0 + ((row + 0.5) / MOUND_COLS) * (soil.v1 - soil.v0),
-  };
+export function moundUv(garden: { mounds: readonly Uv[] }, slot: number): Uv {
+  const i = ((slot % PLOTS_PER_GARDEN) + PLOTS_PER_GARDEN) % PLOTS_PER_GARDEN;
+  return garden.mounds[i]!;
 }
 
 export function uvToLocal(uv: Uv, texW: number, texH: number) {

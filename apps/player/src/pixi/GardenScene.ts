@@ -9,7 +9,13 @@ import {
   GARDEN_ZOOM_TEXTURE,
   gardenMoundUv,
 } from "./gardenLayout";
-import { CROP_FRAME_WIDTH, cropStageFrame, type PaintedArt } from "./paintedAssets";
+import {
+  CROP_FRAME_HEIGHT,
+  PLANT_STEM_ANCHOR,
+  ZOOM_PLANT_HEIGHT_PX,
+  cropStageFrame,
+  type PaintedArt,
+} from "./paintedAssets";
 import { uvToLocal } from "./playfieldLayout";
 
 /**
@@ -172,7 +178,7 @@ class PlotNode {
     this.glow.blendMode = "add";
     this.glow.visible = false;
     this.sparkle = new SparkleField(atlas, 8);
-    this.plant.anchor.set(0.5, 0.9);
+    this.plant.anchor.set(PLANT_STEM_ANCHOR.x, PLANT_STEM_ANCHOR.y);
     this.label = new Text({
       text: "",
       style: {
@@ -192,13 +198,13 @@ class PlotNode {
 
   layout(s: number) {
     const { rx, ry } = GARDEN_ZOOM_LAYOUT.hit;
-    this.cropScale = (148 * s) / CROP_FRAME_WIDTH;
+    this.cropScale = (ZOOM_PLANT_HEIGHT_PX * s) / CROP_FRAME_HEIGHT;
     this.plant.scale.set(this.cropScale);
-    this.glow.position.set(0, -10 * s);
-    this.glow.scale.set(2.4 * s);
-    this.sparkle.root.position.set(0, -8 * s);
+    this.glow.position.set(0, -18 * s);
+    this.glow.scale.set(2.2 * s);
+    this.sparkle.root.position.set(0, -22 * s);
     this.sparkle.setArea(rx * s * 0.7, ry * s * 0.7);
-    this.label.position.set(0, 28 * s);
+    this.label.position.set(0, 22 * s);
     this.label.style.fontSize = Math.max(14, 18 * s);
     this.root.hitArea = new Ellipse(0, 0, rx * s, ry * s);
   }

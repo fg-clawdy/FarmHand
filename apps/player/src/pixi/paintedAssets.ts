@@ -2,8 +2,16 @@ import { CROP_KINDS, type CropKind } from "@farmhand/shared";
 import { Assets, Rectangle, Texture } from "pixi.js";
 
 export const CROP_STAGE_FRAMES = 4;
-/** Equal slice width on every crop sheet (1568 / 4). */
-export const CROP_FRAME_WIDTH = 392;
+/** Plant-only sheets: 1440×720, four equal cells, stem at the bottom of each cell. */
+export const CROP_SHEET = { width: 1440, height: 720, frames: 4 } as const;
+export const CROP_FRAME_WIDTH = CROP_SHEET.width / CROP_SHEET.frames;
+export const CROP_FRAME_HEIGHT = CROP_SHEET.height;
+/** Pixi sprite pivot: bottom-center of the stem/seed, seated in the painted mound. */
+export const PLANT_STEM_ANCHOR = { x: 0.5, y: 1 } as const;
+/** On-texture height of a full crop frame on the farm playfield (mature corn fills most of the cell). */
+export const FARM_PLANT_HEIGHT_PX = 64;
+/** On-texture height of a full crop frame in the zoomed garden. */
+export const ZOOM_PLANT_HEIGHT_PX = 220;
 
 /** Padded 4-frame eat/graze PNG with real alpha (equal cells; Pixi insets so frames never share pixels). */
 export const COW_EAT_SHEET = { width: 1704, height: 304, frames: 4 } as const;
