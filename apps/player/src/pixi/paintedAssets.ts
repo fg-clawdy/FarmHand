@@ -9,7 +9,7 @@ export const CROP_FRAME_HEIGHT = CROP_SHEET.height;
 /** Pixi sprite pivot: bottom-center of the stem/seed, seated in the painted mound. */
 export const PLANT_STEM_ANCHOR = { x: 0.5, y: 1 } as const;
 /** On-texture height of a full crop frame on the farm playfield (mature corn fills most of the cell). */
-export const FARM_PLANT_HEIGHT_PX = 64;
+export const FARM_PLANT_HEIGHT_PX = 50;
 /** On-texture height of a full crop frame in the zoomed garden. */
 export const ZOOM_PLANT_HEIGHT_PX = 220;
 

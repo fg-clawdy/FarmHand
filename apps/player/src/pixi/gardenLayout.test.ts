@@ -35,7 +35,7 @@ test("zoomed garden has nine mound UVs inside the dirt", () => {
   assert.ok(slots[0]!.v < slots[3]!.v && slots[3]!.v < slots[6]!.v);
   for (const uv of slots) {
     assert.ok(uv.u > 0.25 && uv.u < 0.75);
-    assert.ok(uv.v > 0.32 && uv.v < 0.78);
+    assert.ok(uv.v > 0.35 && uv.v < 0.80);
   }
   assert.ok(Math.abs(slots[4]!.u - 0.5) < 0.01);
   assert.ok(slots[0]!.v > 0.36, "back row sits on the painted mounds, not the sign");

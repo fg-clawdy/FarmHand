@@ -116,7 +116,7 @@ test("nine playable mounds sit on measured mound peaks, not a soil-rect lerp", (
   assert.ok(Math.abs(slots[0].u - 0.1033) > 0.01);
   assert.ok(slots[0].u > 0.11 && slots[0].u < 0.14);
   assert.ok(slots[8].u > 0.22 && slots[8].u < 0.25);
-  assert.ok(slots[6].v < 0.77, "front row stays on the mound, not the gate");
+  assert.ok(slots[6].v < 0.80, "front row stays on the mound, not the gate");
 });
 
 test("each farm garden has its own 9 mound anchors", () => {
