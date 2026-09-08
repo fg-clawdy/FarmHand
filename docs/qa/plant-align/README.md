@@ -22,7 +22,8 @@ Right-gutter packing scraps were zeroed (alpha) **without moving the plant**. Ea
 
 - One sprite per plot; frame = growth stage only.
 - Pixi pivot = **soil-disc center** (`cropDiscAnchor`), so a left-packed disc still lands on the mound UV.
-- Zoom disc diameter **220px** (covers the pebble-ring). Farm mini-mounds **80px**.
+- Zoom disc diameter **187px** (85% of the 220px pebble-ring cover). Farm mini-mounds **68px** (85% of 80px). Pivot stays on the soil-disc center.
+- Garden camera is **0.9 of cover-fit**, capped at contain-fit so the full fence stays in view.
 - Soft umber ellipse under the zoom disc to hide any leftover painted ring.
 - Empty plots keep the painted dirt.
 

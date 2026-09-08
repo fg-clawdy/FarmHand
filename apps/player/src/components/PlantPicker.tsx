@@ -31,9 +31,7 @@ export default function PlantPicker({
               onClick={() => onPick(tier.tier)}
             >
               <PlantFigure className="tier-art" kind={kind} stage={4} ready />
-              <b>
-                T{tier.tier} {tier.name}
-              </b>
+              <b>{tier.name}</b>
               <div className="inline-row">
                 <AcornArt className="inline-art" /> {tier.seedCost}
               </div>

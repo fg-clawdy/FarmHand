@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { PublicPlot } from "@farmhand/shared";
 import {
+  cropNameForPlot,
   cheapestSeedCost,
   gardenMoundUv,
+  GARDEN_CAMERA_ZOOM,
   GARDEN_TOOL_ART,
   GARDEN_ZOOM_LAYOUT,
   glowingSlots,
@@ -78,4 +80,25 @@ test("cheapest seed cost is the lowest tier", () => {
     ]),
     1,
   );
+});
+
+test("plot sheet names the crop, never a plot index", () => {
+  const growing = plot(4, "growing", { tier: 1 });
+  const berry = plot(0, "growing", { tier: 2 });
+  const cotton = plot(8, "mature", { tier: 3 });
+  const tiers = [
+    { tier: 1, name: "Sweet Corn" },
+    { tier: 2, name: "Strawberry" },
+    { tier: 3, name: "Cotton" },
+  ];
+  assert.equal(cropNameForPlot(growing, tiers), "Sweet Corn");
+  assert.equal(cropNameForPlot(berry, tiers), "Strawberry");
+  assert.equal(cropNameForPlot(cotton, tiers), "Cotton");
+  assert.equal(cropNameForPlot(plot(2, "growing", { tier: 1 }), []), "Corn");
+  assert.ok(!cropNameForPlot(growing, tiers).toLowerCase().includes("plot"));
+  assert.ok(!String(growing.slot).includes(cropNameForPlot(growing, tiers)));
+});
+
+test("garden camera pulls out to 90% of cover-fit", () => {
+  assert.equal(GARDEN_CAMERA_ZOOM, 0.9);
 });

@@ -10,6 +10,7 @@ import PlantPicker from "../components/PlantPicker";
 import PlotSheet from "../components/PlotSheet";
 import {
   cheapestSeedCost,
+  cropNameForPlot,
   GARDEN_TOOL_ART,
   GARDEN_TOOL_LABEL,
   GARDEN_TOOLS,
@@ -281,19 +282,24 @@ function GardenPlay({
         </div>
       </div>
       <div className="garden-tools" role="toolbar" aria-label="Garden tools">
-        {GARDEN_TOOLS.map((id) => (
-          <button
-            key={id}
-            type="button"
-            className={`garden-tool ${tool === id ? "selected" : ""}`}
-            aria-pressed={tool === id}
-            aria-label={GARDEN_TOOL_LABEL[id]}
-            onClick={() => setTool(tool === id ? null : id)}
-          >
-            <img src={GARDEN_TOOL_ART[id]} alt="" draggable={false} />
-            <span>{GARDEN_TOOL_LABEL[id]}</span>
-          </button>
-        ))}
+        {GARDEN_TOOLS.map((id) => {
+          const remaining = id === "water" ? player.water.wateringsLeft : id === "fert" ? player.fertilizer : null;
+          const label = GARDEN_TOOL_LABEL[id];
+          return (
+            <button
+              key={id}
+              type="button"
+              className={`garden-tool ${tool === id ? "selected" : ""}`}
+              aria-pressed={tool === id}
+              aria-label={remaining == null ? label : `${label}, ${remaining} remaining`}
+              onClick={() => setTool(tool === id ? null : id)}
+            >
+              <img src={GARDEN_TOOL_ART[id]} alt="" draggable={false} />
+              <span>{label}</span>
+              {remaining != null && <span className="tool-count">{remaining}</span>}
+            </button>
+          );
+        })}
       </div>
       {overlay?.type === "picker" && (
         <PlantPicker
@@ -313,6 +319,7 @@ function GardenPlay({
       {overlay?.type === "plot" && selected && selected.state !== "empty" && (
         <PlotSheet
           plot={selected}
+          cropName={cropNameForPlot(selected, config.tiers)}
           player={livePlayer}
           busy={busy}
           onClose={() => setOverlay(null)}

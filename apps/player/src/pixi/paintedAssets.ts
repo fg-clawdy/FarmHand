@@ -44,10 +44,10 @@ export const CROP_DISC_IN_CELL: Record<CropKind, readonly Disc[]> = {
 /** Fallback when a frame has no measured disc. */
 export const PLANT_DISC_ANCHOR = { x: 0.5, y: 0.88 } as const;
 
-/** On-texture diameter of the painted zoom pebble-ring to cover. */
-export const ZOOM_MOUND_COVER_PX = 220;
-/** On-texture diameter of a farm mini-mound to cover. */
-export const FARM_MOUND_COVER_PX = 80;
+/** On-texture disc cover. 85% of the first soil-disc pass so plants stay inside neighbors. */
+export const PLANT_COVER_FACTOR = 0.85;
+export const ZOOM_MOUND_COVER_PX = Math.round(220 * PLANT_COVER_FACTOR);
+export const FARM_MOUND_COVER_PX = Math.round(80 * PLANT_COVER_FACTOR);
 
 /** @deprecated plant-only leftover; disc cover is the live scale. */
 export const FARM_PLANT_HEIGHT_PX = FARM_MOUND_COVER_PX;

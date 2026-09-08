@@ -66,6 +66,33 @@ export function coverFit(width: number, height: number, texW: number, texH: numb
   };
 }
 
+export function containFit(width: number, height: number, texW: number, texH: number) {
+  const scale = Math.min(width / Math.max(1, texW), height / Math.max(1, texH));
+  return {
+    scale,
+    x: (width - texW * scale) / 2,
+    y: (height - texH * scale) / 2,
+  };
+}
+
+/** Zoomed-out camera: `zoom` is a fraction of cover-fit (0.9 = 90% of current). Never crops the painting. */
+export function cameraFit(
+  width: number,
+  height: number,
+  texW: number,
+  texH: number,
+  zoom: number,
+) {
+  const cover = coverFit(width, height, texW, texH);
+  const contain = containFit(width, height, texW, texH);
+  const scale = Math.min(cover.scale * zoom, contain.scale);
+  return {
+    scale,
+    x: (width - texW * scale) / 2,
+    y: (height - texH * scale) / 2,
+  };
+}
+
 export function fitImage(img: CanvasImageSource, dw: number, dh: number): HTMLCanvasElement {
   const [c, ctx] = canvas(dw, dh);
   ctx.drawImage(img, 0, 0, dw, dh);

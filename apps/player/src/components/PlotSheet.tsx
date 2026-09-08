@@ -1,10 +1,11 @@
 import { formatCountdown, type PublicPlot } from "@farmhand/shared";
 import type { GardenPlayer } from "../api";
-import { FertilizerBeaker, PlantFigure, WateringCan, plantKind } from "../art";
+import { PlantFigure, plantKind } from "../art";
 import Sheet from "./Sheet";
 
 export default function PlotSheet({
   plot,
+  cropName,
   player,
   onWater,
   onFertilize,
@@ -13,6 +14,7 @@ export default function PlotSheet({
   busy,
 }: {
   plot: PublicPlot;
+  cropName: string;
   player: GardenPlayer;
   onWater: () => void;
   onFertilize: () => void;
@@ -20,27 +22,20 @@ export default function PlotSheet({
   onClose: () => void;
   busy: boolean;
 }) {
-  const cooldown = formatCountdown(player.water.cooldownRemainingMs);
   const kind = plantKind(plot);
+  const title = cropName || "Plant";
   return (
-    <Sheet title={plot.ready ? "Ready to harvest!" : `Plot ${plot.slot + 1}`} onClose={onClose}>
+    <Sheet title={title} onClose={onClose}>
       <div className="plot-hero">
         {kind && (
           <PlantFigure className="hero-art" kind={kind} stage={plot.growthStage ?? 4} ready={plot.ready} />
         )}
-        <p>
+        <p className="plot-time">
           {plot.ready ? (
-            <strong className="ready-tag">READY</strong>
+            <strong className="ready-tag">Ready to harvest</strong>
           ) : (
-            <>Time left: {formatCountdown(plot.remainingMs)}</>
+            <>Matures in {formatCountdown(plot.remainingMs)}</>
           )}
-        </p>
-        <p>
-          Waterings left today: {player.water.wateringsLeft}
-          {player.water.cooldownRemainingMs > 0 ? ` · watering can ready in ${cooldown}` : ""}
-        </p>
-        <p className="inline-row">
-          Fertilizer on hand: <FertilizerBeaker className="inline-art" /> {player.fertilizer}
         </p>
       </div>
       <div className={`sheet-actions ${busy ? "busy" : ""}`}>
@@ -51,10 +46,10 @@ export default function PlotSheet({
         ) : (
           <>
             <button className="btn water" type="button" disabled={!player.water.canWater} onClick={onWater}>
-              <WateringCan className="btn-art" /> Water (−1h)
+              Water (−1h)
             </button>
             <button className="btn primary" type="button" disabled={player.fertilizer < 1} onClick={onFertilize}>
-              <FertilizerBeaker className="btn-art" /> Fertilizer
+              Fertilize
             </button>
           </>
         )}

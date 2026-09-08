@@ -1,10 +1,11 @@
 import { cropKindForTier, formatCountdown, PLOTS_PER_GARDEN, type PublicPlot } from "@farmhand/shared";
 import { Container, Ellipse, Graphics, Sprite, Text, type Application } from "pixi.js";
 import type { Atlas } from "./atlas";
-import { coverFit } from "./draw";
+import { cameraFit } from "./draw";
 import type { PixiEngine } from "./engine";
 import { FxLayer, SparkleField } from "./fx";
 import {
+  GARDEN_CAMERA_ZOOM,
   GARDEN_ZOOM_LAYOUT,
   GARDEN_ZOOM_TEXTURE,
   gardenMoundUv,
@@ -134,7 +135,7 @@ export class GardenScene {
     const tex = this.ground.texture;
     const tw = tex.width || GARDEN_ZOOM_TEXTURE.width;
     const th = tex.height || GARDEN_ZOOM_TEXTURE.height;
-    const fit = coverFit(w, h, tw, th);
+    const fit = cameraFit(w, h, tw, th, GARDEN_CAMERA_ZOOM);
     this.playfield.scale.set(fit.scale);
     this.playfield.position.set(fit.x, fit.y);
 

@@ -1,5 +1,4 @@
-import type { PublicPlot } from "@farmhand/shared";
-import { GARDEN_PLOT_COLS, PLOTS_PER_GARDEN } from "@farmhand/shared";
+import { cropKindForTier, GARDEN_PLOT_COLS, PLOTS_PER_GARDEN, type PlantTier, type PublicPlot } from "@farmhand/shared";
 import type { Uv } from "./playfieldLayout";
 
 /** Zoomed garden painting (`garden_zoom_3x3.jpg`) is 1536×1024, same as the farm playfield. */
@@ -42,6 +41,9 @@ export const GARDEN_ZOOM_LAYOUT = {
   hit: { rx: 110, ry: 78 } as const,
 } as const;
 
+/** Garden zoom camera vs cover-fit. 0.9 pulls out so the full fence stays in view. */
+export const GARDEN_CAMERA_ZOOM = 0.9;
+
 export function gardenMoundUv(slot: number): Uv {
   const i = ((slot % PLOTS_PER_GARDEN) + PLOTS_PER_GARDEN) % PLOTS_PER_GARDEN;
   return GARDEN_ZOOM_LAYOUT.mounds[i]!;
@@ -50,6 +52,22 @@ export function gardenMoundUv(slot: number): Uv {
 export function cheapestSeedCost(tiers: readonly { seedCost: number }[]) {
   const costs = tiers.map((t) => t.seedCost).filter((n) => Number.isFinite(n));
   return costs.length ? Math.min(...costs) : 1;
+}
+
+const KIND_LABEL: Record<string, string> = {
+  corn: "Corn",
+  strawberry: "Strawberry",
+  cotton: "Cotton",
+};
+
+/** Crop name for the plot sheet — never a plot index. */
+export function cropNameForPlot(
+  plot: Pick<PublicPlot, "tier">,
+  tiers: readonly Pick<PlantTier, "tier" | "name">[],
+) {
+  const named = tiers.find((t) => t.tier === plot.tier)?.name?.trim();
+  if (named) return named;
+  return KIND_LABEL[cropKindForTier(plot.tier)] ?? "Plant";
 }
 
 export type GardenToolContext = {

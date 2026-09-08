@@ -520,6 +520,7 @@ button, input { font: inherit; }
   pointer-events: auto;
 }
 .garden-tool {
+  position: relative;
   width: 108px;
   min-height: 112px;
   border: 0;
@@ -547,6 +548,22 @@ button, input { font: inherit; }
   transform: translateY(-4px);
 }
 .garden-tool:active { transform: translateY(2px); }
+.tool-count {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #2a1608;
+  color: #fff8e6;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 28px;
+  box-shadow: 0 2px 0 #5c3218, inset 0 1px 0 rgba(255,255,255,0.25);
+}
+.plot-time { font-size: 18px; font-weight: 700; margin: 8px 0 0; }
 
 .plot-hero { text-align: center; }
 .plot-hero .hero-art { width: min(180px, 40%); }
