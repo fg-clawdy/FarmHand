@@ -4,9 +4,10 @@ import { Assets, Rectangle, Texture } from "pixi.js";
 export const CROP_STAGE_FRAMES = 4;
 /**
  * Approved crop sheets: plant + clumpy soil disc as one unit.
- * All three are 1568 wide / 4 equal cells (392). Heights differ.
+ * Four equal padded cells (480). Heights differ. Packed 392-wide sheets
+ * stored left foliage in the previous cell; those scraps are restored here.
  */
-export const CROP_SHEET = { width: 1568, frames: 4 } as const;
+export const CROP_SHEET = { width: 1920, frames: 4 } as const;
 export const CROP_FRAME_WIDTH = CROP_SHEET.width / CROP_SHEET.frames;
 export const CROP_SHEET_HEIGHT: Record<CropKind, number> = {
   corn: 854,
@@ -17,27 +18,27 @@ export const CROP_SHEET_HEIGHT: Record<CropKind, number> = {
 type Disc = { x: number; y: number; d: number };
 
 /**
- * Soil-disc center and diameter in each 392-wide cell (brown pixels, no re-pack).
+ * Soil-disc center and diameter in each 480-wide unpacked cell.
  * Pivot the sprite here so the disc — not the cell midpoint — sits on the mound UV.
  */
 export const CROP_DISC_IN_CELL: Record<CropKind, readonly Disc[]> = {
   corn: [
-    { x: 196, y: 762, d: 316 },
-    { x: 161, y: 763, d: 312 },
-    { x: 154, y: 760, d: 300 },
-    { x: 188, y: 763, d: 311 },
+    { x: 240, y: 763, d: 316 },
+    { x: 238, y: 768, d: 312 },
+    { x: 239, y: 766, d: 300 },
+    { x: 231, y: 766, d: 311 },
   ],
   strawberry: [
-    { x: 160, y: 363, d: 290 },
-    { x: 146, y: 357, d: 284 },
-    { x: 146, y: 357, d: 283 },
-    { x: 177, y: 371, d: 290 },
+    { x: 233, y: 353, d: 290 },
+    { x: 233, y: 364, d: 284 },
+    { x: 233, y: 380, d: 283 },
+    { x: 234, y: 350, d: 310 },
   ],
   cotton: [
-    { x: 195, y: 520, d: 325 },
-    { x: 167, y: 513, d: 320 },
-    { x: 158, y: 501, d: 307 },
-    { x: 185, y: 512, d: 322 },
+    { x: 238, y: 498, d: 325 },
+    { x: 210, y: 504, d: 320 },
+    { x: 208, y: 511, d: 307 },
+    { x: 228, y: 501, d: 322 },
   ],
 };
 
@@ -46,12 +47,6 @@ export const PLANT_DISC_ANCHOR = { x: 0.5, y: 0.88 } as const;
 
 /** On-texture disc cover. 80% of the first soil-disc pass so plants stay inside neighbors. */
 export const PLANT_COVER_FACTOR = 0.8;
-/** Extra shrink for wide bushes whose sheet cells already shave the left foliage. */
-export const CROP_COVER_KIND: Record<CropKind, number> = {
-  corn: 1,
-  strawberry: 0.9,
-  cotton: 1,
-};
 export const ZOOM_MOUND_COVER_PX = Math.round(220 * PLANT_COVER_FACTOR);
 export const FARM_MOUND_COVER_PX = Math.round(80 * PLANT_COVER_FACTOR);
 
@@ -150,7 +145,7 @@ export const cropStemAnchor = cropDiscAnchor;
 export function cropCoverScale(kind: CropKind, stage: 1 | 2 | 3 | 4, coverPx: number) {
   const disc = cropDisc(kind, stage);
   const d = disc?.d || CROP_FRAME_WIDTH;
-  return (coverPx * (CROP_COVER_KIND[kind] ?? 1)) / d;
+  return coverPx / d;
 }
 
 export async function loadPaintedArt(): Promise<PaintedArt> {

@@ -11,10 +11,10 @@ Do not replace these with plant-only cutouts. The disc is the planted plot — s
 
 | File | Crop kind (code) | Sheet |
 | --- | --- | --- |
-| `plant_corn_stages.png` | `corn` | 1568×854 |
-| `plant_strawberry_stages.png` | `strawberry` | 1568×464 |
-| `plant_cotton_stages.png` | `cotton` | 1568×623 |
+| `plant_corn_stages.png` | `corn` | 1920×854 |
+| `plant_strawberry_stages.png` | `strawberry` | 1920×464 |
+| `plant_cotton_stages.png` | `cotton` | 1920×623 |
 
-Each frame is **392px** wide. Pivot on the **soil-disc center**, not the cell midpoint or stem tip.
+Each frame is **480px** wide (unpacked so left foliage is not stored in the previous cell). Pivot on the **soil-disc center**, not the cell midpoint or stem tip.
 
 Gameplay maps `growthStage` 1–4 onto these frames. Tier 1–3 map to corn / strawberry / cotton.

@@ -8,7 +8,7 @@ import {
   GARDEN_CAMERA_ZOOM,
   GARDEN_ZOOM_LAYOUT,
   GARDEN_ZOOM_TEXTURE,
-  gardenMoundUv,
+  gardenMoundLocal,
 } from "./gardenLayout";
 import {
   ZOOM_MOUND_COVER_PX,
@@ -74,8 +74,7 @@ export class GardenScene {
 
     for (let i = 0; i < PLOTS_PER_GARDEN; i++) {
       const node = new PlotNode(atlas, painted, i, (slot) => this.onPlot(slot));
-      const uv = gardenMoundUv(i);
-      const p = uvToLocal(uv, tw, th);
+      const p = gardenMoundLocal(i);
       node.root.position.set(p.x, p.y);
       node.root.zIndex = Math.round(p.y);
       this.slots.push(node);
@@ -169,7 +168,7 @@ export class GardenScene {
     this.playfield.position.set(fit.x, fit.y);
 
     this.slots.forEach((slot) => {
-      const p = uvToLocal(gardenMoundUv(slot.slot), tw, th);
+      const p = gardenMoundLocal(slot.slot);
       slot.root.position.set(p.x, p.y);
       slot.root.zIndex = Math.round(p.y);
       slot.layout(1);
@@ -218,8 +217,8 @@ export class GardenScene {
       y: this.playfield.position.y,
     };
     return this.slots.map((slot) => {
-      const uv = gardenMoundUv(slot.slot);
-      const local = uvToLocal(uv, tw, th);
+      const local = gardenMoundLocal(slot.slot);
+      const uv = { u: local.x / tw, v: local.y / th };
       const expected = { x: fit.x + local.x * fit.scale, y: fit.y + local.y * fit.scale };
       const row = slot.debug();
       const ground = { w: this.ground.width, h: this.ground.height, tw, th };

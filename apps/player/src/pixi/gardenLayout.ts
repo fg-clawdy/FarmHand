@@ -21,22 +21,29 @@ export const GARDEN_TOOL_LABEL: Record<GardenTool, string> = {
 };
 
 /**
- * UV layout on the zoomed 3×3 garden painting.
- * Regular 3×3 on the painted pebble-ring centers (stem at the apex).
+ * Painted pebble-ring centers on `garden_zoom_3x3.jpg` (1536×1024).
+ * Texture pixels are the source of truth; UVs are those pixels / size.
+ * Crops parent under the same playfield as the painting so zoom cannot drift them.
  */
+export const GARDEN_MOUND_PX = [
+  { x: 430, y: 317 },
+  { x: 768, y: 317 },
+  { x: 1106, y: 317 },
+  { x: 430, y: 541 },
+  { x: 768, y: 541 },
+  { x: 1106, y: 541 },
+  { x: 430, y: 760 },
+  { x: 768, y: 760 },
+  { x: 1106, y: 760 },
+] as const;
+
+function moundUvFromPx(p: { x: number; y: number }): Uv {
+  return { u: p.x / GARDEN_ZOOM_TEXTURE.width, v: p.y / GARDEN_ZOOM_TEXTURE.height };
+}
+
 export const GARDEN_ZOOM_LAYOUT = {
   sign: { u: 0.5, v: 0.145 } satisfies Uv,
-  mounds: [
-    { u: 0.28, v: 0.31 },
-    { u: 0.5, v: 0.31 },
-    { u: 0.72, v: 0.31 },
-    { u: 0.28, v: 0.528 },
-    { u: 0.5, v: 0.528 },
-    { u: 0.72, v: 0.528 },
-    { u: 0.28, v: 0.742 },
-    { u: 0.5, v: 0.742 },
-    { u: 0.72, v: 0.742 },
-  ] as const satisfies readonly Uv[],
+  mounds: GARDEN_MOUND_PX.map(moundUvFromPx),
   /** Hit ellipse in texture pixels around each mound center. */
   hit: { rx: 110, ry: 78 } as const,
 } as const;
@@ -44,9 +51,13 @@ export const GARDEN_ZOOM_LAYOUT = {
 /** Garden zoom camera vs cover-fit. 0.85 pulls out so grass/fence margin stays relaxed. */
 export const GARDEN_CAMERA_ZOOM = 0.85;
 
-export function gardenMoundUv(slot: number): Uv {
+export function gardenMoundLocal(slot: number) {
   const i = ((slot % PLOTS_PER_GARDEN) + PLOTS_PER_GARDEN) % PLOTS_PER_GARDEN;
-  return GARDEN_ZOOM_LAYOUT.mounds[i]!;
+  return GARDEN_MOUND_PX[i]!;
+}
+
+export function gardenMoundUv(slot: number): Uv {
+  return moundUvFromPx(gardenMoundLocal(slot));
 }
 
 export function cheapestSeedCost(tiers: readonly { seedCost: number }[]) {

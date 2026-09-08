@@ -4,8 +4,10 @@ import type { PublicPlot } from "@farmhand/shared";
 import {
   cropNameForPlot,
   cheapestSeedCost,
+  gardenMoundLocal,
   gardenMoundUv,
   GARDEN_CAMERA_ZOOM,
+  GARDEN_MOUND_PX,
   GARDEN_TOOL_ART,
   GARDEN_ZOOM_LAYOUT,
   GARDEN_ZOOM_TEXTURE,
@@ -35,6 +37,7 @@ function plot(slot: number, state: PublicPlot["state"], extra: Partial<PublicPlo
 
 test("zoomed garden has nine mound UVs inside the dirt", () => {
   assert.equal(GARDEN_ZOOM_LAYOUT.mounds.length, PLOTS_PER_GARDEN);
+  assert.equal(GARDEN_MOUND_PX.length, PLOTS_PER_GARDEN);
   assert.equal(PLOTS_PER_GARDEN, 9);
   const slots = Array.from({ length: 9 }, (_, i) => gardenMoundUv(i));
   assert.ok(slots[0]!.u < slots[1]!.u && slots[1]!.u < slots[2]!.u);
@@ -45,6 +48,18 @@ test("zoomed garden has nine mound UVs inside the dirt", () => {
   }
   assert.ok(Math.abs(slots[4]!.u - 0.5) < 0.02);
   assert.ok(slots[0]!.v > 0.26 && slots[0]!.v < 0.36, "back row sits on the painted mounds");
+});
+
+test("mound pixels are the placement source of truth", () => {
+  for (let slot = 0; slot < 9; slot++) {
+    const px = gardenMoundLocal(slot);
+    assert.deepEqual(px, GARDEN_MOUND_PX[slot]);
+    const local = uvToLocal(gardenMoundUv(slot), GARDEN_ZOOM_TEXTURE.width, GARDEN_ZOOM_TEXTURE.height);
+    assert.ok(Math.abs(local.x - px.x) < 1e-9);
+    assert.ok(Math.abs(local.y - px.y) < 1e-9);
+  }
+  assert.equal(gardenMoundLocal(4).x, 768);
+  assert.equal(gardenMoundLocal(4).y, 541);
 });
 
 test("tool art stays PNG with real alpha paths", () => {
