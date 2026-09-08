@@ -1,14 +1,14 @@
 import { cropKindForTier, formatCountdown, PLOTS_PER_GARDEN, type PublicPlot } from "@farmhand/shared";
 import { Container, Ellipse, Graphics, Sprite, Text, type Application } from "pixi.js";
 import type { Atlas } from "./atlas";
-import { cameraFit } from "./draw";
 import type { PixiEngine } from "./engine";
 import { FxLayer, SparkleField } from "./fx";
 import {
-  GARDEN_CAMERA_ZOOM,
   GARDEN_ZOOM_LAYOUT,
   GARDEN_ZOOM_TEXTURE,
   gardenMoundLocal,
+  gardenMoundWorld,
+  gardenPlayfieldFit,
 } from "./gardenLayout";
 import {
   ZOOM_MOUND_COVER_PX,
@@ -21,6 +21,7 @@ import { uvToLocal } from "./playfieldLayout";
 
 /**
  * Zoomed garden: painted 3×3 mounds, crop sprites, tool glow. No animals, no extra props.
+ * Dirt and crops share `playfield`; resize/orientation only cameraFits that container.
  */
 export class GardenScene {
   readonly root = new Container();
@@ -163,7 +164,8 @@ export class GardenScene {
     const th = GARDEN_ZOOM_TEXTURE.height;
     this.ground.width = tw;
     this.ground.height = th;
-    const fit = cameraFit(w, h, tw, th, GARDEN_CAMERA_ZOOM);
+    // One transform for dirt + crops. Plot locals stay texture pixels.
+    const fit = gardenPlayfieldFit(w, h);
     this.playfield.scale.set(fit.scale);
     this.playfield.position.set(fit.x, fit.y);
 
@@ -200,8 +202,9 @@ export class GardenScene {
     this.app.renderer.off("resize", this.onResize);
     if (gardenDebugOwner === this) {
       gardenDebugOwner = null;
-      const w = globalThis as { __farmhandGardenDebug?: unknown };
+      const w = globalThis as { __farmhandGardenDebug?: unknown; __farmhandGardenCanvas?: unknown };
       if (w.__farmhandGardenDebug) delete w.__farmhandGardenDebug;
+      if (w.__farmhandGardenCanvas) delete w.__farmhandGardenCanvas;
     }
     this.root.removeFromParent();
     this.root.destroy({ children: true });
@@ -211,17 +214,15 @@ export class GardenScene {
   debugPlants() {
     const tw = GARDEN_ZOOM_TEXTURE.width;
     const th = GARDEN_ZOOM_TEXTURE.height;
-    const fit = {
-      scale: this.playfield.scale.x,
-      x: this.playfield.position.x,
-      y: this.playfield.position.y,
-    };
+    const fit = gardenPlayfieldFit(this.app.screen.width, this.app.screen.height);
     return this.slots.map((slot) => {
-      const local = gardenMoundLocal(slot.slot);
+      const world = gardenMoundWorld(slot.slot, this.app.screen.width, this.app.screen.height);
+      const local = world.local;
       const uv = { u: local.x / tw, v: local.y / th };
-      const expected = { x: fit.x + local.x * fit.scale, y: fit.y + local.y * fit.scale };
+      const expected = { x: world.x, y: world.y };
       const row = slot.debug();
       const ground = { w: this.ground.width, h: this.ground.height, tw, th };
+      const view = { w: this.app.screen.width, h: this.app.screen.height };
       return {
         ...row,
         uv,
@@ -230,6 +231,12 @@ export class GardenScene {
         uvDx: row.mound.x - expected.x,
         uvDy: row.mound.y - expected.y,
         fit,
+        view,
+        playfieldDrift: {
+          scale: this.playfield.scale.x - fit.scale,
+          x: this.playfield.position.x - fit.x,
+          y: this.playfield.position.y - fit.y,
+        },
         ground,
       };
     });

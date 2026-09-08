@@ -1,4 +1,5 @@
 import { cropKindForTier, GARDEN_PLOT_COLS, PLOTS_PER_GARDEN, type PlantTier, type PublicPlot } from "@farmhand/shared";
+import { cameraFit } from "./draw";
 import type { Uv } from "./playfieldLayout";
 
 /** Zoomed garden painting (`garden_zoom_3x3.jpg`) is 1536×1024, same as the farm playfield. */
@@ -22,8 +23,11 @@ export const GARDEN_TOOL_LABEL: Record<GardenTool, string> = {
 
 /**
  * Painted pebble-ring centers on `garden_zoom_3x3.jpg` (1536×1024).
- * Texture pixels are the source of truth; UVs are those pixels / size.
- * Crops parent under the same playfield as the painting so zoom cannot drift them.
+ *
+ * These are **playfield / texture pixels**, never screen pixels. UVs are
+ * `px / texture size`. Crops live on the same playfield container as the
+ * painting; `cameraFit` (resize, portrait/landscape, tablet) only scales that
+ * one transform tree, so dirt and plants cannot drift apart.
  */
 export const GARDEN_MOUND_PX = [
   { x: 430, y: 317 },
@@ -58,6 +62,23 @@ export function gardenMoundLocal(slot: number) {
 
 export function gardenMoundUv(slot: number): Uv {
   return moundUvFromPx(gardenMoundLocal(slot));
+}
+
+/** Shared playfield camera for the zoomed garden — dirt and crops inherit this. */
+export function gardenPlayfieldFit(viewW: number, viewH: number) {
+  return cameraFit(viewW, viewH, GARDEN_ZOOM_TEXTURE.width, GARDEN_ZOOM_TEXTURE.height, GARDEN_CAMERA_ZOOM);
+}
+
+/** Screen position of a mound after cameraFit. Local coords stay texture-space. */
+export function gardenMoundWorld(slot: number, viewW: number, viewH: number) {
+  const local = gardenMoundLocal(slot);
+  const fit = gardenPlayfieldFit(viewW, viewH);
+  return {
+    x: fit.x + local.x * fit.scale,
+    y: fit.y + local.y * fit.scale,
+    local,
+    fit,
+  };
 }
 
 export function cheapestSeedCost(tiers: readonly { seedCost: number }[]) {

@@ -6,6 +6,8 @@ import {
   cheapestSeedCost,
   gardenMoundLocal,
   gardenMoundUv,
+  gardenMoundWorld,
+  gardenPlayfieldFit,
   GARDEN_CAMERA_ZOOM,
   GARDEN_MOUND_PX,
   GARDEN_TOOL_ART,
@@ -135,6 +137,65 @@ test("mound UVs stay in texture space; zoom only scales the shared playfield", (
       assert.ok(Math.abs((world.x - fit.x) / fit.scale - local.x) < 1e-6);
       assert.ok(Math.abs((world.y - fit.y) / fit.scale - local.y) < 1e-6);
     }
+  }
+});
+
+/** Tablet / phone viewports — landscape and the same pair flipped to portrait. */
+const ORIENTATION_VIEWPORTS = [
+  [1280, 800],
+  [800, 1280],
+  [1920, 1080],
+  [1080, 1920],
+  [1024, 768],
+  [768, 1024],
+  [1180, 820],
+  [820, 1180],
+  [390, 844],
+  [844, 390],
+] as const;
+
+test("mound locals never change when the viewport or orientation changes", () => {
+  const locked = Array.from({ length: 9 }, (_, slot) => gardenMoundLocal(slot));
+  for (const [w, h] of ORIENTATION_VIEWPORTS) {
+    for (let slot = 0; slot < 9; slot++) {
+      const world = gardenMoundWorld(slot, w, h);
+      assert.deepEqual(world.local, locked[slot]);
+      assert.equal(world.local.x, GARDEN_MOUND_PX[slot]!.x);
+      assert.equal(world.local.y, GARDEN_MOUND_PX[slot]!.y);
+    }
+  }
+});
+
+test("cameraFit maps the same playfield local to screen on every orientation", () => {
+  for (const [w, h] of ORIENTATION_VIEWPORTS) {
+    const fit = gardenPlayfieldFit(w, h);
+    assert.ok(fit.scale * GARDEN_ZOOM_TEXTURE.width <= w + 0.5);
+    assert.ok(fit.scale * GARDEN_ZOOM_TEXTURE.height <= h + 0.5);
+    for (let slot = 0; slot < 9; slot++) {
+      const world = gardenMoundWorld(slot, w, h);
+      const back = {
+        x: (world.x - fit.x) / fit.scale,
+        y: (world.y - fit.y) / fit.scale,
+      };
+      assert.ok(Math.abs(back.x - world.local.x) < 1e-6, `${w}x${h} slot ${slot} x`);
+      assert.ok(Math.abs(back.y - world.local.y) < 1e-6, `${w}x${h} slot ${slot} y`);
+    }
+  }
+});
+
+test("flipping landscape to portrait does not move plants in playfield space", () => {
+  const pairs = [
+    [1280, 800],
+    [1024, 768],
+    [1920, 1080],
+  ] as const;
+  for (const [w, h] of pairs) {
+    const land = gardenMoundWorld(4, w, h);
+    const port = gardenMoundWorld(4, h, w);
+    assert.deepEqual(land.local, port.local);
+    assert.ok(land.fit.scale !== port.fit.scale || land.fit.x !== port.fit.x || land.fit.y !== port.fit.y);
+    assert.ok(Math.abs(land.x - (land.fit.x + land.local.x * land.fit.scale)) < 1e-9);
+    assert.ok(Math.abs(port.x - (port.fit.x + port.local.x * port.fit.scale)) < 1e-9);
   }
 });
 
