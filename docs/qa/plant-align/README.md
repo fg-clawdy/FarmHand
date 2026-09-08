@@ -34,12 +34,15 @@ Live Pixi canvas captures (`canvas.toDataURL`, `GARDEN_CAMERA_ZOOM = 0.85`, host
 
 | File | What it is |
 | --- | --- |
-| [`willow-mix.png`](after-fix/willow-mix.png) | Annotated Willow mix: ripe corn, flowering center strawberry, two sprouts |
+| [`willow-mix.png`](after-fix/willow-mix.png) | Annotated Willow mix: ripe corn, **3-flower** center strawberry, two sprouts |
+| [`strawberry-flower-3blossom.png`](after-fix/strawberry-flower-3blossom.png) | Stage 3 only — 3 white flowers + green berries, left foliage intact |
 | [`strawberries-ripe.png`](after-fix/strawberries-ripe.png) | All nine ripe strawberries |
-| [`strawberry-flower-close.png`](after-fix/strawberry-flower-close.png) | Center flowering strawberry, left + right foliage |
-| [`strawberry-center-close.png`](after-fix/strawberry-center-close.png) | Center ripe strawberry, left + right foliage |
+| [`strawberry-flower-close.png`](after-fix/strawberry-flower-close.png) | Close crop of the 3-flower center plant |
+| [`strawberry-center-close.png`](after-fix/strawberry-center-close.png) | Center ripe strawberry |
 
-These are the running player at `/qa/garden`, not composites or generated images. The loaded strawberry sheet is **1920×464** (frame x = 2 / 482 / 962 / 1442). Packed 392px sheets discarded the upper-left crown; `scripts/unpack-crop-sheets.py` restores scraps and completes that crown.
+These are the running player at `/qa/garden?pack=willow` or `pack=blossom`, not composites. Sheet is **1920×464** (frame x = 2 / 482 / 962 / 1442). Stage 3 is the annotated 3-flower plant — do not mirror-replace that cell.
+
+**Cache:** Pixi loads `/art/painted/plants/plant_*_stages.png?v=3blossom`. Workbox does not precache plant sheets (NetworkFirst). If an old 392px sheet is stuck, hard-refresh or unregister the service worker, then reload `/qa/garden?pack=blossom`.
 
 Mound centers are playfield / texture pixels (`GARDEN_MOUND_PX`), never screen coords. Dirt and crops share one `playfield` container.
 

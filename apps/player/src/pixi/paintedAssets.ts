@@ -5,8 +5,9 @@ export const CROP_STAGE_FRAMES = 4;
 /**
  * Approved crop sheets: plant + clumpy soil disc as one unit.
  * Four equal padded cells (480). Heights differ. Packed 392-wide sheets
- * stored left foliage in the previous cell; scraps are restored and the
- * strawberry crown is completed so the left side is not a vertical cut.
+ * stored left foliage in the previous cell; scraps are restored. Strawberry
+ * frames: seed, sprout, 3-flower/green-berry, ripe. Do not mirror-replace
+ * the flowering cell — that deletes the third blossom.
  */
 export const CROP_SHEET = { width: 1920, frames: 4 } as const;
 export const CROP_FRAME_WIDTH = CROP_SHEET.width / CROP_SHEET.frames;
@@ -73,9 +74,9 @@ export const PAINTED_ART = {
   /** Must stay PNG so eat frames keep a transparent background. */
   cowEat: "/art/painted/cow_eat_sheet.png",
   crops: {
-    corn: "/art/painted/plants/plant_corn_stages.png?cell=480",
-    strawberry: "/art/painted/plants/plant_strawberry_stages.png?cell=480",
-    cotton: "/art/painted/plants/plant_cotton_stages.png?cell=480",
+    corn: "/art/painted/plants/plant_corn_stages.png?v=3blossom",
+    strawberry: "/art/painted/plants/plant_strawberry_stages.png?v=3blossom",
+    cotton: "/art/painted/plants/plant_cotton_stages.png?v=3blossom",
   },
 } as const;
 

@@ -37,7 +37,7 @@ test("approved crop sheets are 1920-wide unpacked soil+plant cells", () => {
   assert.ok(PAINTED_ART.crops.corn.includes("plant_corn_stages.png"));
   assert.ok(PAINTED_ART.crops.strawberry.includes("plant_strawberry_stages.png"));
   assert.ok(PAINTED_ART.crops.cotton.includes("plant_cotton_stages.png"));
-  assert.ok(PAINTED_ART.crops.strawberry.includes("cell=480"));
+  assert.ok(PAINTED_ART.crops.strawberry.includes("v=3blossom"));
 });
 
 test("crop disc pivot sits inside the soil mound, not the cell midpoint leftover", () => {

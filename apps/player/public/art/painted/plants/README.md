@@ -4,7 +4,7 @@ Approved horizontal sheets: **plant + clumpy dark soil disc as one unit**. Four 
 
 1. Seed on the disc
 2. Seedling
-3. Growing with buds / flowers / cobs
+3. Growing with buds / flowers / cobs (strawberry: **3 white flowers + green berries**)
 4. Mature / ripe
 
 Do not replace these with plant-only cutouts. The disc is the planted plot — scale it to cover the painted pebble-ring.

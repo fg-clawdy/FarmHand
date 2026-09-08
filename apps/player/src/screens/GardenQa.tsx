@@ -42,7 +42,8 @@ function qaPlots(pack: string): PublicPlot[] {
   if (pack === "berries") {
     return Array.from({ length: 9 }, (_, slot) => plot(slot, 2, 4, true));
   }
-  if (pack === "flowers") {
+  // Stage 3 = 3-flower / green-berry flowering (the annotated Willow plant).
+  if (pack === "flowers" || pack === "blossom") {
     return Array.from({ length: 9 }, (_, slot) => plot(slot, 2, 3));
   }
   // Annotated Willow mix: ripe corn, flowering center strawberry, two sprouts.

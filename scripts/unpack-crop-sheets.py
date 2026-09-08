@@ -139,42 +139,35 @@ def measure_disc(cell: Image.Image) -> dict:
 
 
 def restore_left_foliage(cell: Image.Image, name: str, index: int) -> Image.Image:
-    """Packed sheets discarded upper-left strawberry leaves (scraps were lower-only).
+    """Add missing left leaf tips without overwriting the painted plant.
 
-    Mirror the intact right crown across the soil-disc x into transparent
-    pixels so both sides of the bush read as full foliage.
+    Full left-half replace turned the 3-flower flowering stage into a 2-flower
+    mirror. Only fill transparent pixels so unique blossoms stay put.
     """
     if name != "strawberry" or index < 2:
         return cell
     disc = measure_disc(cell)
     w, h = cell.size
-    src_img = cell.copy()
-    src = src_img.load()
+    src = cell.load()
     out = cell.copy()
     dst = out.load()
     cx = disc["x"]
-    # Stop above the soil so hanging berries are filled without smearing the disc.
     y_max = min(h, max(1, int(disc["y"] - 40)))
-    feather = 10
     filled = 0
-    for y in range(0, min(h, y_max + feather)):
-        # Fully replace the left crown so the old packing wall is not a seam.
-        fade = 1.0
-        if y >= y_max:
-            fade = 1.0 - (y - y_max + 1) / feather
+    for y in range(0, y_max):
         for x in range(0, cx):
+            if dst[x, y][3] >= 20:
+                continue
             mx = 2 * cx - x
             if mx < 0 or mx >= w:
                 continue
             pix = src[mx, y]
-            if fade >= 0.999:
+            r, g, b, a = pix
+            # Leaves only — never clone blossoms or berries onto the 3-flower stage.
+            if a >= 20 and g > r + 10 and g > 60:
                 dst[x, y] = pix
                 filled += 1
-            elif pix[3] >= 20 or dst[x, y][3] >= 20:
-                a = tuple(int(dst[x, y][i] * (1 - fade) + pix[i] * fade) for i in range(4))
-                dst[x, y] = a
-                filled += 1
-    print(f"  {name} {index}: replaced left crown across x={cx} (y<{y_max}, {filled} px)")
+    print(f"  {name} {index}: filled {filled} transparent leaf px across x={cx} (y<{y_max})")
     return out
 
 

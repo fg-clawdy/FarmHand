@@ -250,9 +250,9 @@ function SoilMound() {
 export type PlantKind = CropKind;
 
 const CROP_SHEETS: Record<CropKind, string> = {
-  corn: "/art/painted/plants/plant_corn_stages.png",
-  strawberry: "/art/painted/plants/plant_strawberry_stages.png",
-  cotton: "/art/painted/plants/plant_cotton_stages.png",
+  corn: "/art/painted/plants/plant_corn_stages.png?v=3blossom",
+  strawberry: "/art/painted/plants/plant_strawberry_stages.png?v=3blossom",
+  cotton: "/art/painted/plants/plant_cotton_stages.png?v=3blossom",
 };
 
 export function plantKind(plot: Pick<PublicPlot, "state" | "tier" | "growthStage" | "ready">): PlantKind | null {
