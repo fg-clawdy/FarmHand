@@ -47,11 +47,13 @@ export class GardenScene {
 
     this.ground = new Sprite(painted.gardenZoom);
     this.ground.anchor.set(0, 0);
+    this.ground.zIndex = 0;
+    const tw = GARDEN_ZOOM_TEXTURE.width;
+    const th = GARDEN_ZOOM_TEXTURE.height;
+    this.ground.width = tw;
+    this.ground.height = th;
     this.playfield.sortableChildren = true;
     this.playfield.addChild(this.ground);
-
-    const tw = painted.gardenZoom.width || GARDEN_ZOOM_TEXTURE.width;
-    const th = painted.gardenZoom.height || GARDEN_ZOOM_TEXTURE.height;
 
     this.nameText = new Text({
       text: "",
@@ -158,16 +160,23 @@ export class GardenScene {
     this.fill.rect(0, 0, w, h);
     this.fill.fill({ color: 0x3d8a32 });
 
-    const tex = this.ground.texture;
-    const tw = tex.width || GARDEN_ZOOM_TEXTURE.width;
-    const th = tex.height || GARDEN_ZOOM_TEXTURE.height;
+    const tw = GARDEN_ZOOM_TEXTURE.width;
+    const th = GARDEN_ZOOM_TEXTURE.height;
+    this.ground.width = tw;
+    this.ground.height = th;
     const fit = cameraFit(w, h, tw, th, GARDEN_CAMERA_ZOOM);
     this.playfield.scale.set(fit.scale);
     this.playfield.position.set(fit.x, fit.y);
 
-    const s = tw / GARDEN_ZOOM_TEXTURE.width;
-    this.slots.forEach((slot) => slot.layout(s));
-    this.nameText.style.fontSize = Math.max(32, 48 * s);
+    this.slots.forEach((slot) => {
+      const p = uvToLocal(gardenMoundUv(slot.slot), tw, th);
+      slot.root.position.set(p.x, p.y);
+      slot.root.zIndex = Math.round(p.y);
+      slot.layout(1);
+    });
+    const sign = uvToLocal(GARDEN_ZOOM_LAYOUT.sign, tw, th);
+    this.nameText.position.set(sign.x, sign.y);
+    this.nameText.style.fontSize = Math.max(32, 48);
   }
 
   private tick(dt: number) {
@@ -199,9 +208,32 @@ export class GardenScene {
     this.root.destroy({ children: true });
   }
 
-  /** Live QA: one sprite per plot, frame rect, anchor, scale, world vs mound. */
+  /** Live QA: one sprite per plot, frame rect, anchor, scale, world vs mound UV. */
   debugPlants() {
-    return this.slots.map((slot) => slot.debug());
+    const tw = GARDEN_ZOOM_TEXTURE.width;
+    const th = GARDEN_ZOOM_TEXTURE.height;
+    const fit = {
+      scale: this.playfield.scale.x,
+      x: this.playfield.position.x,
+      y: this.playfield.position.y,
+    };
+    return this.slots.map((slot) => {
+      const uv = gardenMoundUv(slot.slot);
+      const local = uvToLocal(uv, tw, th);
+      const expected = { x: fit.x + local.x * fit.scale, y: fit.y + local.y * fit.scale };
+      const row = slot.debug();
+      const ground = { w: this.ground.width, h: this.ground.height, tw, th };
+      return {
+        ...row,
+        uv,
+        local,
+        expected,
+        uvDx: row.mound.x - expected.x,
+        uvDy: row.mound.y - expected.y,
+        fit,
+        ground,
+      };
+    });
   }
 }
 
@@ -256,6 +288,7 @@ class PlotNode {
     this.root.addChild(this.glow, this.shadow, this.sparkle.root, this.plant, this.label);
     this.root.eventMode = "static";
     this.root.cursor = "pointer";
+    this.plant.mask = null;
     this.root.on("pointerup", () => onOpen(this.slot));
   }
 
@@ -307,6 +340,7 @@ class PlotNode {
     this.shadow.visible = true;
     this.label.visible = true;
     this.label.text = plot.ready ? "READY" : formatCountdown(plot.remainingMs);
+    this.plant.mask = null;
   }
 
   celebrateHarvest() {
@@ -345,6 +379,7 @@ class PlotNode {
 
   debug() {
     const frame = this.plant.texture.frame;
+    const orig = this.plant.texture.orig;
     const world = this.plant.getGlobalPosition();
     const mound = this.root.getGlobalPosition();
     const visibleSprites = this.root.children.filter((c) => c instanceof Sprite && c.visible).length;
@@ -353,6 +388,7 @@ class PlotNode {
       visible: this.plant.visible,
       spritesOnPlot: visibleSprites,
       frame: { x: frame.x, y: frame.y, w: frame.width, h: frame.height },
+      orig: { x: orig.x, y: orig.y, w: orig.width, h: orig.height },
       anchor: { x: this.plant.anchor.x, y: this.plant.anchor.y },
       scale: { x: this.plant.scale.x, y: this.plant.scale.y },
       local: { x: this.plant.x, y: this.plant.y },

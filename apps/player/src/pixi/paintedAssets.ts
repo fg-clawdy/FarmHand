@@ -46,6 +46,12 @@ export const PLANT_DISC_ANCHOR = { x: 0.5, y: 0.88 } as const;
 
 /** On-texture disc cover. 80% of the first soil-disc pass so plants stay inside neighbors. */
 export const PLANT_COVER_FACTOR = 0.8;
+/** Extra shrink for wide bushes whose sheet cells already shave the left foliage. */
+export const CROP_COVER_KIND: Record<CropKind, number> = {
+  corn: 1,
+  strawberry: 0.9,
+  cotton: 1,
+};
 export const ZOOM_MOUND_COVER_PX = Math.round(220 * PLANT_COVER_FACTOR);
 export const FARM_MOUND_COVER_PX = Math.round(80 * PLANT_COVER_FACTOR);
 
@@ -109,7 +115,10 @@ export function sliceSheet(texture: Texture, frames: number, inset: number = SHE
     (rect) =>
       new Texture({
         source: texture.source,
+        // Frame is atlas pixels; orig is local sprite size from (0,0) so trim/UV
+        // math never treats frame.x as a sprite offset (would slide discs off mounds).
         frame: new Rectangle(rect.x, rect.y, rect.w, rect.h),
+        orig: new Rectangle(0, 0, rect.w, rect.h),
       }),
   );
 }
@@ -141,7 +150,7 @@ export const cropStemAnchor = cropDiscAnchor;
 export function cropCoverScale(kind: CropKind, stage: 1 | 2 | 3 | 4, coverPx: number) {
   const disc = cropDisc(kind, stage);
   const d = disc?.d || CROP_FRAME_WIDTH;
-  return coverPx / d;
+  return (coverPx * (CROP_COVER_KIND[kind] ?? 1)) / d;
 }
 
 export async function loadPaintedArt(): Promise<PaintedArt> {

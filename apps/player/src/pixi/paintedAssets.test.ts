@@ -57,6 +57,9 @@ test("cover scale uses 80% of the first soil-disc pass", () => {
   assert.ok(Math.abs(farm * d - FARM_MOUND_COVER_PX) < 0.01);
   assert.equal(ZOOM_MOUND_COVER_PX, 176);
   assert.equal(FARM_MOUND_COVER_PX, 64);
+  const berry = cropCoverScale("strawberry", 4, ZOOM_MOUND_COVER_PX);
+  const berryDisc = CROP_DISC_IN_CELL.strawberry[3]!.d;
+  assert.ok(berry * berryDisc < zoom * d, "ripe strawberry bush is slightly smaller than corn cover");
 });
 
 test("crop sheet slices are equal, in-bounds, and do not share pixels", () => {

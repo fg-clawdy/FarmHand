@@ -41,8 +41,8 @@ export const GARDEN_ZOOM_LAYOUT = {
   hit: { rx: 110, ry: 78 } as const,
 } as const;
 
-/** Garden zoom camera vs cover-fit. 0.9 pulls out so the full fence stays in view. */
-export const GARDEN_CAMERA_ZOOM = 0.9;
+/** Garden zoom camera vs cover-fit. 0.85 pulls out so grass/fence margin stays relaxed. */
+export const GARDEN_CAMERA_ZOOM = 0.85;
 
 export function gardenMoundUv(slot: number): Uv {
   const i = ((slot % PLOTS_PER_GARDEN) + PLOTS_PER_GARDEN) % PLOTS_PER_GARDEN;

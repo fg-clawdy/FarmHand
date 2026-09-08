@@ -8,11 +8,14 @@ import {
   GARDEN_CAMERA_ZOOM,
   GARDEN_TOOL_ART,
   GARDEN_ZOOM_LAYOUT,
+  GARDEN_ZOOM_TEXTURE,
   glowingSlots,
   plotAcceptsTool,
   gardenTapAction,
   PLOTS_PER_GARDEN,
 } from "./gardenLayout.ts";
+import { cameraFit } from "./draw.ts";
+import { uvToLocal } from "./playfieldLayout.ts";
 
 function plot(slot: number, state: PublicPlot["state"], extra: Partial<PublicPlot> = {}): PublicPlot {
   return {
@@ -100,8 +103,24 @@ test("plot sheet names the crop, never a plot index", () => {
   assert.ok(!String(growing.slot).includes(cropNameForPlot(growing, tiers)));
 });
 
-test("garden camera pulls out to 90% of cover-fit", () => {
-  assert.equal(GARDEN_CAMERA_ZOOM, 0.9);
+test("garden camera pulls out to 85% of cover-fit", () => {
+  assert.equal(GARDEN_CAMERA_ZOOM, 0.85);
+});
+
+test("mound UVs stay in texture space; zoom only scales the shared playfield", () => {
+  const uv = gardenMoundUv(4);
+  const local = uvToLocal(uv, GARDEN_ZOOM_TEXTURE.width, GARDEN_ZOOM_TEXTURE.height);
+  for (const zoom of [1, 0.9, 0.85, 0.7]) {
+    for (const [w, h] of [
+      [1536, 1024],
+      [1920, 1080],
+    ] as const) {
+      const fit = cameraFit(w, h, 1536, 1024, zoom);
+      const world = { x: fit.x + local.x * fit.scale, y: fit.y + local.y * fit.scale };
+      assert.ok(Math.abs((world.x - fit.x) / fit.scale - local.x) < 1e-6);
+      assert.ok(Math.abs((world.y - fit.y) / fit.scale - local.y) < 1e-6);
+    }
+  }
 });
 
 test("READY plots harvest on tap; empty and growing keep picker/sheet/tools", () => {

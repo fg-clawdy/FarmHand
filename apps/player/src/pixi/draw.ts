@@ -75,7 +75,7 @@ export function containFit(width: number, height: number, texW: number, texH: nu
   };
 }
 
-/** Zoomed-out camera: `zoom` is a fraction of cover-fit (0.9 = 90% of current). Never crops the painting. */
+/** Zoomed-out camera: `zoom` is a fraction of cover-fit (0.85 = 85% of cover). Never crops the painting. */
 export function cameraFit(
   width: number,
   height: number,
