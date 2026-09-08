@@ -9,7 +9,6 @@ export default function PlotSheet({
   player,
   onWater,
   onFertilize,
-  onHarvest,
   onClose,
   busy,
 }: {
@@ -18,7 +17,6 @@ export default function PlotSheet({
   player: GardenPlayer;
   onWater: () => void;
   onFertilize: () => void;
-  onHarvest: () => void;
   onClose: () => void;
   busy: boolean;
 }) {
@@ -30,29 +28,15 @@ export default function PlotSheet({
         {kind && (
           <PlantFigure className="hero-art" kind={kind} stage={plot.growthStage ?? 4} ready={plot.ready} />
         )}
-        <p className="plot-time">
-          {plot.ready ? (
-            <strong className="ready-tag">Ready to harvest</strong>
-          ) : (
-            <>Matures in {formatCountdown(plot.remainingMs)}</>
-          )}
-        </p>
+        <p className="plot-time">Matures in {formatCountdown(plot.remainingMs)}</p>
       </div>
       <div className={`sheet-actions ${busy ? "busy" : ""}`}>
-        {plot.ready ? (
-          <button className="btn gold" type="button" onClick={onHarvest}>
-            Harvest
-          </button>
-        ) : (
-          <>
-            <button className="btn water" type="button" disabled={!player.water.canWater} onClick={onWater}>
-              Water (−1h)
-            </button>
-            <button className="btn primary" type="button" disabled={player.fertilizer < 1} onClick={onFertilize}>
-              Fertilize
-            </button>
-          </>
-        )}
+        <button className="btn water" type="button" disabled={!player.water.canWater} onClick={onWater}>
+          Water (−1h)
+        </button>
+        <button className="btn primary" type="button" disabled={player.fertilizer < 1} onClick={onFertilize}>
+          Fertilize
+        </button>
         <button className="btn ghost" type="button" onClick={onClose}>
           Close
         </button>

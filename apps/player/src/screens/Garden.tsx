@@ -11,11 +11,11 @@ import PlotSheet from "../components/PlotSheet";
 import {
   cheapestSeedCost,
   cropNameForPlot,
+  gardenTapAction,
   GARDEN_TOOL_ART,
   GARDEN_TOOL_LABEL,
   GARDEN_TOOLS,
   glowingSlots,
-  plotAcceptsTool,
   type GardenTool,
 } from "../pixi/gardenLayout";
 import { useGardenPixi } from "../pixi/usePixi";
@@ -23,7 +23,6 @@ import { useGardenPixi } from "../pixi/usePixi";
 type Overlay =
   | { type: "picker"; slot: number }
   | { type: "plot"; slot: number }
-  | { type: "harvest"; reward: HarvestReward }
   | { type: "ingredients" }
   | null;
 
@@ -200,6 +199,7 @@ function GardenPlay({
   const cooldownRemainingMs = Math.max(0, player.water.cooldownRemainingMs - elapsed);
   const canWater = player.water.wateringsLeft > 0 && cooldownRemainingMs === 0;
   const toolCtx = { seeds: player.seeds, fertilizer: player.fertilizer, canWater, cheapestSeed };
+  const [gain, setGain] = useState<HarvestReward | null>(null);
   const glow = useMemo(
     () => glowingSlots(tool, plots, toolCtx),
     [tool, plots, player.seeds, player.fertilizer, canWater, cheapestSeed],
@@ -208,23 +208,31 @@ function GardenPlay({
   const { hostRef, sceneRef, ready } = useGardenPixi((slot) => {
     const plot = plots.find((p) => p.slot === slot);
     if (!plot || busy) return;
-    if (tool) {
-      if (!plotAcceptsTool(tool, plot, toolCtx)) {
-        if (plot.ready) setOverlay({ type: "plot", slot });
-        return;
-      }
-      if (tool === "seed") {
-        setOverlay({ type: "picker", slot });
-        return;
-      }
-      if (tool === "water") {
-        void run(async () => {
-          const data = await api.water(slot);
-          sceneRef.current?.fxWater(slot);
-          return data.player;
-        });
-        return;
-      }
+    const action = gardenTapAction(plot, tool, toolCtx);
+    if (action === "harvest") {
+      void run(async () => {
+        const data = await api.harvest(slot);
+        sceneRef.current?.fxHarvest(slot, data.reward);
+        setGain(data.reward);
+        setOverlay(null);
+        window.setTimeout(() => setGain((cur) => (cur === data.reward ? null : cur)), 2400);
+        return data.player;
+      });
+      return;
+    }
+    if (action === "picker") {
+      setOverlay({ type: "picker", slot });
+      return;
+    }
+    if (action === "water") {
+      void run(async () => {
+        const data = await api.water(slot);
+        sceneRef.current?.fxWater(slot);
+        return data.player;
+      });
+      return;
+    }
+    if (action === "fert") {
       void run(async () => {
         const data = await api.fertilize(slot);
         sceneRef.current?.fxFertilizer(slot);
@@ -232,7 +240,7 @@ function GardenPlay({
       });
       return;
     }
-    setOverlay(plot.state === "empty" ? { type: "picker", slot } : { type: "plot", slot });
+    if (action === "sheet") setOverlay({ type: "plot", slot });
   });
 
   useEffect(() => {
@@ -266,11 +274,13 @@ function GardenPlay({
           <span>{player.name}'s garden</span>
         </div>
         <div className="meters">
-          <div className="meter">
+          <div className={`meter ${gain && gain.points > 0 ? "bump" : ""}`}>
             <StarIcon /> {player.points}
+            {gain && gain.points > 0 && <span className="meter-delta">+{gain.points}</span>}
           </div>
-          <div className="meter">
+          <div className={`meter ${gain && gain.seedsReturned > 0 ? "bump" : ""}`}>
             <AcornArt /> {player.seeds}
+            {gain && gain.seedsReturned > 0 && <span className="meter-delta">+{gain.seedsReturned}</span>}
           </div>
           <div className="meter">
             <FertilizerBeaker /> {player.fertilizer}
@@ -316,7 +326,7 @@ function GardenPlay({
           }}
         />
       )}
-      {overlay?.type === "plot" && selected && selected.state !== "empty" && (
+      {overlay?.type === "plot" && selected && selected.state !== "empty" && !selected.ready && (
         <PlotSheet
           plot={selected}
           cropName={cropNameForPlot(selected, config.tiers)}
@@ -337,19 +347,9 @@ function GardenPlay({
               return data.player;
             })
           }
-          onHarvest={() =>
-            void run(async () => {
-              const data = await api.harvest(overlay.slot);
-              sceneRef.current?.fxHarvest(overlay.slot);
-              setOverlay({ type: "harvest", reward: data.reward });
-              return data.player;
-            })
-          }
         />
       )}
-      {overlay?.type === "harvest" && (
-        <HarvestCelebration reward={overlay.reward} onClose={() => setOverlay(null)} />
-      )}
+      {gain && <HarvestCelebration reward={gain} />}
       {overlay?.type === "ingredients" && (
         <IngredientsSheet
           player={player}

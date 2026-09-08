@@ -94,4 +94,22 @@ export function glowingSlots(
   return plots.filter((plot) => plotAcceptsTool(tool, plot, ctx)).map((plot) => plot.slot);
 }
 
+export type GardenTap = "harvest" | "picker" | "sheet" | "water" | "fert" | "noop";
+
+/** What a garden-zoom tap should do. READY plots always harvest — no confirm sheet. */
+export function gardenTapAction(
+  plot: PublicPlot,
+  tool: GardenTool | null,
+  ctx: GardenToolContext,
+): GardenTap {
+  if (plot.ready) return "harvest";
+  if (tool) {
+    if (!plotAcceptsTool(tool, plot, ctx)) return "noop";
+    if (tool === "seed") return "picker";
+    if (tool === "water") return "water";
+    return "fert";
+  }
+  return plot.state === "empty" ? "picker" : "sheet";
+}
+
 export { GARDEN_PLOT_COLS, PLOTS_PER_GARDEN };

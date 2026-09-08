@@ -14,7 +14,7 @@ export class FxLayer {
   private readonly pool: Burst[] = [];
 
   constructor(atlas: Atlas) {
-    for (let i = 0; i < 56; i++) {
+    for (let i = 0; i < 80; i++) {
       const sprite = new Sprite(atlas.frame(i % 3 === 0 ? "fx_sparkle" : "fx_dot"));
       sprite.anchor.set(0.5);
       sprite.visible = false;
@@ -24,20 +24,20 @@ export class FxLayer {
   }
 
   burst(x: number, y: number, kind: "water" | "fert" | "harvest") {
-    const count = kind === "harvest" ? 22 : 14;
+    const count = kind === "harvest" ? 36 : 14;
     let used = 0;
     for (const p of this.pool) {
       if (used >= count) break;
       if (p.life > 0) continue;
       const a = Math.random() * Math.PI * 2;
-      const sp = kind === "water" ? 1.8 + Math.random() * 2.4 : 1.2 + Math.random() * 2.2;
+      const sp = kind === "harvest" ? 2.2 + Math.random() * 3.4 : kind === "water" ? 1.8 + Math.random() * 2.4 : 1.2 + Math.random() * 2.2;
       p.vx = Math.cos(a) * sp;
-      p.vy = Math.sin(a) * sp - (kind === "water" ? 2.2 : 1.4);
-      p.life = p.max = 0.55 + Math.random() * 0.4;
+      p.vy = Math.sin(a) * sp - (kind === "harvest" ? 3.2 : kind === "water" ? 2.2 : 1.4);
+      p.life = p.max = kind === "harvest" ? 0.8 + Math.random() * 0.55 : 0.55 + Math.random() * 0.4;
       p.sprite.visible = true;
       p.sprite.position.set(x, y);
-      p.sprite.scale.set(0.55 + Math.random() * 0.85);
-      p.sprite.tint = kind === "water" ? 0x7ec8e3 : kind === "fert" ? 0x7ed957 : 0xffe56a;
+      p.sprite.scale.set(kind === "harvest" ? 0.85 + Math.random() * 1.15 : 0.55 + Math.random() * 0.85);
+      p.sprite.tint = kind === "water" ? 0x7ec8e3 : kind === "fert" ? 0x7ed957 : used % 2 === 0 ? 0xffe56a : 0xfff6df;
       p.sprite.blendMode = kind === "harvest" ? "add" : "normal";
       used += 1;
     }

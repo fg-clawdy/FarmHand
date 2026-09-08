@@ -30,6 +30,7 @@ export class GardenScene {
   private nameText: Text;
   private fx: FxLayer;
   private slots: PlotNode[] = [];
+  private floaters: { text: Text; life: number; max: number; vy: number }[] = [];
   private t = 0;
   private app: Application;
   private onPlot: (slot: number) => void;
@@ -120,9 +121,34 @@ export class GardenScene {
     const n = this.slots[slot];
     if (n) this.fx.burst(n.root.x, n.root.y - 20, "fert");
   }
-  fxHarvest(slot: number) {
+  fxHarvest(slot: number, reward?: { points: number; seedsReturned: number }) {
     const n = this.slots[slot];
-    if (n) this.fx.burst(n.root.x, n.root.y - 20, "harvest");
+    if (!n) return;
+    n.celebrateHarvest();
+    this.fx.burst(n.root.x, n.root.y - 24, "harvest");
+    this.fx.burst(n.root.x, n.root.y - 70, "harvest");
+    const bits: string[] = [];
+    if (reward && reward.points > 0) bits.push(`+${reward.points} ★`);
+    if (reward && reward.seedsReturned > 0) {
+      bits.push(`+${reward.seedsReturned} seed${reward.seedsReturned === 1 ? "" : "s"}`);
+    }
+    if (!bits.length) return;
+    const text = new Text({
+      text: bits.join("   "),
+      style: {
+        fontFamily: "Fredoka, sans-serif",
+        fontSize: 42,
+        fill: 0xffe56a,
+        fontWeight: "900",
+        stroke: { color: 0x2a1608, width: 7 },
+        align: "center",
+      },
+    });
+    text.anchor.set(0.5, 1);
+    text.position.set(n.root.x, n.root.y - 40);
+    text.zIndex = 8000;
+    this.playfield.addChild(text);
+    this.floaters.push({ text, life: 1.4, max: 1.4, vy: -70 });
   }
 
   private layout() {
@@ -146,7 +172,19 @@ export class GardenScene {
 
   private tick(dt: number) {
     this.t += dt;
-    this.slots.forEach((s) => s.breathe(this.t));
+    this.fx.update(dt);
+    this.slots.forEach((s) => s.breathe(this.t, dt));
+    for (let i = this.floaters.length - 1; i >= 0; i--) {
+      const f = this.floaters[i]!;
+      f.life -= dt;
+      f.text.y += f.vy * dt;
+      f.text.alpha = Math.max(0, f.life / f.max);
+      f.text.scale.set(1 + (1 - f.life / f.max) * 0.18);
+      if (f.life <= 0) {
+        f.text.destroy();
+        this.floaters.splice(i, 1);
+      }
+    }
   }
 
   destroy() {
@@ -187,6 +225,7 @@ class PlotNode {
   private ready = false;
   private cropScale = 0.4;
   private texScale = 1;
+  private celebrateT = -1;
 
   constructor(
     atlas: Atlas,
@@ -246,8 +285,13 @@ class PlotNode {
     const empty = !plot || plot.state === "empty";
     this.ready = !!plot?.ready;
     this.glow.visible = this.toolGlow;
+    if (this.celebrateT >= 0) {
+      this.sparkle.setActive(true);
+      this.label.visible = false;
+      return;
+    }
     this.sparkle.setActive(this.ready);
-    if (empty || !plot?.growthStage || !plot.tier) {
+    if (empty || !plot.growthStage || !plot.tier) {
       this.plant.visible = false;
       this.shadow.visible = false;
       this.label.visible = false;
@@ -265,7 +309,32 @@ class PlotNode {
     this.label.text = plot.ready ? "READY" : formatCountdown(plot.remainingMs);
   }
 
-  breathe(t: number) {
+  celebrateHarvest() {
+    this.celebrateT = 0;
+    this.plant.alpha = 1;
+    this.plant.visible = true;
+    this.label.visible = false;
+    this.sparkle.setActive(true);
+  }
+
+  breathe(t: number, dt = 1 / 60) {
+    if (this.celebrateT >= 0) {
+      this.celebrateT += dt;
+      const k = Math.min(1, this.celebrateT / 0.55);
+      const pop = 1.08 + Math.sin(k * Math.PI) * 0.42;
+      this.plant.scale.set(this.cropScale * pop, this.cropScale * pop);
+      this.plant.alpha = 1 - k;
+      this.plant.rotation = Math.sin(k * Math.PI * 3) * 0.08;
+      if (k >= 1) {
+        this.celebrateT = -1;
+        this.plant.visible = false;
+        this.plant.alpha = 1;
+        this.plant.rotation = 0;
+        this.shadow.visible = false;
+      }
+      this.sparkle.update(t);
+      return;
+    }
     if (this.plant.visible) {
       const s = this.cropScale;
       this.plant.scale.set(s, s * (1 + Math.sin(t * 1.6 + this.slot) * 0.012));

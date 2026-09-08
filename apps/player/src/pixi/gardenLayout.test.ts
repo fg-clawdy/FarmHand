@@ -10,6 +10,7 @@ import {
   GARDEN_ZOOM_LAYOUT,
   glowingSlots,
   plotAcceptsTool,
+  gardenTapAction,
   PLOTS_PER_GARDEN,
 } from "./gardenLayout.ts";
 
@@ -101,4 +102,21 @@ test("plot sheet names the crop, never a plot index", () => {
 
 test("garden camera pulls out to 90% of cover-fit", () => {
   assert.equal(GARDEN_CAMERA_ZOOM, 0.9);
+});
+
+test("READY plots harvest on tap; empty and growing keep picker/sheet/tools", () => {
+  const growing = plot(1, "growing");
+  const ripe = plot(2, "mature");
+  const empty = plot(0, "empty");
+  const ctx = { seeds: 10, fertilizer: 1, canWater: true, cheapestSeed: 1 };
+  assert.equal(gardenTapAction(ripe, null, ctx), "harvest");
+  assert.equal(gardenTapAction(ripe, "water", ctx), "harvest");
+  assert.equal(gardenTapAction(ripe, "seed", ctx), "harvest");
+  assert.equal(gardenTapAction(ripe, "fert", ctx), "harvest");
+  assert.equal(gardenTapAction(empty, null, ctx), "picker");
+  assert.equal(gardenTapAction(empty, "seed", ctx), "picker");
+  assert.equal(gardenTapAction(empty, "water", ctx), "noop");
+  assert.equal(gardenTapAction(growing, null, ctx), "sheet");
+  assert.equal(gardenTapAction(growing, "water", ctx), "water");
+  assert.equal(gardenTapAction(growing, "fert", ctx), "fert");
 });
