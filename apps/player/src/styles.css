@@ -242,6 +242,7 @@ button, input { font: inherit; }
 .topbar {
   position: relative;
   z-index: 4;
+  overflow: visible;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -277,7 +278,7 @@ button, input { font: inherit; }
   text-shadow: 0 2px 0 #4d2a12;
 }
 .mascot-img { width: 62px; height: 62px; filter: drop-shadow(0 4px 0 rgba(0,0,0,0.2)); }
-.meters { display: flex; gap: 8px; align-items: center; }
+.meters { display: flex; gap: 8px; align-items: center; overflow: visible; }
 .meter {
   position: relative;
   overflow: visible;
@@ -302,26 +303,27 @@ button, input { font: inherit; }
 .meter-delta {
   position: absolute;
   left: 50%;
-  top: -8px;
+  top: calc(100% + 2px);
   pointer-events: none;
   white-space: nowrap;
   color: #c45a10;
   font-size: 22px;
   font-weight: 900;
   text-shadow: 0 2px 0 #fff6df, 0 0 10px #ffe56a;
-  animation: meterDeltaFloat 2.2s ease-out forwards;
+  animation: meterDeltaFloat 2.4s ease-out forwards;
+  z-index: 8;
 }
 @keyframes meterDeltaFloat {
-  0% { opacity: 1; transform: translateX(-50%) translateY(4px) scale(1.15); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-30px) scale(1); }
+  0% { opacity: 1; transform: translateX(-50%) translateY(-4px) scale(1.18); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(22px) scale(1); }
 }
 
 .harvest-banner {
   position: absolute;
   left: 50%;
-  top: 88px;
+  top: 78px;
   transform: translateX(-50%);
-  z-index: 16;
+  z-index: 30;
   pointer-events: none;
   text-align: center;
   min-width: min(440px, 72vw);

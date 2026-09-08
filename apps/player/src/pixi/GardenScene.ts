@@ -148,7 +148,7 @@ export class GardenScene {
     text.position.set(n.root.x, n.root.y - 40);
     text.zIndex = 8000;
     this.playfield.addChild(text);
-    this.floaters.push({ text, life: 1.4, max: 1.4, vy: -70 });
+    this.floaters.push({ text, life: 1.8, max: 1.8, vy: -62 });
   }
 
   private layout() {

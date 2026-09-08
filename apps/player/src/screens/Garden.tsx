@@ -215,7 +215,7 @@ function GardenPlay({
         sceneRef.current?.fxHarvest(slot, data.reward);
         setGain(data.reward);
         setOverlay(null);
-        window.setTimeout(() => setGain((cur) => (cur === data.reward ? null : cur)), 2400);
+        window.setTimeout(() => setGain((cur) => (cur === data.reward ? null : cur)), 4200);
         return data.player;
       });
       return;
