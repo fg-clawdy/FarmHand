@@ -12,9 +12,10 @@ import { todayKey } from "./tz.js";
 export async function loadConfig(): Promise<GameConfig> {
   const row = await prisma.gameConfigRow.findUnique({ where: { id: "default" } });
   const merged = mergeGameConfig(row?.data);
-  const stored =
-    row?.data && typeof row.data === "object" ? Number((row.data as { plotCount?: number }).plotCount) : NaN;
-  if (stored !== merged.plotCount) {
+  const stored = row?.data && typeof row.data === "object" ? (row.data as Record<string, unknown>) : {};
+  const needsPlot = Number(stored.plotCount) !== merged.plotCount;
+  const needsGoals = typeof stored.balanceGoals !== "string";
+  if (needsPlot || needsGoals) {
     return saveConfig(merged);
   }
   return merged;

@@ -38,4 +38,17 @@ describe("v1 crop kinds", () => {
     assert.equal(merged.plotCount, PLOTS_PER_GARDEN);
     assert.equal(DEFAULT_GAME_CONFIG.plotCount, 9);
   });
+
+  it("seeds the locked balance-goals text when the field is missing", () => {
+    const merged = mergeGameConfig({});
+    assert.equal(
+      merged.balanceGoals,
+      "Encourage short daily sessions with healthy watering use; avoid designs that reward only long waits or one OP crop.",
+    );
+  });
+
+  it("keeps a parent-edited balance-goals string", () => {
+    const merged = mergeGameConfig({ balanceGoals: "Kids should try all three crops." });
+    assert.equal(merged.balanceGoals, "Kids should try all three crops.");
+  });
 });

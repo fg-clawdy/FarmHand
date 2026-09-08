@@ -172,6 +172,7 @@ export default function PlayerDetailPage() {
         >
           {player.isActive ? "Soft deactivate" : "Reactivate"}
         </button>
+        <p className="muted">Hides the garden. Does not delete the kid.</p>
       </div>
     </div>
   );

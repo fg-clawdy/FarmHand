@@ -1,9 +1,10 @@
-import { DEFAULT_GAME_CONFIG, type GameConfig } from "@farmhand/shared";
+import { formatDuration, type GameConfig } from "@farmhand/shared";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 
 export default function ConfigPage() {
-  const [config, setConfig] = useState<GameConfig>(DEFAULT_GAME_CONFIG);
+  const [config, setConfig] = useState<GameConfig | null>(null);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
 
@@ -15,55 +16,100 @@ export default function ConfigPage() {
   }, []);
 
   function num(key: keyof GameConfig, value: string) {
+    if (!config) return;
     setConfig({ ...config, [key]: Number(value) });
   }
+
+  if (!config) return <p>{error || "Loading tunables…"}</p>;
 
   return (
     <div>
       <h1>Game tunables</h1>
-      <p className="muted">These numbers live in Postgres. Save once and the kids’ farm uses them without a redeploy.</p>
+      <p className="muted">
+        These numbers live in Postgres. Save once and the kids’ farm uses them without a redeploy. Write what “good
+        play” means on <Link to="/balance">Balance</Link>.
+      </p>
       {error && <p className="error">{error}</p>}
       {saved && <p>{saved}</p>}
 
       <div className="card">
-        <label className="field">
-          Timezone
-          <input value={config.timezone} onChange={(e) => setConfig({ ...config, timezone: e.target.value })} />
-        </label>
+        <h2>A new kid starts with</h2>
         <div className="row">
-          <Num label="Session minutes" value={config.sessionMinutes} onChange={(v) => num("sessionMinutes", v)} />
-          <Num label="Starting seeds" value={config.startingSeeds} onChange={(v) => num("startingSeeds", v)} />
-          <Num label="Starting points" value={config.startingPoints} onChange={(v) => num("startingPoints", v)} />
-          <Num label="Starting fertilizer" value={config.startingFertilizer} onChange={(v) => num("startingFertilizer", v)} />
-          <Num label="Plot count (3×3, min 9)" value={config.plotCount} onChange={(v) => num("plotCount", v)} />
-          <Num label="Harvest seed return" value={config.harvestSeedReturn} onChange={(v) => num("harvestSeedReturn", v)} />
-        </div>
-        <div className="row">
-          <Num label="Water cooldown (min)" value={config.wateringCooldownMinutes} onChange={(v) => num("wateringCooldownMinutes", v)} />
-          <Num label="Water max / day" value={config.wateringMaxPerDay} onChange={(v) => num("wateringMaxPerDay", v)} />
-          <Num label="Water reduction (min)" value={config.wateringReductionMinutes} onChange={(v) => num("wateringReductionMinutes", v)} />
-          <Num label="Mix yield" value={config.mixYield} onChange={(v) => num("mixYield", v)} />
+          <Num label="Starting seeds" hint="Pocket change on day one" value={config.startingSeeds} onChange={(v) => num("startingSeeds", v)} />
+          <Num label="Starting stars" hint="Points, not seeds" value={config.startingPoints} onChange={(v) => num("startingPoints", v)} />
+          <Num label="Starting fertilizer" hint="Bottles on the shelf" value={config.startingFertilizer} onChange={(v) => num("startingFertilizer", v)} />
         </div>
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
-        <h2>Plant tiers</h2>
+        <h2>Watering</h2>
+        <div className="row">
+          <Num
+            label="Waters per day"
+            hint="Daily cap across the garden"
+            value={config.wateringMaxPerDay}
+            onChange={(v) => num("wateringMaxPerDay", v)}
+          />
+          <Num
+            label="Minutes between waters"
+            hint="Cooldown after each watering (240 = 4 hours)"
+            value={config.wateringCooldownMinutes}
+            onChange={(v) => num("wateringCooldownMinutes", v)}
+          />
+          <Num
+            label="Each watering shortens wait (min)"
+            hint="Shaves this many minutes off grow time"
+            value={config.wateringReductionMinutes}
+            onChange={(v) => num("wateringReductionMinutes", v)}
+          />
+        </div>
+        <p className="muted">Cooldown is stored in minutes (240 = 4 hours).</p>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h2>How seeds are earned</h2>
+        <div className="row">
+          <Num
+            label="Seeds back on harvest"
+            hint="Same bonus for every crop"
+            value={config.harvestSeedReturn}
+            onChange={(v) => num("harvestSeedReturn", v)}
+          />
+          <Num
+            label="Fertilizer bottles per mix"
+            hint="After collecting all three ingredients"
+            value={config.mixYield}
+            onChange={(v) => num("mixYield", v)}
+          />
+          <Num label="Session minutes" hint="How long a PIN login lasts" value={config.sessionMinutes} onChange={(v) => num("sessionMinutes", v)} />
+          <Num label="Plot count (3×3, min 9)" value={config.plotCount} onChange={(v) => num("plotCount", v)} />
+        </div>
+        <label className="field">
+          Timezone
+          <input value={config.timezone} onChange={(e) => setConfig({ ...config, timezone: e.target.value })} />
+        </label>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h2>Crops — time, cost, and fertilizer</h2>
+        <p className="muted">How long corn / strawberry / cotton take, seeds to plant, stars on harvest, and how much fertilizer shaves off.</p>
         <table>
           <thead>
             <tr>
-              <th>Tier</th>
+              <th>Crop</th>
               <th>Name</th>
-              <th>Seed cost</th>
-              <th>Duration (min)</th>
-              <th>Points</th>
-              <th>Fertilizer reduction (min)</th>
+              <th>Seeds to plant</th>
+              <th>How long until harvest (min)</th>
+              <th>Stars on harvest</th>
+              <th>Fertilizer shaves off (min)</th>
             </tr>
           </thead>
           <tbody>
             {config.tiers.map((tier, index) => (
               <tr key={tier.tier}>
                 <td>
-                  {tier.emoji} {tier.tier}
+                  {tier.emoji} {tier.kind}
+                  <div className="muted">{formatDuration(tier.durationMinutes)}</div>
                 </td>
                 <td>
                   <input
@@ -161,11 +207,22 @@ export default function ConfigPage() {
   );
 }
 
-function Num({ label, value, onChange }: { label: string; value: number; onChange: (v: string) => void }) {
+function Num({
+  label,
+  value,
+  onChange,
+  hint,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: string) => void;
+  hint?: string;
+}) {
   return (
     <label className="field">
       {label}
       <input type="number" value={value} onChange={(e) => onChange(e.target.value)} />
+      {hint && <span className="muted">{hint}</span>}
     </label>
   );
 }

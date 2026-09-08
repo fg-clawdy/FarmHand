@@ -23,6 +23,7 @@ export default function PlayersPage() {
   return (
     <div>
       <h1>Players</h1>
+      <p className="muted">Kids can be hidden with soft deactivate. Nothing is hard-deleted.</p>
       {error && <p className="error">{error}</p>}
       <table>
         <thead>

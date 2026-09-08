@@ -1,4 +1,4 @@
-import type { GameConfig, Mascot, PublicPlot } from "@farmhand/shared";
+import type { CropKind, GameConfig, Mascot, PublicPlot } from "@farmhand/shared";
 
 export type AdminPlayer = {
   id: string;
@@ -12,6 +12,34 @@ export type AdminPlayer = {
   isActive: boolean;
   plots: PublicPlot[];
   activeSessions?: number;
+};
+
+export type CropMix = {
+  counts: Record<CropKind, number>;
+  total: number;
+  pct: Record<CropKind, number>;
+};
+
+export type AdminStats = {
+  timezone: string;
+  days: number;
+  series: Array<{ day: string; harvests: number; waterings: number; logins: number; plants: number }>;
+  cropMixPlanted: CropMix;
+  cropMixHarvested: CropMix;
+  cropMixInGround: CropMix;
+  players: Array<{ playerId: string; name: string; logins: number; waterings: number; harvests: number; plants: number }>;
+};
+
+export type BalanceSnapshot = {
+  generatedAt: string;
+  timezone: string;
+  goals: string;
+  knobs: Record<string, unknown>;
+  cropMixInGround: CropMix;
+  windows: {
+    "7d": { cropMixPlanted: CropMix; cropMixHarvested: CropMix; economy: Record<string, number> };
+    "30d": { cropMixPlanted: CropMix; cropMixHarvested: CropMix; economy: Record<string, number> };
+  };
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -65,6 +93,12 @@ export const api = {
   saveConfig: (config: GameConfig) =>
     request<{ config: GameConfig }>("/api/admin/config", { method: "PUT", body: JSON.stringify({ config }) }),
   resetConfig: () => request<{ config: GameConfig }>("/api/admin/config/reset", { method: "POST" }),
+  stats: (days = 14) =>
+    request<AdminStats>(`/api/admin/stats?days=${days}`),
+  balanceGoals: () => request<{ goals: string }>("/api/admin/balance-goals"),
+  saveBalanceGoals: (goals: string) =>
+    request<{ goals: string }>("/api/admin/balance-goals", { method: "PUT", body: JSON.stringify({ goals }) }),
+  balanceSnapshot: () => request<BalanceSnapshot>("/api/admin/balance-snapshot"),
   activity: () =>
     request<{
       timezone: string;

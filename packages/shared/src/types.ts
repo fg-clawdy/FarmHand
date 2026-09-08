@@ -57,6 +57,8 @@ export type GameConfig = {
   harvestSeedReturn: number;
   plotCount: number;
   mixYield: number;
+  /** Parent-authored “what good play looks like” for AI balance review. */
+  balanceGoals: string;
   ingredients: IngredientDef[];
   tiers: PlantTier[];
 };

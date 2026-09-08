@@ -97,6 +97,38 @@ console.log("admin reset PIN ok");
 const overview = await req("/api/admin/overview", { cookie: adminCookie });
 console.log("overview", overview.data);
 
+const stats = await req("/api/admin/stats?days=14", { cookie: adminCookie });
+if (!Array.isArray(stats.data.series) || stats.data.series.length !== 14) {
+  throw new Error(`stats series expected 14 days, got ${stats.data.series?.length}`);
+}
+if (!stats.data.cropMixPlanted || !stats.data.cropMixHarvested) {
+  throw new Error("stats missing crop mix");
+}
+console.log("stats crop mix planted", stats.data.cropMixPlanted);
+
+const goalsGet = await req("/api/admin/balance-goals", { cookie: adminCookie });
+if (!String(goalsGet.data.goals).includes("short daily sessions")) {
+  throw new Error(`expected seeded balance goals, got ${JSON.stringify(goalsGet.data.goals)}`);
+}
+const edited = "Kids should try all three crops.";
+await req("/api/admin/balance-goals", { method: "PUT", body: { goals: edited }, cookie: adminCookie });
+const goalsPut = await req("/api/admin/balance-goals", { cookie: adminCookie });
+if (goalsPut.data.goals !== edited) throw new Error("balance goals did not persist");
+const snap = await req("/api/admin/balance-snapshot", { cookie: adminCookie });
+if (snap.data.goals !== edited) throw new Error("snapshot goals stale");
+if (!snap.data.knobs?.tiers || !snap.data.windows?.["7d"] || !snap.data.windows?.["30d"]) {
+  throw new Error("snapshot missing knobs or windows");
+}
+if (!snap.data.windows["7d"].cropMixPlanted || !snap.data.windows["7d"].economy) {
+  throw new Error("snapshot window missing crop mix or economy");
+}
+await req("/api/admin/balance-goals", {
+  method: "PUT",
+  body: { goals: goalsGet.data.goals },
+  cookie: adminCookie,
+});
+console.log("balance goals + snapshot ok");
+
 const enter2 = await req(`/api/players/${willow.id}/enter`, { method: "POST", body: { pin: "1111" } });
 const kidCookie2 = enter2.cookie;
 console.log("re-entered after PIN reset");

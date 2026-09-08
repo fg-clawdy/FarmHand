@@ -1,5 +1,9 @@
 import { PLOTS_PER_GARDEN, type GameConfig } from "./types.js";
 
+/** Parent-locked default. Admin can edit; reset-to-defaults restores this text. */
+export const DEFAULT_BALANCE_GOALS =
+  "Encourage short daily sessions with healthy watering use; avoid designs that reward only long waits or one OP crop.";
+
 export const DEFAULT_GAME_CONFIG: GameConfig = {
   timezone: "America/Chicago",
   sessionMinutes: 30,
@@ -12,6 +16,7 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   harvestSeedReturn: 1,
   plotCount: PLOTS_PER_GARDEN,
   mixYield: 1,
+  balanceGoals: DEFAULT_BALANCE_GOALS,
   ingredients: [
     { id: "moonDew", name: "Moon Dew", emoji: "🌙" },
     { id: "growGoo", name: "Grow Goo", emoji: "🟢" },
@@ -92,6 +97,8 @@ export function mergeGameConfig(raw: unknown): GameConfig {
     ...incoming,
     timezone: incoming.timezone || DEFAULT_GAME_CONFIG.timezone,
     plotCount: Math.max(PLOTS_PER_GARDEN, Number(incoming.plotCount) || 0),
+    balanceGoals:
+      typeof incoming.balanceGoals === "string" ? incoming.balanceGoals : DEFAULT_GAME_CONFIG.balanceGoals,
     tiers,
     ingredients,
   };

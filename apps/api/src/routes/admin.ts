@@ -14,6 +14,13 @@ import {
 } from "../auth.js";
 import { loadConfig, publicPlayer, saveConfig } from "../game.js";
 import { chicagoDayKeys, startOfDaysAgo, startOfToday, todayKey } from "../tz.js";
+import {
+  balanceKnobs,
+  cropMixFromPlots,
+  dailySeries,
+  playerComparison,
+  windowStats,
+} from "../adminStats.js";
 
 const MASCOT_SET = new Set<string>(MASCOTS);
 
@@ -387,6 +394,106 @@ export async function adminRoutes(app: FastifyInstance) {
     });
 
     return { timezone: config.timezone, days: keys, activity };
+  });
+
+  app.get("/api/admin/stats", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const config = await loadConfig();
+    const now = new Date();
+    const query = (request.query ?? {}) as { days?: string };
+    const days = Math.min(30, Math.max(7, Number(query.days) || 14));
+    const from = startOfDaysAgo(config.timezone, days - 1, now);
+    const [logs, players] = await Promise.all([
+      prisma.activityLog.findMany({
+        where: { createdAt: { gte: from } },
+        select: { action: true, playerId: true, createdAt: true, details: true },
+      }),
+      prisma.player.findMany({
+        where: { isActive: true },
+        include: { plots: { select: { plantTier: true } } },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
+    const rows = logs.map((log) => ({
+      action: log.action,
+      playerId: log.playerId,
+      createdAt: log.createdAt,
+      details: log.details,
+    }));
+    const window = windowStats(rows, config);
+    return {
+      timezone: config.timezone,
+      days,
+      series: dailySeries(rows, config.timezone, days, now),
+      cropMixPlanted: window.cropMixPlanted,
+      cropMixHarvested: window.cropMixHarvested,
+      cropMixInGround: cropMixFromPlots(players.flatMap((player) => player.plots.map((plot) => plot.plantTier))),
+      players: playerComparison(
+        players.map((player) => ({ id: player.id, name: player.name })),
+        rows,
+      ),
+    };
+  });
+
+  app.get("/api/admin/balance-goals", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const config = await loadConfig();
+    return { goals: config.balanceGoals };
+  });
+
+  app.put("/api/admin/balance-goals", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const body = (request.body ?? {}) as { goals?: unknown };
+    if (typeof body.goals !== "string") {
+      return reply.code(400).send({ error: "goals must be a string." });
+    }
+    const config = await loadConfig();
+    const saved = await saveConfig({ ...config, balanceGoals: body.goals });
+    await prisma.auditLog.create({
+      data: { adminId: session.adminId, action: "update_balance_goals", details: { length: saved.balanceGoals.length } },
+    });
+    return { goals: saved.balanceGoals };
+  });
+
+  app.get("/api/admin/balance-snapshot", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const config = await loadConfig();
+    const now = new Date();
+    const from30 = startOfDaysAgo(config.timezone, 29, now);
+    const from7 = startOfDaysAgo(config.timezone, 6, now);
+    const [logs, players] = await Promise.all([
+      prisma.activityLog.findMany({
+        where: { createdAt: { gte: from30 } },
+        select: { action: true, playerId: true, createdAt: true, details: true },
+      }),
+      prisma.player.findMany({
+        where: { isActive: true },
+        include: { plots: { select: { plantTier: true } } },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
+    const rows = logs.map((log) => ({
+      action: log.action,
+      playerId: log.playerId,
+      createdAt: log.createdAt,
+      details: log.details,
+    }));
+    const last7 = rows.filter((log) => log.createdAt >= from7);
+    return {
+      generatedAt: now.toISOString(),
+      timezone: config.timezone,
+      goals: config.balanceGoals,
+      knobs: balanceKnobs(config),
+      cropMixInGround: cropMixFromPlots(players.flatMap((player) => player.plots.map((plot) => plot.plantTier))),
+      windows: {
+        "7d": windowStats(last7, config),
+        "30d": windowStats(rows, config),
+      },
+    };
   });
 
   app.get("/api/admin/audit", async (request, reply) => {
