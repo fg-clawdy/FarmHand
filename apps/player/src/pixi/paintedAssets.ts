@@ -44,8 +44,8 @@ export const CROP_DISC_IN_CELL: Record<CropKind, readonly Disc[]> = {
 /** Fallback when a frame has no measured disc. */
 export const PLANT_DISC_ANCHOR = { x: 0.5, y: 0.88 } as const;
 
-/** On-texture disc cover. 85% of the first soil-disc pass so plants stay inside neighbors. */
-export const PLANT_COVER_FACTOR = 0.85;
+/** On-texture disc cover. 80% of the first soil-disc pass so plants stay inside neighbors. */
+export const PLANT_COVER_FACTOR = 0.8;
 export const ZOOM_MOUND_COVER_PX = Math.round(220 * PLANT_COVER_FACTOR);
 export const FARM_MOUND_COVER_PX = Math.round(80 * PLANT_COVER_FACTOR);
 

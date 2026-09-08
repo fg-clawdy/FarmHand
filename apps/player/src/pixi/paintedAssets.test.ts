@@ -49,14 +49,14 @@ test("crop disc pivot sits inside the soil mound, not the cell midpoint leftover
   }
 });
 
-test("cover scale uses 85% of the first soil-disc pass", () => {
+test("cover scale uses 80% of the first soil-disc pass", () => {
   const zoom = cropCoverScale("corn", 1, ZOOM_MOUND_COVER_PX);
   const farm = cropCoverScale("corn", 1, FARM_MOUND_COVER_PX);
   const d = CROP_DISC_IN_CELL.corn[0]!.d;
   assert.ok(Math.abs(zoom * d - ZOOM_MOUND_COVER_PX) < 0.01);
   assert.ok(Math.abs(farm * d - FARM_MOUND_COVER_PX) < 0.01);
-  assert.equal(ZOOM_MOUND_COVER_PX, 187);
-  assert.equal(FARM_MOUND_COVER_PX, 68);
+  assert.equal(ZOOM_MOUND_COVER_PX, 176);
+  assert.equal(FARM_MOUND_COVER_PX, 64);
 });
 
 test("crop sheet slices are equal, in-bounds, and do not share pixels", () => {
