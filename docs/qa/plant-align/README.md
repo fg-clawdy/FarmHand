@@ -35,7 +35,8 @@ Live Pixi canvas captures (`canvas.toDataURL`, `GARDEN_CAMERA_ZOOM = 0.85`, host
 | File | What it is |
 | --- | --- |
 | [`willow-mix.png`](after-fix/willow-mix.png) | Annotated Willow mix: ripe corn, **3-flower** center strawberry, two sprouts |
-| [`strawberry-flower-3blossom.png`](after-fix/strawberry-flower-3blossom.png) | Stage 3 only — 3 white flowers + green berries, left foliage intact |
+| [`strawberry-flower-3blossom.png`](after-fix/strawberry-flower-3blossom.png) | Stage 3 only — 3 white flowers + green berries (`/qa/garden?pack=blossom`) |
+| [`strawberry-flower-3blossom-close.png`](after-fix/strawberry-flower-3blossom-close.png) | Close crop of that 3-flower plant |
 | [`strawberries-ripe.png`](after-fix/strawberries-ripe.png) | All nine ripe strawberries |
 | [`strawberry-flower-close.png`](after-fix/strawberry-flower-close.png) | Close crop of the 3-flower center plant |
 | [`strawberry-center-close.png`](after-fix/strawberry-center-close.png) | Center ripe strawberry |
