@@ -62,23 +62,25 @@ Change `ADMIN_BOOTSTRAP_*` in `.env` **before** the first boot if you do not wan
 2. Tap a garden. Enter the 4-digit PIN. A successful PIN starts a **30-minute server session**; coming back during that window skips the pad.
 3. Plant on an empty plot. Unaffordable tiers are disabled.
 4. Water (free, 4h cooldown, max 3/day) or fertilize while a plant is growing. Countdown and READY state come from the server.
-5. Harvest when the plot glows gold. The kid earns the tier’s stars and **1 seed is returned**.
+5. Harvest when the plot glows gold. The kid earns **25 stars** and **1 seed is returned** (plant cost is also 1, so a harvest is seed-neutral).
 6. Open the ingredient shed (🧪+) to claim the daily ingredient (Moon Dew → Grow Goo → Phoenix Ash) and mix 1 of each into fertilizer.
 7. The Farm Store building is **Coming Soon** only.
 
 Starting pouch: **10 seeds, 0 stars**.
 
-Default tiers:
+Default tiers (flat on purpose — crops differ by look, not by economy):
 
 | Tier | Plant | Seeds | Time | Stars | Fertilizer shave |
 | --- | --- | --- | --- | --- | --- |
-| 1 🌽 | Sweet Corn | 1 | 24h | 1 | 4h |
-| 2 🍓 | Strawberry | 2 | 48h | 2 | 6h |
-| 3 ☁️ | Cotton | 3 | 72h | 4 | 8h |
+| 1 🌽 | Sweet Corn | 1 | 24h | 25 | 4h |
+| 2 🍓 | Strawberry | 1 | 24h | 25 | 6h |
+| 3 ☁️ | Cotton | 1 | 24h | 25 | 8h |
 
 Watering knocks **60 minutes** off remaining time.
 
-To try a harvest without waiting a day, sign in to `/admin`, open **Tunables**, set tier 1 duration to `1` (minute) or `0`, save, then plant as a kid.
+To try a harvest without waiting a day, sign in to `/admin`, open **Tunables**, set any crop’s duration to `1` (minute) or `0`, save, then plant as a kid.
+
+Existing Compose databases that still have the old 1/2/3-seed and 1/2/4★ ladder are flattened on the next API boot. To force the design table (and undo other tunable edits): **Admin → Tunables → Reset to defaults**, or `POST /api/admin/config/reset` as admin.
 
 ## Parent admin
 

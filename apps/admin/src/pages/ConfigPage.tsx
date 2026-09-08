@@ -92,7 +92,10 @@ export default function ConfigPage() {
 
       <div className="card" style={{ marginTop: 16 }}>
         <h2>Crops — time, cost, and fertilizer</h2>
-        <p className="muted">How long corn / strawberry / cotton take, seeds to plant, stars on harvest, and how much fertilizer shaves off.</p>
+        <p className="muted">
+          Corn, strawberry, and cotton are the same for now: 1 seed to plant, 24 hours, 25 stars on harvest. Pick by
+          look, not by a ladder. Fertilizer shave can still differ per crop. Reset to defaults restores this flat table.
+        </p>
         <table>
           <thead>
             <tr>

@@ -76,9 +76,9 @@ test("economy tracks seed spend vs harvest return", () => {
   ];
   const eco = economyFromLogs(logs, DEFAULT_GAME_CONFIG);
   assert.equal(eco.plants, 2);
-  assert.equal(eco.seedsSpent, 5);
+  assert.equal(eco.seedsSpent, 2);
   assert.equal(eco.seedsReturned, 1);
-  assert.equal(eco.netSeeds, -4);
+  assert.equal(eco.netSeeds, -1);
   assert.equal(eco.pointsAwarded, 2);
   assert.equal(eco.waterings, 1);
   assert.equal(eco.logins, 1);

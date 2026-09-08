@@ -9,13 +9,27 @@ import {
 } from "@farmhand/shared";
 import { todayKey } from "./tz.js";
 
+function storedEconomyNeedsWrite(stored: Record<string, unknown>, merged: GameConfig): boolean {
+  const storedTiers = Array.isArray(stored.tiers) ? (stored.tiers as Array<Record<string, unknown>>) : [];
+  return merged.tiers.some((tier) => {
+    const row = storedTiers.find((candidate) => candidate.tier === tier.tier);
+    if (!row) return true;
+    return (
+      Number(row.seedCost) !== tier.seedCost ||
+      Number(row.durationMinutes) !== tier.durationMinutes ||
+      Number(row.points) !== tier.points
+    );
+  });
+}
+
 export async function loadConfig(): Promise<GameConfig> {
   const row = await prisma.gameConfigRow.findUnique({ where: { id: "default" } });
   const merged = mergeGameConfig(row?.data);
   const stored = row?.data && typeof row.data === "object" ? (row.data as Record<string, unknown>) : {};
   const needsPlot = Number(stored.plotCount) !== merged.plotCount;
   const needsGoals = typeof stored.balanceGoals !== "string";
-  if (needsPlot || needsGoals) {
+  const needsEconomy = storedEconomyNeedsWrite(stored, merged);
+  if (needsPlot || needsGoals || needsEconomy) {
     return saveConfig(merged);
   }
   return merged;

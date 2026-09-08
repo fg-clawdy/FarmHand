@@ -48,6 +48,20 @@ function assertWindow(window, label) {
   assertEconomy(window?.economy, label);
 }
 
+function assertFlatEconomy(config, label) {
+  if (!config?.tiers?.length) throw new Error(`${label} missing tiers`);
+  if (config.harvestSeedReturn !== 1) {
+    throw new Error(`${label} harvestSeedReturn expected 1, got ${config.harvestSeedReturn}`);
+  }
+  for (const tier of config.tiers) {
+    if (tier.seedCost !== 1 || tier.durationMinutes !== 24 * 60 || tier.points !== 25) {
+      throw new Error(
+        `${label} tier ${tier.tier} expected 1 seed / 1440 min / 25★, got ${tier.seedCost}/${tier.durationMinutes}/${tier.points}`,
+      );
+    }
+  }
+}
+
 function assertSeries(series, days) {
   if (!Array.isArray(series) || series.length !== days) {
     throw new Error(`stats series expected ${days} days, got ${series?.length}`);
@@ -97,6 +111,8 @@ if (!willow) throw new Error("Willow missing from seed");
 console.log("seeded kids ok", players.data.players.map((p) => p.name).join(", "));
 
 const configRes = await req("/api/admin/config", { cookie: adminCookie });
+assertFlatEconomy(configRes.data.defaults, "admin config defaults");
+assertFlatEconomy(configRes.data.config, "live config");
 const fast = structuredClone(configRes.data.config);
 fast.tiers = fast.tiers.map((t) => (t.tier === 1 ? { ...t, durationMinutes: 0 } : t));
 fast.wateringCooldownMinutes = 0;
@@ -141,11 +157,11 @@ console.log("plant matured immediately after tunable change");
 
 const harvest = await req(`/api/plots/${empty.slot}/harvest`, { method: "POST", cookie: kidCookie });
 const reward = harvest.data.reward;
-if (typeof reward?.points !== "number" || reward.points < 1) {
-  throw new Error(`harvest reward.points missing: ${JSON.stringify(reward)}`);
+if (typeof reward?.points !== "number" || reward.points !== 25) {
+  throw new Error(`harvest reward.points expected 25, got ${JSON.stringify(reward)}`);
 }
-if (typeof reward?.seedsReturned !== "number" || reward.seedsReturned < 1) {
-  throw new Error(`harvest reward.seedsReturned missing: ${JSON.stringify(reward)}`);
+if (typeof reward?.seedsReturned !== "number" || reward.seedsReturned !== 1) {
+  throw new Error(`harvest reward.seedsReturned expected 1, got ${JSON.stringify(reward)}`);
 }
 if (harvest.data.player.plots.find((p) => p.slot === empty.slot).state !== "empty") {
   throw new Error("plot did not clear");
@@ -244,5 +260,7 @@ if (mixed.data.player.fertilizer < 1) throw new Error("mix did not produce ferti
 console.log("mixed fertilizer, pouch now", mixed.data.player.fertilizer);
 
 await req("/api/admin/config/reset", { method: "POST", cookie: adminCookie });
+const resetConfig = await req("/api/admin/config", { cookie: adminCookie });
+assertFlatEconomy(resetConfig.data.config, "config after reset");
 console.log("restored default tunables");
 console.log("SMOKE OK");

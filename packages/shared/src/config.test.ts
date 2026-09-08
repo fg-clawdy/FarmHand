@@ -1,6 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_GAME_CONFIG, mergeGameConfig } from "./config.js";
+import {
+  DEFAULT_GAME_CONFIG,
+  FLAT_TIER_DURATION_MINUTES,
+  FLAT_TIER_POINTS,
+  FLAT_TIER_SEED_COST,
+  mergeGameConfig,
+} from "./config.js";
 import { cropKindForTier, PLOTS_PER_GARDEN } from "./types.js";
 
 describe("v1 crop kinds", () => {
@@ -50,5 +56,44 @@ describe("v1 crop kinds", () => {
   it("keeps a parent-edited balance-goals string", () => {
     const merged = mergeGameConfig({ balanceGoals: "Kids should try all three crops." });
     assert.equal(merged.balanceGoals, "Kids should try all three crops.");
+  });
+
+  it("ships a flat 1 seed / 24h / 25★ table and +1 harvest seed return", () => {
+    assert.equal(DEFAULT_GAME_CONFIG.harvestSeedReturn, 1);
+    for (const tier of DEFAULT_GAME_CONFIG.tiers) {
+      assert.equal(tier.seedCost, FLAT_TIER_SEED_COST);
+      assert.equal(tier.durationMinutes, FLAT_TIER_DURATION_MINUTES);
+      assert.equal(tier.points, FLAT_TIER_POINTS);
+    }
+  });
+
+  it("boot-merges the old 1/2/3 seed and 1/2/4★ ladder to the flat table", () => {
+    const merged = mergeGameConfig({
+      tiers: [
+        { tier: 1, kind: "corn", seedCost: 1, durationMinutes: 24 * 60, points: 1 },
+        { tier: 2, kind: "strawberry", seedCost: 2, durationMinutes: 48 * 60, points: 2 },
+        { tier: 3, kind: "cotton", seedCost: 3, durationMinutes: 72 * 60, points: 4 },
+      ],
+    });
+    for (const tier of merged.tiers) {
+      assert.equal(tier.seedCost, FLAT_TIER_SEED_COST);
+      assert.equal(tier.durationMinutes, FLAT_TIER_DURATION_MINUTES);
+      assert.equal(tier.points, FLAT_TIER_POINTS);
+    }
+    assert.equal(merged.harvestSeedReturn, 1);
+  });
+
+  it("keeps a parent-edited crop economy", () => {
+    const merged = mergeGameConfig({
+      tiers: [
+        { tier: 1, seedCost: 4, durationMinutes: 90, points: 10 },
+        { tier: 2, seedCost: 5, durationMinutes: 120, points: 12 },
+        { tier: 3, seedCost: 6, durationMinutes: 180, points: 14 },
+      ],
+    });
+    assert.equal(merged.tiers[0]?.seedCost, 4);
+    assert.equal(merged.tiers[0]?.durationMinutes, 90);
+    assert.equal(merged.tiers[0]?.points, 10);
+    assert.equal(merged.tiers[2]?.points, 14);
   });
 });

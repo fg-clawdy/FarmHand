@@ -4,6 +4,37 @@ import { PLOTS_PER_GARDEN, type GameConfig } from "./types.js";
 export const DEFAULT_BALANCE_GOALS =
   "Encourage short daily sessions with healthy watering use; avoid designs that reward only long waits or one OP crop.";
 
+/** Aesthetic flatten: every crop costs 1 seed, grows 24h, and pays 25★. */
+export const FLAT_TIER_SEED_COST = 1;
+export const FLAT_TIER_DURATION_MINUTES = 24 * 60;
+export const FLAT_TIER_POINTS = 25;
+
+/**
+ * Shipped v1 crop ladder (1/2/3 seeds, 24/48/72h, 1/2/4★). Boot-merge
+ * replaces these exact triples with the flat table so existing compose DBs
+ * are not stuck until someone hits Reset.
+ */
+const LEGACY_TIER_ECONOMY: Record<number, { seedCost: number; durationMinutes: number; points: number }> = {
+  1: { seedCost: 1, durationMinutes: 24 * 60, points: 1 },
+  2: { seedCost: 2, durationMinutes: 48 * 60, points: 2 },
+  3: { seedCost: 3, durationMinutes: 72 * 60, points: 4 },
+};
+
+export function isLegacyTierEconomy(tier: {
+  tier?: number;
+  seedCost?: number;
+  durationMinutes?: number;
+  points?: number;
+}): boolean {
+  const legacy = LEGACY_TIER_ECONOMY[tier.tier ?? 0];
+  if (!legacy) return false;
+  return (
+    tier.seedCost === legacy.seedCost &&
+    tier.durationMinutes === legacy.durationMinutes &&
+    tier.points === legacy.points
+  );
+}
+
 export const DEFAULT_GAME_CONFIG: GameConfig = {
   timezone: "America/Chicago",
   sessionMinutes: 30,
@@ -28,9 +59,9 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
       kind: "corn",
       emoji: "🌽",
       name: "Sweet Corn",
-      seedCost: 1,
-      durationMinutes: 24 * 60,
-      points: 1,
+      seedCost: FLAT_TIER_SEED_COST,
+      durationMinutes: FLAT_TIER_DURATION_MINUTES,
+      points: FLAT_TIER_POINTS,
       fertilizerReductionMinutes: 4 * 60,
       stages: ["🌱", "🌿", "🌽", "🌽"],
       faces: ["😌", "🙂", "😊", "😄"],
@@ -40,9 +71,9 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
       kind: "strawberry",
       emoji: "🍓",
       name: "Strawberry",
-      seedCost: 2,
-      durationMinutes: 48 * 60,
-      points: 2,
+      seedCost: FLAT_TIER_SEED_COST,
+      durationMinutes: FLAT_TIER_DURATION_MINUTES,
+      points: FLAT_TIER_POINTS,
       fertilizerReductionMinutes: 6 * 60,
       stages: ["🌱", "🌿", "🌸", "🍓"],
       faces: ["😌", "🙂", "😊", "😄"],
@@ -52,9 +83,9 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
       kind: "cotton",
       emoji: "☁️",
       name: "Cotton",
-      seedCost: 3,
-      durationMinutes: 72 * 60,
-      points: 4,
+      seedCost: FLAT_TIER_SEED_COST,
+      durationMinutes: FLAT_TIER_DURATION_MINUTES,
+      points: FLAT_TIER_POINTS,
       fertilizerReductionMinutes: 8 * 60,
       stages: ["🌱", "🌿", "🟢", "☁️"],
       faces: ["😌", "🙂", "😊", "😄"],
@@ -73,12 +104,25 @@ export function mergeGameConfig(raw: unknown): GameConfig {
         const match = incomingTiers.find((t) => t.tier === tier.tier);
         if (!match) return tier;
         if (legacy) {
+          const flatten = isLegacyTierEconomy(match);
           return {
             ...tier,
-            seedCost: match.seedCost ?? tier.seedCost,
-            durationMinutes: match.durationMinutes ?? tier.durationMinutes,
-            points: match.points ?? tier.points,
+            seedCost: flatten ? tier.seedCost : (match.seedCost ?? tier.seedCost),
+            durationMinutes: flatten ? tier.durationMinutes : (match.durationMinutes ?? tier.durationMinutes),
+            points: flatten ? tier.points : (match.points ?? tier.points),
             fertilizerReductionMinutes: match.fertilizerReductionMinutes ?? tier.fertilizerReductionMinutes,
+          };
+        }
+        if (isLegacyTierEconomy(match)) {
+          return {
+            ...tier,
+            ...match,
+            kind: match.kind ?? tier.kind,
+            stages: match.stages ?? tier.stages,
+            faces: match.faces ?? tier.faces,
+            seedCost: tier.seedCost,
+            durationMinutes: tier.durationMinutes,
+            points: tier.points,
           };
         }
         return { ...tier, ...match, kind: match.kind ?? tier.kind, stages: match.stages ?? tier.stages, faces: match.faces ?? tier.faces };
