@@ -240,8 +240,12 @@ let gardenDebugOwner: GardenScene | null = null;
 
 function exposeGardenDebug(scene: GardenScene) {
   gardenDebugOwner = scene;
-  (globalThis as { __farmhandGardenDebug?: () => ReturnType<GardenScene["debugPlants"]> }).__farmhandGardenDebug =
-    () => scene.debugPlants();
+  const w = globalThis as {
+    __farmhandGardenDebug?: () => ReturnType<GardenScene["debugPlants"]>;
+    __farmhandGardenCanvas?: () => HTMLCanvasElement | OffscreenCanvas | undefined;
+  };
+  w.__farmhandGardenDebug = () => scene.debugPlants();
+  w.__farmhandGardenCanvas = () => scene["app"]?.canvas;
 }
 
 class PlotNode {

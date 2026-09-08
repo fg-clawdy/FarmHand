@@ -28,6 +28,10 @@ Right-gutter packing scraps were zeroed (alpha) **without moving the plant**. Ea
 - Soft umber ellipse under the zoom disc to hide any leftover painted ring.
 - Empty plots keep the painted dirt.
 
+## After unpack (480-wide cells)
+
+Live Pixi canvas at `GARDEN_CAMERA_ZOOM = 0.85` is in [`after-fix/`](after-fix/). `__farmhandGardenDebug` reports `uvDx/uvDy = 0` and plot locals equal `GARDEN_MOUND_PX`.
+
 ## Pass bar
 
 A human can name corn seed vs sprout vs stalk, strawberry, and cotton. The disc *is* the plot. No pink, no floating scraps.
