@@ -32,6 +32,8 @@ Right-gutter packing scraps were zeroed (alpha) **without moving the plant**. Ea
 
 Live Pixi canvas at `GARDEN_CAMERA_ZOOM = 0.85` is in [`after-fix/`](after-fix/). `__farmhandGardenDebug` reports `uvDx/uvDy = 0` and plot locals equal `GARDEN_MOUND_PX`.
 
+Mound centers are playfield / texture pixels (`GARDEN_MOUND_PX`), never screen coords. Dirt and crops share one `playfield` container; `cameraFit` is the only resize/orientation transform. Landscape `1280×800`, portrait `800×1280`, and tablet portrait `768×1024` keep slot 4 at local `(768, 541)` with `playfieldDrift = 0`.
+
 ## Pass bar
 
 A human can name corn seed vs sprout vs stalk, strawberry, and cotton. The disc *is* the plot. No pink, no floating scraps.
