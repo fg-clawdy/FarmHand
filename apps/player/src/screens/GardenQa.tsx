@@ -45,16 +45,24 @@ function qaPlots(pack: string): PublicPlot[] {
   if (pack === "flowers") {
     return Array.from({ length: 9 }, (_, slot) => plot(slot, 2, 3));
   }
-  // Matches the annotated Willow screenshot mix: corn, flowering berry, sprouts.
+  // Annotated Willow mix: ripe corn, flowering center strawberry, two sprouts.
+  if (pack === "willow-full") {
+    return [
+      plot(0, 1, 4, true),
+      plot(1, 1, 3),
+      plot(2, 1, 2),
+      plot(3, 3, 2),
+      plot(4, 2, 3),
+      plot(5, 3, 3),
+      plot(6, 1, 2),
+      plot(7, 2, 2),
+      plot(8, 1, 4, true),
+    ];
+  }
   return [
     plot(0, 1, 4, true),
-    plot(1, 1, 3),
-    plot(2, 1, 2),
-    plot(3, 3, 2),
     plot(4, 2, 3),
-    plot(5, 3, 3),
     plot(6, 1, 2),
     plot(7, 2, 2),
-    plot(8, 1, 4, true),
   ];
 }

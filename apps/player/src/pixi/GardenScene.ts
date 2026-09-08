@@ -390,6 +390,7 @@ class PlotNode {
   debug() {
     const frame = this.plant.texture.frame;
     const orig = this.plant.texture.orig;
+    const source = this.plant.texture.source;
     const world = this.plant.getGlobalPosition();
     const mound = this.root.getGlobalPosition();
     const visibleSprites = this.root.children.filter((c) => c instanceof Sprite && c.visible).length;
@@ -397,6 +398,7 @@ class PlotNode {
       slot: this.slot,
       visible: this.plant.visible,
       spritesOnPlot: visibleSprites,
+      sheet: { w: source.width, h: source.height },
       frame: { x: frame.x, y: frame.y, w: frame.width, h: frame.height },
       orig: { x: orig.x, y: orig.y, w: orig.width, h: orig.height },
       anchor: { x: this.plant.anchor.x, y: this.plant.anchor.y },

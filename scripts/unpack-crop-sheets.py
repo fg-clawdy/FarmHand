@@ -77,9 +77,11 @@ def reconstruct(orig: Image.Image, body: Image.Image) -> list[list[tuple[int, in
         if scrap_px and body_px:
             scrap_right = max(p[0] for p in scrap_px)
             body_left = min(p[0] for p in body_px)
+            # Overlap the cut so the old packing seam is not a visible wall.
             gap = body_left - scrap_right - 1
-            if gap > 0:
-                scrap_px = [(x + gap, y, rgba) for x, y, rgba in scrap_px]
+            shift = gap + 3
+            if shift != 0:
+                scrap_px = [(x + shift, y, rgba) for x, y, rgba in scrap_px]
         plants.append(scrap_px + body_px)
     return plants
 
@@ -136,6 +138,46 @@ def measure_disc(cell: Image.Image) -> dict:
     return {"x": round(cx), "y": round(cy), "d": int(d), "bbox": [x0, y0, x1, y1]}
 
 
+def restore_left_foliage(cell: Image.Image, name: str, index: int) -> Image.Image:
+    """Packed sheets discarded upper-left strawberry leaves (scraps were lower-only).
+
+    Mirror the intact right crown across the soil-disc x into transparent
+    pixels so both sides of the bush read as full foliage.
+    """
+    if name != "strawberry" or index < 2:
+        return cell
+    disc = measure_disc(cell)
+    w, h = cell.size
+    src_img = cell.copy()
+    src = src_img.load()
+    out = cell.copy()
+    dst = out.load()
+    cx = disc["x"]
+    # Down to just above the soil disc so hanging berries are included.
+    y_max = min(h, max(1, int(disc["y"] - 12)))
+    feather = 10
+    filled = 0
+    for y in range(0, min(h, y_max + feather)):
+        # Fully replace the left crown so the old packing wall is not a seam.
+        fade = 1.0
+        if y >= y_max:
+            fade = 1.0 - (y - y_max + 1) / feather
+        for x in range(0, cx):
+            mx = 2 * cx - x
+            if mx < 0 or mx >= w:
+                continue
+            pix = src[mx, y]
+            if fade >= 0.999:
+                dst[x, y] = pix
+                filled += 1
+            elif pix[3] >= 20 or dst[x, y][3] >= 20:
+                a = tuple(int(dst[x, y][i] * (1 - fade) + pix[i] * fade) for i in range(4))
+                dst[x, y] = a
+                filled += 1
+    print(f"  {name} {index}: replaced left crown across x={cx} (y<{y_max}, {filled} px)")
+    return out
+
+
 def pack_crop(name: str, spec: dict) -> dict:
     rel = spec["repo"]
     orig = git_file(ORIG_REV, rel)
@@ -160,6 +202,8 @@ def pack_crop(name: str, spec: dict) -> dict:
         oy = max(0, min(h - bh, oy))
         sheet.paste(blob, (i * CELL_NEW + ox, oy), blob)
         cell = sheet.crop((i * CELL_NEW, 0, (i + 1) * CELL_NEW, h))
+        cell = restore_left_foliage(cell, name, i)
+        sheet.paste(cell, (i * CELL_NEW, 0))
         disc = measure_disc(cell)
         discs.append(disc)
         frames.append(

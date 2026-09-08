@@ -34,9 +34,10 @@ test("approved crop sheets are 1920-wide unpacked soil+plant cells", () => {
   assert.equal(CROP_SHEET_HEIGHT.corn, 854);
   assert.equal(CROP_SHEET_HEIGHT.strawberry, 464);
   assert.equal(CROP_SHEET_HEIGHT.cotton, 623);
-  assert.ok(PAINTED_ART.crops.corn.endsWith(".png"));
-  assert.ok(PAINTED_ART.crops.strawberry.endsWith(".png"));
-  assert.ok(PAINTED_ART.crops.cotton.endsWith(".png"));
+  assert.ok(PAINTED_ART.crops.corn.includes("plant_corn_stages.png"));
+  assert.ok(PAINTED_ART.crops.strawberry.includes("plant_strawberry_stages.png"));
+  assert.ok(PAINTED_ART.crops.cotton.includes("plant_cotton_stages.png"));
+  assert.ok(PAINTED_ART.crops.strawberry.includes("cell=480"));
 });
 
 test("crop disc pivot sits inside the soil mound, not the cell midpoint leftover", () => {
