@@ -1,9 +1,68 @@
 #!/usr/bin/env node
 /**
  * End-to-end smoke against a running FarmHand stack (nginx or API).
- * Usage: BASE_URL=http://localhost node scripts/smoke.mjs
+ * Usage:
+ *   BASE_URL=http://localhost node scripts/smoke.mjs
+ *   BASE_URL=http://127.0.0.1:8080 node scripts/smoke.mjs   # Compose with HTTP_PORT=8080
  */
 const base = process.env.BASE_URL || "http://localhost";
+const CROP_KINDS = ["corn", "strawberry", "cotton"];
+const SERIES_KEYS = ["harvests", "waterings", "logins", "plants"];
+const ECONOMY_KEYS = [
+  "plants",
+  "harvests",
+  "waterings",
+  "logins",
+  "fertilizerUses",
+  "pointsAwarded",
+  "seedsSpent",
+  "seedsReturned",
+  "netSeeds",
+];
+
+function assertCropMix(mix, label) {
+  if (!mix || typeof mix.total !== "number") {
+    throw new Error(`${label} missing total`);
+  }
+  for (const kind of CROP_KINDS) {
+    if (typeof mix.counts?.[kind] !== "number") {
+      throw new Error(`${label} missing counts.${kind}`);
+    }
+    if (typeof mix.pct?.[kind] !== "number") {
+      throw new Error(`${label} missing pct.${kind}`);
+    }
+  }
+}
+
+function assertEconomy(economy, label) {
+  for (const key of ECONOMY_KEYS) {
+    if (typeof economy?.[key] !== "number") {
+      throw new Error(`${label} missing economy.${key}`);
+    }
+  }
+}
+
+function assertWindow(window, label) {
+  assertCropMix(window?.cropMixPlanted, `${label}.cropMixPlanted`);
+  assertCropMix(window?.cropMixHarvested, `${label}.cropMixHarvested`);
+  assertEconomy(window?.economy, label);
+}
+
+function assertSeries(series, days) {
+  if (!Array.isArray(series) || series.length !== days) {
+    throw new Error(`stats series expected ${days} days, got ${series?.length}`);
+  }
+  for (const [index, row] of series.entries()) {
+    if (typeof row?.day !== "string" || !row.day) {
+      throw new Error(`stats series[${index}] missing day`);
+    }
+    for (const key of SERIES_KEYS) {
+      if (typeof row[key] !== "number") {
+        throw new Error(`stats series[${index}] missing ${key}`);
+      }
+    }
+  }
+}
 
 async function req(path, { method = "GET", body, cookie } = {}) {
   const headers = { "Content-Type": "application/json" };
@@ -81,11 +140,17 @@ if (!growing?.ready) throw new Error(`expected immediate READY, got ${JSON.strin
 console.log("plant matured immediately after tunable change");
 
 const harvest = await req(`/api/plots/${empty.slot}/harvest`, { method: "POST", cookie: kidCookie });
-if (harvest.data.reward.points < 1) throw new Error("harvest reward missing");
+const reward = harvest.data.reward;
+if (typeof reward?.points !== "number" || reward.points < 1) {
+  throw new Error(`harvest reward.points missing: ${JSON.stringify(reward)}`);
+}
+if (typeof reward?.seedsReturned !== "number" || reward.seedsReturned < 1) {
+  throw new Error(`harvest reward.seedsReturned missing: ${JSON.stringify(reward)}`);
+}
 if (harvest.data.player.plots.find((p) => p.slot === empty.slot).state !== "empty") {
   throw new Error("plot did not clear");
 }
-console.log("harvest + seed return ok", harvest.data.reward);
+console.log("harvest +stars/+seeds ok", reward);
 
 await req(`/api/admin/players/${willow.id}/reset-pin`, {
   method: "POST",
@@ -98,17 +163,19 @@ const overview = await req("/api/admin/overview", { cookie: adminCookie });
 console.log("overview", overview.data);
 
 const stats = await req("/api/admin/stats?days=14", { cookie: adminCookie });
-if (!Array.isArray(stats.data.series) || stats.data.series.length !== 14) {
-  throw new Error(`stats series expected 14 days, got ${stats.data.series?.length}`);
-}
-if (!stats.data.cropMixPlanted || !stats.data.cropMixHarvested) {
-  throw new Error("stats missing crop mix");
-}
+assertSeries(stats.data.series, 14);
+assertCropMix(stats.data.cropMixPlanted, "stats.cropMixPlanted");
+assertCropMix(stats.data.cropMixHarvested, "stats.cropMixHarvested");
+assertCropMix(stats.data.cropMixInGround, "stats.cropMixInGround");
 console.log("stats crop mix planted", stats.data.cropMixPlanted);
 
 const goalsGet = await req("/api/admin/balance-goals", { cookie: adminCookie });
-if (!String(goalsGet.data.goals).includes("short daily sessions")) {
-  throw new Error(`expected seeded balance goals, got ${JSON.stringify(goalsGet.data.goals)}`);
+const seededGoals = String(goalsGet.data.goals ?? "").trim();
+if (!seededGoals) {
+  throw new Error(`expected non-empty balance goals, got ${JSON.stringify(goalsGet.data.goals)}`);
+}
+if (!seededGoals.includes("short daily sessions")) {
+  throw new Error(`expected seeded north-star goals, got ${JSON.stringify(goalsGet.data.goals)}`);
 }
 const edited = "Kids should try all three crops.";
 await req("/api/admin/balance-goals", { method: "PUT", body: { goals: edited }, cookie: adminCookie });
@@ -116,12 +183,14 @@ const goalsPut = await req("/api/admin/balance-goals", { cookie: adminCookie });
 if (goalsPut.data.goals !== edited) throw new Error("balance goals did not persist");
 const snap = await req("/api/admin/balance-snapshot", { cookie: adminCookie });
 if (snap.data.goals !== edited) throw new Error("snapshot goals stale");
-if (!snap.data.knobs?.tiers || !snap.data.windows?.["7d"] || !snap.data.windows?.["30d"]) {
-  throw new Error("snapshot missing knobs or windows");
+if (!Array.isArray(snap.data.knobs?.tiers) || snap.data.knobs.tiers.length < 1) {
+  throw new Error("snapshot missing knobs.tiers");
 }
-if (!snap.data.windows["7d"].cropMixPlanted || !snap.data.windows["7d"].economy) {
-  throw new Error("snapshot window missing crop mix or economy");
+if (typeof snap.data.knobs.harvestSeedReturn !== "number" || typeof snap.data.knobs.plotCount !== "number") {
+  throw new Error("snapshot knobs missing harvestSeedReturn or plotCount");
 }
+assertWindow(snap.data.windows?.["7d"], "snapshot.windows.7d");
+assertWindow(snap.data.windows?.["30d"], "snapshot.windows.30d");
 await req("/api/admin/balance-goals", {
   method: "PUT",
   body: { goals: goalsGet.data.goals },

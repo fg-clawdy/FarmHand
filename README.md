@@ -85,7 +85,7 @@ To try a harvest without waiting a day, sign in to `/admin`, open **Tunables**, 
 At `/admin` you can:
 
 - See the farm pulse (active sessions, harvests today, waterings today, READY plants)
-- List kids and open a read-only 6-plot garden
+- List kids and open a read-only 9-plot garden
 - Create/edit a player (name, mascot, starting resources)
 - Reset or clear a PIN (this also ends their session)
 - Adjust resources with an audit reason
@@ -138,9 +138,13 @@ npm test
 
 Shared package tests cover maturity math and growth stages. API tests cover daily watering reset and cooldown.
 
-Against a running stack:
+Against a running stack (Compose maps nginx to `$HTTP_PORT`, default `80`):
 
 ```bash
 BASE_URL=http://localhost node scripts/smoke.mjs
+# or, if HTTP_PORT=8080:
+BASE_URL=http://127.0.0.1:8080 node scripts/smoke.mjs
 ```
+
+Phase 1 closeout checklist: [`docs/phase-1-done.md`](docs/phase-1-done.md).
 
