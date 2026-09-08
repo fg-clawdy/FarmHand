@@ -153,8 +153,8 @@ def restore_left_foliage(cell: Image.Image, name: str, index: int) -> Image.Imag
     out = cell.copy()
     dst = out.load()
     cx = disc["x"]
-    # Down to just above the soil disc so hanging berries are included.
-    y_max = min(h, max(1, int(disc["y"] - 12)))
+    # Stop above the soil so hanging berries are filled without smearing the disc.
+    y_max = min(h, max(1, int(disc["y"] - 40)))
     feather = 10
     filled = 0
     for y in range(0, min(h, y_max + feather)):

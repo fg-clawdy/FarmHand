@@ -25,13 +25,13 @@ type Disc = { x: number; y: number; d: number };
 export const CROP_DISC_IN_CELL: Record<CropKind, readonly Disc[]> = {
   corn: [
     { x: 240, y: 763, d: 316 },
-    { x: 238, y: 768, d: 312 },
+    { x: 236, y: 768, d: 312 },
     { x: 239, y: 766, d: 300 },
-    { x: 231, y: 766, d: 311 },
+    { x: 223, y: 766, d: 311 },
   ],
   strawberry: [
     { x: 233, y: 353, d: 290 },
-    { x: 233, y: 364, d: 284 },
+    { x: 247, y: 364, d: 284 },
     { x: 233, y: 380, d: 283 },
     { x: 234, y: 350, d: 310 },
   ],

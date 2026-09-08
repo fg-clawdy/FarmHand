@@ -9,6 +9,7 @@ import {
   gardenMoundWorld,
   gardenPlayfieldFit,
   GARDEN_CAMERA_ZOOM,
+  GARDEN_CROP_SEAT,
   GARDEN_MOUND_PX,
   GARDEN_TOOL_ART,
   GARDEN_ZOOM_LAYOUT,
@@ -122,6 +123,11 @@ test("plot sheet names the crop, never a plot index", () => {
 
 test("garden camera pulls out to 85% of cover-fit", () => {
   assert.equal(GARDEN_CAMERA_ZOOM, 0.85);
+});
+
+test("garden crop seat is a small playfield nudge onto the pebble ring", () => {
+  assert.ok(GARDEN_CROP_SEAT.x > 0 && GARDEN_CROP_SEAT.x < 40);
+  assert.ok(GARDEN_CROP_SEAT.y >= 0 && GARDEN_CROP_SEAT.y < 24);
 });
 
 test("mound UVs stay in texture space; zoom only scales the shared playfield", () => {

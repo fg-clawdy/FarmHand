@@ -30,9 +30,18 @@ Right-gutter packing scraps were zeroed (alpha) **without moving the plant**. Ea
 
 ## After unpack (480-wide cells)
 
-Live Pixi canvas at `GARDEN_CAMERA_ZOOM = 0.85` is in [`after-fix/`](after-fix/). `__farmhandGardenDebug` reports `uvDx/uvDy = 0` and plot locals equal `GARDEN_MOUND_PX`.
+Live Pixi canvas captures (`canvas.toDataURL`, `GARDEN_CAMERA_ZOOM = 0.85`, host 1280×800 → canvas 1280×713) are in [`after-fix/`](after-fix/):
 
-Mound centers are playfield / texture pixels (`GARDEN_MOUND_PX`), never screen coords. Dirt and crops share one `playfield` container; `cameraFit` is the only resize/orientation transform. Landscape `1280×800`, portrait `800×1280`, and tablet portrait `768×1024` keep slot 4 at local `(768, 541)` with `playfieldDrift = 0`.
+| File | What it is |
+| --- | --- |
+| [`willow-mix.png`](after-fix/willow-mix.png) | Annotated Willow mix: ripe corn, flowering center strawberry, two sprouts |
+| [`strawberries-ripe.png`](after-fix/strawberries-ripe.png) | All nine ripe strawberries |
+| [`strawberry-flower-close.png`](after-fix/strawberry-flower-close.png) | Center flowering strawberry, left + right foliage |
+| [`strawberry-center-close.png`](after-fix/strawberry-center-close.png) | Center ripe strawberry, left + right foliage |
+
+These are the running player at `/qa/garden`, not composites or generated images. The loaded strawberry sheet is **1920×464** (frame x = 2 / 482 / 962 / 1442). Packed 392px sheets discarded the upper-left crown; `scripts/unpack-crop-sheets.py` restores scraps and completes that crown.
+
+Mound centers are playfield / texture pixels (`GARDEN_MOUND_PX`), never screen coords. Dirt and crops share one `playfield` container.
 
 ## Pass bar
 

@@ -55,6 +55,12 @@ export const GARDEN_ZOOM_LAYOUT = {
 /** Garden zoom camera vs cover-fit. 0.85 pulls out so grass/fence margin stays relaxed. */
 export const GARDEN_CAMERA_ZOOM = 0.85;
 
+/**
+ * Extra playfield pixels so the painted disc sits on the pebble-ring center.
+ * Pivot stays on the soil disc; this only slides the sprite on the shared playfield.
+ */
+export const GARDEN_CROP_SEAT = { x: 22, y: 8 } as const;
+
 export function gardenMoundLocal(slot: number) {
   const i = ((slot % PLOTS_PER_GARDEN) + PLOTS_PER_GARDEN) % PLOTS_PER_GARDEN;
   return GARDEN_MOUND_PX[i]!;

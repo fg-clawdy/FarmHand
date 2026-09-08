@@ -4,6 +4,7 @@ import type { Atlas } from "./atlas";
 import type { PixiEngine } from "./engine";
 import { FxLayer, SparkleField } from "./fx";
 import {
+  GARDEN_CROP_SEAT,
   GARDEN_ZOOM_LAYOUT,
   GARDEN_ZOOM_TEXTURE,
   gardenMoundLocal,
@@ -306,7 +307,7 @@ class PlotNode {
     this.texScale = s;
     const { rx, ry } = GARDEN_ZOOM_LAYOUT.hit;
     const cover = ZOOM_MOUND_COVER_PX * s;
-    this.plant.position.set(0, 0);
+    this.plant.position.set(GARDEN_CROP_SEAT.x, GARDEN_CROP_SEAT.y);
     this.shadow.clear();
     this.shadow.ellipse(0, cover * 0.08, cover * 0.52, cover * 0.34);
     this.shadow.fill({ color: 0x2a1608, alpha: 0.28 });
