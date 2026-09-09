@@ -94,7 +94,7 @@ Sparkles used to sit on each garden’s **soil-rect center** whenever *any* plot
 | [`farm-sparkle-finn-before-after.png`](after-fix/farm-sparkle-finn-before-after.png) | Finn crop: center blob → slot 1 + slot 8 |
 | [`farm-sparkle-after.json`](after-fix/farm-sparkle-after.json) | Debug locals: active sparkle == plant local |
 
-Wood dialogs (Profile / selfie / shed / badges) at `/qa/ui?sheet=profile|selfie|shed|badges`. Body copy sits on cream parchment, not raw grain.
+Wood dialogs (Profile / selfie / shed / badges) at `/qa/ui?sheet=profile|selfie|shed|badges`. Body copy sits on cream parchment, not raw grain. Kid **Profile** is history/overview (wallet, pouch, selfies, Pending/Owned/Redeemed, accolades) — not the Farm Store. Store stays on the farm building.
 
 ## Pass bar
 

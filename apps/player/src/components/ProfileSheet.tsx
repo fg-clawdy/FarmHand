@@ -101,7 +101,7 @@ export default function ProfileSheet({
               <h3>
                 {MASCOT_EMOJI[profile.player.mascot]} {profile.player.name}
               </h3>
-              <span className="profile-chip">{profile.player.garden}</span>
+              <p className="profile-garden-label">{profile.player.garden}</p>
             </div>
           </div>
 
@@ -112,15 +112,13 @@ export default function ProfileSheet({
             </header>
             <div className="profile-wallet">
               <p className="profile-stat">
-                <strong>{profile.wallet.availableStars}★</strong> ready to spend
+                <strong>{profile.wallet.availableStars}★</strong> available
               </p>
-              {profile.wallet.heldStars > 0 && (
-                <p className="muted">
-                  {profile.wallet.heldStars}★ set aside while a grown-up decides
-                </p>
-              )}
-              <p className="muted">
-                {profile.wallet.lifetimeEarned}★ earned all time
+              <p>
+                <strong>{profile.wallet.heldStars}★</strong> set aside while a grown-up decides
+              </p>
+              <p>
+                <strong>{profile.wallet.lifetimeEarned}★</strong> earned all time
                 {profile.wallet.lifetimeSpent > 0 ? ` · ${profile.wallet.lifetimeSpent}★ spent on rewards` : ""}
               </p>
             </div>
@@ -144,7 +142,7 @@ export default function ProfileSheet({
           <section className="profile-card parchment">
             <header className="profile-card-head">
               <CameraIcon className="profile-card-icon" />
-              <h3>Selfies</h3>
+              <h3>Recent selfies</h3>
             </header>
             {profile.selfies.length === 0 && (
               <p className="profile-empty">No selfies saved yet. Your first smile goes here.</p>
@@ -172,17 +170,17 @@ export default function ProfileSheet({
               </span>
               <h3>Rewards</h3>
             </header>
-            <h4>Waiting on a grown-up</h4>
+            <h4>Pending</h4>
             {profile.rewards.pending.length === 0 && <p className="profile-empty">Nothing waiting.</p>}
             {profile.rewards.pending.map((row) => (
               <RewardRow key={row.id} row={row} />
             ))}
-            <h4>Ready to use</h4>
+            <h4>Owned — ready to use</h4>
             {profile.rewards.owned.length === 0 && <p className="profile-empty">No owned rewards yet.</p>}
             {profile.rewards.owned.map((row) => (
               <RewardRow key={row.id} row={row} stamp={formatWhen(row.approvedAt ?? row.resolvedAt)} />
             ))}
-            <h4>Already used</h4>
+            <h4>Redeemed</h4>
             {profile.rewards.redeemed.length === 0 && <p className="profile-empty">No used rewards yet.</p>}
             {profile.rewards.redeemed.map((row) => (
               <RewardRow
@@ -205,12 +203,10 @@ export default function ProfileSheet({
             </section>
           )}
 
-          {profile.accolades.seasonal.tracks.length > 0 && (
-            <section className="profile-card parchment">
-              <h3>Accolades</h3>
-              <AccoladeLedgerBody ledger={profile.accolades} />
-            </section>
-          )}
+          <section className="profile-card parchment">
+            <h3>Accolades</h3>
+            <AccoladeLedgerBody ledger={profile.accolades} />
+          </section>
         </>
       )}
       <div className="sheet-actions">

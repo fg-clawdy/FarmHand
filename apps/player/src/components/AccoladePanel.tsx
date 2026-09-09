@@ -12,7 +12,7 @@ function medalGlyph(medal: string | null) {
 export function AccoladeLedgerBody({ ledger }: { ledger: AccoladeLedger }) {
   return (
     <div className="badge-ledger">
-      <p className="sheet-status badge-season">This season · {ledger.seasonLabel}</p>
+      {ledger.seasonLabel ? <p className="sheet-status badge-season">This season · {ledger.seasonLabel}</p> : null}
       <div className="badge-tracks">
         {ledger.seasonal.tracks.map((track) => (
           <div key={track.slug} className="badge-track parchment">

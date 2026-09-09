@@ -5,6 +5,7 @@ import { api, type GardenPlayer, type HarvestReward } from "../api";
 import { AcornArt, BackArrow, FertilizerBeaker, MascotArt, SceneShell, StarIcon } from "../art";
 import HarvestCelebration from "../components/HarvestCelebration";
 import IngredientsSheet from "../components/IngredientsSheet";
+import AccoladePanel from "../components/AccoladePanel";
 import PinPad from "../components/PinPad";
 import PlantPicker from "../components/PlantPicker";
 import PlotSheet from "../components/PlotSheet";
@@ -26,6 +27,7 @@ type Overlay =
   | { type: "plot"; slot: number }
   | { type: "ingredients" }
   | { type: "profile" }
+  | { type: "badges" }
   | null;
 
 export default function Garden() {
@@ -296,6 +298,22 @@ function GardenPlay({
             <FertilizerBeaker />
             <span>+</span>
           </button>
+          <button
+            className="icon-btn profile-btn"
+            type="button"
+            aria-label="Profile"
+            onClick={() => setOverlay({ type: "profile" })}
+          >
+            Profile
+          </button>
+          <button
+            className="icon-btn trophies"
+            type="button"
+            aria-label="Badges"
+            onClick={() => setOverlay({ type: "badges" })}
+          >
+            🏅
+          </button>
         </div>
       </div>
       <div className="garden-tools" role="toolbar" aria-label="Garden tools">
@@ -360,6 +378,7 @@ function GardenPlay({
       {overlay?.type === "profile" && (
         <ProfileSheet preview={kidProfileFromPlayer(player)} onClose={() => setOverlay(null)} />
       )}
+      {overlay?.type === "badges" && <AccoladePanel onClose={() => setOverlay(null)} />}
       {overlay?.type === "ingredients" && (
         <IngredientsSheet
           player={player}
