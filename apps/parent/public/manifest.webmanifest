@@ -1,0 +1,15 @@
+{
+  "name": "FarmHand Parent",
+  "short_name": "FarmHand",
+  "start_url": "/parent/",
+  "display": "standalone",
+  "background_color": "#ead4a4",
+  "theme_color": "#2b1a10",
+  "icons": [
+    {
+      "src": "/parent/icon.svg",
+      "sizes": "128x128",
+      "type": "image/svg+xml"
+    }
+  ]
+}

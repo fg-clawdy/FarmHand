@@ -9,6 +9,7 @@ export default function PlotSheet({
   player,
   onWater,
   onFertilize,
+  onPrune,
   onClose,
   onNeedSelfie,
   selfieUnlocked,
@@ -19,6 +20,7 @@ export default function PlotSheet({
   player: GardenPlayer;
   onWater: () => void;
   onFertilize: () => void;
+  onPrune?: () => void;
   onClose: () => void;
   onNeedSelfie: () => void;
   selfieUnlocked: boolean;
@@ -26,32 +28,48 @@ export default function PlotSheet({
 }) {
   const kind = plantKind(plot);
   const title = cropName || "Plant";
+  const waiting = plot.state === "purgatory";
+  const wilted = plot.state === "wilted";
   return (
-    <Sheet title={title} onClose={onClose}>
-      <div className="plot-hero">
+    <Sheet title={waiting ? "Waiting" : wilted ? "Wilted" : title} onClose={onClose}>
+      <div className={`plot-hero ${waiting || wilted ? "greyed" : ""}`}>
         {kind && (
-          <PlantFigure className="hero-art" kind={kind} stage={plot.growthStage ?? 4} ready={plot.ready} />
+          <PlantFigure className="hero-art" kind={kind} stage={plot.growthStage ?? 1} ready={plot.ready} />
         )}
-        <p className="plot-time">Matures in {formatCountdown(plot.remainingMs)}</p>
+        {waiting && <p className="plot-time">Waiting for a grown-up to check this chore.</p>}
+        {wilted && <p className="plot-time">This plant wilted. Prune it to free the plot. You don't get the seed back.</p>}
+        {!waiting && !wilted && <p className="plot-time">Matures in {formatCountdown(plot.remainingMs)}</p>}
       </div>
       <div className={`sheet-actions ${busy ? "busy" : ""}`}>
-        <button
-          className="btn water"
-          type="button"
-          disabled={selfieUnlocked && !plot.canWater}
-          onClick={() => {
-            if (!selfieUnlocked) {
-              onNeedSelfie();
-              return;
-            }
-            onWater();
-          }}
-        >
-          {selfieUnlocked ? "Water (−1h)" : "Take today's selfie to water"}
-        </button>
-        <button className="btn primary" type="button" disabled={player.fertilizer < 1} onClick={onFertilize}>
-          Fertilize
-        </button>
+        {wilted && onPrune ? (
+          <button className="btn stamp" type="button" onClick={onPrune}>
+            Prune
+          </button>
+        ) : waiting ? (
+          <button className="btn ghost" type="button" onClick={onClose}>
+            Okay
+          </button>
+        ) : (
+          <>
+            <button
+              className="btn water"
+              type="button"
+              disabled={selfieUnlocked && !plot.canWater}
+              onClick={() => {
+                if (!selfieUnlocked) {
+                  onNeedSelfie();
+                  return;
+                }
+                onWater();
+              }}
+            >
+              {selfieUnlocked ? "Water (−1h)" : "Take today's selfie to water"}
+            </button>
+            <button className="btn primary" type="button" disabled={player.fertilizer < 1} onClick={onFertilize}>
+              Fertilize
+            </button>
+          </>
+        )}
         <button className="btn ghost" type="button" onClick={onClose}>
           Close
         </button>

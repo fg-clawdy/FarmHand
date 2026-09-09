@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { getTier } from "@farmhand/shared";
+import { getTier, plotIsEmpty, serializePlot } from "@farmhand/shared";
 import { prisma } from "../db.js";
 import {
   ADMIN_COOKIE,
@@ -11,8 +11,9 @@ import {
   requirePlayer,
   verifySecret,
 } from "../auth.js";
+import { claimChore, EMPTY_PLOT_DATA, listPlayerChores, prunePlot, releaseClaimIfNeeded } from "../chores.js";
 import { loadConfig, plotWateringState, publicPlayer, selfieUnlockedOn, syncPlayerPlots } from "../game.js";
-import { decodeSelfiePayload, inspectJpeg, planSelfieReward, writeSelfieJpeg } from "../selfie.js";
+import { decodeSelfiePayload, inspectJpeg, planSelfieReward, writeClaimJpeg, writeSelfieJpeg } from "../selfie.js";
 import { todayKey } from "../tz.js";
 
 function pinError() {
@@ -180,7 +181,7 @@ export async function playerRoutes(app: FastifyInstance) {
         const plot =
           player.plots.find((p) => p.slot === slot) ??
           (await tx.plot.create({ data: { playerId: player.id, slot } }));
-        if (plot.plantedAt) throw Object.assign(new Error("That plot already has a plant."), { statusCode: 400 });
+        if (plot.plantTier) throw Object.assign(new Error("That plot already has a plant."), { statusCode: 400 });
         const plantTier = getTier(config, Number(tier));
         if (player.seeds < plantTier.seedCost) {
           throw Object.assign(new Error("Not enough seeds for that plant."), { statusCode: 400 });
@@ -194,6 +195,8 @@ export async function playerRoutes(app: FastifyInstance) {
           data: {
             plantTier: plantTier.tier,
             plantedAt: new Date(),
+            phase: "growing",
+            choreClaimId: null,
             waterReductionMinutes: 0,
             fertilizerReductionMinutes: 0,
             lastWateredAt: null,
@@ -230,11 +233,20 @@ export async function playerRoutes(app: FastifyInstance) {
           include: { plots: true },
         });
         const plot = player.plots.find((p) => p.slot === slot);
-        if (!plot?.plantedAt || !plot.plantTier) {
+        if (!plot || plotIsEmpty(plot)) {
           throw Object.assign(new Error("Nothing to water yet."), { statusCode: 400 });
         }
-        const serialized = publicPlayer(player, config, true, now).plots.find((p) => p.slot === slot);
-        if (serialized?.ready) {
+        const serialized = serializePlot(plot, config, now);
+        if (serialized.state === "purgatory") {
+          throw Object.assign(new Error("That plant is waiting for a grown-up."), { statusCode: 400 });
+        }
+        if (serialized.state === "wilted") {
+          throw Object.assign(new Error("Prune that wilted plant first."), { statusCode: 400 });
+        }
+        if (!plot.plantedAt || !plot.plantTier) {
+          throw Object.assign(new Error("Nothing to water yet."), { statusCode: 400 });
+        }
+        if (serialized.ready) {
           throw Object.assign(new Error("That plant is ready to harvest."), { statusCode: 400 });
         }
         if (!selfieUnlockedOn(player.selfieUnlockDate, config.timezone, now)) {
@@ -295,11 +307,20 @@ export async function playerRoutes(app: FastifyInstance) {
           include: { plots: true },
         });
         const plot = player.plots.find((p) => p.slot === slot);
-        if (!plot?.plantedAt || !plot.plantTier) {
+        if (!plot || plotIsEmpty(plot)) {
           throw Object.assign(new Error("Nothing to fertilize yet."), { statusCode: 400 });
         }
-        const serialized = publicPlayer(player, config, true).plots.find((p) => p.slot === slot);
-        if (serialized?.ready) {
+        const serialized = serializePlot(plot, config);
+        if (serialized.state === "purgatory") {
+          throw Object.assign(new Error("That plant is waiting for a grown-up."), { statusCode: 400 });
+        }
+        if (serialized.state === "wilted") {
+          throw Object.assign(new Error("Prune that wilted plant first."), { statusCode: 400 });
+        }
+        if (!plot.plantedAt || !plot.plantTier) {
+          throw Object.assign(new Error("Nothing to fertilize yet."), { statusCode: 400 });
+        }
+        if (serialized.ready) {
           throw Object.assign(new Error("That plant is ready to harvest."), { statusCode: 400 });
         }
         if (player.fertilizer < 1) {
@@ -345,8 +366,11 @@ export async function playerRoutes(app: FastifyInstance) {
         if (!plot?.plantedAt || !plot.plantTier) {
           throw Object.assign(new Error("Nothing to harvest."), { statusCode: 400 });
         }
-        const serialized = publicPlayer(player, config, true).plots.find((p) => p.slot === slot);
-        if (!serialized?.ready) {
+        const serialized = serializePlot(plot, config);
+        if (serialized.state === "purgatory" || serialized.state === "wilted") {
+          throw Object.assign(new Error("That plant isn't ready to harvest."), { statusCode: 400 });
+        }
+        if (!serialized.ready) {
           throw Object.assign(new Error("That plant is still growing."), { statusCode: 400 });
         }
         const tier = getTier(config, plot.plantTier);
@@ -357,17 +381,10 @@ export async function playerRoutes(app: FastifyInstance) {
             seeds: { increment: config.harvestSeedReturn },
           },
         });
+        await releaseClaimIfNeeded(tx, plot, "harvest");
         await tx.plot.update({
           where: { id: plot.id },
-          data: {
-            plantTier: null,
-            plantedAt: null,
-            waterReductionMinutes: 0,
-            fertilizerReductionMinutes: 0,
-            lastWateredAt: null,
-            wateringsOnDate: null,
-            wateringsCount: 0,
-          },
+          data: EMPTY_PLOT_DATA,
         });
         await tx.activityLog.create({
           data: {
@@ -392,6 +409,88 @@ export async function playerRoutes(app: FastifyInstance) {
         };
       });
       return { player: publicPlayer(result.player, config, true), reward: result.reward };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.get("/api/chores", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    const config = await loadConfig();
+    await syncPlayerPlots(session.playerId, config.plotCount);
+    const player = await prisma.player.findUniqueOrThrow({
+      where: { id: session.playerId },
+      include: { plots: { orderBy: { slot: "asc" } } },
+    });
+    const chores = await listPlayerChores(session.playerId, config.timezone);
+    return {
+      timezone: config.timezone,
+      chores,
+      emptySlots: player.plots.filter((plot) => plotIsEmpty(plot)).map((plot) => plot.slot),
+      player: publicPlayer(player, config, true),
+    };
+  });
+
+  app.post("/api/chores/:id/claim", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    const body = (request.body ?? {}) as { slot?: number; tier?: number; image?: unknown };
+    const config = await loadConfig();
+    try {
+      const chore = await prisma.chore.findUnique({ where: { id } });
+      if (!chore) return reply.code(404).send({ error: "That chore isn't on the list." });
+      let proofBuf: Buffer | null = null;
+      if (chore.requiresSelfie) {
+        proofBuf = decodeSelfiePayload(body.image);
+        inspectJpeg(proofBuf);
+      }
+      const result = await claimChore({
+        playerId: session.playerId,
+        choreId: id,
+        slot: Number(body.slot),
+        tier: Number(body.tier ?? 1),
+        timezone: config.timezone,
+        config,
+        proofPath: null,
+        hasProof: Boolean(proofBuf),
+      });
+      if (proofBuf) {
+        const proofPath = await writeClaimJpeg({
+          buf: proofBuf,
+          playerName: session.player.name,
+          choreSlug: chore.slug,
+          claimId: result.claim.id,
+        });
+        await prisma.choreClaim.update({
+          where: { id: result.claim.id },
+          data: { proofJpegPath: proofPath },
+        });
+      }
+      const player = await prisma.player.findUniqueOrThrow({
+        where: { id: session.playerId },
+        include: { plots: { orderBy: { slot: "asc" } } },
+      });
+      return {
+        player: publicPlayer(player, config, true),
+        claim: { id: result.claim.id, status: result.claim.status, slot: result.claim.slot },
+      };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.post("/api/plots/:slot/prune", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    const slot = Number((request.params as { slot: string }).slot);
+    const config = await loadConfig();
+    try {
+      const player = await prunePlot(session.playerId, slot, config);
+      return { player: publicPlayer(player, config, true) };
     } catch (err) {
       const e = err as Error & { statusCode?: number };
       return reply.code(e.statusCode ?? 400).send({ error: e.message });

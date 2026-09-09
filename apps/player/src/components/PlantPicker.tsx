@@ -7,20 +7,31 @@ export default function PlantPicker({
   seeds,
   onPick,
   onClose,
+  title = "Choose a plant",
+  intro,
+  free = false,
 }: {
   config: GameConfig;
   seeds: number;
   onPick: (tier: number) => void;
   onClose: () => void;
+  title?: string;
+  intro?: string;
+  /** Chore claims inject a seed — don't check the pouch. */
+  free?: boolean;
 }) {
   return (
-    <Sheet title="Choose a plant" onClose={onClose}>
+    <Sheet title={title} onClose={onClose}>
       <p className="picker-intro">
-        You have <AcornArt className="inline-art" /> {seeds} seeds. Bigger plants take longer and earn more stars.
+        {intro ?? (
+          <>
+            You have <AcornArt className="inline-art" /> {seeds} seeds. Bigger plants take longer and earn more stars.
+          </>
+        )}
       </p>
       <div className="tier-grid">
         {config.tiers.map((tier) => {
-          const affordable = seeds >= tier.seedCost;
+          const affordable = free || seeds >= tier.seedCost;
           const kind = tier.kind ?? cropKindForTier(tier.tier);
           return (
             <button
@@ -33,7 +44,7 @@ export default function PlantPicker({
               <PlantFigure className="tier-art" kind={kind} stage={4} ready />
               <b>{tier.name}</b>
               <div className="inline-row">
-                <AcornArt className="inline-art" /> {tier.seedCost}
+                <AcornArt className="inline-art" /> {free ? "chore seed" : tier.seedCost}
               </div>
               <div className="inline-row">
                 <ClockIcon className="inline-art" /> {formatDuration(tier.durationMinutes)}

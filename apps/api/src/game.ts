@@ -87,6 +87,7 @@ export function wateringState(
     plots?: Array<{
       plantTier?: number | null;
       plantedAt?: Date | null;
+      phase?: string | null;
       lastWateredAt?: Date | null;
       wateringsOnDate?: string | null;
       wateringsCount?: number;
@@ -112,13 +113,14 @@ export function wateringState(
         slot: plot.slot ?? 0,
         plantTier: plot.plantTier,
         plantedAt: plot.plantedAt,
+        phase: plot.phase,
         waterReductionMinutes: plot.waterReductionMinutes ?? 0,
         fertilizerReductionMinutes: plot.fertilizerReductionMinutes ?? 0,
       },
       config,
       now,
     );
-    if (serialized.ready) continue;
+    if (serialized.state !== "growing" || serialized.ready) continue;
     const pw = plotWateringState(plot, config, now);
     wateringsUsed += pw.wateringsUsed;
     wateringsLeft = Math.max(wateringsLeft, pw.wateringsLeft);
@@ -190,6 +192,7 @@ export function publicPlayer(player: {
     slot: number;
     plantTier: number | null;
     plantedAt: Date | null;
+    phase?: string | null;
     waterReductionMinutes: number;
     fertilizerReductionMinutes: number;
     lastWateredAt?: Date | null;

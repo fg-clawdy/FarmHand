@@ -21,3 +21,21 @@ export function chicagoDayKeys(timezone: string, days: number, at = new Date()):
   const start = DateTime.fromJSDate(at).setZone(timezone).startOf("day");
   return Array.from({ length: days }, (_, i) => start.minus({ days: days - 1 - i }).toFormat("yyyy-LL-dd"));
 }
+
+export function chorePeriod(
+  recurrence: "DAILY" | "WEEKLY" | "WEEKDAYS" | "NONE",
+  timezone: string,
+  at = new Date(),
+): { key: string; eligible: boolean } {
+  const zoned = DateTime.fromJSDate(at).setZone(timezone);
+  if (recurrence === "NONE") return { key: "open", eligible: true };
+  if (recurrence === "WEEKLY") {
+    const monday = zoned.startOf("week");
+    return { key: `${monday.toFormat("yyyy-LL-dd")}-week`, eligible: true };
+  }
+  const key = zoned.toFormat("yyyy-LL-dd");
+  if (recurrence === "WEEKDAYS") {
+    return { key, eligible: zoned.weekday <= 5 };
+  }
+  return { key, eligible: true };
+}

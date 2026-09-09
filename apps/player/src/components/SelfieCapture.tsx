@@ -6,9 +6,17 @@ import Sheet from "./Sheet";
 export default function SelfieCapture({
   onClose,
   onSuccess,
+  title = "Today's selfie",
+  copy = "Put your face in the middle. One selfie unlocks watering for the rest of today and gives +1 seed.",
+  submit,
+  buttonLabel = "Take selfie",
 }: {
   onClose: () => void;
   onSuccess: (player: GardenPlayer, reward: HarvestReward | null) => void;
+  title?: string;
+  copy?: string;
+  submit?: (image: string) => Promise<{ player: GardenPlayer; reward?: HarvestReward | null }>;
+  buttonLabel?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -72,6 +80,11 @@ export default function SelfieCapture({
         return;
       }
       const image = canvas.toDataURL("image/jpeg", 0.76);
+      if (submit) {
+        const data = await submit(image);
+        onSuccess(data.player, data.reward ?? null);
+        return;
+      }
       const data = await api.submitSelfie(image);
       const reward =
         data.reward.seedsReturned > 0
@@ -86,8 +99,8 @@ export default function SelfieCapture({
   }
 
   return (
-    <Sheet title="Today's selfie" onClose={onClose}>
-      <p className="selfie-copy">Put your face in the middle. One selfie unlocks watering for the rest of today and gives +1 seed.</p>
+    <Sheet title={title} onClose={onClose}>
+      <p className="selfie-copy">{copy}</p>
       <div className="selfie-frame">
         <video ref={videoRef} className="selfie-video" playsInline muted autoPlay />
         <div className="selfie-guide" aria-hidden="true" />
@@ -95,7 +108,7 @@ export default function SelfieCapture({
       {error && <p className="error">{error}</p>}
       <div className={`sheet-actions ${busy ? "busy" : ""}`}>
         <button className="btn primary" type="button" disabled={!ready || busy} onClick={() => void snap()}>
-          {busy ? "Checking…" : "Take selfie"}
+          {busy ? "Checking…" : buttonLabel}
         </button>
         <button className="btn ghost" type="button" onClick={onClose}>
           Not now

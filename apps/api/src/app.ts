@@ -5,6 +5,7 @@ import { healthRoutes } from "./routes/health.js";
 import { farmRoutes } from "./routes/farm.js";
 import { playerRoutes } from "./routes/player.js";
 import { adminRoutes } from "./routes/admin.js";
+import { parentRoutes } from "./routes/parent.js";
 
 export async function buildApp() {
   const app = Fastify({ logger: true, bodyLimit: 8 * 1024 * 1024 });
@@ -28,5 +29,6 @@ export async function buildApp() {
   await app.register(farmRoutes);
   await app.register(playerRoutes);
   await app.register(adminRoutes);
+  await app.register(parentRoutes);
   return app;
 }

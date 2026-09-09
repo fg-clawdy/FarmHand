@@ -339,7 +339,12 @@ class PlotNode {
     this.plant.visible = true;
     this.shadow.visible = true;
     this.label.visible = true;
-    this.label.text = plot.ready ? "READY" : formatCountdown(plot.remainingMs);
+    const greyed = plot.state === "purgatory" || plot.state === "wilted" || plot.greyed;
+    this.plant.tint = greyed ? 0x8a8a8a : 0xffffff;
+    this.plant.alpha = greyed ? 0.72 : 1;
+    if (plot.state === "purgatory") this.label.text = "WAITING";
+    else if (plot.state === "wilted") this.label.text = "WILTED";
+    else this.label.text = plot.ready ? "READY" : formatCountdown(plot.remainingMs);
     this.plant.mask = null;
   }
 

@@ -1,4 +1,4 @@
-import type { GameConfig, PlantTier, PublicPlot } from "./types.js";
+import type { GameConfig, PlantTier, PlotPhase, PublicPlot } from "./types.js";
 
 export type PlotInput = {
   slot: number;
@@ -6,7 +6,51 @@ export type PlotInput = {
   plantedAt: Date | string | null;
   waterReductionMinutes: number;
   fertilizerReductionMinutes: number;
+  phase?: PlotPhase | string | null;
 };
+
+export function plotIsEmpty(plot: Pick<PlotInput, "plantTier">): boolean {
+  return !plot.plantTier;
+}
+
+function emptyPublicPlot(slot: number): PublicPlot {
+  return {
+    slot,
+    state: "empty",
+    tier: null,
+    plantedAt: null,
+    maturesAt: null,
+    remainingMs: 0,
+    growthStage: null,
+    emoji: null,
+    face: null,
+    ready: false,
+    canWater: false,
+    watersLeftToday: 0,
+    waterCooldownRemainingMs: 0,
+    greyed: false,
+  };
+}
+
+function stagedSprout(plot: PlotInput, config: GameConfig, state: "purgatory" | "wilted"): PublicPlot {
+  const tier = getTier(config, plot.plantTier ?? 1);
+  return {
+    slot: plot.slot,
+    state,
+    tier: plot.plantTier,
+    plantedAt: null,
+    maturesAt: null,
+    remainingMs: 0,
+    growthStage: 1,
+    emoji: tier.stages[0],
+    face: tier.faces[0],
+    ready: false,
+    canWater: false,
+    watersLeftToday: 0,
+    waterCooldownRemainingMs: 0,
+    greyed: true,
+  };
+}
 
 export function getTier(config: GameConfig, tier: number): PlantTier {
   const found = config.tiers.find((t) => t.tier === tier);
@@ -52,23 +96,9 @@ export function growthStage(
 }
 
 export function serializePlot(plot: PlotInput, config: GameConfig, now = new Date()): PublicPlot {
-  if (!plot.plantedAt || !plot.plantTier) {
-    return {
-      slot: plot.slot,
-      state: "empty",
-      tier: null,
-      plantedAt: null,
-      maturesAt: null,
-      remainingMs: 0,
-      growthStage: null,
-      emoji: null,
-      face: null,
-      ready: false,
-      canWater: false,
-      watersLeftToday: 0,
-      waterCooldownRemainingMs: 0,
-    };
-  }
+  if (!plot.plantTier) return emptyPublicPlot(plot.slot);
+  if (plot.phase === "wilted") return stagedSprout(plot, config, "wilted");
+  if (plot.phase === "purgatory" || !plot.plantedAt) return stagedSprout(plot, config, "purgatory");
 
   const plantedAt = asDate(plot.plantedAt)!;
   const tier = getTier(config, plot.plantTier);
@@ -92,6 +122,7 @@ export function serializePlot(plot: PlotInput, config: GameConfig, now = new Dat
     canWater: false,
     watersLeftToday: 0,
     waterCooldownRemainingMs: 0,
+    greyed: false,
   };
 }
 

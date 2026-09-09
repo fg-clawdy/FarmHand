@@ -22,13 +22,14 @@ function plot(slot: number, state: PublicPlot["state"], extra: Partial<PublicPlo
     slot,
     state,
     tier: state === "empty" ? null : 1,
-    plantedAt: state === "empty" ? null : "2026-01-01T00:00:00.000Z",
-    maturesAt: state === "empty" ? null : "2026-01-02T00:00:00.000Z",
+    plantedAt: state === "empty" || state === "purgatory" || state === "wilted" ? null : "2026-01-01T00:00:00.000Z",
+    maturesAt: state === "empty" || state === "purgatory" || state === "wilted" ? null : "2026-01-02T00:00:00.000Z",
     remainingMs: state === "mature" ? 0 : 3_600_000,
     growthStage: state === "empty" ? null : 2,
     emoji: null,
     face: null,
     ready: state === "mature",
+    greyed: state === "purgatory" || state === "wilted",
     ...extra,
   };
 }
@@ -143,4 +144,16 @@ test("READY plots harvest on tap; empty and growing keep picker/sheet/tools", ()
   assert.equal(gardenTapAction(growing, null, ctx), "sheet");
   assert.equal(gardenTapAction(growing, "water", ctx), "water");
   assert.equal(gardenTapAction(growing, "fert", ctx), "fert");
+});
+
+test("purgatory and wilted plots ignore tools; wilted tap prunes", () => {
+  const waiting = plot(3, "purgatory");
+  const wilted = plot(4, "wilted");
+  const ctx = { seeds: 10, fertilizer: 1, canWater: true, cheapestSeed: 1 };
+  assert.equal(plotAcceptsTool("water", waiting, ctx), false);
+  assert.equal(plotAcceptsTool("fert", waiting, ctx), false);
+  assert.equal(plotAcceptsTool("seed", waiting, ctx), false);
+  assert.equal(gardenTapAction(waiting, "water", ctx), "sheet");
+  assert.equal(gardenTapAction(wilted, null, ctx), "prune");
+  assert.equal(gardenTapAction(wilted, "seed", ctx), "prune");
 });

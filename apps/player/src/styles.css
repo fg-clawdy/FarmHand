@@ -502,6 +502,7 @@ button, input { font: inherit; }
 .btn.gold { background: linear-gradient(#ffe56a, #f0b429); color: #2b1a10; }
 .btn.water { background: linear-gradient(#6ec3e0, #2f7fa8); color: #fff; }
 .btn.ghost { background: linear-gradient(#efe0c0, #e0c898); color: var(--ink); }
+.btn.stamp { background: linear-gradient(#d45b4a, #9b2c1f); color: #fff; }
 .btn-art { width: 36px; height: 36px; }
 .inline-art { width: 28px; height: 28px; vertical-align: middle; }
 .inline-row { display: flex; align-items: center; gap: 6px; justify-content: center; }
@@ -694,6 +695,59 @@ button, input { font: inherit; }
 
 .plot-hero { text-align: center; }
 .plot-hero .hero-art { width: min(180px, 40%); }
+.plot-hero.greyed .hero-art { filter: grayscale(1) brightness(0.85); }
+
+.chore-copy { font-size: 16px; margin: 0 0 12px; }
+.chore-label { font-weight: 800; margin: 10px 0 6px; }
+.chore-list { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow: auto; }
+.chore-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  border: 0;
+  border-radius: 16px;
+  padding: 10px 12px;
+  background: linear-gradient(#fff8e6, #e8c98a);
+  box-shadow: 0 4px 0 #5c3218;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.chore-row.critical { box-shadow: 0 4px 0 #9b2c1f, 0 0 0 3px #f3c4b8; }
+.chore-emoji { font-size: 28px; width: 36px; text-align: center; }
+.chore-meta { display: flex; flex-direction: column; }
+.chore-meta small { opacity: 0.75; font-weight: 700; }
+.chore-slots { display: flex; flex-wrap: wrap; gap: 8px; }
+.chore-beds {
+  display: grid;
+  grid-template-columns: repeat(3, 44px);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.chore-bed {
+  width: 44px;
+  height: 36px;
+  border: 0;
+  border-radius: 18px 18px 22px 22px;
+  background: #c4a574;
+  box-shadow: inset 0 4px 0 #ead8b4, 0 3px 0 #5c3218;
+  cursor: pointer;
+}
+.chore-bed.full { opacity: 0.35; cursor: default; }
+.chore-bed.selected { background: #6dbe55; box-shadow: 0 0 0 3px #2b1a10; }
+.chore-slot {
+  border: 0;
+  border-radius: 12px;
+  padding: 8px 12px;
+  background: #ead8b4;
+  font-weight: 800;
+  cursor: pointer;
+}
+.chore-slot.selected {
+  background: #ffe56a;
+  box-shadow: 0 0 0 3px #8a4f2a;
+}
 
 .busy { opacity: 0.7; pointer-events: none; }
 

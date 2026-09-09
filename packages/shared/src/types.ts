@@ -12,7 +12,8 @@ export const MASCOT_EMOJI: Record<Mascot, string> = {
 export const INGREDIENT_IDS = ["moonDew", "growGoo", "phoenixAsh"] as const;
 export type IngredientId = (typeof INGREDIENT_IDS)[number];
 
-export type PlotState = "empty" | "growing" | "mature";
+export type PlotState = "empty" | "growing" | "mature" | "purgatory" | "wilted";
+export type PlotPhase = "empty" | "growing" | "purgatory" | "wilted";
 
 /** Each child’s garden is a painted 3×3 of plantable mounds. */
 export const GARDEN_PLOT_COLS = 3;
@@ -77,6 +78,8 @@ export type PublicPlot = {
   canWater?: boolean;
   watersLeftToday?: number;
   waterCooldownRemainingMs?: number;
+  /** True while waiting for parent review or after a deny (greyed plant). */
+  greyed?: boolean;
 };
 
 export type FarmPlayerCard = {

@@ -52,6 +52,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
         <NavLink to="/config">Tunables</NavLink>
         <NavLink to="/balance">Balance</NavLink>
         <NavLink to="/activity">Activity</NavLink>
+        <a href="/parent/">Parent inbox</a>
         <button
           className="link"
           type="button"

@@ -298,6 +298,9 @@ class GardenHotspot {
       this.cropScale = cropCoverScale(kind, stage, FARM_MOUND_COVER_PX);
       spr.scale.set(this.cropScale);
       spr.visible = true;
+      const greyed = plot.state === "purgatory" || plot.state === "wilted" || plot.greyed;
+      spr.tint = greyed ? 0x8a8a8a : 0xffffff;
+      spr.alpha = greyed ? 0.72 : 1;
     });
   }
 

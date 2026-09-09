@@ -79,6 +79,7 @@ export type GardenToolContext = {
 
 /** Plots that can accept the selected tool right now. */
 export function plotAcceptsTool(tool: GardenTool, plot: PublicPlot, ctx: GardenToolContext) {
+  if (plot.state === "purgatory" || plot.state === "wilted") return false;
   if (tool === "seed") return plot.state === "empty" && ctx.seeds >= ctx.cheapestSeed;
   if (plot.state !== "growing" || plot.ready) return false;
   if (tool === "water") return plot.canWater ?? ctx.canWater;
@@ -94,7 +95,7 @@ export function glowingSlots(
   return plots.filter((plot) => plotAcceptsTool(tool, plot, ctx)).map((plot) => plot.slot);
 }
 
-export type GardenTap = "harvest" | "picker" | "sheet" | "water" | "fert" | "noop";
+export type GardenTap = "harvest" | "picker" | "sheet" | "water" | "fert" | "prune" | "noop";
 
 /** What a garden-zoom tap should do. READY plots always harvest — no confirm sheet. */
 export function gardenTapAction(
@@ -102,6 +103,8 @@ export function gardenTapAction(
   tool: GardenTool | null,
   ctx: GardenToolContext,
 ): GardenTap {
+  if (plot.state === "wilted") return "prune";
+  if (plot.state === "purgatory") return "sheet";
   if (plot.ready) return "harvest";
   if (tool) {
     if (!plotAcceptsTool(tool, plot, ctx)) return "noop";

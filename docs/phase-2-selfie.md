@@ -2,7 +2,7 @@
 
 Product source of truth: [`phase-2-and-architecture.md`](phase-2-and-architecture.md) § Phase 2 — Selfie earn.
 
-This slice is **shipped** on the compose stack. Chores, Parent PWA, store, face-ID, and Final Boss are still out of scope.
+This slice is **shipped** on the compose stack. Chore claims and Parent PWA inbox: [`phase-2-chores.md`](phase-2-chores.md). Store, face-ID, and Final Boss are still out of scope.
 
 ## What kids get
 

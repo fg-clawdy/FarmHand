@@ -300,6 +300,152 @@ const mixed = await req("/api/ingredients/mix", { method: "POST", cookie: kidCoo
 if (mixed.data.player.fertilizer < 1) throw new Error("mix did not produce fertilizer");
 console.log("mixed fertilizer, pouch now", mixed.data.player.fertilizer);
 
+const catalog = await req("/api/parent/chores", { cookie: adminCookie });
+if (catalog.data.chores?.length !== 21) {
+  throw new Error(`expected 21 seeded chores, got ${catalog.data.chores?.length}`);
+}
+const clothes = catalog.data.chores.find((c) => c.slug === "set-out-school-clothes");
+if (!clothes || clothes.isActive) throw new Error("Set Out School Clothes should be seeded inactive");
+const dogs = catalog.data.chores.filter((c) => ["feed-dog-am", "feed-dog-pm", "walk-the-dog"].includes(c.slug));
+if (dogs.length !== 3 || dogs.some((c) => c.priority !== "CRITICAL" || c.assignmentMode !== "RACE")) {
+  throw new Error("dog chores should be CRITICAL races");
+}
+console.log("chore catalog 21 ok");
+
+const kidList = await req("/api/chores", { cookie: kidCookie2 });
+const bed = kidList.data.chores.find((c) => c.slug === "make-your-bed" && c.eligible);
+if (!bed) throw new Error("Willow should be able to claim Make your bed");
+const emptyChore = kidList.data.emptySlots?.[0];
+if (emptyChore == null) throw new Error("Willow needs an empty plot for a chore claim");
+const seedsBeforeClaim = kidList.data.player.seeds;
+const claimed = await req(`/api/chores/${bed.id}/claim`, {
+  method: "POST",
+  body: { slot: emptyChore, tier: 1 },
+  cookie: kidCookie2,
+});
+const waiting = claimed.data.player.plots.find((p) => p.slot === emptyChore);
+if (waiting?.state !== "purgatory" || waiting.ready) {
+  throw new Error(`expected purgatory plant, got ${JSON.stringify(waiting)}`);
+}
+if (claimed.data.player.seeds !== seedsBeforeClaim) {
+  throw new Error("chore claim must not spend pouch seeds");
+}
+if (claimed.data.player.points !== kidList.data.player.points) {
+  throw new Error("chore claim must not grant stars");
+}
+try {
+  await req(`/api/plots/${emptyChore}/water`, { method: "POST", cookie: kidCookie2 });
+  throw new Error("purgatory plant should reject water");
+} catch (err) {
+  if (!String(err.message).includes("grown-up") && !String(err.message).includes("waiting")) {
+    throw err;
+  }
+}
+console.log("claim planted purgatory; water blocked");
+
+const inbox = await req("/api/parent/inbox", { cookie: adminCookie });
+const pendingBed = inbox.data.claims.find((c) => c.id === claimed.data.claim.id);
+if (!pendingBed) throw new Error("parent inbox missing pending claim");
+await req(`/api/parent/claims/${claimed.data.claim.id}/approve`, { method: "POST", cookie: adminCookie });
+const afterApprove = await req("/api/garden", { cookie: kidCookie2 });
+const growingChore = afterApprove.data.player.plots.find((p) => p.slot === emptyChore);
+if (growingChore?.state !== "growing" || !growingChore.plantedAt) {
+  throw new Error(`approve should start growth, got ${JSON.stringify(growingChore)}`);
+}
+try {
+  await req(`/api/chores/${bed.id}/claim`, {
+    method: "POST",
+    body: { slot: afterApprove.data.player.plots.find((p) => p.state === "empty")?.slot ?? emptyChore, tier: 1 },
+    cookie: kidCookie2,
+  });
+  throw new Error("double-claim same period should fail");
+} catch (err) {
+  if (!String(err.message).toLowerCase().includes("already")) throw err;
+}
+console.log("approve started growth; same-period claim blocked");
+
+const raceChore = kidList.data.chores.find((c) => c.slug === "feed-dog-am" && c.eligible)
+  ?? (await req("/api/chores", { cookie: kidCookie2 })).data.chores.find((c) => c.slug === "feed-dog-am");
+if (!raceChore) throw new Error("Feed Dog A.M. missing");
+const emptyRace = afterApprove.data.player.plots.find((p) => p.state === "empty");
+if (!emptyRace) throw new Error("need an empty plot for race claim");
+const raceClaim = await req(`/api/chores/${raceChore.id}/claim`, {
+  method: "POST",
+  body: { slot: emptyRace.slot, tier: 1 },
+  cookie: kidCookie2,
+});
+if (raceClaim.data.player.plots.find((p) => p.slot === emptyRace.slot)?.state !== "purgatory") {
+  throw new Error("race claim should plant purgatory");
+}
+
+const finn = players.data.players.find((p) => p.name === "Finn");
+if (!finn) throw new Error("Finn missing");
+const finnEnter = await req(`/api/players/${finn.id}/enter`, { method: "POST", body: { pin: "2222" } });
+const finnEmpty = finnEnter.data.player.plots.find((p) => p.state === "empty");
+try {
+  await req(`/api/chores/${raceChore.id}/claim`, {
+    method: "POST",
+    body: { slot: finnEmpty?.slot ?? 0, tier: 1 },
+    cookie: finnEnter.cookie,
+  });
+  throw new Error("second kid should not win the same race period");
+} catch (err) {
+  if (!String(err.message).toLowerCase().includes("already") && !String(err.message).toLowerCase().includes("someone")) {
+    throw err;
+  }
+}
+console.log("race double-claim blocked");
+
+const inbox2 = await req("/api/parent/inbox", { cookie: adminCookie });
+const first = inbox2.data.claims[0];
+if (first && first.chore.priority !== "CRITICAL") {
+  throw new Error(`CRITICAL claims should sort first, got ${first.chore.slug} ${first.chore.priority}`);
+}
+const seedsBeforeDeny = raceClaim.data.player.seeds;
+await req(`/api/parent/claims/${raceClaim.data.claim.id}/deny`, { method: "POST", cookie: adminCookie });
+const afterDeny = await req("/api/garden", { cookie: kidCookie2 });
+const wilted = afterDeny.data.player.plots.find((p) => p.slot === emptyRace.slot);
+if (wilted?.state !== "wilted") throw new Error(`deny should wilt, got ${JSON.stringify(wilted)}`);
+const pruned = await req(`/api/plots/${emptyRace.slot}/prune`, { method: "POST", cookie: kidCookie2 });
+const cleared = pruned.data.player.plots.find((p) => p.slot === emptyRace.slot);
+if (cleared?.state !== "empty") throw new Error("prune should empty the plot");
+if (pruned.data.player.seeds !== seedsBeforeDeny) throw new Error("prune must not return a seed");
+if (pruned.data.player.points !== raceClaim.data.player.points) throw new Error("deny/prune must not grant stars");
+console.log("deny → wilt → prune, no seed return");
+
+const sage = players.data.players.find((p) => p.name === "Sage");
+if (!sage) throw new Error("Sage missing");
+await req(`/api/admin/players/${sage.id}/resources`, {
+  method: "POST",
+  body: { seeds: 20, reason: "smoke fill garden" },
+  cookie: adminCookie,
+});
+const sageEnter = await req(`/api/players/${sage.id}/enter`, { method: "POST", body: { pin: "3333" } });
+let sagePlots = sageEnter.data.player.plots;
+for (const plot of sagePlots) {
+  if (plot.state !== "empty") continue;
+  const plantedSage = await req(`/api/plots/${plot.slot}/plant`, {
+    method: "POST",
+    body: { tier: 1 },
+    cookie: sageEnter.cookie,
+  });
+  sagePlots = plantedSage.data.player.plots;
+}
+const sageChores = await req("/api/chores", { cookie: sageEnter.cookie });
+if (sageChores.data.emptySlots?.length) throw new Error("Sage garden should be full");
+const sageBed = sageChores.data.chores.find((c) => c.slug === "make-your-bed");
+try {
+  await req(`/api/chores/${sageBed.id}/claim`, {
+    method: "POST",
+    body: { slot: 0, tier: 1 },
+    cookie: sageEnter.cookie,
+  });
+  throw new Error("full garden should reject chore claim");
+} catch (err) {
+  if (!String(err.message).toLowerCase().includes("empty")) throw err;
+}
+console.log("no empty plot rejects claim");
+
 await req("/api/admin/config/reset", { method: "POST", cookie: adminCookie });
 const resetConfig = await req("/api/admin/config", { cookie: adminCookie });
 assertFlatEconomy(resetConfig.data.config, "config after reset");

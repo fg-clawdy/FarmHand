@@ -70,6 +70,44 @@ describe("serializePlot", () => {
     assert.equal(plot.emoji, null);
   });
 
+  it("shows a greyed sprout in purgatory without starting the clock", () => {
+    const plot = serializePlot(
+      {
+        slot: 3,
+        plantTier: 1,
+        plantedAt: null,
+        waterReductionMinutes: 0,
+        fertilizerReductionMinutes: 0,
+        phase: "purgatory",
+      },
+      DEFAULT_GAME_CONFIG,
+    );
+    assert.equal(plot.state, "purgatory");
+    assert.equal(plot.greyed, true);
+    assert.equal(plot.ready, false);
+    assert.equal(plot.plantedAt, null);
+    assert.equal(plot.maturesAt, null);
+    assert.equal(plot.growthStage, 1);
+    assert.equal(plot.canWater, false);
+  });
+
+  it("shows a wilted sprout after deny", () => {
+    const plot = serializePlot(
+      {
+        slot: 4,
+        plantTier: 2,
+        plantedAt: null,
+        waterReductionMinutes: 0,
+        fertilizerReductionMinutes: 0,
+        phase: "wilted",
+      },
+      DEFAULT_GAME_CONFIG,
+    );
+    assert.equal(plot.state, "wilted");
+    assert.equal(plot.greyed, true);
+    assert.equal(plot.ready, false);
+  });
+
   it("uses distinct stage emojis while growing", () => {
     const plantedAt = new Date("2026-01-01T00:00:00.000Z");
     const now = new Date("2026-01-01T02:00:00.000Z");

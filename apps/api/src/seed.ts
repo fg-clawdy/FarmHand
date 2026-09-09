@@ -2,6 +2,7 @@ import { prisma } from "./db.js";
 import { DEFAULT_GAME_CONFIG, mergeGameConfig } from "@farmhand/shared";
 import { hashSecret } from "./auth.js";
 import type { Mascot } from "@prisma/client";
+import { seedChoreCatalog } from "./chores.js";
 import { syncAllPlayerPlots } from "./game.js";
 
 const DEMO_KIDS: Array<{ name: string; mascot: Mascot; pin: string }> = [
@@ -54,6 +55,8 @@ export async function seedIfEmpty() {
   } else {
     await syncAllPlayerPlots(config.plotCount);
   }
+
+  await seedChoreCatalog();
 }
 
 if (process.argv[1]?.includes("seed")) {

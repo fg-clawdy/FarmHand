@@ -15,13 +15,54 @@ enum Mascot {
   horse
 }
 
+enum PlotPhase {
+  empty
+  growing
+  purgatory
+  wilted
+}
+
+enum ChoreRecurrence {
+  DAILY
+  WEEKLY
+  WEEKDAYS
+  NONE
+}
+
+enum ChoreTimeOfDay {
+  MORNING
+  AFTERNOON
+  EVENING
+  ANYTIME
+}
+
+enum ChorePriority {
+  CRITICAL
+  HIGH
+  NORMAL
+  LOW
+}
+
+enum ChoreAssignmentMode {
+  ALL
+  SPECIFIC
+  RACE
+}
+
+enum ChoreClaimStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
 model Admin {
-  id           String         @id @default(uuid())
-  username     String         @unique
-  passwordHash String
-  createdAt    DateTime       @default(now())
-  sessions     AdminSession[]
-  auditLogs    AuditLog[]
+  id             String         @id @default(uuid())
+  username       String         @unique
+  passwordHash   String
+  createdAt      DateTime       @default(now())
+  sessions       AdminSession[]
+  auditLogs      AuditLog[]
+  resolvedClaims ChoreClaim[]
 }
 
 model AdminSession {
@@ -60,24 +101,97 @@ model Player {
   sessions                PlayerSession[]
   activity                ActivityLog[]
   auditLogs               AuditLog[]
+  choreAssignments        ChoreAssignment[]
+  choreClaims             ChoreClaim[]
 }
 
 model Plot {
-  id                         String   @id @default(uuid())
+  id                         String      @id @default(uuid())
   playerId                   String
-  player                     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  player                     Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
   slot                       Int
   plantTier                  Int?
   plantedAt                  DateTime?
-  waterReductionMinutes      Int      @default(0)
-  fertilizerReductionMinutes Int      @default(0)
+  phase                      PlotPhase   @default(empty)
+  choreClaimId               String?     @unique
+  choreClaim                 ChoreClaim? @relation(fields: [choreClaimId], references: [id], onDelete: SetNull)
+  waterReductionMinutes      Int         @default(0)
+  fertilizerReductionMinutes Int         @default(0)
   lastWateredAt              DateTime?
   wateringsOnDate            String?
-  wateringsCount             Int      @default(0)
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
+  wateringsCount             Int         @default(0)
+  createdAt                  DateTime    @default(now())
+  updatedAt                  DateTime    @updatedAt
 
   @@unique([playerId, slot])
+}
+
+model Chore {
+  id               String              @id @default(uuid())
+  slug             String              @unique
+  title            String
+  emoji            String
+  description      String              @default("")
+  recurrence       ChoreRecurrence
+  timeOfDay        ChoreTimeOfDay
+  priority         ChorePriority       @default(NORMAL)
+  estimatedMinutes Int?
+  requiresApproval Boolean             @default(true)
+  requiresSelfie   Boolean             @default(false)
+  allowsSkip       Boolean             @default(false)
+  isGlobal         Boolean             @default(false)
+  includeInPath    Boolean             @default(false)
+  isActive         Boolean             @default(true)
+  legacyPoints     Int?
+  assignmentMode   ChoreAssignmentMode
+  sortOrder        Int                 @default(0)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  assignments      ChoreAssignment[]
+  claims           ChoreClaim[]
+  raceSlots        ChoreRaceSlot[]
+}
+
+model ChoreAssignment {
+  id        String   @id @default(uuid())
+  choreId   String
+  chore     Chore    @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([choreId, playerId])
+}
+
+model ChoreRaceSlot {
+  id        String   @id @default(uuid())
+  choreId   String
+  chore     Chore    @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  periodKey String
+  createdAt DateTime @default(now())
+
+  @@unique([choreId, periodKey])
+}
+
+model ChoreClaim {
+  id                String           @id @default(uuid())
+  choreId           String
+  chore             Chore            @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  playerId          String
+  player            Player           @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  periodKey         String
+  status            ChoreClaimStatus @default(PENDING)
+  slot              Int
+  plantTier         Int
+  proofJpegPath     String?
+  claimedAt         DateTime         @default(now())
+  resolvedAt        DateTime?
+  resolvedByAdminId String?
+  resolvedBy        Admin?           @relation(fields: [resolvedByAdminId], references: [id], onDelete: SetNull)
+  plot              Plot?
+
+  @@unique([choreId, playerId, periodKey])
+  @@index([status, claimedAt])
 }
 
 model PlayerSession {

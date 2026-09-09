@@ -208,7 +208,9 @@ Stars never come from the chore claim. Stars come only from **harvest after the 
 
 ### Seed chore catalog
 
-Default **21-task** seed set for Phase 2 (Selfie 🏰 Final Boss is **not** in gameplay and is **not** seeded). Documented here only — do not implement DB seeding in this pass. Omit legacy IDs and `nextDue` dates when this becomes data.
+Default **21-task** seed set for Phase 2 (Selfie 🏰 Final Boss is **not** in gameplay and is **not** seeded). Seeded on API boot; see [`phase-2-chores.md`](phase-2-chores.md). Omit legacy IDs and `nextDue` dates.
+
+v1 seed mapping: `isGlobal` → assignment mode **ALL** (each kid may claim once per period); otherwise **RACE** (one farm-wide claim per period). SPECIFIC assignments exist on the model for later parent CRUD.
 
 Parent PWA v1 may show the **emoji**. Later, pair light/dark PNGs as:
 

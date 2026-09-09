@@ -35,6 +35,26 @@ export type GardenPlayer = {
   plots: PublicPlot[];
 };
 
+export type PublicChore = {
+  id: string;
+  slug: string;
+  title: string;
+  emoji: string;
+  description: string;
+  recurrence: string;
+  timeOfDay: string;
+  priority: string;
+  requiresApproval: boolean;
+  requiresSelfie: boolean;
+  includeInPath: boolean;
+  assignmentMode: string;
+  periodKey: string;
+  eligible: boolean;
+  reason: string | null;
+  claimed: boolean;
+  claimedByOther: boolean;
+};
+
 export type HarvestReward = {
   points: number;
   seedsReturned: number;
@@ -93,4 +113,12 @@ export const api = {
       alreadyUnlocked: boolean;
       reward: { seedsReturned: number; points: number };
     }>("/api/selfie", { method: "POST", body: JSON.stringify({ image }) }),
+  chores: () =>
+    request<{ chores: PublicChore[]; emptySlots: number[]; timezone: string; player: GardenPlayer }>("/api/chores"),
+  claimChore: (id: string, body: { slot: number; tier: number; image?: string }) =>
+    request<{ player: GardenPlayer; claim: { id: string; status: string; slot: number } }>(`/api/chores/${id}/claim`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  prune: (slot: number) => request<{ player: GardenPlayer }>(`/api/plots/${slot}/prune`, { method: "POST" }),
 };

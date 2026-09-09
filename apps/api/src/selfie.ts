@@ -89,3 +89,17 @@ export async function writeSelfieJpeg(opts: {
   await writeFile(file, opts.buf);
   return file;
 }
+
+/** Chore proof photos share the Immich-watched drop dir; they do not unlock watering. */
+export async function writeClaimJpeg(opts: {
+  buf: Buffer;
+  playerName: string;
+  choreSlug: string;
+  claimId: string;
+}) {
+  const dir = path.join(selfieDropDir(), "chores");
+  await mkdir(dir, { recursive: true });
+  const file = path.join(dir, `${opts.choreSlug}_${safeName(opts.playerName)}_${opts.claimId.slice(0, 8)}.jpg`);
+  await writeFile(file, opts.buf);
+  return file;
+}

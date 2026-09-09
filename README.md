@@ -11,7 +11,8 @@ Tablet / browser
         │
      nginx :80
         ├── /        → player PWA (Vite + React, landscape-first)
-        ├── /admin   → parent SPA (Vite + React)
+        ├── /parent  → parent PWA (chore inbox)
+        ├── /admin   → operator ledger (Vite + React)
         └── /api     → Node.js API (Fastify + Prisma)
                          └── Postgres
 ```
@@ -19,7 +20,8 @@ Tablet / browser
 Monorepo layout:
 
 - `apps/player` — touch-first PWA (PixiJS farm/garden scene + React HUD/PIN/sheets)
-- `apps/admin` — parent ledger at `/admin`
+- `apps/parent` — daily parent inbox at `/parent` (Approve | Deny chore claims)
+- `apps/admin` — operator ledger at `/admin`
 - `apps/api` — server-authoritative game rules
 - `packages/shared` — types, default tunables, maturity math
 - `assets/ATTRIBUTION.md` — Kenney/OGA inventory, licenses, and custom-art gaps
@@ -51,7 +53,8 @@ Created on first boot if the database is empty:
 
 | Who | How to sign in |
 | --- | --- |
-| Parent admin | `/admin` · username `admin` · password `farmhand-dev` |
+| Parent | `/parent` · username `admin` · password `farmhand-dev` (same account as Admin) |
+| Operator admin | `/admin` · username `admin` · password `farmhand-dev` |
 | Willow 🐄 | PIN `1111` |
 | Finn 🐔 | PIN `2222` |
 | Sage 🐷 | PIN `3333` |
@@ -64,9 +67,10 @@ Change `ADMIN_BOOTSTRAP_*` in `.env` **before** the first boot if you do not wan
 2. Tap a garden. Enter the 4-digit PIN. A successful PIN starts a **30-minute server session**; coming back during that window skips the pad.
 3. Plant on an empty plot. Unaffordable tiers are disabled.
 4. Take **today’s selfie** (garden toolbar) to unlock watering and get +1 seed once per Chicago day. Then water (free, **per plant** 4h cooldown, max 3/day) or fertilize while a plant is growing. Countdown and READY state come from the server.
-5. Harvest when the plot glows gold. The kid earns **25 stars** and **1 seed is returned** (plant cost is also 1, so a harvest is seed-neutral).
-6. Open the ingredient shed (🧪+) to claim the daily ingredient (Moon Dew → Grow Goo → Phoenix Ash) and mix 1 of each into fertilizer.
-7. The Farm Store building is **Coming Soon** only.
+5. **Chores** (garden toolbar): claim an eligible job to plant a grey **waiting** seed. A parent Approves or Denies at `/parent`. Deny → wilt → prune, no seed back. Stars still only come from harvesting a confirmed plant.
+6. Harvest when the plot glows gold. The kid earns **25 stars** and **1 seed is returned** (plant cost is also 1, so a harvest is seed-neutral).
+7. Open the ingredient shed (🧪+) to claim the daily ingredient (Moon Dew → Grow Goo → Phoenix Ash) and mix 1 of each into fertilizer.
+8. The Farm Store building is **Coming Soon** only.
 
 Starting pouch: **10 seeds, 0 stars**.
 
@@ -123,6 +127,7 @@ npx prisma generate --schema apps/api/prisma/schema.prisma
 npm run dev:api
 npm run dev:player   # http://localhost:5173
 npm run dev:admin    # http://localhost:5174/admin/
+npm run dev:parent   # http://localhost:5175/parent/
 ```
 
 ## Environment
@@ -153,5 +158,5 @@ BASE_URL=http://127.0.0.1:8080 node scripts/smoke.mjs
 
 Phase 1 closeout checklist: [`docs/phase-1-done.md`](docs/phase-1-done.md).
 
-Phase 2+ product / architecture spec: [`docs/phase-2-and-architecture.md`](docs/phase-2-and-architecture.md). Selfie earn implementation notes: [`docs/phase-2-selfie.md`](docs/phase-2-selfie.md).
+Phase 2+ product / architecture spec: [`docs/phase-2-and-architecture.md`](docs/phase-2-and-architecture.md). Selfie earn: [`docs/phase-2-selfie.md`](docs/phase-2-selfie.md). Chores + purgatory: [`docs/phase-2-chores.md`](docs/phase-2-chores.md).
 

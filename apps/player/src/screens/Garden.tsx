@@ -1,8 +1,9 @@
 import { PLOTS_PER_GARDEN, type GameConfig, type PublicPlot } from "@farmhand/shared";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, type GardenPlayer, type HarvestReward } from "../api";
+import { api, type GardenPlayer, type HarvestReward, type PublicChore } from "../api";
 import { AcornArt, BackArrow, FertilizerBeaker, MascotArt, SceneShell, StarIcon } from "../art";
+import ChoreSheet from "../components/ChoreSheet";
 import HarvestCelebration from "../components/HarvestCelebration";
 import IngredientsSheet from "../components/IngredientsSheet";
 import PinPad from "../components/PinPad";
@@ -26,6 +27,8 @@ type Overlay =
   | { type: "plot"; slot: number }
   | { type: "ingredients" }
   | { type: "selfie" }
+  | { type: "chores" }
+  | { type: "chore-photo"; chore: PublicChore; slot: number; tier: number }
   | null;
 
 export default function Garden() {
@@ -206,6 +209,20 @@ function GardenPlay({
   const canWater = selfieUnlocked && player.water.canWater && cooldownRemainingMs === 0;
   const toolCtx = { seeds: player.seeds, fertilizer: player.fertilizer, canWater, cheapestSeed };
   const [gain, setGain] = useState<HarvestReward | null>(null);
+  const [chores, setChores] = useState<PublicChore[]>([]);
+  const [emptySlots, setEmptySlots] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (overlay?.type !== "chores") return;
+    void api
+      .chores()
+      .then((data) => {
+        setChores(data.chores);
+        setEmptySlots(data.emptySlots);
+        applyGarden(data.player);
+      })
+      .catch(() => undefined);
+  }, [overlay?.type]);
   const glow = useMemo(
     () => glowingSlots(tool, plots, toolCtx),
     [tool, plots, player.seeds, player.fertilizer, canWater, cheapestSeed, selfieUnlocked],
@@ -222,6 +239,14 @@ function GardenPlay({
         setGain(data.reward);
         setOverlay(null);
         window.setTimeout(() => setGain((cur) => (cur === data.reward ? null : cur)), 4200);
+        return data.player;
+      });
+      return;
+    }
+    if (action === "prune") {
+      void run(async () => {
+        const data = await api.prune(slot);
+        setOverlay(null);
         return data.player;
       });
       return;
@@ -309,6 +334,17 @@ function GardenPlay({
           </span>
           <span>Selfie</span>
         </button>
+        <button
+          type="button"
+          className="garden-tool selfie-tool"
+          aria-label="Chores"
+          onClick={() => setOverlay({ type: "chores" })}
+        >
+          <span className="selfie-tool-icon" aria-hidden="true">
+            ✅
+          </span>
+          <span>Chores</span>
+        </button>
         {GARDEN_TOOLS.map((id) => {
           const remaining =
             id === "water" ? (selfieUnlocked ? player.water.wateringsLeft : 0) : id === "fert" ? player.fertilizer : null;
@@ -356,6 +392,42 @@ function GardenPlay({
           }}
         />
       )}
+      {overlay?.type === "chores" && (
+        <ChoreSheet
+          chores={chores}
+          emptySlots={emptySlots}
+          config={config}
+          busy={busy}
+          onClose={() => setOverlay(null)}
+          onClaim={async (chore, slot, tier) => {
+            const data = await api.claimChore(chore.id, { slot, tier });
+            setOverlay(null);
+            applyGarden(data.player);
+            return data.player;
+          }}
+          onNeedPhoto={(chore, slot, tier) => setOverlay({ type: "chore-photo", chore, slot, tier })}
+        />
+      )}
+      {overlay?.type === "chore-photo" && (
+        <SelfieCapture
+          title="Chore photo"
+          copy="Take a photo so a grown-up can check this chore. This is not today's watering selfie."
+          buttonLabel="Send photo"
+          onClose={() => setOverlay({ type: "chores" })}
+          submit={async (image) => {
+            const data = await api.claimChore(overlay.chore.id, {
+              slot: overlay.slot,
+              tier: overlay.tier,
+              image,
+            });
+            return { player: data.player };
+          }}
+          onSuccess={(next) => {
+            applyGarden(next);
+            setOverlay(null);
+          }}
+        />
+      )}
       {overlay?.type === "selfie" && (
         <SelfieCapture
           onClose={() => setOverlay(null)}
@@ -378,6 +450,13 @@ function GardenPlay({
           onNeedSelfie={() => setOverlay({ type: "selfie" })}
           busy={busy}
           onClose={() => setOverlay(null)}
+          onPrune={() =>
+            void run(async () => {
+              const data = await api.prune(overlay.slot);
+              setOverlay(null);
+              return data.player;
+            })
+          }
           onWater={() =>
             void run(async () => {
               const data = await api.water(overlay.slot);
@@ -438,11 +517,14 @@ function emptyPlot(slot: number): PublicPlot {
     canWater: false,
     watersLeftToday: 0,
     waterCooldownRemainingMs: 0,
+    greyed: false,
   };
 }
 
 function livePlot(plot: PublicPlot, now: number): PublicPlot {
-  if (!plot.maturesAt || plot.state === "empty") return plot;
+  if (plot.state === "purgatory" || plot.state === "wilted" || plot.state === "empty" || !plot.maturesAt) {
+    return plot;
+  }
   const remainingMs = Math.max(0, new Date(plot.maturesAt).getTime() - now);
   const ready = remainingMs === 0;
   return {
