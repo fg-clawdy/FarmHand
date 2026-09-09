@@ -237,6 +237,19 @@ export function ClockIcon({ className }: ArtProps) {
   );
 }
 
+export function CameraIcon({ className }: ArtProps) {
+  return (
+    <svg className={className} viewBox="0 0 64 64" aria-hidden>
+      <rect x="8" y="18" width="48" height="34" rx="8" fill="#FFF6D8" stroke="#6B3F12" strokeWidth="3" />
+      <path d="M22 18 26 10h12l4 8" fill="#FFE08A" stroke="#6B3F12" strokeWidth="3" strokeLinejoin="round" />
+      <circle cx="32" cy="36" r="11" fill="#2a1a0d" />
+      <circle cx="32" cy="36" r="7" fill="#7ec8e3" />
+      <circle cx="29" cy="33" r="2.4" fill="#fff" opacity="0.7" />
+      <circle cx="46" cy="26" r="3" fill="#ff8a3a" stroke="#6B3F12" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
 function SoilMound() {
   return (
     <>
@@ -624,11 +637,11 @@ export function FarmStoreArt({ className }: { className?: string }) {
   );
 }
 
-export function IngredientOrb({ kind }: { kind: "dew" | "goo" | "ash" }) {
+export function IngredientOrb({ kind, className = "ing-orb-art" }: { kind: "dew" | "goo" | "ash"; className?: string }) {
   const fill = kind === "dew" ? ["#E8F8FF", "#5AB0E0", "#1F5A98"] : kind === "goo" ? ["#E8FFB0", "#7ED957", "#2F8A34"] : ["#FFE0A0", "#FF7A2A", "#B32600"];
   const p = useUid(kind);
   return (
-    <svg className="ing-orb-art" viewBox="0 0 72 72" aria-hidden>
+    <svg className={className} viewBox="0 0 72 72" aria-hidden>
       <defs>
         <radialGradient id={p} cx="32%" cy="28%" r="72%">
           <stop offset="0%" stopColor={fill[0]} />

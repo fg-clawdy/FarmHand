@@ -101,6 +101,20 @@ export function moundUv(garden: { mounds: readonly Uv[] }, slot: number): Uv {
   return garden.mounds[i]!;
 }
 
+/** Ready-harvest sparkles sit on each ready mound UV — never the soil-rect center. */
+export function readySparkleSeats(
+  garden: { mounds: readonly Uv[]; soil: UvRect },
+  plots: Array<{ slot: number; ready?: boolean } | null | undefined> | undefined,
+): Array<{ slot: number; uv: Uv }> {
+  return (plots ?? [])
+    .filter((plot): plot is { slot: number; ready?: boolean } => Boolean(plot?.ready))
+    .map((plot) => ({ slot: plot.slot, uv: moundUv(garden, plot.slot) }));
+}
+
+export function soilRectCenterUv(soil: UvRect): Uv {
+  return { u: (soil.u0 + soil.u1) / 2, v: (soil.v0 + soil.v1) / 2 };
+}
+
 export function uvToLocal(uv: Uv, texW: number, texH: number) {
   return { x: uv.u * texW, y: uv.v * texH };
 }

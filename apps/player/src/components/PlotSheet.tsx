@@ -28,7 +28,7 @@ export default function PlotSheet({
         {kind && (
           <PlantFigure className="hero-art" kind={kind} stage={plot.growthStage ?? 4} ready={plot.ready} />
         )}
-        <p className="plot-time">Matures in {formatCountdown(plot.remainingMs)}</p>
+        <p className="sheet-status plot-time">Matures in {formatCountdown(plot.remainingMs)}</p>
       </div>
       <div className={`sheet-actions ${busy ? "busy" : ""}`}>
         <button className="btn water" type="button" disabled={!player.water.canWater} onClick={onWater}>

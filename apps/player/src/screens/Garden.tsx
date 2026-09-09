@@ -8,6 +8,7 @@ import IngredientsSheet from "../components/IngredientsSheet";
 import PinPad from "../components/PinPad";
 import PlantPicker from "../components/PlantPicker";
 import PlotSheet from "../components/PlotSheet";
+import ProfileSheet, { kidProfileFromPlayer } from "../components/ProfileSheet";
 import {
   cheapestSeedCost,
   cropNameForPlot,
@@ -24,6 +25,7 @@ type Overlay =
   | { type: "picker"; slot: number }
   | { type: "plot"; slot: number }
   | { type: "ingredients" }
+  | { type: "profile" }
   | null;
 
 export default function Garden() {
@@ -269,10 +271,15 @@ function GardenPlay({
         <button className="back" type="button" onClick={onBack} aria-label="Back to farm">
           <BackArrow />
         </button>
-        <div className="who">
+        <button
+          className="who profile-entry"
+          type="button"
+          aria-label={`${player.name}'s profile`}
+          onClick={() => setOverlay({ type: "profile" })}
+        >
           <MascotArt className="mascot-img" mascot={player.mascot} />
           <span>{player.name}'s garden</span>
-        </div>
+        </button>
         <div className="meters">
           <div className={`meter ${gain && gain.points > 0 ? "bump" : ""}`}>
             <StarIcon /> {player.points}
@@ -350,6 +357,9 @@ function GardenPlay({
         />
       )}
       {gain && <HarvestCelebration reward={gain} />}
+      {overlay?.type === "profile" && (
+        <ProfileSheet preview={kidProfileFromPlayer(player)} onClose={() => setOverlay(null)} />
+      )}
       {overlay?.type === "ingredients" && (
         <IngredientsSheet
           player={player}

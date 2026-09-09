@@ -2,6 +2,7 @@ export { ACCENTS } from "./theme";
 export {
   AcornArt,
   BackArrow,
+  CameraIcon,
   ClockIcon,
   FarmArtDefs,
   FarmStoreArt,

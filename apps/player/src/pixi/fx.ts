@@ -82,6 +82,10 @@ export class SparkleField {
     this.radiusY = ry;
   }
 
+  get isActive() {
+    return this.active;
+  }
+
   setActive(on: boolean) {
     this.active = on;
     for (const spr of this.sprites) spr.visible = on;

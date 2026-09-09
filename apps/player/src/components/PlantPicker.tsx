@@ -15,7 +15,7 @@ export default function PlantPicker({
 }) {
   return (
     <Sheet title="Choose a plant" onClose={onClose}>
-      <p className="picker-intro">
+      <p className="sheet-lede picker-intro">
         You have <AcornArt className="inline-art" /> {seeds} seeds. Bigger plants take longer and earn more stars.
       </p>
       <div className="tier-grid">

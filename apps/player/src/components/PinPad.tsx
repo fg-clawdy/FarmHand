@@ -39,13 +39,13 @@ export default function PinPad({
       </div>
       <div className={`pin-card ${busy ? "busy" : ""}`}>
         <WoodSign className="pin-sign" label={name.toUpperCase()} />
-        <p>Enter your 4-digit PIN</p>
+        <p className="sheet-lede">Enter your 4-digit PIN</p>
         <div className="dots">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className={`dot ${digits.length > i ? "on" : ""}`} />
           ))}
         </div>
-        <div className="pin-error">{error}</div>
+        {error ? <div className="sheet-error pin-error">{error}</div> : null}
         <div className="pad">
           {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
             <button key={d} type="button" onClick={() => void push(d)}>

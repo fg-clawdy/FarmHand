@@ -207,7 +207,7 @@ class GardenHotspot {
   private plaque = new Container();
   private nameText: Text;
   private statsText: Text;
-  private sparkle: SparkleField;
+  private sparkles: SparkleField[] = [];
   private plants: Sprite[] = [];
   private markers: Graphics[] = [];
   private showMarkers = false;
@@ -261,7 +261,6 @@ class GardenHotspot {
     });
     this.statsText.anchor.set(0.5, 0);
     this.plaque.addChild(this.nameText, this.statsText);
-    this.sparkle = new SparkleField(atlas, 8);
     for (let i = 0; i < PLAYABLE_PLOT_SLOTS; i++) {
       const spr = new Sprite();
       spr.anchor.set(0.5, 1);
@@ -271,8 +270,15 @@ class GardenHotspot {
       mark.visible = false;
       mark.eventMode = "none";
       this.markers.push(mark);
+      this.sparkles.push(new SparkleField(atlas, 6));
     }
-    this.root.addChild(this.hit, ...this.plants, ...this.markers, this.sparkle.root, this.plaque);
+    this.root.addChild(
+      this.hit,
+      ...this.plants,
+      ...this.markers,
+      ...this.sparkles.map((field) => field.root),
+      this.plaque,
+    );
     this.root.eventMode = "static";
     this.root.cursor = "pointer";
     this.root.on("pointerdown", () => this.root.scale.set(0.99));
@@ -295,7 +301,6 @@ class GardenHotspot {
     this.statsText.style.fontSize = Math.max(18, nameSize * 0.52);
     this.nameText.position.set(0, -2);
     this.statsText.position.set(0, 2);
-    const soil = uvRectToLocal(this.spec.soil, texW, texH);
     this.plants.forEach((spr, slot) => {
       const uv = moundUv(this.spec, slot);
       const p = uvToLocal(uv, texW, texH);
@@ -304,8 +309,11 @@ class GardenHotspot {
       mark.position.set(p.x, p.y);
     });
     this.drawMoundMarkers();
-    this.sparkle.root.position.set((soil.x0 + soil.x1) / 2, (soil.y0 + soil.y1) / 2);
-    this.sparkle.setArea((soil.x1 - soil.x0) * 0.36, (soil.y1 - soil.y0) * 0.22);
+    this.sparkles.forEach((field, slot) => {
+      const p = this.plants[slot]!;
+      field.root.position.set(p.x, p.y);
+      field.setArea(FARM_MOUND_COVER_PX * 0.55, FARM_MOUND_COVER_PX * 0.42);
+    });
     this.root.zIndex = 3500;
   }
 
@@ -340,8 +348,10 @@ class GardenHotspot {
     const stroke = { color: Number(accent.border.replace("#", "0x")), width: 5 };
     this.nameText.style.stroke = stroke;
     this.statsText.style.stroke = { ...stroke, width: 4 };
-    this.sparkle.setActive(player.plots?.some((p) => p.ready) ?? false);
     const plots = Array.from({ length: PLAYABLE_PLOT_SLOTS }, (_, slot) => player.plots?.find((p) => p.slot === slot));
+    this.sparkles.forEach((field, slot) => {
+      field.setActive(Boolean(plots[slot]?.ready));
+    });
     this.plants.forEach((spr, slot) => {
       const plot = plots[slot];
       const stage = plot?.growthStage;
@@ -365,7 +375,7 @@ class GardenHotspot {
       const s = spr.scale.x;
       spr.scale.set(s, s * (1 + Math.sin(t * 1.5 + i) * 0.01));
     });
-    this.sparkle.update(t);
+    this.sparkles.forEach((field) => field.update(t));
   }
 
   debugPlants(garden: number) {
@@ -388,6 +398,10 @@ class GardenHotspot {
         dx: world.x - mound.x,
         dy: world.y - mound.y,
         marker: this.showMarkers,
+        sparkle: {
+          active: this.sparkles[slot]?.isActive ?? false,
+          local: { x: this.sparkles[slot]?.root.x ?? 0, y: this.sparkles[slot]?.root.y ?? 0 },
+        },
       };
     });
   }
