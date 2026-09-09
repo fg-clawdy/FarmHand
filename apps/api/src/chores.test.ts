@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chorePeriod } from "./tz.js";
+import { chorePeriod, seasonKey } from "./tz.js";
 import { choreClaimGate } from "@farmhand/shared";
 
 test("DAILY period is the Chicago calendar day", () => {
@@ -22,6 +22,10 @@ test("WEEKLY key is the Monday of that Chicago week", () => {
   const period = chorePeriod("WEEKLY", "America/Chicago", wed);
   assert.equal(period.key, "2026-09-07-week");
   assert.equal(period.eligible, true);
+});
+
+test("seasonKey is the Chicago calendar quarter", () => {
+  assert.equal(seasonKey("America/Chicago", new Date("2026-09-09T17:00:00.000Z")), "2026-Q3");
 });
 
 test("NONE uses a reusable open slot", () => {

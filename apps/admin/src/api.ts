@@ -115,4 +115,37 @@ export const api = {
     request<{
       logs: Array<{ id: string; action: string; details: unknown; createdAt: string; admin: string | null; player: string | null }>;
     }>("/api/admin/audit"),
+  accolades: () =>
+    request<{
+      timezone: string;
+      seasonKey: string;
+      seasonLabel: string;
+      kids: Array<{
+        id: string;
+        name: string;
+        mascot: string;
+        seasonLabel: string;
+        seasonal: {
+          tracks: Array<{
+            slug: string;
+            title: string;
+            emoji: string;
+            count: number;
+            medals: Array<string | null>;
+            next: { medal: string | null; at: number; remaining: number; done: boolean };
+          }>;
+        };
+        lifetime: {
+          legends: Array<{
+            slug: string;
+            title: string;
+            emoji: string;
+            count: number;
+            at: number;
+            earned: boolean;
+            remaining: number;
+          }>;
+        };
+      }>;
+    }>("/api/admin/accolades"),
 };

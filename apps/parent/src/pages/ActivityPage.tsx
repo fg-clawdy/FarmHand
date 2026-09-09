@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type KidActivity, type ParentStats } from "../api";
+import { api, type KidAccolades, type KidActivity, type ParentStats } from "../api";
 
 function pct(n: number, max: number): number {
   if (max <= 0) return 0;
@@ -11,7 +11,14 @@ function dayLabel(day: string, index: number, total: number): string {
   return day.slice(5);
 }
 
-function KidCard({ kid }: { kid: KidActivity }) {
+function medalGlyph(medal: string | null) {
+  if (medal === "bronze") return "🥉";
+  if (medal === "silver") return "🥈";
+  if (medal === "gold") return "🥇";
+  return "";
+}
+
+function KidCard({ kid, badges }: { kid: KidActivity; badges?: KidAccolades }) {
   const max = Math.max(kid.claims, kid.approvals, kid.denials, 1);
   const sparkMax = Math.max(1, ...kid.series.map((row) => row.claims));
   return (
@@ -57,6 +64,37 @@ function KidCard({ kid }: { kid: KidActivity }) {
         </ul>
       )}
       {kid.chores.length === 0 && <p className="muted">No chores claimed in this window.</p>}
+      {badges && (
+        <div className="kid-badges">
+          <h4>Badges · {badges.seasonLabel}</h4>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Same ledger as the kid garden. No extra stars or seeds.
+          </p>
+          <ul className="accolade-tracks">
+            {badges.seasonal.tracks.map((track) => (
+              <li key={track.slug}>
+                <span>
+                  {track.emoji} {track.title}
+                </span>
+                <span>
+                  {track.medals.length ? track.medals.map(medalGlyph).join(" ") : "—"}
+                  <em className="muted"> {track.count}</em>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <ul className="accolade-legends">
+            {badges.lifetime.legends.map((legend) => (
+              <li key={legend.slug} className={legend.earned ? "earned" : ""}>
+                <span>
+                  {legend.emoji} {legend.title}
+                </span>
+                <span className="muted">{legend.earned ? "earned forever" : `${legend.count} / ${legend.at}`}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </article>
   );
 }
@@ -86,13 +124,16 @@ function Bar({
 export default function ActivityPage() {
   const [range, setRange] = useState<"week" | "month">("week");
   const [stats, setStats] = useState<ParentStats | null>(null);
+  const [badges, setBadges] = useState<KidAccolades[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
     setStats(null);
-    void api
-      .stats(range)
-      .then(setStats)
+    void Promise.all([api.stats(range), api.accolades()])
+      .then(([nextStats, farm]) => {
+        setStats(nextStats);
+        setBadges(farm.kids);
+      })
       .catch((err: Error) => setError(err.message));
   }, [range]);
 
@@ -101,7 +142,8 @@ export default function ActivityPage() {
       <h2>Kids</h2>
       <p className="muted">
         Who claimed chores, who you approved, and a simple streak (days in a row with at least one approved chore).
-        Chicago time. This is not the Admin harvest chart.
+        Chicago time. This is not the Admin harvest chart. Seasonal medals and lifetime legends use the same ledger as
+        the garden 🏅 button.
       </p>
       <div className="row range-toggle">
         <button className={`btn ${range === "week" ? "sage" : ""}`} type="button" onClick={() => setRange("week")}>
@@ -113,7 +155,10 @@ export default function ActivityPage() {
       </div>
       {error && <p className="error">{error}</p>}
       {!stats && !error && <p>Counting chores…</p>}
-      {stats && stats.kids.map((kid) => <KidCard key={kid.id} kid={kid} />)}
+      {stats &&
+        stats.kids.map((kid) => (
+          <KidCard key={kid.id} kid={kid} badges={badges.find((row) => row.id === kid.id)} />
+        ))}
     </div>
   );
 }

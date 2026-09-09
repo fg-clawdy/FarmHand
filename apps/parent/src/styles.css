@@ -194,6 +194,24 @@ fieldset.field {
   font-size: 16px;
 }
 .range-toggle { margin: 12px 0 18px; }
+.kid-badges { margin-top: 16px; padding-top: 8px; border-top: 2px solid var(--rule); }
+.kid-badges h4 { margin: 0 0 4px; }
+.accolade-tracks, .accolade-legends {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+.accolade-tracks li,
+.accolade-legends li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--rule);
+  font-size: 16px;
+}
+.accolade-legends li { opacity: 0.5; }
+.accolade-legends li.earned { opacity: 1; }
 @media (max-width: 900px) {
   .shell { grid-template-columns: 1fr; }
   .nav {

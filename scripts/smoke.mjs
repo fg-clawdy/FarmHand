@@ -194,10 +194,87 @@ if (typeof reward?.points !== "number" || reward.points !== 25) {
 if (typeof reward?.seedsReturned !== "number" || reward.seedsReturned !== 1) {
   throw new Error(`harvest reward.seedsReturned expected 1, got ${JSON.stringify(reward)}`);
 }
+if (harvest.data.player.points !== planted.data.player.points + 25) {
+  throw new Error(
+    `harvest should grant 25★ only (no badge payout), ${planted.data.player.points} -> ${harvest.data.player.points}`,
+  );
+}
+if (harvest.data.player.seeds !== planted.data.player.seeds + 1) {
+  throw new Error(
+    `harvest should grant 1 seed only (no badge payout), ${planted.data.player.seeds} -> ${harvest.data.player.seeds}`,
+  );
+}
 if (harvest.data.player.plots.find((p) => p.slot === empty.slot).state !== "empty") {
   throw new Error("plot did not clear");
 }
 console.log("harvest +stars/+seeds ok", reward);
+
+function legend(ledger, slug) {
+  return ledger.lifetime.legends.find((row) => row.slug === slug);
+}
+function track(ledger, slug) {
+  return ledger.seasonal.tracks.find((row) => row.slug === slug);
+}
+
+async function readAccolades(cookie) {
+  return (await req("/api/accolades", { cookie })).data;
+}
+
+let badges = await readAccolades(kidCookie);
+if (!legend(badges, "first-harvest")?.earned) {
+  throw new Error("First Harvest should be earned after one harvest");
+}
+if (
+  !badges.lifetime.unlocks.some((u) => u.slug === "first-harvest") &&
+  !(harvest.data.unlocks ?? []).some((u) => u.slug === "first-harvest")
+) {
+  throw new Error("First Harvest unlock row missing from ledger");
+}
+if (legend(badges, "homestead-helper")?.earned && legend(badges, "homestead-helper").count < 500) {
+  throw new Error("Homestead Helper awarded before 500 waters");
+}
+
+let harvestMedalGuard = 0;
+while ((track(badges, "harvests")?.count ?? 0) < 10) {
+  if (++harvestMedalGuard > 16) throw new Error("could not reach Harvester bronze in 16 harvests");
+  const gardenNow = (await req("/api/garden", { cookie: kidCookie })).data.player;
+  if (gardenNow.seeds < 1) {
+    await req(`/api/admin/players/${willow.id}/resources`, {
+      method: "POST",
+      body: { seeds: 8, reason: "smoke harvester bronze" },
+      cookie: adminCookie,
+    });
+  }
+  let slot = gardenNow.plots.find((p) => p.state === "empty")?.slot;
+  if (slot == null) {
+    await harvestOccupied(gardenNow.plots, kidCookie);
+    slot = (await req("/api/garden", { cookie: kidCookie })).data.player.plots.find((p) => p.state === "empty")?.slot;
+  }
+  if (slot == null) throw new Error("no empty plot to reach Harvester bronze");
+  const morePlant = await req(`/api/plots/${slot}/plant`, { method: "POST", body: { tier: 1 }, cookie: kidCookie });
+  const moreHarvest = await req(`/api/plots/${slot}/harvest`, { method: "POST", cookie: kidCookie });
+  if (moreHarvest.data.reward?.points !== 25 || moreHarvest.data.reward?.seedsReturned !== 1) {
+    throw new Error(`badge harvest still must pay 25★/1 seed, got ${JSON.stringify(moreHarvest.data.reward)}`);
+  }
+  if (moreHarvest.data.player.points !== morePlant.data.player.points + 25) {
+    throw new Error("Harvester bronze path granted extra stars");
+  }
+  badges = await readAccolades(kidCookie);
+}
+if (!track(badges, "harvests")?.medals.includes("bronze")) {
+  throw new Error(`expected Harvester bronze at 10 harvests, got ${JSON.stringify(track(badges, "harvests"))}`);
+}
+const parentBadges = await req("/api/parent/accolades", { cookie: adminCookie });
+const willowParent = parentBadges.data.kids.find((k) => k.name === "Willow");
+if (!willowParent?.lifetime.legends.find((row) => row.slug === "first-harvest")?.earned) {
+  throw new Error("parent accolades missing Willow First Harvest");
+}
+const adminBadges = await req("/api/admin/accolades", { cookie: adminCookie });
+const willowAdmin = adminBadges.data.kids.find((k) => k.name === "Willow");
+if (!willowAdmin?.seasonal.tracks.find((row) => row.slug === "harvests")?.medals.includes("bronze")) {
+  throw new Error("admin accolades missing Willow Harvester bronze");
+}
+console.log("accolades First Harvest + Harvester bronze, no payout ok");
 
 await req(`/api/admin/players/${willow.id}/reset-pin`, {
   method: "POST",
@@ -299,6 +376,20 @@ const watered = await req(`/api/plots/${empty2.slot}/water`, { method: "POST", c
 const after = watered.data.player.plots.find((p) => p.slot === empty2.slot).remainingMs;
 if (after >= before) throw new Error(`watering did not reduce time (${before} -> ${after})`);
 console.log("watering reduced remaining ms", before, "->", after);
+
+const afterWaterBadges = await readAccolades(kidCookie2);
+const helper = legend(afterWaterBadges, "homestead-helper");
+if (!helper) throw new Error("Homestead Helper missing from lifetime legends");
+if (helper.count < 500 && helper.earned) {
+  throw new Error(`Homestead Helper awarded early at ${helper.count} waters`);
+}
+if (
+  helper.count < 500 &&
+  afterWaterBadges.lifetime.unlocks.some((u) => u.slug === "homestead-helper")
+) {
+  throw new Error("Homestead Helper unlock row present under 500 waters");
+}
+console.log("Homestead Helper still locked at", helper.count, "waters");
 
 await req(`/api/admin/players/${willow.id}/resources`, {
   method: "POST",

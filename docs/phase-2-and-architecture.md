@@ -305,6 +305,8 @@ Seasonal badges at **10 / 50 / 100** of a tracked action, plus **lifetime legend
 
 Display on the player farm; Admin/Parent can see the same ledger. No star payout from badges unless a later spec says so.
 
+Implemented v1 catalog, season rule, hooks, and verify steps: [`docs/phase-3-accolades.md`](phase-3-accolades.md). Sibling Spark and County Fair Champ stay deferred.
+
 ### Later — chore effort banding (not P2)
 
 `estimatedMinutes` / `legacyPoints` stay on the catalog as **deferred data**. Whether harder chores plant more seeds (or are “worth more”) is an explicit **later-phase** product decision. Do not invent banding, multi-seed claims, or a second selfie-as-chore in Phase 2.

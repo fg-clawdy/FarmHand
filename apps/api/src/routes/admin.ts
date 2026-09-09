@@ -13,6 +13,7 @@ import {
   verifySecret,
 } from "../auth.js";
 import { loadConfig, publicPlayer, saveConfig } from "../game.js";
+import { farmAccoladeLedgers } from "../accolades.js";
 import { chicagoDayKeys, startOfDaysAgo, startOfToday, todayKey } from "../tz.js";
 import {
   balanceKnobs,
@@ -84,6 +85,13 @@ export async function adminRoutes(app: FastifyInstance) {
       readyPlants,
       playerCount: players.filter((p) => p.isActive).length,
     };
+  });
+
+  app.get("/api/admin/accolades", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const config = await loadConfig();
+    return farmAccoladeLedgers(config.timezone);
   });
 
   app.get("/api/admin/players", async (request, reply) => {

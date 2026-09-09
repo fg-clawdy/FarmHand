@@ -17,6 +17,12 @@ export function startOfDaysAgo(timezone: string, days: number, at = new Date()):
     .toJSDate();
 }
 
+export function seasonKey(timezone: string, at = new Date()): string {
+  const zoned = DateTime.fromJSDate(at).setZone(timezone);
+  const quarter = Math.ceil(zoned.month / 3);
+  return `${zoned.year}-Q${quarter}`;
+}
+
 export function chicagoDayKeys(timezone: string, days: number, at = new Date()): string[] {
   const start = DateTime.fromJSDate(at).setZone(timezone).startOf("day");
   return Array.from({ length: days }, (_, i) => start.minus({ days: days - 1 - i }).toFormat("yyyy-LL-dd"));

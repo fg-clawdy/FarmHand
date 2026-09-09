@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { api } from "./api";
+import AccoladesPage from "./pages/AccoladesPage";
 import ActivityPage from "./pages/ActivityPage";
 import BalancePage from "./pages/BalancePage";
 import ConfigPage from "./pages/ConfigPage";
@@ -52,6 +53,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
         <NavLink to="/config">Tunables</NavLink>
         <NavLink to="/balance">Balance</NavLink>
         <NavLink to="/activity">Activity</NavLink>
+        <NavLink to="/accolades">Accolades</NavLink>
         <a href="/parent/">Parent inbox</a>
         <button
           className="link"
@@ -79,6 +81,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
           <Route path="/config" element={<ConfigPage />} />
           <Route path="/balance" element={<BalancePage />} />
           <Route path="/activity" element={<ActivityPage />} />
+          <Route path="/accolades" element={<AccoladesPage />} />
         </Routes>
       </div>
     </div>

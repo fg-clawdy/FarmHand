@@ -110,6 +110,9 @@ model Player {
   auditLogs               AuditLog[]
   choreAssignments        ChoreAssignment[]
   choreClaims             ChoreClaim[]
+  accoladeCounters        AccoladeCounter[]
+  accoladeDays            AccoladeActiveDay[]
+  accoladeUnlocks         AccoladeUnlock[]
 }
 
 model Plot {
@@ -270,4 +273,48 @@ model AuditLog {
   createdAt      DateTime @default(now())
 
   @@index([createdAt])
+}
+
+model AccoladeCounter {
+  id          String   @id @default(uuid())
+  playerId    String
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  seasonKey   String
+  harvests    Int      @default(0)
+  waterings   Int      @default(0)
+  plantings   Int      @default(0)
+  selfies     Int      @default(0)
+  chorePhotos Int      @default(0)
+  cropsMask   Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([playerId, seasonKey])
+}
+
+model AccoladeActiveDay {
+  id        String @id @default(uuid())
+  playerId  String
+  player    Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  dayKey    String
+  seasonKey String
+
+  @@unique([playerId, dayKey])
+  @@index([playerId, seasonKey])
+}
+
+model AccoladeUnlock {
+  id         String   @id @default(uuid())
+  playerId   String
+  player     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  slug       String
+  kind       String
+  seasonKey  String   @default("")
+  medal      String   @default("")
+  title      String
+  emoji      String
+  blurb      String   @default("")
+  unlockedAt DateTime @default(now())
+
+  @@unique([playerId, slug, seasonKey, medal])
+  @@index([playerId, unlockedAt])
 }

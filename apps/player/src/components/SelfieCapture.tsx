@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, type GardenPlayer, type HarvestReward } from "../api";
+import { api, type AccoladeUnlock, type GardenPlayer, type HarvestReward } from "../api";
 import { assessSelfieCanvas } from "../selfieQuality";
 import Sheet from "./Sheet";
 
@@ -12,10 +12,10 @@ export default function SelfieCapture({
   buttonLabel = "Take selfie",
 }: {
   onClose: () => void;
-  onSuccess: (player: GardenPlayer, reward: HarvestReward | null) => void;
+  onSuccess: (player: GardenPlayer, reward: HarvestReward | null, unlocks?: AccoladeUnlock[]) => void;
   title?: string;
   copy?: string;
-  submit?: (image: string) => Promise<{ player: GardenPlayer; reward?: HarvestReward | null }>;
+  submit?: (image: string) => Promise<{ player: GardenPlayer; reward?: HarvestReward | null; unlocks?: AccoladeUnlock[] }>;
   buttonLabel?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -82,7 +82,7 @@ export default function SelfieCapture({
       const image = canvas.toDataURL("image/jpeg", 0.76);
       if (submit) {
         const data = await submit(image);
-        onSuccess(data.player, data.reward ?? null);
+        onSuccess(data.player, data.reward ?? null, data.unlocks);
         return;
       }
       const data = await api.submitSelfie(image);
@@ -90,7 +90,7 @@ export default function SelfieCapture({
         data.reward.seedsReturned > 0
           ? { points: 0, seedsReturned: data.reward.seedsReturned, emoji: "📸", name: "Selfie" }
           : null;
-      onSuccess(data.player, reward);
+      onSuccess(data.player, reward, data.unlocks);
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn't work. Try again.");
     } finally {

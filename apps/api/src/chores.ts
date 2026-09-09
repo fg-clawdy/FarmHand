@@ -14,6 +14,8 @@ import {
 import { Prisma, type Chore, type PrismaClient } from "@prisma/client";
 import { prisma } from "./db.js";
 import { chorePeriod } from "./tz.js";
+import { recordAccoladeEvent } from "./accolades.js";
+import { loadConfig } from "./game.js";
 
 export function httpError(message: string, statusCode = 400): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode });
@@ -240,8 +242,16 @@ export async function claimChore(opts: {
             details: { choreId: chore.id, slug: chore.slug, slot: opts.slot, claimId: claim.id },
           },
         });
+        let unlocks: Awaited<ReturnType<typeof recordAccoladeEvent>> = [];
+        if (opts.hasProof || opts.proofPath) {
+          unlocks = await recordAccoladeEvent(tx, {
+            playerId: opts.playerId,
+            timezone: opts.timezone,
+            event: { type: "chore_photo" },
+          });
+        }
 
-        return { claim, chore, playerId: opts.playerId };
+        return { claim, chore, playerId: opts.playerId, unlocks };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 12_000 },
     );
@@ -299,6 +309,13 @@ export async function approveClaim(claimId: string, adminId: string, now = new D
         action: "chore_approve",
         details: { claimId: claim.id, slug: claim.chore.slug },
       },
+    });
+    const config = await loadConfig();
+    await recordAccoladeEvent(tx, {
+      playerId: claim.playerId,
+      timezone: config.timezone,
+      event: { type: "planting" },
+      now,
     });
     return { claim, plot };
   });

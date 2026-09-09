@@ -13,6 +13,7 @@ import {
 } from "../auth.js";
 import { claimChore, EMPTY_PLOT_DATA, listPlayerChores, prunePlot, releaseClaimIfNeeded } from "../chores.js";
 import { loadConfig, plotWateringState, publicPlayer, selfieUnlockedOn, syncPlayerPlots } from "../game.js";
+import { recordAccoladeEvent, playerAccoladeLedger } from "../accolades.js";
 import { notifyChoreClaimPending } from "../push.js";
 import { decodeSelfiePayload, inspectJpeg, planSelfieReward, writeClaimJpeg, writeSelfieJpeg } from "../selfie.js";
 import { todayKey } from "../tz.js";
@@ -98,6 +99,13 @@ export async function playerRoutes(app: FastifyInstance) {
     return { player: publicPlayer(player, config, true), config };
   });
 
+  app.get("/api/accolades", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    const config = await loadConfig();
+    return playerAccoladeLedger(session.playerId, config.timezone);
+  });
+
   app.get("/api/selfie", async (request, reply) => {
     const session = await requirePlayer(request, reply);
     if (!session) return;
@@ -147,7 +155,14 @@ export async function playerRoutes(app: FastifyInstance) {
             details: { seedGranted: plan.grantSeed, alreadyUnlocked: plan.alreadyUnlocked, file },
           },
         });
-        return { player: updated, plan };
+        const unlocks = plan.alreadyUnlocked
+          ? []
+          : await recordAccoladeEvent(tx, {
+              playerId: player.id,
+              timezone: config.timezone,
+              event: { type: "selfie" },
+            });
+        return { player: updated, plan, unlocks };
       });
       return {
         player: publicPlayer(result.player, config, true),
@@ -156,6 +171,7 @@ export async function playerRoutes(app: FastifyInstance) {
         seedGranted: result.plan.grantSeed,
         alreadyUnlocked: result.plan.alreadyUnlocked,
         reward: result.plan.grantSeed ? { seedsReturned: 1, points: 0 } : { seedsReturned: 0, points: 0 },
+        unlocks: result.unlocks,
       };
     } catch (err) {
       const e = err as Error & { statusCode?: number };
@@ -208,12 +224,18 @@ export async function playerRoutes(app: FastifyInstance) {
         await tx.activityLog.create({
           data: { playerId: player.id, action: "plant", details: { slot, tier: plantTier.tier } },
         });
-        return tx.player.findUniqueOrThrow({
+        const unlocks = await recordAccoladeEvent(tx, {
+          playerId: player.id,
+          timezone: config.timezone,
+          event: { type: "planting" },
+        });
+        const updated = await tx.player.findUniqueOrThrow({
           where: { id: player.id },
           include: { plots: { orderBy: { slot: "asc" } } },
         });
+        return { player: updated, unlocks };
       });
-      return { player: publicPlayer(result, config, true) };
+      return { player: publicPlayer(result.player, config, true), unlocks: result.unlocks };
     } catch (err) {
       const e = err as Error & { statusCode?: number };
       return reply.code(e.statusCode ?? 400).send({ error: e.message });
@@ -283,12 +305,18 @@ export async function playerRoutes(app: FastifyInstance) {
         await tx.activityLog.create({
           data: { playerId: player.id, action: "watering", details: { slot } },
         });
-        return tx.player.findUniqueOrThrow({
+        const unlocks = await recordAccoladeEvent(tx, {
+          playerId: player.id,
+          timezone: config.timezone,
+          event: { type: "watering" },
+        });
+        const updated = await tx.player.findUniqueOrThrow({
           where: { id: player.id },
           include: { plots: { orderBy: { slot: "asc" } } },
         });
+        return { player: updated, unlocks };
       });
-      return { player: publicPlayer(result, config, true) };
+      return { player: publicPlayer(result.player, config, true), unlocks: result.unlocks };
     } catch (err) {
       const e = err as Error & { statusCode?: number };
       return reply.code(e.statusCode ?? 400).send({ error: e.message });
@@ -394,12 +422,18 @@ export async function playerRoutes(app: FastifyInstance) {
             details: { slot, tier: tier.tier, points: tier.points, seedsReturned: config.harvestSeedReturn },
           },
         });
+        const unlocks = await recordAccoladeEvent(tx, {
+          playerId: player.id,
+          timezone: config.timezone,
+          event: { type: "harvest", cropKind: tier.kind },
+        });
         const updated = await tx.player.findUniqueOrThrow({
           where: { id: player.id },
           include: { plots: { orderBy: { slot: "asc" } } },
         });
         return {
           player: updated,
+          unlocks,
           reward: {
             points: tier.points,
             seedsReturned: config.harvestSeedReturn,
@@ -409,7 +443,7 @@ export async function playerRoutes(app: FastifyInstance) {
           },
         };
       });
-      return { player: publicPlayer(result.player, config, true), reward: result.reward };
+      return { player: publicPlayer(result.player, config, true), reward: result.reward, unlocks: result.unlocks };
     } catch (err) {
       const e = err as Error & { statusCode?: number };
       return reply.code(e.statusCode ?? 400).send({ error: e.message });
@@ -484,6 +518,7 @@ export async function playerRoutes(app: FastifyInstance) {
       return {
         player: publicPlayer(player, config, true),
         claim: { id: result.claim.id, status: result.claim.status, slot: result.claim.slot },
+        unlocks: result.unlocks ?? [],
       };
     } catch (err) {
       const e = err as Error & { statusCode?: number };

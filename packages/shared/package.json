@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test src/engine.test.ts src/config.test.ts src/choreCatalog.test.ts"
+    "test": "tsx --test src/engine.test.ts src/config.test.ts src/choreCatalog.test.ts src/accolades.test.ts"
   },
   "devDependencies": {
     "tsx": "^4.19.2",

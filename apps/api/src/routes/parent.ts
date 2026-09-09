@@ -15,6 +15,7 @@ import {
 } from "../parentChores.js";
 import type { ParentChoreBody } from "../parentChoreWrite.js";
 import { buildParentStats, parseParentStatsRange, statsLookbackStart } from "../parentStats.js";
+import { farmAccoladeLedgers } from "../accolades.js";
 import {
   actorFromActionToken,
   adminHasPushSubscription,
@@ -150,6 +151,13 @@ export async function parentRoutes(app: FastifyInstance) {
     const session = await requireAdmin(request, reply);
     if (!session) return;
     return { kids: await listParentKids() };
+  });
+
+  app.get("/api/parent/accolades", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const config = await loadConfig();
+    return farmAccoladeLedgers(config.timezone);
   });
 
   app.get("/api/parent/stats", async (request, reply) => {

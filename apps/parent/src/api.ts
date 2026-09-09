@@ -95,6 +95,44 @@ export type ParentStats = {
   kids: KidActivity[];
 };
 
+export type AccoladeTrack = {
+  slug: string;
+  title: string;
+  emoji: string;
+  blurb: string;
+  count: number;
+  next: { medal: string | null; at: number; remaining: number; done: boolean };
+  medals: Array<string | null>;
+};
+
+export type AccoladeLegend = {
+  slug: string;
+  title: string;
+  emoji: string;
+  blurb: string;
+  count: number;
+  at: number;
+  earned: boolean;
+  remaining: number;
+};
+
+export type KidAccolades = {
+  id: string;
+  name: string;
+  mascot: string;
+  seasonKey: string;
+  seasonLabel: string;
+  seasonal: { tracks: AccoladeTrack[] };
+  lifetime: { legends: AccoladeLegend[] };
+};
+
+export type FarmAccolades = {
+  timezone: string;
+  seasonKey: string;
+  seasonLabel: string;
+  kids: KidAccolades[];
+};
+
 export const api = {
   login: (username: string, password: string) =>
     request<{ admin: { username: string } }>("/api/admin/login", {
@@ -128,4 +166,5 @@ export const api = {
     request<{ chore: ParentChore }>(`/api/parent/chores/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   kids: () => request<{ kids: ParentKid[] }>("/api/parent/kids"),
   stats: (range: "week" | "month") => request<ParentStats>(`/api/parent/stats?range=${range}`),
+  accolades: () => request<FarmAccolades>("/api/parent/accolades"),
 };
