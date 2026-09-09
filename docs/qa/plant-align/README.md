@@ -96,6 +96,18 @@ Sparkles used to sit on each garden’s **soil-rect center** whenever *any* plot
 
 Wood dialogs (Profile / selfie / shed / badges) at `/qa/ui?sheet=profile|selfie|shed|badges`. Body copy sits on cream parchment, not raw grain. Kid **Profile** is history/overview (wallet, pouch, selfies, Pending/Owned/Redeemed, accolades) — not the Farm Store. Store stays on the farm building.
 
+## Job Board corkboard (barn face)
+
+Game Engineer lock (PR #1 HEAD `5df37fc`): `jobBoardHit` / `blockers.jobBoard` = `{ u0: 0.02, v0: 0.0, u1: 0.22, v1: 0.2 }` on the **barn**, not the mid-path corridor. Live `/qa/farm?pack=mix` canvas:
+
+| File | What it is |
+| --- | --- |
+| [`farm-corkboard-barn.png`](after-fix/farm-corkboard-barn.png) | Full farm: Wanted board on the barn, gardens unchanged |
+| [`farm-corkboard-barn-close.png`](after-fix/farm-corkboard-barn-close.png) | Barn crop: hanging cork + Dishes poster |
+| [`farm-corkboard-midpath-empty.png`](after-fix/farm-corkboard-midpath-empty.png) | Obsolete mid-path rect is empty |
+
+Do **not** place art at `{ u0: 0.42, v0: 0.06, u1: 0.62, v1: 0.36 }`. Garden mound UVs / crop seating are unchanged.
+
 ## Pass bar
 
 A human can name corn seed vs sprout vs stalk, strawberry, and cotton. The disc *is* the plot. No pink, no floating scraps.

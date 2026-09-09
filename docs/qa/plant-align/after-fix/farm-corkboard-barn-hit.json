@@ -1,0 +1,22 @@
+{
+  "uv": {
+    "u0": 0.02,
+    "v0": 0,
+    "u1": 0.22,
+    "v1": 0.2
+  },
+  "local": {
+    "x0": 30.72,
+    "y0": 0,
+    "x1": 337.92,
+    "y1": 204.8
+  },
+  "zIndex": 4200,
+  "job": {
+    "id": "placeholder-dishes",
+    "title": "Dishes",
+    "emoji": "🍽️",
+    "priority": "NORMAL"
+  },
+  "phase": "show"
+}
