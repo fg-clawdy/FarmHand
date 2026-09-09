@@ -55,6 +55,17 @@ export type PublicChore = {
   claimedByOther: boolean;
 };
 
+export type FamilyJob = {
+  id: string;
+  slug: string;
+  title: string;
+  emoji: string;
+  description: string;
+  priority: string;
+  assignmentMode: string;
+  requiresSelfie: boolean;
+};
+
 export type HarvestReward = {
   points: number;
   seedsReturned: number;
@@ -115,7 +126,7 @@ export type StoreSku = {
   description: string;
   starCost: number;
   isActive: boolean;
-  affordable: boolean;
+  affordable?: boolean;
 };
 
 export type StoreRedemption = {
@@ -190,6 +201,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   farm: () =>
     request<{ players: FarmPlayerCard[]; timezone: string; storeStatus: string; config: GameConfig }>("/api/farm"),
+  farmJobs: () => request<{ jobs: FamilyJob[]; timezone: string }>("/api/farm/jobs"),
   session: () => request<{ player: GardenPlayer | null; config?: GameConfig }>("/api/session"),
   enter: (id: string, pin?: string) =>
     request<{ player: GardenPlayer; config: GameConfig; skippedPin: boolean }>(`/api/players/${id}/enter`, {
@@ -241,6 +253,7 @@ export const api = {
     ),
   prune: (slot: number) => request<{ player: GardenPlayer }>(`/api/plots/${slot}/prune`, { method: "POST" }),
   store: () => request<PlayerStore>("/api/store"),
+  storeCatalog: () => request<{ catalog: StoreSku[] }>("/api/store/catalog"),
   requestStore: (skuId: string) =>
     request<PlayerStore & { ok: boolean; redemption: { id: string; title: string; emoji: string; starCost: number } }>(
       "/api/store/request",

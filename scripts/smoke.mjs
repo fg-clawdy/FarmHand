@@ -104,6 +104,19 @@ async function req(path, { method = "GET", body, cookie } = {}) {
   return { data, cookie: setCookie.map((c) => c.split(";")[0]).join("; ") };
 }
 
+async function reqShouldFail(path, opts, status, label) {
+  try {
+    await req(path, opts);
+    throw new Error(`${label} should have failed with ${status}`);
+  } catch (err) {
+    const msg = String(err.message);
+    if (msg.includes("should have failed")) throw err;
+    if (!msg.includes(`-> ${status}`)) {
+      throw new Error(`${label}: expected ${status}, got ${msg}`);
+    }
+  }
+}
+
 const health = await req("/api/health");
 if (health.data.status !== "ok") throw new Error("health failed");
 console.log("health ok");
@@ -463,6 +476,54 @@ await req(`/api/parent/chores/${clothes.id}`, {
   cookie: adminCookie,
   body: { assignmentMode: "ALL", assignedPlayerIds: [] },
 });
+
+const farmJobs = await req("/api/farm/jobs");
+if (!Array.isArray(farmJobs.data.jobs) || farmJobs.data.jobs.length === 0) {
+  throw new Error("family job board should list open chores without a PIN");
+}
+if (!farmJobs.data.jobs.some((j) => j.priority === "CRITICAL")) {
+  throw new Error("family job board should include an open CRITICAL dog chore");
+}
+await reqShouldFail(
+  `/api/chores/${farmJobs.data.jobs[0].id}/claim`,
+  { method: "POST", body: { slot: 0, tier: 1 } },
+  401,
+  "claim without session",
+);
+const dishes = catalog.data.chores.find((c) => c.slug === "dishes-1-6");
+if (!dishes) throw new Error("dishes chore missing");
+await req(`/api/parent/chores/${dishes.id}`, {
+  method: "PATCH",
+  cookie: adminCookie,
+  body: { assignmentMode: "SPECIFIC", assignedPlayerIds: [willowKid.id], isActive: true },
+});
+const jobsWithDishes = await req("/api/farm/jobs");
+if (!jobsWithDishes.data.jobs.some((j) => j.slug === "dishes-1-6")) {
+  throw new Error("family board should still show Willow-only dishes");
+}
+const finnForJobs = players.data.players.find((p) => p.name === "Finn");
+if (!finnForJobs) throw new Error("Finn missing");
+const finnJobEnter = await req(`/api/players/${finnForJobs.id}/enter`, { method: "POST", body: { pin: "2222" } });
+const finnJobChores = await req("/api/chores", { cookie: finnJobEnter.cookie });
+const dishesFinn = finnJobChores.data.chores.find((c) => c.slug === "dishes-1-6");
+if (dishesFinn?.eligible) throw new Error("Finn should not be eligible for Willow-only dishes");
+await reqShouldFail(
+  `/api/chores/${dishes.id}/claim`,
+  {
+    method: "POST",
+    cookie: finnJobEnter.cookie,
+    body: { slot: finnJobChores.data.emptySlots?.[0] ?? 0, tier: 1 },
+  },
+  400,
+  "Finn claiming Willow-only dishes",
+);
+await req(`/api/parent/chores/${dishes.id}`, {
+  method: "PATCH",
+  cookie: adminCookie,
+  body: { assignmentMode: "RACE", assignedPlayerIds: [] },
+});
+console.log("family job board + claim identity ok");
+
 const weekStats = await req("/api/parent/stats?range=week", { cookie: adminCookie });
 if (weekStats.data.range !== "week" || !Array.isArray(weekStats.data.kids) || weekStats.data.kids.length < 3) {
   throw new Error("parent stats week missing kids");
@@ -632,6 +693,25 @@ if (iceRow) {
     cookie: adminCookie,
   });
 }
+
+const anonCatalog = await req("/api/store/catalog");
+if (!anonCatalog.data.catalog?.some((s) => s.slug === "ice-cream")) {
+  throw new Error("anonymous store catalog should list ice cream");
+}
+if (anonCatalog.data.availableStars != null || anonCatalog.data.catalog.some((s) => s.affordable === true)) {
+  throw new Error("anonymous catalog must not include a kid wallet or affordability");
+}
+await reqShouldFail("/api/store", {}, 401, "anonymous GET /api/store");
+const iceAnon = anonCatalog.data.catalog.find((s) => s.slug === "ice-cream");
+await reqShouldFail(
+  "/api/store/request",
+  { method: "POST", body: { skuId: iceAnon.id } },
+  401,
+  "anonymous store request",
+);
+const willowStarsBeforeAnon = (await req("/api/store", { cookie: kidCookie2 })).data.availableStars;
+if (typeof willowStarsBeforeAnon !== "number") throw new Error("Willow store session should still work after anonymous browse");
+console.log("anonymous store catalog; spend requires identity");
 
 const beforeSet = await req("/api/store", { cookie: kidCookie2 });
 const harvestBeforeSet = beforeSet.data.lifetimeEarnedHarvest ?? 0;

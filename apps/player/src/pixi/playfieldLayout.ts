@@ -12,8 +12,9 @@ import { GARDEN_PLOT_COLS, PLOTS_PER_GARDEN } from "@farmhand/shared";
  *   center sign  ~ (760, 492)  = UV (0.495, 0.480)
  *   right sign   ~ (1221, 496) = UV (0.795, 0.484)
  *
- * Only the animated cow is drawn. Barn, tractor, hay, market stand, and the
- * three garden fences (full 3×3 soil + plaques) are solid blockers.
+ * Only the animated cow is drawn. Barn, tractor, hay, market stand, corkboard,
+ * and the three garden fences (full 3×3 soil + plaques) are solid blockers.
+ * Garden mound / soil / hit / sign UVs are locked — do not restitch crops here.
  */
 
 export type Uv = { u: number; v: number };
@@ -30,12 +31,15 @@ export const PLAYFIELD_LAYOUT = {
   /** Barn-side corridor — stays above the garden fence / plaque line. */
   cowRoam: { u0: 0.12, v0: 0.2, u1: 0.6, v1: 0.36 } satisfies UvRect,
   storeHit: { u0: 0.64, v0: 0.02, u1: 0.98, v1: 0.38 } satisfies UvRect,
+  /** Corkboard between the tractor and the market stand, above the cow corridor. */
+  jobBoardHit: { u0: 0.42, v0: 0.0, u1: 0.62, v1: 0.165 } satisfies UvRect,
   /** Solid footprints — tractor chassis is intentionally large so the calf cannot climb the hood. */
   blockers: {
     barn: { u0: 0.0, v0: 0.0, u1: 0.26, v1: 0.26 } satisfies UvRect,
     hay: { u0: 0.0, v0: 0.08, u1: 0.14, v1: 0.28 } satisfies UvRect,
     tractor: { u0: 0.14, v0: 0.1, u1: 0.4, v1: 0.38 } satisfies UvRect,
     stand: { u0: 0.64, v0: 0.0, u1: 0.99, v1: 0.4 } satisfies UvRect,
+    jobBoard: { u0: 0.42, v0: 0.0, u1: 0.62, v1: 0.165 } satisfies UvRect,
   },
   gardens: [
     {
@@ -139,6 +143,7 @@ export function cowForbiddenUv(
     layout.blockers.hay,
     layout.blockers.tractor,
     layout.blockers.stand,
+    layout.blockers.jobBoard,
     ...layout.gardens.map((garden) => garden.hit),
   ].map((rect) => padUvRect(rect, pad));
 }

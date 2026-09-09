@@ -7,7 +7,7 @@ import {
   compareChoresForKid,
   compareChoresForParent,
 } from "./choreCatalog.js";
-import { choreClaimGate } from "./chores.js";
+import { choreClaimGate, choreOpenForFamily } from "./chores.js";
 
 test("seed catalog has 21 unique slugs", () => {
   assert.equal(CHORE_CATALOG.length, 21);
@@ -121,4 +121,63 @@ test("claim gate blocks races, duplicates, weekends, and specific-without-assign
     alreadyClaimedByPlayer: false,
     raceTaken: false,
   }).reason, "That chore isn't assigned to you.");
+});
+
+test("family board lists SPECIFIC chores still open for someone", () => {
+  const base = {
+    isActive: true,
+    periodEligible: true,
+    assignedPlayerIds: ["willow", "finn"],
+    activePlayerIds: ["willow", "finn", "sage"],
+    claimedPlayerIdsThisPeriod: [] as string[],
+    raceTaken: false,
+  };
+  assert.equal(
+    choreOpenForFamily({ ...base, assignmentMode: "SPECIFIC" }),
+    true,
+  );
+  assert.equal(
+    choreOpenForFamily({
+      ...base,
+      assignmentMode: "SPECIFIC",
+      claimedPlayerIdsThisPeriod: ["willow"],
+    }),
+    true,
+    "Finn can still claim dishes",
+  );
+  assert.equal(
+    choreOpenForFamily({
+      ...base,
+      assignmentMode: "SPECIFIC",
+      claimedPlayerIdsThisPeriod: ["willow", "finn"],
+    }),
+    false,
+  );
+  assert.equal(
+    choreOpenForFamily({
+      ...base,
+      assignmentMode: "SPECIFIC",
+      assignedPlayerIds: ["willow"],
+      claimedPlayerIdsThisPeriod: [],
+    }),
+    true,
+    "Willow-only job still appears on the family corkboard",
+  );
+  assert.equal(
+    choreOpenForFamily({
+      ...base,
+      assignmentMode: "RACE",
+      raceTaken: true,
+    }),
+    false,
+  );
+  assert.equal(
+    choreOpenForFamily({
+      ...base,
+      assignmentMode: "ALL",
+      claimedPlayerIdsThisPeriod: ["willow", "finn"],
+    }),
+    true,
+    "Sage has not claimed yet",
+  );
 });

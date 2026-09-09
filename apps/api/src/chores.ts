@@ -1,8 +1,10 @@
 import {
   assignmentModeForSeed,
   choreClaimGate,
+  choreOpenForFamily,
   closedPeriodKey,
   compareChoresForKid,
+  compareChoresForParent,
   compareClaimsForInbox,
   getTier,
   plotIsEmpty,
@@ -136,6 +138,58 @@ export async function listPlayerChores(playerId: string, timezone: string, now =
     .map((chore) => publicChore(chore, { playerId, timezone, now, claimedPeriodKeys, raceTakenKeys }))
     .filter((chore) => chore.isActive)
     .sort(compareChoresForKid);
+}
+
+export type FamilyOpenJob = {
+  id: string;
+  slug: string;
+  title: string;
+  emoji: string;
+  description: string;
+  priority: ChorePriority;
+  assignmentMode: Chore["assignmentMode"];
+  requiresSelfie: boolean;
+  sortOrder: number;
+};
+
+export async function listFamilyOpenChores(timezone: string, now = new Date()): Promise<FamilyOpenJob[]> {
+  const [chores, players, claims, raceSlots] = await Promise.all([
+    prisma.chore.findMany({ include: { assignments: true }, orderBy: { sortOrder: "asc" } }),
+    prisma.player.findMany({ where: { isActive: true }, select: { id: true } }),
+    prisma.choreClaim.findMany({ select: { choreId: true, playerId: true, periodKey: true } }),
+    prisma.choreRaceSlot.findMany({ select: { choreId: true, periodKey: true } }),
+  ]);
+  const activePlayerIds = players.map((row) => row.id);
+  const raceTakenKeys = new Set(raceSlots.map((row) => `${row.choreId}:${row.periodKey}`));
+  const jobs: FamilyOpenJob[] = [];
+  for (const chore of chores) {
+    const period = chorePeriod(chore.recurrence, timezone, now);
+    const claimedPlayerIdsThisPeriod = claims
+      .filter((row) => row.choreId === chore.id && row.periodKey === period.key)
+      .map((row) => row.playerId);
+    const open = choreOpenForFamily({
+      isActive: chore.isActive,
+      periodEligible: period.eligible,
+      assignmentMode: chore.assignmentMode,
+      assignedPlayerIds: chore.assignments.map((row) => row.playerId),
+      activePlayerIds,
+      claimedPlayerIdsThisPeriod,
+      raceTaken: raceTakenKeys.has(`${chore.id}:${period.key}`),
+    });
+    if (!open) continue;
+    jobs.push({
+      id: chore.id,
+      slug: chore.slug,
+      title: chore.title,
+      emoji: chore.emoji,
+      description: chore.description,
+      priority: chore.priority,
+      assignmentMode: chore.assignmentMode,
+      requiresSelfie: chore.requiresSelfie,
+      sortOrder: chore.sortOrder,
+    });
+  }
+  return jobs.sort(compareChoresForParent);
 }
 
 export async function claimChore(opts: {

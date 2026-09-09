@@ -34,20 +34,23 @@ export class FarmScene {
   private cow: PaintedCow;
   private exhaust: ExhaustPuff;
   private store: Container;
+  private jobBoard: CorkboardHotspot;
   private app: Application;
   private onPlayer: (id: string) => void;
   private onStore: () => void;
+  private onJobBoard: () => void;
   private t = 0;
 
   constructor(
     engine: PixiEngine,
     atlas: Atlas,
     painted: PaintedArt,
-    handlers: { onPlayer: (id: string) => void; onStore: () => void },
+    handlers: { onPlayer: (id: string) => void; onStore: () => void; onJobBoard: () => void },
   ) {
     this.app = engine.app;
     this.onPlayer = handlers.onPlayer;
     this.onStore = handlers.onStore;
+    this.onJobBoard = handlers.onJobBoard;
 
     this.ground = new Sprite(painted.playfield);
     this.ground.anchor.set(0, 0);
@@ -71,6 +74,9 @@ export class FarmScene {
 
     this.store = this.makeStoreHit(tw, th);
     this.playfield.addChild(this.store);
+
+    this.jobBoard = new CorkboardHotspot(tw, th, () => this.onJobBoard());
+    this.playfield.addChild(this.jobBoard.root);
 
     for (let i = 0; i < 3; i++) {
       const bed = new GardenHotspot(atlas, painted, PLAYFIELD_LAYOUT.gardens[i]!, (id) => this.onPlayer(id));
@@ -126,6 +132,10 @@ export class FarmScene {
     });
   }
 
+  setWantedJobs(jobs: WantedJob[]) {
+    this.jobBoard.setJobs(jobs);
+  }
+
   private layout() {
     const w = this.app.screen.width;
     const h = this.app.screen.height;
@@ -145,6 +155,7 @@ export class FarmScene {
   private tick(dt: number) {
     this.t += dt;
     this.cow.update(dt);
+    this.jobBoard.update(dt);
     this.beds.forEach((b) => b.breathe(this.t));
   }
 
@@ -162,6 +173,221 @@ export class FarmScene {
 
   debugPlants() {
     return this.beds.flatMap((bed, garden) => bed.debugPlants(garden));
+  }
+}
+
+export type WantedJob = {
+  id: string;
+  title: string;
+  emoji: string;
+  priority: string;
+};
+
+function easeOutBack(t: number) {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2;
+}
+
+/** Painted corkboard + rotating Wanted poster on the main farm (not a garden plot). */
+class CorkboardHotspot {
+  readonly root = new Container();
+  private poster = new Container();
+  private paper = new Graphics();
+  private pinHead = new Graphics();
+  private banner: Text;
+  private emojiText: Text;
+  private titleText: Text;
+  private chipText: Text;
+  private jobs: WantedJob[] = [];
+  private index = 0;
+  private phase: "show" | "tear" | "pin" = "show";
+  private phaseT = 0;
+  private restX = 0;
+  private restY = 0;
+  private boardW = 0;
+  private boardH = 0;
+
+  constructor(texW: number, texH: number, onOpen: () => void) {
+    const rect = uvRectToLocal(PLAYFIELD_LAYOUT.jobBoardHit, texW, texH);
+    const w = rect.x1 - rect.x0;
+    const h = rect.y1 - rect.y0;
+    this.boardW = w;
+    this.boardH = h;
+    this.root.position.set(rect.x0, rect.y0);
+
+    const board = new Graphics();
+    board.roundRect(0, 18, w, h - 18, 14);
+    board.fill(0x6b3a18);
+    board.roundRect(10, 28, w - 20, h - 38, 10);
+    board.fill(0xc48a4a);
+    board.roundRect(16, 34, w - 32, h - 50, 8);
+    board.fill(0xd4a05c);
+    for (let i = 0; i < 18; i++) {
+      const px = 24 + ((i * 47) % (w - 48));
+      const py = 42 + ((i * 31) % (h - 70));
+      board.circle(px, py, 2.2);
+      board.fill({ color: 0xa56b32, alpha: 0.45 });
+    }
+
+    const label = new Text({
+      text: "Job Board",
+      style: {
+        fontFamily: "Fredoka, sans-serif",
+        fontSize: 26,
+        fill: 0xfff8ec,
+        fontWeight: "700",
+        stroke: { color: 0x3a2410, width: 5 },
+      },
+    });
+    label.anchor.set(0.5, 1);
+    label.position.set(w / 2, 16);
+
+    this.banner = new Text({
+      text: "WANTED",
+      style: {
+        fontFamily: "Fredoka, sans-serif",
+        fontSize: 13,
+        fill: 0x9b2c1f,
+        fontWeight: "800",
+        letterSpacing: 1.2,
+      },
+    });
+    this.banner.anchor.set(0.5, 0);
+    this.emojiText = new Text({
+      text: "📌",
+      style: { fontFamily: "Fredoka, sans-serif", fontSize: 36, fill: 0x3a2410, align: "center" },
+    });
+    this.emojiText.anchor.set(0.5, 0);
+    this.titleText = new Text({
+      text: "Open jobs",
+      style: {
+        fontFamily: "Fredoka, sans-serif",
+        fontSize: 16,
+        fill: 0x3a2410,
+        fontWeight: "700",
+        wordWrap: true,
+        wordWrapWidth: Math.max(80, w - 64),
+        align: "center",
+      },
+    });
+    this.titleText.anchor.set(0.5, 0);
+    this.chipText = new Text({
+      text: "+1 waiting seed",
+      style: {
+        fontFamily: "Fredoka, sans-serif",
+        fontSize: 12,
+        fill: 0x5c3218,
+        fontWeight: "700",
+        align: "center",
+      },
+    });
+    this.chipText.anchor.set(0.5, 0);
+
+    this.poster.addChild(this.paper, this.banner, this.emojiText, this.titleText, this.chipText, this.pinHead);
+    this.restX = w / 2;
+    this.restY = 28 + (h - 38) / 2;
+    this.poster.position.set(this.restX, this.restY);
+    this.paintPoster(null);
+
+    const hit = new Graphics();
+    hit.rect(0, 0, w, h);
+    hit.fill({ color: 0xffffff, alpha: 0.001 });
+
+    this.root.addChild(board, this.poster, label, hit);
+    this.root.zIndex = 4200;
+    this.root.eventMode = "static";
+    this.root.cursor = "pointer";
+    this.root.on("pointerup", onOpen);
+  }
+
+  setJobs(jobs: WantedJob[]) {
+    const same =
+      jobs.length === this.jobs.length && jobs.every((job, i) => job.id === this.jobs[i]?.id);
+    this.jobs = jobs;
+    if (!same) {
+      this.index = 0;
+      this.phase = "show";
+      this.phaseT = 0;
+      this.resetPosterPose();
+      this.paintPoster(this.jobs[0] ?? null);
+    }
+  }
+
+  update(dt: number) {
+    if (this.jobs.length < 2) {
+      this.resetPosterPose();
+      return;
+    }
+    this.phaseT += dt;
+    if (this.phase === "show") {
+      this.resetPosterPose();
+      if (this.phaseT >= 4.2) {
+        this.phase = "tear";
+        this.phaseT = 0;
+      }
+      return;
+    }
+    if (this.phase === "tear") {
+      const p = Math.min(1, this.phaseT / 0.5);
+      this.poster.rotation = p * 0.55;
+      this.poster.position.set(this.restX + p * 36, this.restY + p * 90);
+      this.poster.alpha = 1 - p;
+      if (p >= 1) {
+        this.index = (this.index + 1) % this.jobs.length;
+        this.paintPoster(this.jobs[this.index] ?? null);
+        this.phase = "pin";
+        this.phaseT = 0;
+        this.poster.rotation = -0.08;
+        this.poster.position.set(this.restX, this.restY - 12);
+        this.poster.alpha = 1;
+        this.poster.scale.set(0.35);
+      }
+      return;
+    }
+    const p = Math.min(1, this.phaseT / 0.45);
+    const eased = easeOutBack(p);
+    this.poster.scale.set(0.35 + 0.65 * eased);
+    this.poster.rotation = -0.08 * (1 - p);
+    this.poster.position.set(this.restX, this.restY - 12 * (1 - p));
+    this.poster.alpha = 1;
+    if (p >= 1) {
+      this.phase = "show";
+      this.phaseT = 0;
+      this.resetPosterPose();
+    }
+  }
+
+  private resetPosterPose() {
+    this.poster.rotation = 0;
+    this.poster.alpha = 1;
+    this.poster.scale.set(1);
+    this.poster.position.set(this.restX, this.restY);
+  }
+
+  private paintPoster(job: WantedJob | null) {
+    const pw = Math.max(88, this.boardW - 48);
+    const ph = Math.max(110, this.boardH - 64);
+    const critical = job?.priority === "CRITICAL";
+    this.paper.clear();
+    this.paper.roundRect(-pw / 2, -ph / 2, pw, ph, 6);
+    this.paper.fill(critical ? 0xf3c4b8 : 0xfff6df);
+    this.paper.stroke({ color: critical ? 0x9b2c1f : 0x8a4f2a, width: 3 });
+    this.pinHead.clear();
+    this.pinHead.circle(0, -ph / 2 + 8, 6);
+    this.pinHead.fill(critical ? 0x9b2c1f : 0x3f8a3a);
+    this.pinHead.circle(0, -ph / 2 + 8, 2.5);
+    this.pinHead.fill(0xfff8ec);
+    this.banner.text = critical ? "WANTED" : "HELP WANTED";
+    this.banner.style.fill = critical ? 0x9b2c1f : 0x5c3218;
+    this.banner.position.set(0, -ph / 2 + 14);
+    this.emojiText.text = job?.emoji || "📌";
+    this.emojiText.position.set(0, -ph / 2 + 28);
+    this.titleText.text = job?.title || "No open jobs";
+    this.titleText.style.wordWrapWidth = pw - 16;
+    this.titleText.position.set(0, -8);
+    this.chipText.text = job ? "+1 waiting seed" : "Check back soon";
+    this.chipText.position.set(0, ph / 2 - 22);
   }
 }
 
