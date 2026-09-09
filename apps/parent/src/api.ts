@@ -47,4 +47,16 @@ export const api = {
     request<{ ok: boolean; claims: InboxClaim[] }>(`/api/parent/claims/${id}/approve`, { method: "POST" }),
   deny: (id: string) =>
     request<{ ok: boolean; claims: InboxClaim[] }>(`/api/parent/claims/${id}/deny`, { method: "POST" }),
+  pushConfig: () =>
+    request<{ enabled: boolean; publicKey: string | null; subscribed: boolean }>("/api/parent/push/config"),
+  pushSubscribe: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+    request<{ ok: boolean; subscribed: boolean }>("/api/parent/push/subscribe", {
+      method: "POST",
+      body: JSON.stringify(sub),
+    }),
+  pushUnsubscribe: (endpoint: string) =>
+    request<{ ok: boolean; subscribed: boolean }>("/api/parent/push/unsubscribe", {
+      method: "POST",
+      body: JSON.stringify({ endpoint }),
+    }),
 };

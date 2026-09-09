@@ -13,6 +13,7 @@ import {
 } from "../auth.js";
 import { claimChore, EMPTY_PLOT_DATA, listPlayerChores, prunePlot, releaseClaimIfNeeded } from "../chores.js";
 import { loadConfig, plotWateringState, publicPlayer, selfieUnlockedOn, syncPlayerPlots } from "../game.js";
+import { notifyChoreClaimPending } from "../push.js";
 import { decodeSelfiePayload, inspectJpeg, planSelfieReward, writeClaimJpeg, writeSelfieJpeg } from "../selfie.js";
 import { todayKey } from "../tz.js";
 
@@ -469,6 +470,13 @@ export async function playerRoutes(app: FastifyInstance) {
           data: { proofJpegPath: proofPath },
         });
       }
+      void notifyChoreClaimPending({
+        claimId: result.claim.id,
+        playerName: session.player.name,
+        title: result.chore.title,
+        emoji: result.chore.emoji,
+        priority: result.chore.priority,
+      }).catch((err) => request.log.warn({ err }, "chore claim push failed"));
       const player = await prisma.player.findUniqueOrThrow({
         where: { id: session.playerId },
         include: { plots: { orderBy: { slot: "asc" } } },

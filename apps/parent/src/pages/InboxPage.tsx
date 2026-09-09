@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type InboxClaim } from "../api";
+import PushSettings from "../components/PushSettings";
 
 export default function InboxPage() {
   const [claims, setClaims] = useState<InboxClaim[] | null>(null);
@@ -31,15 +32,23 @@ export default function InboxPage() {
     }
   }
 
-  if (!claims) return <p>Loading the inbox…</p>;
+  if (!claims) {
+    return (
+      <div>
+        <p>Loading the inbox…</p>
+        <PushSettings />
+      </div>
+    );
+  }
 
   return (
     <div>
       <h2>Chore inbox</h2>
       <p className="muted">
         Dog chores are listed first. Approve starts the plant growing. Deny wilts it — the kid prunes, no seed back.
-        Web Push comes later; this inbox is the daily driver.
+        Notifications are optional; this inbox is the fallback if push is off or a tap is stale.
       </p>
+      <PushSettings />
       {error && <p className="error">{error}</p>}
       {claims.length === 0 && <p className="card">Nothing waiting. Kids can keep claiming chores.</p>}
       <div className="claim-list">

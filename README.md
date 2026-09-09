@@ -139,6 +139,7 @@ See `.env.example`. Compose variables:
 - `ADMIN_BOOTSTRAP_USER` / `ADMIN_BOOTSTRAP_PASSWORD` — only used when no admin row exists
 - `COOKIE_SECURE` — `true` when the app is behind HTTPS
 - `SELFIE_DROP_DIR` — host folder Immich can watch; Compose bind-mounts it to `/data/selfies` in the API. See [`docs/phase-2-selfie.md`](docs/phase-2-selfie.md).
+- `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` — Parent Web Push. Generate with `npm run vapid-keys -w @farmhand/api`. Leave blank to disable push (inbox still works). Never commit the private key. See [`docs/phase-2-parent-push.md`](docs/phase-2-parent-push.md).
 
 ## Tests
 
@@ -158,5 +159,5 @@ BASE_URL=http://127.0.0.1:8080 node scripts/smoke.mjs
 
 Phase 1 closeout checklist: [`docs/phase-1-done.md`](docs/phase-1-done.md).
 
-Phase 2+ product / architecture spec: [`docs/phase-2-and-architecture.md`](docs/phase-2-and-architecture.md). Selfie earn: [`docs/phase-2-selfie.md`](docs/phase-2-selfie.md). Chores + purgatory: [`docs/phase-2-chores.md`](docs/phase-2-chores.md).
+Phase 2+ product / architecture spec: [`docs/phase-2-and-architecture.md`](docs/phase-2-and-architecture.md). Selfie earn: [`docs/phase-2-selfie.md`](docs/phase-2-selfie.md). Chores + purgatory: [`docs/phase-2-chores.md`](docs/phase-2-chores.md). Parent Web Push: [`docs/phase-2-parent-push.md`](docs/phase-2-parent-push.md).
 

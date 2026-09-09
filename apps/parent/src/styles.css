@@ -98,6 +98,7 @@ button, input, select, textarea { font: inherit; }
   padding: 2px 8px;
   vertical-align: middle;
 }
+.row .badge { margin-left: 0; background: var(--sage); }
 @media (max-width: 900px) {
   .shell { grid-template-columns: 1fr; }
 }

@@ -12,7 +12,7 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,svg,png,jpg,webp,ico,webmanifest}"],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/admin/, /^\/api/, /^\/health/],
+        navigateFallbackDenylist: [/^\/admin/, /^\/parent/, /^\/api/, /^\/health/],
       },
       manifest: {
         name: "FarmHand",

@@ -334,6 +334,23 @@ if (dogs.length !== 3 || dogs.some((c) => c.priority !== "CRITICAL" || c.assignm
 console.log("chore catalog 21 ok");
 // Player UI Job Board (Chores toolbar) still claims via this API: 1 purgatory plant, no pouch spend.
 
+const pushCfg = await req("/api/parent/push/config", { cookie: adminCookie });
+const fakePush = `https://push.example.test/farmhand-smoke-${Date.now()}`;
+await req("/api/parent/push/subscribe", {
+  method: "POST",
+  cookie: adminCookie,
+  body: {
+    endpoint: fakePush,
+    keys: { p256dh: "BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", auth: "AAAAAAAAAAAAAAAAAAAAAA" },
+  },
+});
+const pushOn = await req("/api/parent/push/config", { cookie: adminCookie });
+if (!pushOn.data.subscribed) throw new Error("parent push subscribe did not stick");
+await req("/api/parent/push/unsubscribe", { method: "POST", cookie: adminCookie, body: { endpoint: fakePush } });
+const pushOff = await req("/api/parent/push/config", { cookie: adminCookie });
+if (pushOff.data.subscribed) throw new Error("parent push unsubscribe did not clear");
+console.log("parent push subscribe/unsubscribe ok; vapid enabled", Boolean(pushCfg.data.enabled));
+
 await ensureEmptySlots(kidCookie2, adminCookie, 2);
 let kidList = await req("/api/chores", { cookie: kidCookie2 });
 const bed = kidList.data.chores.find((c) => c.slug === "make-your-bed" && c.eligible);
@@ -370,6 +387,12 @@ const inbox = await req("/api/parent/inbox", { cookie: adminCookie });
 const pendingBed = inbox.data.claims.find((c) => c.id === claimed.data.claim.id);
 if (!pendingBed) throw new Error("parent inbox missing pending claim");
 await req(`/api/parent/claims/${claimed.data.claim.id}/approve`, { method: "POST", cookie: adminCookie });
+try {
+  await req(`/api/parent/claims/${claimed.data.claim.id}/approve`, { method: "POST", cookie: adminCookie });
+  throw new Error("second approve should be rejected as already-resolved");
+} catch (err) {
+  if (!String(err.message).toLowerCase().includes("already")) throw err;
+}
 const afterApprove = await req("/api/garden", { cookie: kidCookie2 });
 const growingChore = afterApprove.data.player.plots.find((p) => p.slot === emptyChore);
 if (growingChore?.state !== "growing" || !growingChore.plantedAt) {

@@ -2,7 +2,7 @@
 
 Product source of truth: [`phase-2-and-architecture.md`](phase-2-and-architecture.md) § Phase 2 — Chores.
 
-This slice is **shipped** on the compose stack. Daily [selfie earn](phase-2-selfie.md) stays separate and must still work. Store catalog, Web Push, face-ID, effort banding, and Final Boss are still out of scope.
+This slice is **shipped** on the compose stack. Daily [selfie earn](phase-2-selfie.md) stays separate and must still work. Store catalog, face-ID, effort banding, and Final Boss are still out of scope. Parent Web Push: [`phase-2-parent-push.md`](phase-2-parent-push.md).
 
 ## What shipped
 
@@ -14,7 +14,7 @@ This slice is **shipped** on the compose stack. Daily [selfie earn](phase-2-self
 6. **Brush Your Hair** is a normal chore with `requiresSelfie` + `requiresApproval` (photo for the parent queue). It does **not** unlock watering or grant the daily selfie seed.
 7. **CRITICAL** dog chores (Feed Dog A.M./P.M., Walk the Dog) sort first in the parent inbox.
 
-Parent login is the **same account** as Admin (`/api/admin/login`, cookie `fh_admin`). This slice does not add a second password. Web Push is not wired yet — the in-app inbox is the Approve | Deny path.
+Parent login is the **same account** as Admin (`/api/admin/login`, cookie `fh_admin`). This slice does not add a second password. [Web Push](phase-2-parent-push.md) is optional on top of this inbox: same Approve | Deny endpoints, plus dismiss-across-devices when a claim is resolved.
 
 ## Kid Job Board (browse UI)
 
@@ -44,7 +44,7 @@ Manual:
 
 1. Kid garden → **Chores** → Job Board of big cards. Claim (pick empty mound + crop). Grey **WAITING** plant appears. Pouch seed count does **not** bump.
 2. With **0 pouch seeds**, tap Seeds or an empty mound → nudge with **Do a job to plant a waiting seed** → Job Board. Claim still plants without spending pouch seeds.
-3. Open [http://localhost/parent/](http://localhost/parent/) (or `$HTTP_PORT`) → Approve or Deny.
+3. Open [http://localhost/parent/](http://localhost/parent/) (or `$HTTP_PORT`) → Approve or Deny. Optional: enable notifications (see [parent push](phase-2-parent-push.md)).
 4. Approve: plant turns normal and the countdown starts. Water still needs today’s selfie.
 5. Deny: plant **WILTED** → tap to prune → empty, pouch seeds unchanged.
 6. Fill all 9 plots and open the Job Board — it explains harvest/prune before claiming; claim is rejected.

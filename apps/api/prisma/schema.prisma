@@ -55,14 +55,21 @@ enum ChoreClaimStatus {
   DENIED
 }
 
+enum ApprovalSubjectKind {
+  chore_claim
+  store_redemption
+}
+
 model Admin {
-  id             String         @id @default(uuid())
-  username       String         @unique
-  passwordHash   String
-  createdAt      DateTime       @default(now())
-  sessions       AdminSession[]
-  auditLogs      AuditLog[]
-  resolvedClaims ChoreClaim[]
+  id                String             @id @default(uuid())
+  username          String             @unique
+  passwordHash      String
+  createdAt         DateTime           @default(now())
+  sessions          AdminSession[]
+  auditLogs         AuditLog[]
+  resolvedClaims    ChoreClaim[]
+  pushSubscriptions PushSubscription[]
+  actionTokens      PushActionToken[]
 }
 
 model AdminSession {
@@ -221,6 +228,35 @@ model ActivityLog {
 
   @@index([playerId, createdAt])
   @@index([action, createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  adminId   String
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([adminId])
+}
+
+model PushActionToken {
+  id          String              @id @default(uuid())
+  tokenHash   String              @unique
+  adminId     String
+  admin       Admin               @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  subjectKind ApprovalSubjectKind
+  subjectId   String
+  expiresAt   DateTime
+  createdAt   DateTime            @default(now())
+
+  @@unique([adminId, subjectKind, subjectId])
+  @@index([subjectKind, subjectId])
+  @@index([expiresAt])
 }
 
 model AuditLog {
