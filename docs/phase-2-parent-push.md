@@ -73,7 +73,7 @@ Use two Parent sessions. Same account on two browsers is enough to prove dismiss
 6. Deny path: claim another chore, **Deny** from the other device → wilt → kid prunes, no seed return.
 7. Turn off notifications, or use a browser with push blocked: the inbox still lists the pending row and the same buttons work.
 
-`scripts/smoke.mjs` covers subscribe/unsubscribe plus the existing atomic approve/deny lifecycle. It cannot deliver a real FCM/APNs notification (needs HTTPS + a real browser permission).
+`scripts/smoke.mjs` covers subscribe/unsubscribe plus the existing atomic approve/deny lifecycle. It cannot deliver a real FCM/APNs notification (needs HTTPS + a real browser permission). Config `subscribed` may stay true after the smoke endpoint is removed if another parent device is already registered.
 
 ## Service worker
 
