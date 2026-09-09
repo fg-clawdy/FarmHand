@@ -616,6 +616,136 @@ if (pruned.data.player.seeds !== seedsBeforeDeny) throw new Error("prune must no
 if (pruned.data.player.points !== raceClaim.data.player.points) throw new Error("deny/prune must not grant stars");
 console.log("deny → wilt → prune, no seed return");
 
+const leftoverStore = await req("/api/parent/store", { cookie: adminCookie });
+for (const row of leftoverStore.data.redemptions ?? []) {
+  try {
+    await req(`/api/parent/redemptions/${row.id}/deny`, { method: "POST", cookie: adminCookie });
+  } catch {
+    /* already resolved */
+  }
+}
+const iceRow = leftoverStore.data.skus.find((s) => s.slug === "ice-cream");
+if (iceRow) {
+  await req(`/api/parent/store/skus/${iceRow.id}`, {
+    method: "PATCH",
+    body: { starCost: 500, isActive: true },
+    cookie: adminCookie,
+  });
+}
+
+await req(`/api/admin/players/${willow.id}/resources`, {
+  method: "POST",
+  body: { points: 800, reason: "smoke store stars" },
+  cookie: adminCookie,
+});
+const parentStore = await req("/api/parent/store", { cookie: adminCookie });
+if (!Array.isArray(parentStore.data.skus) || parentStore.data.skus.length < 5) {
+  throw new Error(`starter catalog should have 5 SKUs, got ${parentStore.data.skus?.length}`);
+}
+const ice = parentStore.data.skus.find((s) => s.slug === "ice-cream");
+if (!ice || ice.starCost !== 500) throw new Error("ice cream SKU missing or not 500★");
+const storeOpen = await req("/api/store", { cookie: kidCookie2 });
+if (storeOpen.data.points !== 800) {
+  throw new Error(`expected 800 points after SET, got ${storeOpen.data.points}`);
+}
+if (storeOpen.data.availableStars !== 800 || storeOpen.data.starsHeld !== 0) {
+  throw new Error(`expected 800 available / 0 held, got ${JSON.stringify(storeOpen.data)}`);
+}
+const iceCard = storeOpen.data.catalog.find((s) => s.slug === "ice-cream");
+if (!iceCard?.affordable) throw new Error("ice cream should be affordable at 800★");
+
+const requested = await req("/api/store/request", {
+  method: "POST",
+  body: { skuId: ice.id },
+  cookie: kidCookie2,
+});
+if (requested.data.points !== 800) throw new Error("request must not spend points yet");
+if (requested.data.starsHeld !== 500) throw new Error(`held expected 500, got ${requested.data.starsHeld}`);
+if (requested.data.availableStars !== 300) {
+  throw new Error(`available expected 300, got ${requested.data.availableStars}`);
+}
+if (!requested.data.pending?.some((r) => r.status === "pending" && r.starCost === 500)) {
+  throw new Error("pending ice cream missing after request");
+}
+try {
+  await req("/api/store/request", {
+    method: "POST",
+    body: { skuId: ice.id },
+    cookie: kidCookie2,
+  });
+  throw new Error("second ice cream should be unaffordable");
+} catch (err) {
+  const msg = String(err.message).toLowerCase();
+  if (!msg.includes("enough") && !msg.includes("stars")) throw err;
+}
+
+const inboxStore = await req("/api/parent/inbox", { cookie: adminCookie });
+const pendingIce = inboxStore.data.redemptions?.find((r) => r.id === requested.data.redemption.id);
+if (!pendingIce) throw new Error("inbox missing pending store redemption");
+await req(`/api/parent/redemptions/${requested.data.redemption.id}/deny`, {
+  method: "POST",
+  cookie: adminCookie,
+});
+const afterStoreDeny = await req("/api/store", { cookie: kidCookie2 });
+if (afterStoreDeny.data.points !== 800) throw new Error("deny must not spend points");
+if (afterStoreDeny.data.starsHeld !== 0 || afterStoreDeny.data.availableStars !== 800) {
+  throw new Error(`deny should release the hold, got held=${afterStoreDeny.data.starsHeld} available=${afterStoreDeny.data.availableStars}`);
+}
+
+const requested2 = await req("/api/store/request", {
+  method: "POST",
+  body: { skuId: ice.id },
+  cookie: kidCookie2,
+});
+await req(`/api/parent/redemptions/${requested2.data.redemption.id}/fulfill`, {
+  method: "POST",
+  cookie: adminCookie,
+});
+const afterFulfill = await req("/api/store", { cookie: kidCookie2 });
+if (afterFulfill.data.points !== 300) {
+  throw new Error(`fulfill should spend 500, points 300, got ${afterFulfill.data.points}`);
+}
+if (afterFulfill.data.points < 0) throw new Error("balance went negative");
+if (afterFulfill.data.starsHeld !== 0 || afterFulfill.data.availableStars !== 300) {
+  throw new Error(`expected 0 held / 300 available after fulfill, got ${JSON.stringify(afterFulfill.data)}`);
+}
+if (!afterFulfill.data.recent?.some((r) => r.id === requested2.data.redemption.id && r.status === "fulfilled")) {
+  throw new Error("recent fulfilled missing");
+}
+try {
+  await req(`/api/parent/redemptions/${requested2.data.redemption.id}/fulfill`, {
+    method: "POST",
+    cookie: adminCookie,
+  });
+  throw new Error("second fulfill should be rejected");
+} catch (err) {
+  if (!String(err.message).toLowerCase().includes("already")) throw err;
+}
+
+await req(`/api/parent/store/skus/${ice.id}`, {
+  method: "PATCH",
+  body: { starCost: 550 },
+  cookie: adminCookie,
+});
+const patched = await req("/api/parent/store", { cookie: adminCookie });
+if (patched.data.skus.find((s) => s.id === ice.id)?.starCost !== 550) {
+  throw new Error("parent SKU patch did not stick");
+}
+await req(`/api/parent/store/skus/${ice.id}`, {
+  method: "PATCH",
+  body: { starCost: 500 },
+  cookie: adminCookie,
+});
+const createdSku = await req("/api/parent/store/skus", {
+  method: "POST",
+  body: { title: "Smoke extra treat", emoji: "🍪", starCost: 50, description: "smoke only", isActive: false },
+  cookie: adminCookie,
+});
+if (!createdSku.data.sku?.id || createdSku.data.sku.isActive !== false) {
+  throw new Error("parent create SKU should stay off the shelf");
+}
+console.log("store hold/deny/fulfill + catalog CRUD ok");
+
 const sage = players.data.players.find((p) => p.name === "Sage");
 if (!sage) throw new Error("Sage missing");
 await req(`/api/admin/players/${sage.id}/resources`, {

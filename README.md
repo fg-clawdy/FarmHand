@@ -70,7 +70,7 @@ Change `ADMIN_BOOTSTRAP_*` in `.env` **before** the first boot if you do not wan
 5. **Chores** (garden toolbar): claim an eligible job to plant a grey **waiting** seed. A parent Approves or Denies at `/parent`. Deny → wilt → prune, no seed back. Stars still only come from harvesting a confirmed plant.
 6. Harvest when the plot glows gold. The kid earns **25 stars** and **1 seed is returned** (plant cost is also 1, so a harvest is seed-neutral).
 7. Open the ingredient shed (🧪+) to claim the daily ingredient (Moon Dew → Grow Goo → Phoenix Ash) and mix 1 of each into fertilizer.
-8. The Farm Store building is **Coming Soon** only.
+8. Tap the **Farm Store** to spend **stars** on real-world rewards (movie night, ice cream, …). A request **holds** stars until a grown-up Fulfills or Denies at `/parent/store`. Harvest is still the only way to earn stars. See [`docs/phase-2-store.md`](docs/phase-2-store.md).
 
 Starting pouch: **10 seeds, 0 stars**.
 
@@ -159,5 +159,5 @@ BASE_URL=http://127.0.0.1:8080 node scripts/smoke.mjs
 
 Phase 1 closeout checklist: [`docs/phase-1-done.md`](docs/phase-1-done.md).
 
-Phase 2+ product / architecture spec: [`docs/phase-2-and-architecture.md`](docs/phase-2-and-architecture.md). Selfie earn: [`docs/phase-2-selfie.md`](docs/phase-2-selfie.md). Chores + purgatory: [`docs/phase-2-chores.md`](docs/phase-2-chores.md). Parent Web Push: [`docs/phase-2-parent-push.md`](docs/phase-2-parent-push.md).
+Phase 2+ product / architecture spec: [`docs/phase-2-and-architecture.md`](docs/phase-2-and-architecture.md). Selfie earn: [`docs/phase-2-selfie.md`](docs/phase-2-selfie.md). Chores + purgatory: [`docs/phase-2-chores.md`](docs/phase-2-chores.md). Parent Web Push: [`docs/phase-2-parent-push.md`](docs/phase-2-parent-push.md). Real-world store: [`docs/phase-2-store.md`](docs/phase-2-store.md).
 

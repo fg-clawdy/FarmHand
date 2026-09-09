@@ -271,6 +271,8 @@ Suggested slugs for future icon PNGs: `make-your-bed`, `clean-your-room`, `brush
 - Fulfillment is a real-world promise (movie night happens, ice cream is bought). The app records the decision and spends stars only on **fulfill** (or on request-hold — implementation may hold stars on request and release on deny; do not double-spend).
 - Expand the catalog later with **farmstead** (Phase 4).
 
+Implemented starter (hold on request, spend on fulfill, release on deny; Parent catalog CRUD; push Fulfill | Deny): [`docs/phase-2-store.md`](phase-2-store.md).
+
 ---
 
 ## Parent PWA notifications (REQUIRED)

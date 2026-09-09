@@ -14,13 +14,23 @@ import {
   updateParentChore,
 } from "../parentChores.js";
 import type { ParentChoreBody } from "../parentChoreWrite.js";
+import type { ParentSkuBody } from "../parentStoreWrite.js";
 import { buildParentStats, parseParentStatsRange, statsLookbackStart } from "../parentStats.js";
 import { farmAccoladeLedgers } from "../accolades.js";
+import {
+  denyRedemption,
+  fulfillRedemption,
+  listParentSkus,
+  listPendingRedemptions,
+  publicSku,
+} from "../store.js";
+import { parseSkuCreate, parseSkuPatch } from "../parentStoreWrite.js";
 import {
   actorFromActionToken,
   adminHasPushSubscription,
   deletePushSubscription,
   notifyChoreClaimResolved,
+  notifyStoreRedemptionResolved,
   upsertPushSubscription,
   vapidConfig,
   type ApprovalKind,
@@ -198,7 +208,7 @@ export async function parentRoutes(app: FastifyInstance) {
   app.get("/api/parent/inbox", async (request, reply) => {
     const session = await requireAdmin(request, reply);
     if (!session) return;
-    return { claims: await listParentInbox() };
+    return { claims: await listParentInbox(), redemptions: await listPendingRedemptions() };
   });
 
   app.post("/api/parent/claims/:id/approve", async (request, reply) => {
@@ -208,7 +218,7 @@ export async function parentRoutes(app: FastifyInstance) {
     try {
       await approveClaim(id, actor.adminId);
       void notifyChoreClaimResolved(id).catch((err) => app.log.warn({ err }, "push clear failed"));
-      return { ok: true, status: "APPROVED", claims: await listParentInbox() };
+      return { ok: true, status: "APPROVED", claims: await listParentInbox(), redemptions: await listPendingRedemptions() };
     } catch (err) {
       const e = err as Error & { statusCode?: number };
       return reply.code(e.statusCode ?? 400).send({ error: e.message });
@@ -222,7 +232,7 @@ export async function parentRoutes(app: FastifyInstance) {
     try {
       await denyClaim(id, actor.adminId);
       void notifyChoreClaimResolved(id).catch((err) => app.log.warn({ err }, "push clear failed"));
-      return { ok: true, status: "DENIED", claims: await listParentInbox() };
+      return { ok: true, status: "DENIED", claims: await listParentInbox(), redemptions: await listPendingRedemptions() };
     } catch (err) {
       const e = err as Error & { statusCode?: number };
       return reply.code(e.statusCode ?? 400).send({ error: e.message });
@@ -275,5 +285,87 @@ export async function parentRoutes(app: FastifyInstance) {
     reply.header("Content-Type", "image/jpeg");
     reply.header("Cache-Control", "private, max-age=120");
     return reply.send(createReadStream(claim.proofJpegPath));
+  });
+
+  app.get("/api/parent/store", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    return {
+      redemptions: await listPendingRedemptions(),
+      skus: await listParentSkus(),
+    };
+  });
+
+  app.post("/api/parent/store/skus", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    try {
+      const data = parseSkuCreate((request.body ?? {}) as ParentSkuBody);
+      let slug = data.slug;
+      let n = 2;
+      while (await prisma.storeSku.findUnique({ where: { slug } })) {
+        slug = `${data.slug}-${n}`;
+        n += 1;
+      }
+      const row = await prisma.storeSku.create({ data: { ...data, slug } });
+      return { sku: publicSku(row) };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.patch("/api/parent/store/skus/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    try {
+      const existing = await prisma.storeSku.findUnique({ where: { id } });
+      if (!existing) return reply.code(404).send({ error: "That reward isn't on the list." });
+      const patch = parseSkuPatch((request.body ?? {}) as ParentSkuBody);
+      const row = await prisma.storeSku.update({ where: { id }, data: patch });
+      return { sku: publicSku(row) };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.post("/api/parent/redemptions/:id/fulfill", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const actor = await requireParentActor(request, reply, { kind: "store_redemption", subjectId: id });
+    if (!actor) return;
+    try {
+      await fulfillRedemption(id, actor.adminId);
+      void notifyStoreRedemptionResolved(id).catch((err) => app.log.warn({ err }, "store push clear failed"));
+      return {
+        ok: true,
+        status: "FULFILLED",
+        redemptions: await listPendingRedemptions(),
+        claims: await listParentInbox(),
+      };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.post("/api/parent/redemptions/:id/deny", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const actor = await requireParentActor(request, reply, { kind: "store_redemption", subjectId: id });
+    if (!actor) return;
+    try {
+      await denyRedemption(id, actor.adminId);
+      void notifyStoreRedemptionResolved(id).catch((err) => app.log.warn({ err }, "store push clear failed"));
+      return {
+        ok: true,
+        status: "DENIED",
+        redemptions: await listPendingRedemptions(),
+        claims: await listParentInbox(),
+      };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
   });
 }

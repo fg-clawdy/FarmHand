@@ -16,7 +16,7 @@ export async function farmRoutes(app: FastifyInstance) {
     });
     return {
       timezone: config.timezone,
-      storeStatus: "coming_soon",
+      storeStatus: "open",
       config,
       players: players.map((player) => {
         return {

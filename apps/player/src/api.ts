@@ -107,6 +107,39 @@ export type AccoladeLedger = {
   };
 };
 
+export type StoreSku = {
+  id: string;
+  slug: string;
+  title: string;
+  emoji: string;
+  description: string;
+  starCost: number;
+  isActive: boolean;
+  affordable: boolean;
+};
+
+export type StoreRedemption = {
+  id: string;
+  skuId: string;
+  slug: string;
+  status: "pending" | "fulfilled" | "denied";
+  title: string;
+  emoji: string;
+  starCost: number;
+  starsHeld: number;
+  requestedAt: string;
+  resolvedAt: string | null;
+};
+
+export type PlayerStore = {
+  points: number;
+  starsHeld: number;
+  availableStars: number;
+  catalog: StoreSku[];
+  pending: StoreRedemption[];
+  recent: StoreRedemption[];
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const hasBody = init?.body !== undefined;
   const res = await fetch(path, {
@@ -177,4 +210,10 @@ export const api = {
       },
     ),
   prune: (slot: number) => request<{ player: GardenPlayer }>(`/api/plots/${slot}/prune`, { method: "POST" }),
+  store: () => request<PlayerStore>("/api/store"),
+  requestStore: (skuId: string) =>
+    request<PlayerStore & { ok: boolean; redemption: { id: string; title: string; emoji: string; starCost: number } }>(
+      "/api/store/request",
+      { method: "POST", body: JSON.stringify({ skuId }) },
+    ),
 };

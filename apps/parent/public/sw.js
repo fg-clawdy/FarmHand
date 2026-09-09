@@ -1,5 +1,6 @@
-/* FarmHand Parent service worker — Web Push Approve | Deny + clear-across-parents. */
+/* FarmHand Parent service worker — Web Push Approve | Deny + store Fulfill | Deny + clear-across-parents. */
 const INBOX = "/parent/";
+const STORE = "/parent/store";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -16,11 +17,11 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const data = event.notification.data || {};
-  if (event.action === "approve" || event.action === "deny") {
+  if (event.action === "approve" || event.action === "deny" || event.action === "fulfill") {
     event.waitUntil(actFromNotification(data, event.action));
     return;
   }
-  event.waitUntil(openInbox());
+  event.waitUntil(openParent(data));
 });
 
 async function handlePush(event) {
@@ -47,6 +48,7 @@ async function handlePush(event) {
     return;
   }
 
+  const store = payload.kind === "store_redemption";
   await self.registration.showNotification(payload.title || "FarmHand", {
     body: payload.body,
     tag: payload.tag,
@@ -55,40 +57,49 @@ async function handlePush(event) {
     badge: "/parent/icon.svg",
     renotify: true,
     requireInteraction: Boolean(payload.critical),
-    actions: [
-      { action: "approve", title: "Approve" },
-      { action: "deny", title: "Deny" },
-    ],
+    actions: store
+      ? [
+          { action: "fulfill", title: "Fulfill" },
+          { action: "deny", title: "Deny" },
+        ]
+      : [
+          { action: "approve", title: "Approve" },
+          { action: "deny", title: "Deny" },
+        ],
   });
 }
 
 async function actFromNotification(data, action) {
   const subjectId = data.subjectId;
   if (!subjectId) {
-    await openInbox();
+    await openParent(data);
     return;
   }
   const headers = { "Content-Type": "application/json" };
   if (data.actionToken) headers.Authorization = `Bearer ${data.actionToken}`;
+  const store = data.kind === "store_redemption";
+  const verb = action === "fulfill" || (store && action === "approve") ? "fulfill" : action;
+  const path = store ? `/api/parent/redemptions/${subjectId}/${verb}` : `/api/parent/claims/${subjectId}/${verb}`;
   try {
-    const res = await fetch(`/api/parent/claims/${subjectId}/${action}`, {
+    const res = await fetch(path, {
       method: "POST",
       credentials: "include",
       headers,
       body: "{}",
     });
     if (!res.ok) {
-      await openInbox();
+      await openParent(data);
     }
   } catch {
-    await openInbox();
+    await openParent(data);
   }
 }
 
-async function openInbox() {
-  const url = new URL(INBOX, self.location.origin).href;
+async function openParent(data) {
+  const dest = data?.kind === "store_redemption" || (data?.url || "").includes("/store") ? STORE : INBOX;
+  const url = new URL(data?.url || dest, self.location.origin).href;
   const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-  const existing = windows.find((client) => client.url.startsWith(new URL(INBOX, self.location.origin).href));
+  const existing = windows.find((client) => client.url.startsWith(new URL("/parent/", self.location.origin).href));
   if (existing && "focus" in existing) {
     await existing.focus();
     return;

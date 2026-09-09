@@ -13,6 +13,40 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return data;
 }
 
+export type ParentRedemption = {
+  id: string;
+  skuId: string;
+  slug: string;
+  status: "pending" | "fulfilled" | "denied";
+  title: string;
+  emoji: string;
+  starCost: number;
+  starsHeld: number;
+  requestedAt: string;
+  resolvedAt: string | null;
+  player: { id: string; name: string; mascot: string };
+};
+
+export type ParentStoreSku = {
+  id: string;
+  slug: string;
+  title: string;
+  emoji: string;
+  description: string;
+  starCost: number;
+  isActive: boolean;
+  sortOrder: number;
+};
+
+export type SkuWrite = {
+  title?: string;
+  emoji?: string;
+  description?: string;
+  starCost?: number;
+  isActive?: boolean;
+  sortOrder?: number;
+};
+
 export type InboxClaim = {
   id: string;
   status: string;
@@ -141,11 +175,35 @@ export const api = {
     }),
   me: () => request<{ admin: { username: string } }>("/api/parent/me"),
   logout: () => request("/api/admin/logout", { method: "POST" }),
-  inbox: () => request<{ claims: InboxClaim[] }>("/api/parent/inbox"),
+  inbox: () => request<{ claims: InboxClaim[]; redemptions: ParentRedemption[] }>("/api/parent/inbox"),
   approve: (id: string) =>
-    request<{ ok: boolean; claims: InboxClaim[] }>(`/api/parent/claims/${id}/approve`, { method: "POST" }),
+    request<{ ok: boolean; claims: InboxClaim[]; redemptions: ParentRedemption[] }>(
+      `/api/parent/claims/${id}/approve`,
+      { method: "POST" },
+    ),
   deny: (id: string) =>
-    request<{ ok: boolean; claims: InboxClaim[] }>(`/api/parent/claims/${id}/deny`, { method: "POST" }),
+    request<{ ok: boolean; claims: InboxClaim[]; redemptions: ParentRedemption[] }>(
+      `/api/parent/claims/${id}/deny`,
+      { method: "POST" },
+    ),
+  store: () => request<{ redemptions: ParentRedemption[]; skus: ParentStoreSku[] }>("/api/parent/store"),
+  createSku: (body: SkuWrite) =>
+    request<{ sku: ParentStoreSku }>("/api/parent/store/skus", { method: "POST", body: JSON.stringify(body) }),
+  updateSku: (id: string, body: SkuWrite) =>
+    request<{ sku: ParentStoreSku }>(`/api/parent/store/skus/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  fulfillRedemption: (id: string) =>
+    request<{ ok: boolean; claims: InboxClaim[]; redemptions: ParentRedemption[] }>(
+      `/api/parent/redemptions/${id}/fulfill`,
+      { method: "POST" },
+    ),
+  denyRedemption: (id: string) =>
+    request<{ ok: boolean; claims: InboxClaim[]; redemptions: ParentRedemption[] }>(
+      `/api/parent/redemptions/${id}/deny`,
+      { method: "POST" },
+    ),
   pushConfig: () =>
     request<{ enabled: boolean; publicKey: string | null; subscribed: boolean }>("/api/parent/push/config"),
   pushSubscribe: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>

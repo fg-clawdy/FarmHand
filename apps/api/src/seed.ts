@@ -3,6 +3,7 @@ import { DEFAULT_GAME_CONFIG, mergeGameConfig } from "@farmhand/shared";
 import { hashSecret } from "./auth.js";
 import type { Mascot } from "@prisma/client";
 import { seedChoreCatalog } from "./chores.js";
+import { seedStoreCatalog } from "./store.js";
 import { syncAllPlayerPlots } from "./game.js";
 
 const DEMO_KIDS: Array<{ name: string; mascot: Mascot; pin: string }> = [
@@ -57,6 +58,7 @@ export async function seedIfEmpty() {
   }
 
   await seedChoreCatalog();
+  await seedStoreCatalog();
 }
 
 if (process.argv[1]?.includes("seed")) {

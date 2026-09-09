@@ -14,7 +14,8 @@ import {
 import { claimChore, EMPTY_PLOT_DATA, listPlayerChores, prunePlot, releaseClaimIfNeeded } from "../chores.js";
 import { loadConfig, plotWateringState, publicPlayer, selfieUnlockedOn, syncPlayerPlots } from "../game.js";
 import { recordAccoladeEvent, playerAccoladeLedger } from "../accolades.js";
-import { notifyChoreClaimPending } from "../push.js";
+import { notifyChoreClaimPending, notifyStoreRedemptionPending } from "../push.js";
+import { playerStore, requestStoreSku } from "../store.js";
 import { decodeSelfiePayload, inspectJpeg, planSelfieReward, writeClaimJpeg, writeSelfieJpeg } from "../selfie.js";
 import { todayKey } from "../tz.js";
 
@@ -605,6 +606,43 @@ export async function playerRoutes(app: FastifyInstance) {
         });
       });
       return { player: publicPlayer(result, config, true) };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.get("/api/store", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    return playerStore(session.playerId);
+  });
+
+  app.post("/api/store/request", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    const body = (request.body ?? {}) as { skuId?: unknown };
+    const skuId = typeof body.skuId === "string" ? body.skuId : "";
+    if (!skuId) return reply.code(400).send({ error: "Pick a reward first." });
+    try {
+      const result = await requestStoreSku(session.playerId, skuId);
+      void notifyStoreRedemptionPending({
+        redemptionId: result.redemption.id,
+        playerName: result.playerName,
+        title: result.skuTitle,
+      }).catch((err) => request.log.warn({ err }, "store request push failed"));
+      const store = await playerStore(session.playerId);
+      return {
+        ok: true,
+        redemption: {
+          id: result.redemption.id,
+          status: "pending",
+          title: result.redemption.title,
+          emoji: result.redemption.emoji,
+          starCost: result.redemption.starCost,
+        },
+        ...store,
+      };
     } catch (err) {
       const e = err as Error & { statusCode?: number };
       return reply.code(e.statusCode ?? 400).send({ error: e.message });

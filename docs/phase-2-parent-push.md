@@ -2,7 +2,7 @@
 
 Product source of truth: [`phase-2-and-architecture.md`](phase-2-and-architecture.md) § Parent PWA notifications (REQUIRED).
 
-Chore claim rules and the in-app inbox are unchanged. Push is an extra path onto the **same** atomic Approve | Deny endpoints. Store catalog fulfillment is **not** in this slice; the send/clear helpers are stubbed (`notifyStoreRedemptionPending` / `notifyStoreRedemptionResolved`) so store can reuse the pattern later.
+Chore claim rules and the in-app inbox are unchanged. Push is an extra path onto the **same** atomic Approve | Deny endpoints. Store fulfillment reuses the same helpers (`notifyStoreRedemptionPending` / `notifyStoreRedemptionResolved`): [`phase-2-store.md`](phase-2-store.md). The SW maps `store_redemption` to **Fulfill | Deny** on `/api/parent/redemptions/:id/fulfill|deny`.
 
 ## What shipped
 
@@ -79,4 +79,4 @@ Use two Parent sessions. Same account on two browsers is enough to prove dismiss
 
 - URL: `/parent/sw.js` (scope `/parent/`).
 - nginx sends `Content-Type: application/javascript`, `Cache-Control: no-cache`, and `Service-Worker-Allowed: /parent/`.
-- Notification `tag` is `approval:<kind>:<id>` so a later `clear` payload collapses the same claim (and the same pattern will work for `store_redemption`).
+- Notification `tag` is `approval:<kind>:<id>` so a later `clear` payload collapses the same claim or `store_redemption`.

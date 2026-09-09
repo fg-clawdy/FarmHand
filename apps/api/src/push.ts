@@ -58,7 +58,7 @@ export function choreClaimNotificationCopy(opts: {
   };
 }
 
-/** Store redemptions reuse the same request / clear fanout once the catalog ships. */
+/** Store redemptions reuse the same request / clear fanout as chores. */
 export function storeRedemptionNotificationCopy(opts: { playerName: string; title: string }) {
   return {
     title: `Store request — ${opts.title}`,
@@ -225,7 +225,7 @@ export async function notifyChoreClaimResolved(claimId: string) {
   return notifyApprovalResolved({ kind: "chore_claim", subjectId: claimId });
 }
 
-/** Hook for later store fulfillment — same tag / action / clear pattern as chores. */
+/** Same tag / action / clear pattern as chores. Notification actions are Fulfill | Deny. */
 export async function notifyStoreRedemptionPending(opts: {
   redemptionId: string;
   playerName: string;
@@ -237,6 +237,7 @@ export async function notifyStoreRedemptionPending(opts: {
     subjectId: opts.redemptionId,
     title: copy.title,
     body: copy.body,
+    url: "/parent/store",
     critical: copy.critical,
   });
 }

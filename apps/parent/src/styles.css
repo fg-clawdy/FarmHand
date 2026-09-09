@@ -42,6 +42,7 @@ button, input, select, textarea { font: inherit; }
 .nav a.active, .nav a:hover, .nav button.link:hover { background: #5c3218; }
 .nav a.nav-secondary { opacity: 0.75; font-size: 15px; }
 .main { padding: 24px 28px 48px; }
+.main h3 { margin: 24px 0 8px; }
 .card {
   background: rgba(255,255,255,0.55);
   border: 2px solid var(--wood);

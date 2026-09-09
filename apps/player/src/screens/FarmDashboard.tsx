@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { FarmTitle } from "../art";
-import ComingSoon from "../components/ComingSoon";
+import StoreSheet from "../components/StoreSheet";
 import { useFarmPixi } from "../pixi/usePixi";
 
 export default function FarmDashboard() {
@@ -41,7 +41,7 @@ export default function FarmDashboard() {
       <header className="title-bar">
         <FarmTitle />
       </header>
-      {storeOpen && <ComingSoon onClose={() => setStoreOpen(false)} />}
+      {storeOpen && <StoreSheet players={players} onClose={() => setStoreOpen(false)} />}
       {error && <div className="toast">{error}</div>}
     </div>
   );

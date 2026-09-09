@@ -60,6 +60,12 @@ enum ApprovalSubjectKind {
   store_redemption
 }
 
+enum StoreRedemptionStatus {
+  PENDING
+  FULFILLED
+  DENIED
+}
+
 model Admin {
   id                String             @id @default(uuid())
   username          String             @unique
@@ -67,9 +73,10 @@ model Admin {
   createdAt         DateTime           @default(now())
   sessions          AdminSession[]
   auditLogs         AuditLog[]
-  resolvedClaims    ChoreClaim[]
-  pushSubscriptions PushSubscription[]
-  actionTokens      PushActionToken[]
+  resolvedClaims      ChoreClaim[]
+  resolvedRedemptions StoreRedemption[]
+  pushSubscriptions   PushSubscription[]
+  actionTokens        PushActionToken[]
 }
 
 model AdminSession {
@@ -113,6 +120,7 @@ model Player {
   accoladeCounters        AccoladeCounter[]
   accoladeDays            AccoladeActiveDay[]
   accoladeUnlocks         AccoladeUnlock[]
+  storeRedemptions        StoreRedemption[]
 }
 
 model Plot {
@@ -300,6 +308,40 @@ model AccoladeActiveDay {
 
   @@unique([playerId, dayKey])
   @@index([playerId, seasonKey])
+}
+
+model StoreSku {
+  id           String            @id @default(uuid())
+  slug         String            @unique
+  title        String
+  emoji        String
+  description  String            @default("")
+  starCost     Int
+  isActive     Boolean           @default(true)
+  sortOrder    Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  redemptions  StoreRedemption[]
+}
+
+model StoreRedemption {
+  id                String                @id @default(uuid())
+  playerId          String
+  player            Player                @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  skuId             String
+  sku               StoreSku              @relation(fields: [skuId], references: [id], onDelete: Restrict)
+  status            StoreRedemptionStatus @default(PENDING)
+  title             String
+  emoji             String
+  starCost          Int
+  starsHeld         Int
+  requestedAt       DateTime              @default(now())
+  resolvedAt        DateTime?
+  resolvedByAdminId String?
+  resolvedBy        Admin?                @relation(fields: [resolvedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([playerId, status])
+  @@index([status, requestedAt])
 }
 
 model AccoladeUnlock {

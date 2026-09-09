@@ -54,6 +54,20 @@ test("request payload carries Approve/Deny token and shared tag", () => {
   assert.equal(payload.critical, true);
 });
 
+test("store request payload deep-links to the Store tab", () => {
+  const payload = buildRequestPayload({
+    kind: "store_redemption",
+    subjectId: "red-1",
+    title: "Store request — Ice cream",
+    body: "Willow wants this reward. Fulfill or deny.",
+    url: "/parent/store",
+    actionToken: "store-token",
+  });
+  assert.equal(payload.kind, "store_redemption");
+  assert.equal(payload.tag, "approval:store_redemption:red-1");
+  assert.equal(payload.url, "/parent/store");
+});
+
 test("clear payload reuses the tag so other devices drop the live actions", () => {
   const payload = buildClearPayload("chore_claim", "claim-1");
   assert.equal(payload.type, "clear");

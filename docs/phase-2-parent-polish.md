@@ -2,7 +2,7 @@
 
 Product source of truth: [`phase-2-and-architecture.md`](phase-2-and-architecture.md) § Parent PWA.
 
-This slice is the non-tech daily driver at `/parent/`. It does **not** collapse into Admin. Store catalog/fulfillment is still out of scope (nav stub only). Effort banding, face-ID, Admin redesign, and Player Job Board redesign stay out of scope.
+This slice is the non-tech daily driver at `/parent/`. It does **not** collapse into Admin. Store catalog/fulfillment shipped next: [`phase-2-store.md`](phase-2-store.md). Effort banding, face-ID, Admin redesign, and Player Job Board redesign stay out of scope.
 
 Inbox Approve | Deny and Web Push are unchanged: [`phase-2-parent-push.md`](phase-2-parent-push.md). Claim / purgatory / Job Board: [`phase-2-chores.md`](phase-2-chores.md).
 
@@ -12,8 +12,8 @@ Inbox Approve | Deny and Web Push are unchanged: [`phase-2-parent-push.md`](phas
 2. **Who can claim** — **Every kid** (ALL / `isGlobal`), **First one to claim** (RACE), or **Only these kids** (SPECIFIC + checkboxes). No Family tenant.
 3. **Seed grant stays 1.** No UI to band seeds by minutes. Minutes are a parent note only.
 4. **Kids tab** — per-kid claimed / approved / denied bars for a Chicago **week** or **month**, a simple streak (consecutive Chicago days with ≥1 approved chore; an empty today does not break yesterday), and which jobs got done. CSS bars, not Admin harvest KPIs.
-5. **Store** nav stub: “Coming soon.”
-6. **Inbox** still Approve | Deny, optional photo proof, and push settings. Same `fh_admin` login; stay on `/parent/`.
+5. **Store** was a nav stub in this slice (“Coming soon.”). Catalog + Fulfill | Deny: [`phase-2-store.md`](phase-2-store.md).
+6. **Inbox** still Approve | Deny, optional photo proof, and push settings. Same `fh_admin` login; stay on `/parent/`. Inbox now also lists pending store requests.
 
 Parent chore writes live under **`/api/parent/...`**, not `/api/admin`.
 
@@ -48,7 +48,7 @@ Manual (phone-sized window is fine):
 4. **Edit** a chore: change who can claim (every kid / race / only Willow). Save. Kid Job Board / claim rules follow that without opening Admin.
 5. **Add a chore** if you want — still 1 waiting seed per claim. Do not look for a seed-amount control (there isn’t one).
 6. **Kids** — This week / This month. After Willow claims and you approve, her claimed/approved bars and streak move. Finn/Sage cards stay visible even at zero.
-7. **Store** says coming soon.
+7. **Store** — pending Fulfill | Deny plus catalog edit (see [`phase-2-store.md`](phase-2-store.md)).
 8. Player Job Board + selfie watering + purgatory are unchanged.
 
 Dog chores keep CRITICAL unless you explicitly change **Priority** on the edit screen.
