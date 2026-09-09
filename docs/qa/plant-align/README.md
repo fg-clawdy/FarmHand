@@ -30,11 +30,19 @@ Right-gutter packing scraps were zeroed (alpha) **without moving the plant**. Ea
 
 ## After unpack (480-wide cells)
 
-Live Pixi canvas captures (`canvas.toDataURL`, `GARDEN_CAMERA_ZOOM = 0.85`, host 1280×800 → canvas 1280×713) are in [`after-fix/`](after-fix/):
+Live Pixi canvas captures (`canvas.toDataURL`, `GARDEN_CAMERA_ZOOM = 0.85`) are in [`after-fix/`](after-fix/):
 
 | File | What it is |
 | --- | --- |
-| [`willow-mix.png`](after-fix/willow-mix.png) | Annotated Willow mix: ripe corn, **3-flower** center strawberry, two sprouts |
+| [`empty-mounds-markers.png`](after-fix/empty-mounds-markers.png) | Empty plots, white disc + red cross at the **new** `GARDEN_MOUND_PX` (landscape 1280×800) |
+| [`empty-mounds-markers-close.png`](after-fix/empty-mounds-markers-close.png) | Tight crops of those nine markers on the painted mounds |
+| [`empty-mounds-markers-portrait.png`](after-fix/empty-mounds-markers-portrait.png) | Same markers, portrait 800×1280 — locals unchanged |
+| [`empty-mounds-markers-tablet.png`](after-fix/empty-mounds-markers-tablet.png) | Tablet landscape 1024×768 |
+| [`empty-mounds-markers-tablet-portrait.png`](after-fix/empty-mounds-markers-tablet-portrait.png) | Tablet portrait 768×1024 |
+| [`willow-mix.png`](after-fix/willow-mix.png) | Annotated Willow mix on the new anchors (ripe corn, **3-flower** center strawberry, two sprouts) |
+| [`willow-mix-portrait.png`](after-fix/willow-mix-portrait.png) | Same mix in portrait — `uvDx = 0`, `playfieldDrift = 0` |
+| [`willow-full.png`](after-fix/willow-full.png) | All nine plots planted at zoom 0.85 |
+| [`playfield-drift.json`](after-fix/playfield-drift.json) | Locals + `uvDx`/`uvDy`/`playfieldDrift` for landscape, portrait, tablet |
 | [`strawberry-flower-3blossom.png`](after-fix/strawberry-flower-3blossom.png) | Stage 3 only — 3 white flowers + green berries (`/qa/garden?pack=blossom`) |
 | [`strawberry-flower-3blossom-close.png`](after-fix/strawberry-flower-3blossom-close.png) | Close crop of that 3-flower plant |
 | [`strawberries-ripe.png`](after-fix/strawberries-ripe.png) | All nine ripe strawberries |
