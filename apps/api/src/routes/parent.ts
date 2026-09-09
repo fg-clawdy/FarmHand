@@ -1,8 +1,20 @@
+import { createReadStream } from "node:fs";
+import { access } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
 import type { FastifyInstance } from "fastify";
 import { getAdminSession, requireAdmin } from "../auth.js";
 import { prisma } from "../db.js";
 import { approveClaim, denyClaim, listParentInbox } from "../chores.js";
 import { loadConfig, publicPlayer } from "../game.js";
+import {
+  createParentChore,
+  getParentChore,
+  listParentChores,
+  listParentKids,
+  updateParentChore,
+} from "../parentChores.js";
+import type { ParentChoreBody } from "../parentChoreWrite.js";
+import { buildParentStats, parseParentStatsRange, statsLookbackStart } from "../parentStats.js";
 import {
   actorFromActionToken,
   adminHasPushSubscription,
@@ -95,29 +107,84 @@ export async function parentRoutes(app: FastifyInstance) {
   app.get("/api/parent/chores", async (request, reply) => {
     const session = await requireAdmin(request, reply);
     if (!session) return;
-    const chores = await prisma.chore.findMany({ orderBy: { sortOrder: "asc" } });
-    return {
-      chores: chores.map((chore) => ({
-        id: chore.id,
-        slug: chore.slug,
-        title: chore.title,
-        emoji: chore.emoji,
-        description: chore.description,
-        recurrence: chore.recurrence,
-        timeOfDay: chore.timeOfDay,
-        priority: chore.priority,
-        estimatedMinutes: chore.estimatedMinutes,
-        requiresApproval: chore.requiresApproval,
-        requiresSelfie: chore.requiresSelfie,
-        allowsSkip: chore.allowsSkip,
-        isGlobal: chore.isGlobal,
-        includeInPath: chore.includeInPath,
-        isActive: chore.isActive,
-        legacyPoints: chore.legacyPoints,
-        assignmentMode: chore.assignmentMode,
-        sortOrder: chore.sortOrder,
-      })),
-    };
+    return { chores: await listParentChores() };
+  });
+
+  app.get("/api/parent/chores/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    try {
+      return { chore: await getParentChore(id) };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.post("/api/parent/chores", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    try {
+      const chore = await createParentChore((request.body ?? {}) as ParentChoreBody);
+      return reply.code(201).send({ chore });
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.patch("/api/parent/chores/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    try {
+      return { chore: await updateParentChore(id, (request.body ?? {}) as ParentChoreBody) };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.get("/api/parent/kids", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    return { kids: await listParentKids() };
+  });
+
+  app.get("/api/parent/stats", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    try {
+      const query = request.query as { range?: unknown };
+      const range = parseParentStatsRange(query.range);
+      const config = await loadConfig();
+      const now = new Date();
+      const kids = await listParentKids();
+      const rows = await prisma.choreClaim.findMany({
+        where: { claimedAt: { gte: statsLookbackStart(config.timezone, now) } },
+        include: { chore: true },
+        orderBy: { claimedAt: "asc" },
+      });
+      return buildParentStats({
+        kids,
+        range,
+        timezone: config.timezone,
+        now,
+        claims: rows.map((row) => ({
+          playerId: row.playerId,
+          choreId: row.choreId,
+          choreTitle: row.chore.title,
+          choreEmoji: row.chore.emoji,
+          status: row.status,
+          claimedAt: row.claimedAt,
+          resolvedAt: row.resolvedAt,
+        })),
+      });
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
   });
 
   app.get("/api/parent/inbox", async (request, reply) => {
@@ -184,5 +251,21 @@ export async function parentRoutes(app: FastifyInstance) {
         player: publicPlayer(claim.player, config, false),
       },
     };
+  });
+
+  app.get("/api/parent/claims/:id/photo", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    const claim = await prisma.choreClaim.findUnique({ where: { id } });
+    if (!claim?.proofJpegPath) return reply.code(404).send({ error: "That photo isn't here." });
+    try {
+      await access(claim.proofJpegPath, fsConstants.R_OK);
+    } catch {
+      return reply.code(404).send({ error: "That photo isn't here." });
+    }
+    reply.header("Content-Type", "image/jpeg");
+    reply.header("Cache-Control", "private, max-age=120");
+    return reply.send(createReadStream(claim.proofJpegPath));
   });
 }

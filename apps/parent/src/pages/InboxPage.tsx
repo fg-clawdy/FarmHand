@@ -68,6 +68,13 @@ export default function InboxPage() {
               </div>
             </div>
             {claim.chore.description && <p>{claim.chore.description}</p>}
+            {claim.hasPhoto && (
+              <img
+                className="proof"
+                alt={`Photo from ${claim.player.name}`}
+                src={`/api/parent/claims/${claim.id}/photo`}
+              />
+            )}
             <div className="row">
               <button
                 className="btn sage"

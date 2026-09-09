@@ -41,28 +41,28 @@ export async function seedChoreCatalog() {
   const { CHORE_CATALOG } = await import("@farmhand/shared");
   for (const [index, row] of CHORE_CATALOG.entries()) {
     const assignmentMode = assignmentModeForSeed(row);
-    const data = {
-      title: row.title,
-      emoji: row.emoji,
-      description: row.description,
-      recurrence: row.recurrence,
-      timeOfDay: row.timeOfDay,
-      priority: row.priority,
-      estimatedMinutes: row.estimatedMinutes,
-      requiresApproval: row.requiresApproval,
-      requiresSelfie: row.requiresSelfie,
-      allowsSkip: row.allowsSkip,
-      isGlobal: row.isGlobal,
-      includeInPath: row.includeInPath,
-      isActive: row.isActive,
-      legacyPoints: row.legacyPoints,
-      assignmentMode,
-      sortOrder: index + 1,
-    };
-    await prisma.chore.upsert({
-      where: { slug: row.slug },
-      create: { slug: row.slug, ...data },
-      update: data,
+    const existing = await prisma.chore.findUnique({ where: { slug: row.slug } });
+    if (existing) continue;
+    await prisma.chore.create({
+      data: {
+        slug: row.slug,
+        title: row.title,
+        emoji: row.emoji,
+        description: row.description,
+        recurrence: row.recurrence,
+        timeOfDay: row.timeOfDay,
+        priority: row.priority,
+        estimatedMinutes: row.estimatedMinutes,
+        requiresApproval: row.requiresApproval,
+        requiresSelfie: row.requiresSelfie,
+        allowsSkip: row.allowsSkip,
+        isGlobal: row.isGlobal,
+        includeInPath: row.includeInPath,
+        isActive: row.isActive,
+        legacyPoints: row.legacyPoints,
+        assignmentMode,
+        sortOrder: index + 1,
+      },
     });
   }
 }

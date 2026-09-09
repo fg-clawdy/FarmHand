@@ -23,7 +23,7 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
         }}
       >
         <h1>FarmHand parent</h1>
-        <p className="muted">Approve chores. Kids keep playing while plants wait.</p>
+        <p className="muted">Approve chores, edit the list, see how the kids are doing.</p>
         <label className="field">
           Username
           <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />

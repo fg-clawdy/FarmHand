@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assignmentModeForSeed, CHORE_CATALOG, compareClaimsForInbox, compareChoresForKid } from "./choreCatalog.js";
+import {
+  assignmentModeForSeed,
+  CHORE_CATALOG,
+  compareClaimsForInbox,
+  compareChoresForKid,
+  compareChoresForParent,
+} from "./choreCatalog.js";
 import { choreClaimGate } from "./chores.js";
 
 test("seed catalog has 21 unique slugs", () => {
@@ -41,6 +47,17 @@ test("Walk the Dog and Easy Bedtime have short descriptions", () => {
 test("isGlobal seeds ALL; otherwise RACE", () => {
   assert.equal(assignmentModeForSeed({ isGlobal: true }), "ALL");
   assert.equal(assignmentModeForSeed({ isGlobal: false }), "RACE");
+});
+
+test("parent catalog puts CRITICAL first even when sortOrder is later", () => {
+  const rows = [
+    { title: "Bed", priority: "NORMAL" as const, sortOrder: 1 },
+    { title: "Feed Dog", priority: "CRITICAL" as const, sortOrder: 6 },
+    { title: "Off chore", priority: "HIGH" as const, sortOrder: 2 },
+  ];
+  const sorted = [...rows].sort(compareChoresForParent);
+  assert.equal(sorted[0]?.title, "Feed Dog");
+  assert.equal(sorted[1]?.title, "Off chore");
 });
 
 test("kid list puts path + CRITICAL first", () => {

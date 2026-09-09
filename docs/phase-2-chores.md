@@ -2,11 +2,11 @@
 
 Product source of truth: [`phase-2-and-architecture.md`](phase-2-and-architecture.md) § Phase 2 — Chores.
 
-This slice is **shipped** on the compose stack. Daily [selfie earn](phase-2-selfie.md) stays separate and must still work. Store catalog, face-ID, effort banding, and Final Boss are still out of scope. Parent Web Push: [`phase-2-parent-push.md`](phase-2-parent-push.md).
+This slice is **shipped** on the compose stack. Daily [selfie earn](phase-2-selfie.md) stays separate and must still work. Store catalog, face-ID, effort banding, and Final Boss are still out of scope. Parent Web Push: [`phase-2-parent-push.md`](phase-2-parent-push.md). Parent chore list + kid graphs: [`phase-2-parent-polish.md`](phase-2-parent-polish.md).
 
 ## What shipped
 
-1. **21-task catalog** seeded on API boot (upsert by slug). `Set Out School Clothes` is inactive. `isGlobal` → assignment mode **ALL**; otherwise **RACE**. Deferred `estimatedMinutes` / `legacyPoints` are stored and unused.
+1. **21-task catalog** seeded on API boot (**create missing slugs only** — parent edits persist). `Set Out School Clothes` is inactive until a parent turns it on. `isGlobal` → assignment mode **ALL**; otherwise **RACE**. Deferred `estimatedMinutes` / `legacyPoints` are stored and unused.
 2. **Claim = 1 provisional seed** into an **empty** plot. No empty plot → reject. No pouch seed spend. No stars.
 3. **Purgatory:** plant appears immediately, greyed, no water / fert / harvest, maturity clock off (`planted_at` is null until approve).
 4. **Approve** (Parent PWA `/parent`) starts growth. Then selfie watering rules apply like any confirmed plant.
@@ -44,7 +44,7 @@ Manual:
 
 1. Kid garden → **Chores** → Job Board of big cards. Claim (pick empty mound + crop). Grey **WAITING** plant appears. Pouch seed count does **not** bump.
 2. With **0 pouch seeds**, tap Seeds or an empty mound → nudge with **Do a job to plant a waiting seed** → Job Board. Claim still plants without spending pouch seeds.
-3. Open [http://localhost/parent/](http://localhost/parent/) (or `$HTTP_PORT`) → Approve or Deny. Optional: enable notifications (see [parent push](phase-2-parent-push.md)).
+3. Open [http://localhost/parent/](http://localhost/parent/) (or `$HTTP_PORT`) → Inbox Approve or Deny. **Chores** to edit the list, **Kids** for activity graphs. Optional: enable notifications (see [parent push](phase-2-parent-push.md)). Parent polish: [phase-2-parent-polish.md](phase-2-parent-polish.md).
 4. Approve: plant turns normal and the countdown starts. Water still needs today’s selfie.
 5. Deny: plant **WILTED** → tap to prune → empty, pouch seeds unchanged.
 6. Fill all 9 plots and open the Job Board — it explains harvest/prune before claiming; claim is rejected.

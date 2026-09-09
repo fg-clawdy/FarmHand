@@ -418,6 +418,17 @@ export function compareChoresForKid<
   return a.title.localeCompare(b.title);
 }
 
+/** Parent catalog: CRITICAL (dog chores) first, then catalog order. Inactive rows stay in the list. */
+export function compareChoresForParent<
+  T extends { priority: ChorePriority; sortOrder?: number; title: string },
+>(a: T, b: T): number {
+  const rank = CHORE_PRIORITY_RANK[a.priority] - CHORE_PRIORITY_RANK[b.priority];
+  if (rank !== 0) return rank;
+  const order = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+  if (order !== 0) return order;
+  return a.title.localeCompare(b.title);
+}
+
 export function compareClaimsForInbox<
   T extends { priority: ChorePriority; claimedAt: Date | string },
 >(a: T, b: T): number {

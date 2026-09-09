@@ -3,6 +3,10 @@ import { Link, Navigate, NavLink, Route, Routes, useNavigate } from "react-route
 import { api } from "./api";
 import InboxPage from "./pages/InboxPage";
 import LoginPage from "./pages/LoginPage";
+import ChoresPage from "./pages/ChoresPage";
+import ChoreEditPage from "./pages/ChoreEditPage";
+import ActivityPage from "./pages/ActivityPage";
+import StorePage from "./pages/StorePage";
 
 export default function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -35,9 +39,14 @@ function Shell({ onLogout }: { onLogout: () => void }) {
         <h1>FarmHand</h1>
         <p>Parent home</p>
         <NavLink to="/" end>
-          Chore inbox
+          Inbox
         </NavLink>
-        <a href="/admin/">Admin ledger</a>
+        <NavLink to="/chores">Chores</NavLink>
+        <NavLink to="/kids">Kids</NavLink>
+        <NavLink to="/store">Store</NavLink>
+        <a className="nav-secondary" href="/admin/">
+          Admin ledger
+        </a>
         <button
           className="link"
           type="button"
@@ -59,6 +68,10 @@ function Shell({ onLogout }: { onLogout: () => void }) {
       <div className="main">
         <Routes>
           <Route path="/" element={<InboxPage />} />
+          <Route path="/chores" element={<ChoresPage />} />
+          <Route path="/chores/:id" element={<ChoreEditPage />} />
+          <Route path="/kids" element={<ActivityPage />} />
+          <Route path="/store" element={<StorePage />} />
         </Routes>
       </div>
     </div>

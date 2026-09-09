@@ -322,17 +322,75 @@ if (mixed.data.player.fertilizer < 1) throw new Error("mix did not produce ferti
 console.log("mixed fertilizer, pouch now", mixed.data.player.fertilizer);
 
 const catalog = await req("/api/parent/chores", { cookie: adminCookie });
-if (catalog.data.chores?.length !== 21) {
-  throw new Error(`expected 21 seeded chores, got ${catalog.data.chores?.length}`);
+if (catalog.data.chores?.length < 21) {
+  throw new Error(`expected at least 21 seeded chores, got ${catalog.data.chores?.length}`);
 }
 const clothes = catalog.data.chores.find((c) => c.slug === "set-out-school-clothes");
 if (!clothes || clothes.isActive) throw new Error("Set Out School Clothes should be seeded inactive");
+if (!Array.isArray(clothes.assignments) || clothes.seedGrant !== 1) {
+  throw new Error("parent chore list should include assignments and seedGrant 1");
+}
+if (catalog.data.chores[0]?.priority !== "CRITICAL") {
+  throw new Error(`parent chore list should put CRITICAL first, got ${catalog.data.chores[0]?.slug}`);
+}
 const dogs = catalog.data.chores.filter((c) => ["feed-dog-am", "feed-dog-pm", "walk-the-dog"].includes(c.slug));
 if (dogs.length !== 3 || dogs.some((c) => c.priority !== "CRITICAL" || c.assignmentMode !== "RACE")) {
   throw new Error("dog chores should be CRITICAL races");
 }
 console.log("chore catalog 21 ok");
 // Player UI Job Board (Chores toolbar) still claims via this API: 1 purgatory plant, no pouch spend.
+
+const parentKids = await req("/api/parent/kids", { cookie: adminCookie });
+const kidNames = (parentKids.data.kids ?? []).map((k) => k.name).sort();
+if (!["Finn", "Sage", "Willow"].every((name) => kidNames.includes(name))) {
+  throw new Error(`parent kids missing demo names, got ${kidNames.join(",")}`);
+}
+const willowKid = parentKids.data.kids.find((k) => k.name === "Willow");
+await req(`/api/parent/chores/${clothes.id}`, {
+  method: "PATCH",
+  cookie: adminCookie,
+  body: { isActive: true },
+});
+const clothesOn = (await req("/api/parent/chores", { cookie: adminCookie })).data.chores.find(
+  (c) => c.slug === "set-out-school-clothes",
+);
+if (!clothesOn?.isActive) throw new Error("parent PATCH should turn Set Out School Clothes on");
+await req(`/api/parent/chores/${clothes.id}`, {
+  method: "PATCH",
+  cookie: adminCookie,
+  body: { isActive: false, assignmentMode: "SPECIFIC", assignedPlayerIds: [willowKid.id] },
+});
+const clothesAssigned = (await req("/api/parent/chores", { cookie: adminCookie })).data.chores.find(
+  (c) => c.slug === "set-out-school-clothes",
+);
+if (clothesAssigned?.isActive) throw new Error("parent PATCH should restore clothes inactive");
+if (clothesAssigned?.assignmentMode !== "SPECIFIC" || clothesAssigned.assignedPlayerIds?.[0] !== willowKid.id) {
+  throw new Error("parent PATCH should assign clothes to Willow only");
+}
+await req(`/api/parent/chores/${clothes.id}`, {
+  method: "PATCH",
+  cookie: adminCookie,
+  body: { assignmentMode: "ALL", assignedPlayerIds: [] },
+});
+const weekStats = await req("/api/parent/stats?range=week", { cookie: adminCookie });
+if (weekStats.data.range !== "week" || !Array.isArray(weekStats.data.kids) || weekStats.data.kids.length < 3) {
+  throw new Error("parent stats week missing kids");
+}
+const willowStats = weekStats.data.kids.find((k) => k.name === "Willow");
+if (
+  typeof willowStats?.claims !== "number" ||
+  typeof willowStats?.approvals !== "number" ||
+  typeof willowStats?.denials !== "number" ||
+  typeof willowStats?.streak !== "number" ||
+  willowStats.series?.length !== 7
+) {
+  throw new Error("parent stats week shape is wrong");
+}
+const monthStats = await req("/api/parent/stats?range=month", { cookie: adminCookie });
+if (monthStats.data.kids?.[0]?.series?.length !== 30) {
+  throw new Error("parent stats month should be 30 days");
+}
+console.log("parent chore CRUD + stats ok");
 
 const pushCfg = await req("/api/parent/push/config", { cookie: adminCookie });
 const fakePush = `https://push.example.test/farmhand-smoke-${Date.now()}`;
