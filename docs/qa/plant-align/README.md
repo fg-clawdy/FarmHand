@@ -105,7 +105,13 @@ jobBoardHit: { u0: 0.02, v0: 0.0, u1: 0.22, v1: 0.2 }
 blockers.jobBoard: same
 ```
 
-Hanging cork (posts/grass cropped) + Wanted frames on the **barn face**. The mid-path rect `{ u0: 0.42, v0: 0.06, u1: 0.62, v1: 0.36 }` is **obsolete** unless Game Engineer re-nudges. `cowStart` stays `{ u: 0.5, v: 0.3 }` on open grass — barn face does not seal the calf corridor. Garden mound UVs unchanged. Live `/qa/farm?pack=mix`.
+Hanging cork (posts/grass cropped) + Wanted frames on the **barn face**. The mid-path rect `{ u0: 0.42, v0: 0.06, u1: 0.62, v1: 0.36 }` is **obsolete** unless Game Engineer re-nudges. `cowStart` stays `{ u: 0.5, v: 0.3 }` on open grass — barn face does not seal the calf corridor. Garden mound UVs unchanged. Live `/qa/farm?pack=mix`:
+
+| File | What it is |
+| --- | --- |
+| [`farm-corkboard-barn-face.png`](after-fix/farm-corkboard-barn-face.png) | Full farm: Wanted board on the barn, mid-path empty |
+| [`farm-corkboard-barn-face-close.png`](after-fix/farm-corkboard-barn-face-close.png) | Barn crop: hanging cork + Dishes poster |
+| [`farm-corkboard-barn-face-hit.json`](after-fix/farm-corkboard-barn-face-hit.json) | `__farmhandJobBoard` UV 0.02–0.22 × 0.0–0.2 |
 
 ## Pass bar
 
