@@ -34,7 +34,9 @@ Live Pixi canvas captures (`canvas.toDataURL`, `GARDEN_CAMERA_ZOOM = 0.85`) are 
 
 | File | What it is |
 | --- | --- |
-| [`empty-mounds-markers.png`](after-fix/empty-mounds-markers.png) | Empty plots, white disc + red cross at the **new** `GARDEN_MOUND_PX` (landscape 1280×800) |
+| [`empty-mounds-markers.png`](after-fix/empty-mounds-markers.png) | Empty plots, white disc + red cross on clawdy’s **white peaks** (landscape 1280×800) |
+| [`empty-mounds-old-vs-new.png`](after-fix/empty-mounds-old-vs-new.png) | Overlay: cyan = old regular grid, white+red = new peaks; bottom row Δy ≈ −45px |
+| [`empty-mounds-old-vs-new-stack.png`](after-fix/empty-mounds-old-vs-new-stack.png) | Stack: previous 5–15px retarget (top) vs white-peak anchors (bottom) |
 | [`empty-mounds-markers-close.png`](after-fix/empty-mounds-markers-close.png) | Tight crops of those nine markers on the painted mounds |
 | [`empty-mounds-markers-portrait.png`](after-fix/empty-mounds-markers-portrait.png) | Same markers, portrait 800×1280 — locals unchanged |
 | [`empty-mounds-markers-tablet.png`](after-fix/empty-mounds-markers-tablet.png) | Tablet landscape 1024×768 |
