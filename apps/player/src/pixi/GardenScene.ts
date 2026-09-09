@@ -116,7 +116,7 @@ export class GardenScene {
     this.slots.forEach((node) => node.setToolGlow(active.has(node.slot)));
   }
 
-  /** QA: white disc + red cross at each plot local (0,0) = `GARDEN_MOUND_PX`. */
+  /** QA only (`/qa/garden?markers=1`). Default off — never drawn in live garden play. */
   setMoundMarkers(on: boolean) {
     this.slots.forEach((node) => node.setMoundMarker(on));
   }
@@ -252,6 +252,8 @@ export class GardenScene {
 let gardenDebugOwner: GardenScene | null = null;
 
 function exposeGardenDebug(scene: GardenScene) {
+  // Window hooks are QA-only. Normal `/garden/:id` play must not grow debug globals.
+  if (typeof location === "undefined" || !location.pathname.startsWith("/qa/")) return;
   gardenDebugOwner = scene;
   const w = globalThis as {
     __farmhandGardenDebug?: () => ReturnType<GardenScene["debugPlants"]>;

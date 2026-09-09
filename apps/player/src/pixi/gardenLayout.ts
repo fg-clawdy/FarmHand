@@ -22,7 +22,7 @@ export const GARDEN_TOOL_LABEL: Record<GardenTool, string> = {
 };
 
 /**
- * Painted pebble-ring centers on `garden_zoom_3x3.jpg` (1536×1024).
+ * Clawdy-approved visual peaks on `garden_zoom_3x3.jpg` (1536×1024). Final.
  *
  * These are **playfield / texture pixels**, never screen pixels. UVs are
  * `px / texture size`. Crops live on the same playfield container as the
@@ -56,8 +56,8 @@ export const GARDEN_ZOOM_LAYOUT = {
 export const GARDEN_CAMERA_ZOOM = 0.85;
 
 /**
- * Extra playfield pixels on the sprite (not the mound UV). Zero once
- * `GARDEN_MOUND_PX` is the painted pebble-ring center.
+ * Extra playfield pixels on the sprite (not the mound UV). Stays `{0,0}` —
+ * not a placement fudge. Pivot is the soil-disc center on `GARDEN_MOUND_PX`.
  */
 export const GARDEN_CROP_SEAT = { x: 0, y: 0 } as const;
 

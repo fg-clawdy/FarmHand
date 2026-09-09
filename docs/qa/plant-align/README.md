@@ -57,6 +57,8 @@ These are the running player at `/qa/garden?pack=willow` or `pack=blossom`, not 
 
 Mound centers are playfield / texture pixels (`GARDEN_MOUND_PX`) on `garden_zoom_3x3.jpg` (1536×1024), never screen coords. Dirt and crops share one `playfield` container; `gardenPlayfieldFit` / `cameraFit` at `GARDEN_CAMERA_ZOOM = 0.85` is the only resize transform. `GARDEN_CROP_SEAT` is `{x:0,y:0}` — the sprite pivot is the soil-disc center on the mound UV.
 
+**Clawdy approved** these visual-peak centers (commit `7d10a83`). Debug markers are opt-in only: `/qa/garden?pack=empty&markers=1`.
+
 Painted visual-peak centers (clawdy white dots) vs the old regular-grid estimate. Bottom row moves ~45px up — the shift must be obvious in-game.
 
 | Slot | Old | New | Δ |
