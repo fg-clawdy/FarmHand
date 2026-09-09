@@ -203,6 +203,59 @@ Plant **wilts** → kid **prunes** → plot **empty**. **No seed return.** No st
 
 Stars never come from the chore claim. Stars come only from **harvest after the plant was confirmed**.
 
+### Seed chore catalog
+
+Default **22-task** seed set for Phase 2. Documented here only — do not implement DB seeding in this pass. Omit legacy IDs and `nextDue` dates when this becomes data.
+
+Parent PWA v1 may show the **emoji**. Later, pair light/dark PNGs as:
+
+`apps/parent/public/icons/chores/<slug>-light.png`  
+`apps/parent/public/icons/chores/<slug>-dark.png`
+
+#### FarmHand mapping
+
+- A chore **claim still plants 1 provisional seed** (purgatory) unless product later **bands by effort**. Legacy `points` (historically **5–100**) sit in the table for reference / future banding. **Open product decision:** all chores = 1 seed, or scale seeds by `legacyPoints` / `estimatedMinutes`.
+- **Stars still only from harvest** (flat **25★**). Chore points are not stars.
+- **Selfie 🏰 Final Boss** (`isBonusSelfie`, `requiresSelfie`, `requiresApproval` false) is the **same daily selfie** as [Selfie earn](#phase-2--selfie-earn-locked): water-unlock + +1 seed for the Chicago day. Do **not** ship a second competing selfie system. A completed Final Boss **is** that day’s selfie earn.
+- **Brush Your Hair** also `requiresSelfie` **and** `requiresApproval`. That is a normal chore claim that needs a photo for the parent queue — not the bonus daily unlock.
+- **Set Out School Clothes** is seeded **`isActive` false** (off). Keep the row so it can be turned on later.
+- **CRITICAL** for Parent PWA emphasis (pin, color, or top of inbox): **Feed Dog A.M.**, **Feed Dog P.M.**, **Walk the Dog**.
+
+Walk the Dog and Easy Bedtime had descriptions in the source catalog; copy was not transferred. Restore from the Task/Chore guide when seeding. Other rows have no description. Two rows have no `estimatedMinutes` in the source list (`—`).
+
+Flag shorthand in the table: **Y** = true, blank = false.
+
+| # | Title | Emoji | Recurrence | timeOfDay | Priority | Min | Approve | Selfie | Skip | Global | Path | Bonus selfie | Active | Legacy pts |
+| -: | --- | --- | --- | --- | --- | -: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | ---: |
+| 1 | Make your bed | 🛏️ | DAILY | MORNING | NORMAL | 2 | Y | | | Y | Y | | Y | — |
+| 2 | Clean your room | 🪟 | WEEKLY | ANYTIME | NORMAL | 5 | Y | | | Y | | | Y | — |
+| 3 | Brush Teeth A.M. | 🌅 | DAILY | MORNING | NORMAL | 5 | Y | | | Y | Y | | Y | — |
+| 4 | Brush Teeth Bedtime | 🌙 | DAILY | ANYTIME | NORMAL | 5 | Y | | | Y | Y | | Y | — |
+| 5 | Dishes (1/6) | 🍽️ | DAILY | ANYTIME | NORMAL | 5 | Y | | Y | | Y | | Y | — |
+| 6 | **Feed Dog A.M.** | 🌅 | DAILY | MORNING | **CRITICAL** | 5 | Y | | | | Y | | Y | — |
+| 7 | **Feed Dog P.M.** | 🌙 | DAILY | EVENING | **CRITICAL** | 5 | Y | | | | Y | | Y | — |
+| 8 | **Walk the Dog** | 🚶 | DAILY | AFTERNOON | **CRITICAL** | 15 | Y | | | | Y | | Y | — |
+| 9 | Take Out Trash | 🗑️ | DAILY | ANYTIME | NORMAL | — | Y | | | | | | Y | — |
+| 10 | Put Up Clean Laundry | 👕 | WEEKLY | ANYTIME | HIGH | 10 | Y | | | Y | | | Y | — |
+| 11 | Brush Your Hair | 🌅 | DAILY | ANYTIME | NORMAL | 5 | Y | Y | | | Y | | Y | — |
+| 12 | Set Out School Clothes | 👕 | WEEKDAYS | ANYTIME | NORMAL | — | Y | | | Y | | | | — |
+| 13 | Easy Bedtime | 🌙 | DAILY | EVENING | LOW | 15 | Y | | | Y | Y | | Y | — |
+| 14 | Clean Living Room | 🧹 | NONE | AFTERNOON | HIGH | 10 | Y | | | | | | Y | — |
+| 15 | Clean Dining Room | 🧹 | NONE | AFTERNOON | HIGH | 5 | Y | | | | | | Y | — |
+| 16 | Clean Shoe Room | 👟 | DAILY | AFTERNOON | NORMAL | 5 | Y | | Y | | Y | | Y | — |
+| 17 | Clean Formal Living | 🧹 | NONE | AFTERNOON | HIGH | 10 | Y | | | | | | Y | — |
+| 18 | Clean Formal Dining | 🍽️ | NONE | AFTERNOON | HIGH | 5 | Y | | | | | | Y | — |
+| 19 | Clean Table | 🧽 | DAILY | ANYTIME | NORMAL | 5 | Y | | Y | | Y | | Y | — |
+| 20 | Selfie 🏰 Final Boss | 🏰 | DAILY | EVENING | NORMAL | 1 | | Y | | Y | Y | Y | Y | — |
+| 21 | Sweep and Vacuum downstairs | 🧹 | NONE | ANYTIME | NORMAL | 30 | Y | | | | | | Y | 100 |
+| 22 | Mop the downstairs | 🧹 | NONE | ANYTIME | NORMAL | 30 | Y | | | | | | Y | 100 |
+
+Field names for implementers: `title`, emoji / icon hint, `description` (if any), `recurrence`, `timeOfDay`, `priority`, `estimatedMinutes`, `requiresApproval`, `requiresSelfie`, `allowsSkip`, `isGlobal`, `includeInPath`, `isBonusSelfie`, `isActive`, plus `legacyPoints` (not a live payout).
+
+Suggested slugs for future icon PNGs: `make-your-bed`, `clean-your-room`, `brush-teeth-am`, `brush-teeth-bedtime`, `dishes-1-6`, `feed-dog-am`, `feed-dog-pm`, `walk-the-dog`, `take-out-trash`, `put-up-clean-laundry`, `brush-your-hair`, `set-out-school-clothes`, `easy-bedtime`, `clean-living-room`, `clean-dining-room`, `clean-shoe-room`, `clean-formal-living`, `clean-formal-dining`, `clean-table`, `selfie-final-boss`, `sweep-and-vacuum-downstairs`, `mop-the-downstairs`.
+
+`NONE` recurrence = unscheduled / as-assigned (period math still applies when a parent puts it on a path). `WEEKDAYS` = Chicago Mon–Fri. `Dishes (1/6)` is a **race / rotation** title hint, not a sixth surface.
+
 ---
 
 ## Phase 2 — Real store (LOCKED starter)
