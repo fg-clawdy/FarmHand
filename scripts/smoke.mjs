@@ -708,15 +708,15 @@ await req(`/api/parent/redemptions/${requested2.data.redemption.id}/fulfill`, {
   method: "POST",
   cookie: adminCookie,
 });
-const afterApprove = await req("/api/store", { cookie: kidCookie2 });
-if (afterApprove.data.points !== 300) {
-  throw new Error(`approve should spend 500, points 300, got ${afterApprove.data.points}`);
+const afterStoreApprove = await req("/api/store", { cookie: kidCookie2 });
+if (afterStoreApprove.data.points !== 300) {
+  throw new Error(`approve should spend 500, points 300, got ${afterStoreApprove.data.points}`);
 }
-if (afterApprove.data.points < 0) throw new Error("balance went negative");
-if (afterApprove.data.starsHeld !== 0 || afterApprove.data.availableStars !== 300) {
-  throw new Error(`expected 0 held / 300 available after approve, got ${JSON.stringify(afterApprove.data)}`);
+if (afterStoreApprove.data.points < 0) throw new Error("balance went negative");
+if (afterStoreApprove.data.starsHeld !== 0 || afterStoreApprove.data.availableStars !== 300) {
+  throw new Error(`expected 0 held / 300 available after approve, got ${JSON.stringify(afterStoreApprove.data)}`);
 }
-if (!afterApprove.data.owned?.some((r) => r.id === requested2.data.redemption.id && r.status === "owned")) {
+if (!afterStoreApprove.data.owned?.some((r) => r.id === requested2.data.redemption.id && r.status === "owned")) {
   throw new Error("owned ice cream missing after approve");
 }
 try {
@@ -740,7 +740,7 @@ if (willowProfile.data.pouch?.fertilizer !== willowGarden.data.player.fertilizer
 if (willowProfile.data.wallet.availableStars !== 300) {
   throw new Error(`profile available expected 300 after ice cream, got ${willowProfile.data.wallet.availableStars}`);
 }
-if (willowProfile.data.wallet.lifetimeEarned !== afterApprove.data.lifetimeEarned) {
+if (willowProfile.data.wallet.lifetimeEarned !== afterStoreApprove.data.lifetimeEarned) {
   throw new Error("profile lifetime earned should match store wallet");
 }
 if (willowProfile.data.wallet.lifetimeEarned !== storeOpen.data.lifetimeEarned) {
