@@ -517,7 +517,7 @@ button.who.profile-entry:active { transform: translateY(2px); }
   font-weight: 800;
   box-shadow: inset 0 1px 0 #fff, 0 3px 0 rgba(90, 50, 20, 0.12);
 }
-.sheet-lede, .sheet-status { margin: 0 0 12px; font-size: 16px; line-height: 1.35; }
+.sheet-lede, .sheet-status { margin: 0 0 12px; font-size: 17px; line-height: 1.4; font-weight: 800; }
 .sheet-error {
   background: linear-gradient(180deg, #fff6ee, #ffd8c8);
   border-color: #d23a2a;
@@ -747,10 +747,10 @@ button.who.profile-entry:active { transform: translateY(2px); }
 .badge-medals { letter-spacing: 2px; }
 .badge-blurb, .badge-next {
   margin: 6px 0 0;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
-  color: #3a2410;
-  line-height: 1.3;
+  color: #2a1a0d;
+  line-height: 1.35;
 }
 .badge-bar {
   height: 10px;

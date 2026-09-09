@@ -40,7 +40,7 @@ export function AccoladeLedgerBody({ ledger }: { ledger: AccoladeLedger }) {
           </div>
         ))}
       </div>
-      <h3 className="sheet-kicker">Forever legends</h3>
+      <h3 className="sheet-title">Forever legends</h3>
       <ul className="legend-list">
         {ledger.lifetime.legends.map((legend) => (
           <li key={legend.slug} className={legend.earned ? "earned parchment" : "parchment"}>
