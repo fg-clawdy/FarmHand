@@ -64,17 +64,42 @@ test("mound pixels are the placement source of truth", () => {
   assert.deepEqual(
     GARDEN_MOUND_PX.map((p) => [p.x, p.y]),
     [
-      [447, 332],
-      [774, 328],
-      [1102, 324],
-      [439, 543],
-      [772, 542],
-      [1104, 539],
-      [434, 756],
-      [770, 756],
-      [1106, 754],
+      [474, 342],
+      [768, 338],
+      [1067, 339],
+      [472, 516],
+      [768, 518],
+      [1088, 517],
+      [454, 713],
+      [771, 716],
+      [1101, 712],
     ],
   );
+});
+
+test("white-peak anchors sit tens of pixels off the old regular grid", () => {
+  const oldGrid = [
+    [430, 317],
+    [768, 317],
+    [1106, 317],
+    [430, 541],
+    [768, 541],
+    [1106, 541],
+    [430, 760],
+    [768, 760],
+    [1106, 760],
+  ] as const;
+  const deltas = GARDEN_MOUND_PX.map((p, i) => {
+    const [ox, oy] = oldGrid[i]!;
+    return Math.hypot(p.x - ox, p.y - oy);
+  });
+  assert.ok(deltas[0]! > 40, `slot 0 ${deltas[0]}`);
+  assert.ok(deltas[6]! > 40, `slot 6 ${deltas[6]}`);
+  assert.ok(deltas[7]! > 40, `slot 7 ${deltas[7]}`);
+  assert.ok(deltas[8]! > 40, `slot 8 ${deltas[8]}`);
+  assert.equal(GARDEN_MOUND_PX[6]!.y, 713);
+  assert.equal(GARDEN_MOUND_PX[7]!.y, 716);
+  assert.equal(GARDEN_MOUND_PX[8]!.y, 712);
 });
 
 test("tool art stays PNG with real alpha paths", () => {

@@ -30,15 +30,15 @@ export const GARDEN_TOOL_LABEL: Record<GardenTool, string> = {
  * one transform tree, so dirt and plants cannot drift apart.
  */
 export const GARDEN_MOUND_PX = [
-  { x: 447, y: 332 }, // was 430, 317
-  { x: 774, y: 328 }, // was 768, 317
-  { x: 1102, y: 324 }, // was 1106, 317
-  { x: 439, y: 543 }, // was 430, 541
-  { x: 772, y: 542 }, // was 768, 541
-  { x: 1104, y: 539 }, // was 1106, 541
-  { x: 434, y: 756 }, // was 430, 760
-  { x: 770, y: 756 }, // was 768, 760
-  { x: 1106, y: 754 }, // was 1106, 760
+  { x: 474, y: 342 }, // 0  was 430, 317
+  { x: 768, y: 338 }, // 1  was 768, 317
+  { x: 1067, y: 339 }, // 2  was 1106, 317
+  { x: 472, y: 516 }, // 3  was 430, 541
+  { x: 768, y: 518 }, // 4  was 768, 541
+  { x: 1088, y: 517 }, // 5  was 1106, 541
+  { x: 454, y: 713 }, // 6  was 430, 760
+  { x: 771, y: 716 }, // 7  was 768, 760
+  { x: 1101, y: 712 }, // 8  was 1106, 760
 ] as const;
 
 function moundUvFromPx(p: { x: number; y: number }): Uv {

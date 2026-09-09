@@ -55,19 +55,19 @@ These are the running player at `/qa/garden?pack=willow` or `pack=blossom`, not 
 
 Mound centers are playfield / texture pixels (`GARDEN_MOUND_PX`) on `garden_zoom_3x3.jpg` (1536×1024), never screen coords. Dirt and crops share one `playfield` container; `gardenPlayfieldFit` / `cameraFit` at `GARDEN_CAMERA_ZOOM = 0.85` is the only resize transform. `GARDEN_CROP_SEAT` is `{x:0,y:0}` — the sprite pivot is the soil-disc center on the mound UV.
 
-Painted pebble-ring centers (white visual ground truth) vs the previous regular-grid estimate:
+Painted visual-peak centers (clawdy white dots) vs the old regular-grid estimate. Bottom row moves ~45px up — the shift must be obvious in-game.
 
-| Slot | Old | New |
-| --- | --- | --- |
-| 0 | 430, 317 | **447, 332** |
-| 1 | 768, 317 | **774, 328** |
-| 2 | 1106, 317 | **1102, 324** |
-| 3 | 430, 541 | **439, 543** |
-| 4 | 768, 541 | **772, 542** |
-| 5 | 1106, 541 | **1104, 539** |
-| 6 | 430, 760 | **434, 756** |
-| 7 | 768, 760 | **770, 756** |
-| 8 | 1106, 760 | **1106, 754** |
+| Slot | Old | New | Δ |
+| --- | --- | --- | --- |
+| 0 | 430, 317 | **474, 342** | +44, +25 |
+| 1 | 768, 317 | **768, 338** | 0, +21 |
+| 2 | 1106, 317 | **1067, 339** | −39, +22 |
+| 3 | 430, 541 | **472, 516** | +42, −25 |
+| 4 | 768, 541 | **768, 518** | 0, −23 |
+| 5 | 1106, 541 | **1088, 517** | −18, −24 |
+| 6 | 430, 760 | **454, 713** | +24, −47 |
+| 7 | 768, 760 | **771, 716** | +3, −44 |
+| 8 | 1106, 760 | **1101, 712** | −5, −48 |
 
 Live Pixi marker proof: `/qa/garden?pack=empty&markers=1` (white disc + red cross at each new local). Captures in [`after-fix/`](after-fix/).
 
