@@ -28,6 +28,27 @@ export function choreClaimGate(opts: {
   return { ok: true };
 }
 
+/** True when at least one active kid could still claim this chore this period. */
+export function choreOpenForFamily(opts: {
+  isActive: boolean;
+  periodEligible: boolean;
+  assignmentMode: ChoreAssignmentMode;
+  assignedPlayerIds: readonly string[];
+  activePlayerIds: readonly string[];
+  claimedPlayerIdsThisPeriod: readonly string[];
+  raceTaken: boolean;
+}): boolean {
+  if (!opts.isActive || !opts.periodEligible) return false;
+  if (opts.assignmentMode === "RACE" && opts.raceTaken) return false;
+  const claimed = new Set(opts.claimedPlayerIdsThisPeriod);
+  const candidates =
+    opts.assignmentMode === "SPECIFIC"
+      ? opts.activePlayerIds.filter((id) => opts.assignedPlayerIds.includes(id))
+      : opts.activePlayerIds;
+  if (candidates.length === 0) return false;
+  return candidates.some((id) => !claimed.has(id));
+}
+
 export function closedPeriodKey(status: "DENIED" | "DONE", claimId: string): string {
   return `${status.toLowerCase()}:${claimId}`;
 }

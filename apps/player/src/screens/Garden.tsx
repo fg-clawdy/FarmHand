@@ -440,7 +440,7 @@ function GardenPlay({
           config={config}
           seeds={player.seeds}
           onClose={() => setOverlay(null)}
-          onNeedJobs={() => setOverlay({ type: "chores" })}
+          onNeedJobs={() => setOverlay({ type: "need-jobs" })}
           onPick={(tier) => {
             const slot = overlay.slot;
             void run(async () => {

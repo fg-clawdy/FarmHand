@@ -18,7 +18,11 @@ function loadPainted() {
   return paintedPromise;
 }
 
-export function useFarmPixi(handlers: { onPlayer: (id: string) => void; onStore: () => void }) {
+export function useFarmPixi(handlers: {
+  onPlayer: (id: string) => void;
+  onStore: () => void;
+  onJobBoard: () => void;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<FarmScene | null>(null);
   const [ready, setReady] = useState(0);
@@ -44,6 +48,7 @@ export function useFarmPixi(handlers: { onPlayer: (id: string) => void; onStore:
       const scene = new FarmScene(eng, atlas, painted, {
         onPlayer: (id) => handlersRef.current.onPlayer(id),
         onStore: () => handlersRef.current.onStore(),
+        onJobBoard: () => handlersRef.current.onJobBoard(),
       });
       if (dead) {
         scene.destroy();

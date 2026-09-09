@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { serializePlot } from "@farmhand/shared";
 import { prisma } from "../db.js";
+import { listFamilyOpenChores } from "../chores.js";
 import { ensurePlots, loadConfig, selfieUnlockedOn, syncAllPlayerPlots } from "../game.js";
 import { getPlayerSession } from "../auth.js";
 
@@ -34,5 +35,11 @@ export async function farmRoutes(app: FastifyInstance) {
         };
       }),
     };
+  });
+
+  app.get("/api/farm/jobs", async () => {
+    const config = await loadConfig();
+    const jobs = await listFamilyOpenChores(config.timezone);
+    return { timezone: config.timezone, jobs };
   });
 }

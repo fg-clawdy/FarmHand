@@ -60,7 +60,8 @@ Existing `FULFILLED` rows migrated to **OWNED** (prior “fulfill” meant paren
 
 | Who | Where | What |
 | --- | --- | --- |
-| Kid | Farm dashboard → Farm Store | Shop catalog, confirm hold, Waiting, Owned (use later). No redeemed dump. |
+| Kid | Farm dashboard → Farm Store | **Browse catalog without PIN** (no silent Willow default). Spending / Waiting / Owned need identity. |
+| Kid | Farm dashboard → Job Board corkboard | Family Wanted posters + coach; claim identity at claim time. See [`phase-2-job-board-farm.md`](phase-2-job-board-farm.md). |
 | Kid | Garden → name / **Profile** | Wallet, pouch, selfies, Pending / Owned / Redeemed, accolades. See [`phase-2-kid-profile.md`](phase-2-kid-profile.md). |
 | Parent | `/parent/store` | Pending **Approve \| Deny**, Owned **Mark redeemed**, catalog CRUD, kid wallets |
 | Parent | `/parent/` inbox | Pending store rows **Approve \| Deny** |
@@ -69,10 +70,21 @@ Existing `FULFILLED` rows migrated to **OWNED** (prior “fulfill” meant paren
 
 Notification `url` is `/parent/store`. Tag is `approval:store_redemption:<id>`.
 
+## Identity (browse vs spend)
+
+Opening Farm Store from the main farm **does not** require a PIN and **must not** silently shop as Willow (or any kid) just because a garden cookie exists.
+
+- **Anonymous browse:** catalog + star prices. Wallet copy is generic (“Pick whose stars”). Personal available stars and `affordable` flags stay hidden until identified.
+- **Spending / requesting** uses the active PIN garden session if there is one, otherwise **Whose stars?** + PIN (`enter`). Holds land on **that** kid’s ledger.
+- **Waiting** and **Owned** are personal: same identity gate before those tabs load.
+
+Shared picker: `WhoseKidPicker` (same enter/PIN path as chores). `GET /api/store` and `POST /api/store/request` still `requirePlayer` (401 without a session).
+
 ## API
 
 | Method | Path | Who |
 | --- | --- | --- |
+| GET | `/api/store/catalog` | Anyone — active catalog + prices; **no** wallet / `affordable` |
 | GET | `/api/store` | Player — catalog, wallet, pending, owned |
 | POST | `/api/store/request` | Player — `{ skuId }`; holds stars |
 | GET | `/api/profile` | Player — full kid overview |
@@ -107,7 +119,7 @@ docker compose up -d --build
 BASE_URL=http://127.0.0.1:8080 node scripts/smoke.mjs   # if HTTP_PORT=8080
 ```
 
-Smoke covers ice cream hold / deny / approve→owned, SET not counting as earned, grant 2100 → Date night → earn 100 → Movie night → redeem both, and `GET /api/profile`.
+Smoke covers anonymous catalog vs 401 store/request, ice cream hold / deny / approve→owned, SET not counting as earned, grant 2100 → Date night → earn 100 → Movie night → redeem both, and `GET /api/profile`.
 
 Manual: Farm Store buy; Parent **Approve** then **Mark redeemed**; garden **Profile** as Willow — lifetime vs available, owned vs redeemed, badges, pouch matching the HUD.
 

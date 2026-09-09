@@ -1,24 +1,73 @@
 import { useEffect, useState } from "react";
 import type { GameConfig } from "@farmhand/shared";
-import type { GardenPlayer, PublicChore } from "../api";
+import type { FamilyJob, GardenPlayer, PublicChore } from "../api";
+import JobCoach from "./JobCoach";
 import Sheet from "./Sheet";
 
 export function NeedJobsNudge({ onClose, onOpenJobs }: { onClose: () => void; onOpenJobs: () => void }) {
   return (
-    <Sheet title="Need a seed?" onClose={onClose}>
-      <p className="chore-copy">
-        Your seed pouch is empty. Do a job on the Job Board to plant a <b>waiting seed</b> — jobs do not spend pouch
-        seeds.
-      </p>
-      <div className="sheet-actions">
-        <button className="btn gold" type="button" onClick={onOpenJobs}>
-          Do a job to plant a waiting seed
-        </button>
-        <button className="btn ghost" type="button" onClick={onClose}>
-          Back to garden
-        </button>
+    <JobCoach
+      title="Need a seed?"
+      copy="Your seed pouch is empty. Do a job on the Job Board to plant a waiting seed — jobs do not spend pouch seeds."
+      cta="Do a job to plant a waiting seed"
+      cancelLabel="Back to garden"
+      onClose={onClose}
+      onContinue={onOpenJobs}
+    />
+  );
+}
+
+export function FamilyJobBoard({
+  jobs,
+  onClose,
+  onPick,
+}: {
+  jobs: FamilyJob[];
+  onClose: () => void;
+  onPick: (job: FamilyJob) => void;
+}) {
+  const pinned = jobs.filter((job) => job.priority === "CRITICAL");
+  const openJobs = jobs.filter((job) => job.priority !== "CRITICAL");
+  return (
+    <div className="job-board-backdrop" role="dialog" aria-label="Job Board">
+      <div className="job-board">
+        <header className="job-board-header">
+          <div>
+            <p className="job-board-kicker">Family corkboard</p>
+            <h2>Job Board</h2>
+          </div>
+          <button className="job-board-close" type="button" onClick={onClose} aria-label="Close Job Board">
+            Close
+          </button>
+        </header>
+        <p className="job-board-intro">
+          Open jobs for someone in the family. Tap a poster to claim — you'll pick who you are then.
+        </p>
+        <div className="job-board-scroll">
+          {jobs.length === 0 && <p className="job-board-empty">No open jobs right now. Check back soon.</p>}
+          {pinned.length > 0 && (
+            <section className="job-section">
+              <h3>Pinned · dogs first</h3>
+              <div className="job-grid job-grid-pinned">
+                {pinned.map((job) => (
+                  <JobCard key={job.id} chore={job} onPick={() => onPick(job)} />
+                ))}
+              </div>
+            </section>
+          )}
+          {openJobs.length > 0 && (
+            <section className="job-section">
+              <h3>{pinned.length > 0 ? "More jobs" : "Open jobs"}</h3>
+              <div className="job-grid">
+                {openJobs.map((job) => (
+                  <JobCard key={job.id} chore={job} onPick={() => onPick(job)} />
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
       </div>
-    </Sheet>
+    </div>
   );
 }
 
@@ -30,6 +79,8 @@ export default function JobBoard({
   onClose,
   onClaim,
   onNeedPhoto,
+  kidName,
+  initialChoreId,
 }: {
   chores: PublicChore[];
   emptySlots: number[];
@@ -38,6 +89,8 @@ export default function JobBoard({
   onClose: () => void;
   onClaim: (chore: PublicChore, slot: number, tier: number) => Promise<GardenPlayer>;
   onNeedPhoto: (chore: PublicChore, slot: number, tier: number) => void;
+  kidName?: string;
+  initialChoreId?: string | null;
 }) {
   const [picked, setPicked] = useState<PublicChore | null>(null);
   const [slot, setSlot] = useState<number | null>(emptySlots[0] ?? null);
@@ -53,6 +106,19 @@ export default function JobBoard({
   useEffect(() => {
     setSlot(emptySlots[0] ?? null);
   }, [emptySlots]);
+
+  useEffect(() => {
+    if (!initialChoreId) return;
+    const chore = chores.find((row) => row.id === initialChoreId);
+    if (!chore) return;
+    if (chore.eligible) {
+      setPicked(chore);
+      setError("");
+      return;
+    }
+    setPicked(null);
+    setError(chore.reason || "That chore isn't assigned to you.");
+  }, [initialChoreId, chores]);
 
   async function claim(chore: PublicChore, nextSlot: number, nextTier: number) {
     setError("");
@@ -82,7 +148,7 @@ export default function JobBoard({
         <div className="job-board">
           <header className="job-board-header">
             <div>
-              <p className="job-board-kicker">Barn jobs</p>
+              <p className="job-board-kicker">{kidName ? `${kidName}'s jobs` : "Barn jobs"}</p>
               <h2>Job Board</h2>
             </div>
             <button className="job-board-close" type="button" onClick={onClose} aria-label="Close Job Board">
@@ -107,7 +173,7 @@ export default function JobBoard({
                 <h3>Pinned · dogs first</h3>
                 <div className="job-grid job-grid-pinned">
                   {pinned.map((chore) => (
-                    <JobCard key={chore.id} chore={chore} onPick={pick} />
+                    <JobCard key={chore.id} chore={chore} onPick={() => pick(chore)} />
                   ))}
                 </div>
               </section>
@@ -117,7 +183,7 @@ export default function JobBoard({
                 <h3>{pinned.length > 0 ? "More jobs" : "Open jobs"}</h3>
                 <div className="job-grid">
                   {openJobs.map((chore) => (
-                    <JobCard key={chore.id} chore={chore} onPick={pick} />
+                    <JobCard key={chore.id} chore={chore} onPick={() => pick(chore)} />
                   ))}
                 </div>
               </section>
@@ -200,9 +266,9 @@ function JobCard({
   muted = false,
   onPick,
 }: {
-  chore: PublicChore;
+  chore: { id: string; title: string; emoji: string; priority: string; requiresSelfie?: boolean; reason?: string | null };
   muted?: boolean;
-  onPick?: (chore: PublicChore) => void;
+  onPick?: () => void;
 }) {
   const critical = chore.priority === "CRITICAL";
   return (
@@ -210,7 +276,7 @@ function JobCard({
       type="button"
       className={`job-card ${critical ? "critical" : ""} ${muted ? "muted" : ""}`}
       disabled={muted}
-      onClick={() => onPick?.(chore)}
+      onClick={() => onPick?.()}
     >
       <span className="job-card-pin" aria-hidden="true">
         {critical ? "📌" : "📎"}

@@ -18,7 +18,10 @@ Parent login is the **same account** as Admin (`/api/admin/login`, cookie `fh_ad
 
 ## Kid Job Board (browse UI)
 
-Kids browse chores on a full-screen **Job Board** (barn/corkboard, big emoji cards). Garden toolbar **Chores** opens it.
+Kids browse chores on a full-screen **Job Board** (barn/corkboard, big emoji cards).
+
+- **Main farm corkboard** (no PIN): Wanted posters rotate through chores still open for *someone* in the family. Tap → coach (“Do a job to plant a waiting seed”) → family board → **claim-time identity**. See [`phase-2-job-board-farm.md`](phase-2-job-board-farm.md).
+- **Garden toolbar Chores** opens the same board for the kid already in a PIN garden session.
 
 - Each open card shows the title, emoji, and a **+1 waiting seed** chip (not stars). Photo chores also say **Needs a photo**.
 - **CRITICAL** dog chores (Feed Dog A.M./P.M., Walk the Dog) are pinned at the top.
@@ -26,10 +29,11 @@ Kids browse chores on a full-screen **Job Board** (barn/corkboard, big emoji car
 - After a successful claim, the kid returns to the garden with a grey **WAITING** plant. Pouch seeds do not change.
 - Ineligible / already-claimed jobs sit in a muted **Done for now** section with the short reason.
 - If the garden has **no empty plots**, the board explains they need to harvest or prune before claiming.
+- Assignment-aware: a SPECIFIC chore (e.g. Dishes for Willow+Finn) still appears on the **family** corkboard; claim only succeeds for assigned kids.
 
 ## Empty pouch seeds → Job Board
 
-If the kid has **0 pouch seeds** (cannot afford the cheapest crop) and tries to plant from the seed tool or an empty plot, do **not** leave them stuck. Show kid-friendly copy and a CTA: **Do a job to plant a waiting seed**. Job Board claims still plant a provisional seed without spending pouch seeds.
+If the kid has **0 pouch seeds** (cannot afford the cheapest crop) and tries to plant from the seed tool or an empty plot, do **not** leave them stuck. Show the shared **Job Coach** modal (**Do a job to plant a waiting seed**) — the same path as tapping the farm corkboard — then the Job Board. Job Board claims still plant a provisional seed without spending pouch seeds.
 
 ## Verify
 

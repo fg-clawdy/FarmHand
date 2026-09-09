@@ -18,7 +18,7 @@ import { claimChore, EMPTY_PLOT_DATA, listPlayerChores, prunePlot, releaseClaimI
 import { loadConfig, plotWateringState, publicPlayer, selfieUnlockedOn, syncPlayerPlots } from "../game.js";
 import { recordAccoladeEvent, playerAccoladeLedger } from "../accolades.js";
 import { notifyChoreClaimPending, notifyStoreRedemptionPending } from "../push.js";
-import { playerStore, requestStoreSku } from "../store.js";
+import { listActiveCatalog, playerStore, requestStoreSku } from "../store.js";
 import { playerProfile } from "../profile.js";
 import {
   decodeSelfiePayload,
@@ -631,6 +631,11 @@ export async function playerRoutes(app: FastifyInstance) {
       const e = err as Error & { statusCode?: number };
       return reply.code(e.statusCode ?? 400).send({ error: e.message });
     }
+  });
+
+  app.get("/api/store/catalog", async () => {
+    const catalog = await listActiveCatalog();
+    return { catalog };
   });
 
   app.get("/api/store", async (request, reply) => {
