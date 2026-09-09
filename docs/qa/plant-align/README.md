@@ -45,7 +45,23 @@ These are the running player at `/qa/garden?pack=willow` or `pack=blossom`, not 
 
 **Cache:** Pixi loads `/art/painted/plants/plant_*_stages.png?v=3blossom`. Workbox does not precache plant sheets (NetworkFirst). If an old 392px sheet is stuck, hard-refresh or unregister the service worker, then reload `/qa/garden?pack=blossom`.
 
-Mound centers are playfield / texture pixels (`GARDEN_MOUND_PX`), never screen coords. Dirt and crops share one `playfield` container.
+Mound centers are playfield / texture pixels (`GARDEN_MOUND_PX`) on `garden_zoom_3x3.jpg` (1536×1024), never screen coords. Dirt and crops share one `playfield` container; `gardenPlayfieldFit` / `cameraFit` at `GARDEN_CAMERA_ZOOM = 0.85` is the only resize transform. `GARDEN_CROP_SEAT` is `{x:0,y:0}` — the sprite pivot is the soil-disc center on the mound UV.
+
+Painted pebble-ring centers (white visual ground truth) vs the previous regular-grid estimate:
+
+| Slot | Old | New |
+| --- | --- | --- |
+| 0 | 430, 317 | **447, 332** |
+| 1 | 768, 317 | **774, 328** |
+| 2 | 1106, 317 | **1102, 324** |
+| 3 | 430, 541 | **439, 543** |
+| 4 | 768, 541 | **772, 542** |
+| 5 | 1106, 541 | **1104, 539** |
+| 6 | 430, 760 | **434, 756** |
+| 7 | 768, 760 | **770, 756** |
+| 8 | 1106, 760 | **1106, 754** |
+
+Live Pixi marker proof: `/qa/garden?pack=empty&markers=1` (white disc + red cross at each new local). Captures in [`after-fix/`](after-fix/).
 
 ## Pass bar
 

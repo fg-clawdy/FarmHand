@@ -7,6 +7,7 @@ import { useGardenPixi } from "../pixi/usePixi";
 export default function GardenQa() {
   const [params] = useSearchParams();
   const pack = params.get("pack") ?? "willow";
+  const markers = params.get("markers") === "1";
   const { hostRef, sceneRef, ready } = useGardenPixi(() => undefined);
 
   useEffect(() => {
@@ -14,7 +15,8 @@ export default function GardenQa() {
     if (!scene || !ready) return;
     scene.setName("Willow's garden");
     scene.setPlots(qaPlots(pack));
-  }, [ready, pack, sceneRef]);
+    scene.setMoundMarkers(markers);
+  }, [ready, pack, markers, sceneRef]);
 
   return (
     <div className="screen garden-hybrid">
@@ -39,6 +41,20 @@ function plot(slot: number, tier: 1 | 2 | 3, stage: 1 | 2 | 3 | 4, ready = false
 }
 
 function qaPlots(pack: string): PublicPlot[] {
+  if (pack === "empty") {
+    return Array.from({ length: 9 }, (_, slot) => ({
+      slot,
+      state: "empty" as const,
+      tier: null,
+      plantedAt: null,
+      maturesAt: null,
+      remainingMs: 0,
+      growthStage: null,
+      emoji: null,
+      face: null,
+      ready: false,
+    }));
+  }
   if (pack === "berries") {
     return Array.from({ length: 9 }, (_, slot) => plot(slot, 2, 4, true));
   }

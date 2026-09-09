@@ -116,6 +116,11 @@ export class GardenScene {
     this.slots.forEach((node) => node.setToolGlow(active.has(node.slot)));
   }
 
+  /** QA: white disc + red cross at each plot local (0,0) = `GARDEN_MOUND_PX`. */
+  setMoundMarkers(on: boolean) {
+    this.slots.forEach((node) => node.setMoundMarker(on));
+  }
+
   fxWater(slot: number) {
     const n = this.slots[slot];
     if (n) this.fx.burst(n.root.x, n.root.y - 20, "water");
@@ -261,10 +266,12 @@ class PlotNode {
   readonly slot: number;
   private plant = new Sprite();
   private shadow: Graphics;
+  private marker: Graphics;
   private glow: Sprite;
   private sparkle: SparkleField;
   private label: Text;
   private toolGlow = false;
+  private showMarker = false;
   private ready = false;
   private cropScale = 0.4;
   private texScale = 1;
@@ -285,6 +292,9 @@ class PlotNode {
     this.plant.anchor.set(0.5, 0.88);
     this.shadow = new Graphics();
     this.shadow.visible = false;
+    this.marker = new Graphics();
+    this.marker.visible = false;
+    this.marker.eventMode = "none";
     this.label = new Text({
       text: "",
       style: {
@@ -296,7 +306,7 @@ class PlotNode {
       },
     });
     this.label.anchor.set(0.5, 0);
-    this.root.addChild(this.glow, this.shadow, this.sparkle.root, this.plant, this.label);
+    this.root.addChild(this.glow, this.shadow, this.sparkle.root, this.plant, this.label, this.marker);
     this.root.eventMode = "static";
     this.root.cursor = "pointer";
     this.plant.mask = null;
@@ -318,6 +328,27 @@ class PlotNode {
     this.label.position.set(0, cover * 0.34);
     this.label.style.fontSize = Math.max(14, 18 * s);
     this.root.hitArea = new Ellipse(0, 0, rx * s, ry * s);
+    this.drawMoundMarker();
+  }
+
+  setMoundMarker(on: boolean) {
+    this.showMarker = on;
+    this.drawMoundMarker();
+  }
+
+  private drawMoundMarker() {
+    this.marker.clear();
+    this.marker.visible = this.showMarker;
+    if (!this.showMarker) return;
+    this.marker.circle(0, 0, 9);
+    this.marker.fill({ color: 0xffffff });
+    this.marker.circle(0, 0, 9);
+    this.marker.stroke({ width: 3, color: 0x1a1008 });
+    this.marker.moveTo(-18, 0);
+    this.marker.lineTo(18, 0);
+    this.marker.moveTo(0, -18);
+    this.marker.lineTo(0, 18);
+    this.marker.stroke({ width: 3, color: 0xe10600 });
   }
 
   setToolGlow(on: boolean) {
@@ -409,6 +440,7 @@ class PlotNode {
       mound: { x: mound.x, y: mound.y },
       dx: world.x - mound.x,
       dy: world.y - mound.y,
+      marker: this.showMarker,
     };
   }
 }

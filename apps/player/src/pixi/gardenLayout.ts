@@ -30,15 +30,15 @@ export const GARDEN_TOOL_LABEL: Record<GardenTool, string> = {
  * one transform tree, so dirt and plants cannot drift apart.
  */
 export const GARDEN_MOUND_PX = [
-  { x: 430, y: 317 },
-  { x: 768, y: 317 },
-  { x: 1106, y: 317 },
-  { x: 430, y: 541 },
-  { x: 768, y: 541 },
-  { x: 1106, y: 541 },
-  { x: 430, y: 760 },
-  { x: 768, y: 760 },
-  { x: 1106, y: 760 },
+  { x: 447, y: 332 }, // was 430, 317
+  { x: 774, y: 328 }, // was 768, 317
+  { x: 1102, y: 324 }, // was 1106, 317
+  { x: 439, y: 543 }, // was 430, 541
+  { x: 772, y: 542 }, // was 768, 541
+  { x: 1104, y: 539 }, // was 1106, 541
+  { x: 434, y: 756 }, // was 430, 760
+  { x: 770, y: 756 }, // was 768, 760
+  { x: 1106, y: 754 }, // was 1106, 760
 ] as const;
 
 function moundUvFromPx(p: { x: number; y: number }): Uv {
@@ -56,10 +56,10 @@ export const GARDEN_ZOOM_LAYOUT = {
 export const GARDEN_CAMERA_ZOOM = 0.85;
 
 /**
- * Extra playfield pixels so the painted disc sits on the pebble-ring center.
- * Pivot stays on the soil disc; this only slides the sprite on the shared playfield.
+ * Extra playfield pixels on the sprite (not the mound UV). Zero once
+ * `GARDEN_MOUND_PX` is the painted pebble-ring center.
  */
-export const GARDEN_CROP_SEAT = { x: 22, y: 8 } as const;
+export const GARDEN_CROP_SEAT = { x: 0, y: 0 } as const;
 
 export function gardenMoundLocal(slot: number) {
   const i = ((slot % PLOTS_PER_GARDEN) + PLOTS_PER_GARDEN) % PLOTS_PER_GARDEN;

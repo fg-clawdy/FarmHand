@@ -61,8 +61,20 @@ test("mound pixels are the placement source of truth", () => {
     assert.ok(Math.abs(local.x - px.x) < 1e-9);
     assert.ok(Math.abs(local.y - px.y) < 1e-9);
   }
-  assert.equal(gardenMoundLocal(4).x, 768);
-  assert.equal(gardenMoundLocal(4).y, 541);
+  assert.deepEqual(
+    GARDEN_MOUND_PX.map((p) => [p.x, p.y]),
+    [
+      [447, 332],
+      [774, 328],
+      [1102, 324],
+      [439, 543],
+      [772, 542],
+      [1104, 539],
+      [434, 756],
+      [770, 756],
+      [1106, 754],
+    ],
+  );
 });
 
 test("tool art stays PNG with real alpha paths", () => {
@@ -125,9 +137,9 @@ test("garden camera pulls out to 85% of cover-fit", () => {
   assert.equal(GARDEN_CAMERA_ZOOM, 0.85);
 });
 
-test("garden crop seat is a small playfield nudge onto the pebble ring", () => {
-  assert.ok(GARDEN_CROP_SEAT.x > 0 && GARDEN_CROP_SEAT.x < 40);
-  assert.ok(GARDEN_CROP_SEAT.y >= 0 && GARDEN_CROP_SEAT.y < 24);
+test("garden crop seat is zero once mound UVs are the painted centers", () => {
+  assert.equal(GARDEN_CROP_SEAT.x, 0);
+  assert.equal(GARDEN_CROP_SEAT.y, 0);
 });
 
 test("mound UVs stay in texture space; zoom only scales the shared playfield", () => {
