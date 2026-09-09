@@ -27,16 +27,17 @@ test("walk uses two separate textures, not a combined walk/eat sheet", () => {
   assert.equal(PAINTED_ART.gardenZoom, "/art/painted/garden/garden_zoom_3x3.jpg");
 });
 
-test("approved crop sheets are 1568-wide soil+plant cells, not 1440 plant-only", () => {
-  assert.equal(CROP_SHEET.width, 1568);
+test("approved crop sheets are 1920-wide unpacked soil+plant cells", () => {
+  assert.equal(CROP_SHEET.width, 1920);
   assert.equal(CROP_SHEET.frames, 4);
-  assert.equal(CROP_FRAME_WIDTH, 392);
+  assert.equal(CROP_FRAME_WIDTH, 480);
   assert.equal(CROP_SHEET_HEIGHT.corn, 854);
   assert.equal(CROP_SHEET_HEIGHT.strawberry, 464);
   assert.equal(CROP_SHEET_HEIGHT.cotton, 623);
-  assert.ok(PAINTED_ART.crops.corn.endsWith(".png"));
-  assert.ok(PAINTED_ART.crops.strawberry.endsWith(".png"));
-  assert.ok(PAINTED_ART.crops.cotton.endsWith(".png"));
+  assert.ok(PAINTED_ART.crops.corn.includes("plant_corn_stages.png"));
+  assert.ok(PAINTED_ART.crops.strawberry.includes("plant_strawberry_stages.png"));
+  assert.ok(PAINTED_ART.crops.cotton.includes("plant_cotton_stages.png"));
+  assert.ok(PAINTED_ART.crops.strawberry.includes("v=3blossom"));
 });
 
 test("crop disc pivot sits inside the soil mound, not the cell midpoint leftover", () => {
@@ -59,7 +60,8 @@ test("cover scale uses 80% of the first soil-disc pass", () => {
   assert.equal(FARM_MOUND_COVER_PX, 64);
   const berry = cropCoverScale("strawberry", 4, ZOOM_MOUND_COVER_PX);
   const berryDisc = CROP_DISC_IN_CELL.strawberry[3]!.d;
-  assert.ok(berry * berryDisc < zoom * d, "ripe strawberry bush is slightly smaller than corn cover");
+  assert.ok(Math.abs(berry * berryDisc - ZOOM_MOUND_COVER_PX) < 0.01);
+  assert.ok(CROP_DISC_IN_CELL.strawberry.every((disc) => disc.x > 180 && disc.x < 300));
 });
 
 test("crop sheet slices are equal, in-bounds, and do not share pixels", () => {

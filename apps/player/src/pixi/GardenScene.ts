@@ -1,14 +1,15 @@
 import { cropKindForTier, formatCountdown, PLOTS_PER_GARDEN, type PublicPlot } from "@farmhand/shared";
 import { Container, Ellipse, Graphics, Sprite, Text, type Application } from "pixi.js";
 import type { Atlas } from "./atlas";
-import { cameraFit } from "./draw";
 import type { PixiEngine } from "./engine";
 import { FxLayer, SparkleField } from "./fx";
 import {
-  GARDEN_CAMERA_ZOOM,
+  GARDEN_CROP_SEAT,
   GARDEN_ZOOM_LAYOUT,
   GARDEN_ZOOM_TEXTURE,
-  gardenMoundUv,
+  gardenMoundLocal,
+  gardenMoundWorld,
+  gardenPlayfieldFit,
 } from "./gardenLayout";
 import {
   ZOOM_MOUND_COVER_PX,
@@ -21,6 +22,7 @@ import { uvToLocal } from "./playfieldLayout";
 
 /**
  * Zoomed garden: painted 3×3 mounds, crop sprites, tool glow. No animals, no extra props.
+ * Dirt and crops share `playfield`; resize/orientation only cameraFits that container.
  */
 export class GardenScene {
   readonly root = new Container();
@@ -74,8 +76,7 @@ export class GardenScene {
 
     for (let i = 0; i < PLOTS_PER_GARDEN; i++) {
       const node = new PlotNode(atlas, painted, i, (slot) => this.onPlot(slot));
-      const uv = gardenMoundUv(i);
-      const p = uvToLocal(uv, tw, th);
+      const p = gardenMoundLocal(i);
       node.root.position.set(p.x, p.y);
       node.root.zIndex = Math.round(p.y);
       this.slots.push(node);
@@ -113,6 +114,11 @@ export class GardenScene {
   setGlow(slots: readonly number[]) {
     const active = new Set(slots);
     this.slots.forEach((node) => node.setToolGlow(active.has(node.slot)));
+  }
+
+  /** QA only (`/qa/garden?markers=1`). Default off — never drawn in live garden play. */
+  setMoundMarkers(on: boolean) {
+    this.slots.forEach((node) => node.setMoundMarker(on));
   }
 
   fxWater(slot: number) {
@@ -164,12 +170,13 @@ export class GardenScene {
     const th = GARDEN_ZOOM_TEXTURE.height;
     this.ground.width = tw;
     this.ground.height = th;
-    const fit = cameraFit(w, h, tw, th, GARDEN_CAMERA_ZOOM);
+    // One transform for dirt + crops. Plot locals stay texture pixels.
+    const fit = gardenPlayfieldFit(w, h);
     this.playfield.scale.set(fit.scale);
     this.playfield.position.set(fit.x, fit.y);
 
     this.slots.forEach((slot) => {
-      const p = uvToLocal(gardenMoundUv(slot.slot), tw, th);
+      const p = gardenMoundLocal(slot.slot);
       slot.root.position.set(p.x, p.y);
       slot.root.zIndex = Math.round(p.y);
       slot.layout(1);
@@ -201,8 +208,9 @@ export class GardenScene {
     this.app.renderer.off("resize", this.onResize);
     if (gardenDebugOwner === this) {
       gardenDebugOwner = null;
-      const w = globalThis as { __farmhandGardenDebug?: unknown };
+      const w = globalThis as { __farmhandGardenDebug?: unknown; __farmhandGardenCanvas?: unknown };
       if (w.__farmhandGardenDebug) delete w.__farmhandGardenDebug;
+      if (w.__farmhandGardenCanvas) delete w.__farmhandGardenCanvas;
     }
     this.root.removeFromParent();
     this.root.destroy({ children: true });
@@ -212,17 +220,15 @@ export class GardenScene {
   debugPlants() {
     const tw = GARDEN_ZOOM_TEXTURE.width;
     const th = GARDEN_ZOOM_TEXTURE.height;
-    const fit = {
-      scale: this.playfield.scale.x,
-      x: this.playfield.position.x,
-      y: this.playfield.position.y,
-    };
+    const fit = gardenPlayfieldFit(this.app.screen.width, this.app.screen.height);
     return this.slots.map((slot) => {
-      const uv = gardenMoundUv(slot.slot);
-      const local = uvToLocal(uv, tw, th);
-      const expected = { x: fit.x + local.x * fit.scale, y: fit.y + local.y * fit.scale };
+      const world = gardenMoundWorld(slot.slot, this.app.screen.width, this.app.screen.height);
+      const local = world.local;
+      const uv = { u: local.x / tw, v: local.y / th };
+      const expected = { x: world.x, y: world.y };
       const row = slot.debug();
       const ground = { w: this.ground.width, h: this.ground.height, tw, th };
+      const view = { w: this.app.screen.width, h: this.app.screen.height };
       return {
         ...row,
         uv,
@@ -231,6 +237,12 @@ export class GardenScene {
         uvDx: row.mound.x - expected.x,
         uvDy: row.mound.y - expected.y,
         fit,
+        view,
+        playfieldDrift: {
+          scale: this.playfield.scale.x - fit.scale,
+          x: this.playfield.position.x - fit.x,
+          y: this.playfield.position.y - fit.y,
+        },
         ground,
       };
     });
@@ -240,9 +252,15 @@ export class GardenScene {
 let gardenDebugOwner: GardenScene | null = null;
 
 function exposeGardenDebug(scene: GardenScene) {
+  // Window hooks are QA-only. Normal `/garden/:id` play must not grow debug globals.
+  if (typeof location === "undefined" || !location.pathname.startsWith("/qa/")) return;
   gardenDebugOwner = scene;
-  (globalThis as { __farmhandGardenDebug?: () => ReturnType<GardenScene["debugPlants"]> }).__farmhandGardenDebug =
-    () => scene.debugPlants();
+  const w = globalThis as {
+    __farmhandGardenDebug?: () => ReturnType<GardenScene["debugPlants"]>;
+    __farmhandGardenCanvas?: () => HTMLCanvasElement | OffscreenCanvas | undefined;
+  };
+  w.__farmhandGardenDebug = () => scene.debugPlants();
+  w.__farmhandGardenCanvas = () => scene["app"]?.canvas;
 }
 
 class PlotNode {
@@ -250,10 +268,12 @@ class PlotNode {
   readonly slot: number;
   private plant = new Sprite();
   private shadow: Graphics;
+  private marker: Graphics;
   private glow: Sprite;
   private sparkle: SparkleField;
   private label: Text;
   private toolGlow = false;
+  private showMarker = false;
   private ready = false;
   private cropScale = 0.4;
   private texScale = 1;
@@ -274,6 +294,9 @@ class PlotNode {
     this.plant.anchor.set(0.5, 0.88);
     this.shadow = new Graphics();
     this.shadow.visible = false;
+    this.marker = new Graphics();
+    this.marker.visible = false;
+    this.marker.eventMode = "none";
     this.label = new Text({
       text: "",
       style: {
@@ -285,7 +308,7 @@ class PlotNode {
       },
     });
     this.label.anchor.set(0.5, 0);
-    this.root.addChild(this.glow, this.shadow, this.sparkle.root, this.plant, this.label);
+    this.root.addChild(this.glow, this.shadow, this.sparkle.root, this.plant, this.label, this.marker);
     this.root.eventMode = "static";
     this.root.cursor = "pointer";
     this.plant.mask = null;
@@ -296,7 +319,7 @@ class PlotNode {
     this.texScale = s;
     const { rx, ry } = GARDEN_ZOOM_LAYOUT.hit;
     const cover = ZOOM_MOUND_COVER_PX * s;
-    this.plant.position.set(0, 0);
+    this.plant.position.set(GARDEN_CROP_SEAT.x, GARDEN_CROP_SEAT.y);
     this.shadow.clear();
     this.shadow.ellipse(0, cover * 0.08, cover * 0.52, cover * 0.34);
     this.shadow.fill({ color: 0x2a1608, alpha: 0.28 });
@@ -307,6 +330,27 @@ class PlotNode {
     this.label.position.set(0, cover * 0.34);
     this.label.style.fontSize = Math.max(14, 18 * s);
     this.root.hitArea = new Ellipse(0, 0, rx * s, ry * s);
+    this.drawMoundMarker();
+  }
+
+  setMoundMarker(on: boolean) {
+    this.showMarker = on;
+    this.drawMoundMarker();
+  }
+
+  private drawMoundMarker() {
+    this.marker.clear();
+    this.marker.visible = this.showMarker;
+    if (!this.showMarker) return;
+    this.marker.circle(0, 0, 9);
+    this.marker.fill({ color: 0xffffff });
+    this.marker.circle(0, 0, 9);
+    this.marker.stroke({ width: 3, color: 0x1a1008 });
+    this.marker.moveTo(-18, 0);
+    this.marker.lineTo(18, 0);
+    this.marker.moveTo(0, -18);
+    this.marker.lineTo(0, 18);
+    this.marker.stroke({ width: 3, color: 0xe10600 });
   }
 
   setToolGlow(on: boolean) {
@@ -385,6 +429,7 @@ class PlotNode {
   debug() {
     const frame = this.plant.texture.frame;
     const orig = this.plant.texture.orig;
+    const source = this.plant.texture.source;
     const world = this.plant.getGlobalPosition();
     const mound = this.root.getGlobalPosition();
     const visibleSprites = this.root.children.filter((c) => c instanceof Sprite && c.visible).length;
@@ -392,6 +437,7 @@ class PlotNode {
       slot: this.slot,
       visible: this.plant.visible,
       spritesOnPlot: visibleSprites,
+      sheet: { w: source.width, h: source.height },
       frame: { x: frame.x, y: frame.y, w: frame.width, h: frame.height },
       orig: { x: orig.x, y: orig.y, w: orig.width, h: orig.height },
       anchor: { x: this.plant.anchor.x, y: this.plant.anchor.y },
@@ -401,6 +447,7 @@ class PlotNode {
       mound: { x: mound.x, y: mound.y },
       dx: world.x - mound.x,
       dy: world.y - mound.y,
+      marker: this.showMarker,
     };
   }
 }

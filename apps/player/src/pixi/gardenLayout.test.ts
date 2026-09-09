@@ -4,8 +4,13 @@ import type { PublicPlot } from "@farmhand/shared";
 import {
   cropNameForPlot,
   cheapestSeedCost,
+  gardenMoundLocal,
   gardenMoundUv,
+  gardenMoundWorld,
+  gardenPlayfieldFit,
   GARDEN_CAMERA_ZOOM,
+  GARDEN_CROP_SEAT,
+  GARDEN_MOUND_PX,
   GARDEN_TOOL_ART,
   GARDEN_ZOOM_LAYOUT,
   GARDEN_ZOOM_TEXTURE,
@@ -37,6 +42,7 @@ function plot(slot: number, state: PublicPlot["state"], extra: Partial<PublicPlo
 
 test("zoomed garden has nine mound UVs inside the dirt", () => {
   assert.equal(GARDEN_ZOOM_LAYOUT.mounds.length, PLOTS_PER_GARDEN);
+  assert.equal(GARDEN_MOUND_PX.length, PLOTS_PER_GARDEN);
   assert.equal(PLOTS_PER_GARDEN, 9);
   const slots = Array.from({ length: 9 }, (_, i) => gardenMoundUv(i));
   assert.ok(slots[0]!.u < slots[1]!.u && slots[1]!.u < slots[2]!.u);
@@ -47,6 +53,55 @@ test("zoomed garden has nine mound UVs inside the dirt", () => {
   }
   assert.ok(Math.abs(slots[4]!.u - 0.5) < 0.02);
   assert.ok(slots[0]!.v > 0.26 && slots[0]!.v < 0.36, "back row sits on the painted mounds");
+});
+
+test("mound pixels are the placement source of truth", () => {
+  for (let slot = 0; slot < 9; slot++) {
+    const px = gardenMoundLocal(slot);
+    assert.deepEqual(px, GARDEN_MOUND_PX[slot]);
+    const local = uvToLocal(gardenMoundUv(slot), GARDEN_ZOOM_TEXTURE.width, GARDEN_ZOOM_TEXTURE.height);
+    assert.ok(Math.abs(local.x - px.x) < 1e-9);
+    assert.ok(Math.abs(local.y - px.y) < 1e-9);
+  }
+  assert.deepEqual(
+    GARDEN_MOUND_PX.map((p) => [p.x, p.y]),
+    [
+      [474, 342],
+      [768, 338],
+      [1067, 339],
+      [472, 516],
+      [768, 518],
+      [1088, 517],
+      [454, 713],
+      [771, 716],
+      [1101, 712],
+    ],
+  );
+});
+
+test("white-peak anchors sit tens of pixels off the old regular grid", () => {
+  const oldGrid = [
+    [430, 317],
+    [768, 317],
+    [1106, 317],
+    [430, 541],
+    [768, 541],
+    [1106, 541],
+    [430, 760],
+    [768, 760],
+    [1106, 760],
+  ] as const;
+  const deltas = GARDEN_MOUND_PX.map((p, i) => {
+    const [ox, oy] = oldGrid[i]!;
+    return Math.hypot(p.x - ox, p.y - oy);
+  });
+  assert.ok(deltas[0]! > 40, `slot 0 ${deltas[0]}`);
+  assert.ok(deltas[6]! > 40, `slot 6 ${deltas[6]}`);
+  assert.ok(deltas[7]! > 40, `slot 7 ${deltas[7]}`);
+  assert.ok(deltas[8]! > 40, `slot 8 ${deltas[8]}`);
+  assert.equal(GARDEN_MOUND_PX[6]!.y, 713);
+  assert.equal(GARDEN_MOUND_PX[7]!.y, 716);
+  assert.equal(GARDEN_MOUND_PX[8]!.y, 712);
 });
 
 test("tool art stays PNG with real alpha paths", () => {
@@ -114,6 +169,11 @@ test("garden camera pulls out to 85% of cover-fit", () => {
   assert.equal(GARDEN_CAMERA_ZOOM, 0.85);
 });
 
+test("garden crop seat is zero once mound UVs are the painted centers", () => {
+  assert.equal(GARDEN_CROP_SEAT.x, 0);
+  assert.equal(GARDEN_CROP_SEAT.y, 0);
+});
+
 test("mound UVs stay in texture space; zoom only scales the shared playfield", () => {
   const uv = gardenMoundUv(4);
   const local = uvToLocal(uv, GARDEN_ZOOM_TEXTURE.width, GARDEN_ZOOM_TEXTURE.height);
@@ -127,6 +187,65 @@ test("mound UVs stay in texture space; zoom only scales the shared playfield", (
       assert.ok(Math.abs((world.x - fit.x) / fit.scale - local.x) < 1e-6);
       assert.ok(Math.abs((world.y - fit.y) / fit.scale - local.y) < 1e-6);
     }
+  }
+});
+
+/** Tablet / phone viewports — landscape and the same pair flipped to portrait. */
+const ORIENTATION_VIEWPORTS = [
+  [1280, 800],
+  [800, 1280],
+  [1920, 1080],
+  [1080, 1920],
+  [1024, 768],
+  [768, 1024],
+  [1180, 820],
+  [820, 1180],
+  [390, 844],
+  [844, 390],
+] as const;
+
+test("mound locals never change when the viewport or orientation changes", () => {
+  const locked = Array.from({ length: 9 }, (_, slot) => gardenMoundLocal(slot));
+  for (const [w, h] of ORIENTATION_VIEWPORTS) {
+    for (let slot = 0; slot < 9; slot++) {
+      const world = gardenMoundWorld(slot, w, h);
+      assert.deepEqual(world.local, locked[slot]);
+      assert.equal(world.local.x, GARDEN_MOUND_PX[slot]!.x);
+      assert.equal(world.local.y, GARDEN_MOUND_PX[slot]!.y);
+    }
+  }
+});
+
+test("cameraFit maps the same playfield local to screen on every orientation", () => {
+  for (const [w, h] of ORIENTATION_VIEWPORTS) {
+    const fit = gardenPlayfieldFit(w, h);
+    assert.ok(fit.scale * GARDEN_ZOOM_TEXTURE.width <= w + 0.5);
+    assert.ok(fit.scale * GARDEN_ZOOM_TEXTURE.height <= h + 0.5);
+    for (let slot = 0; slot < 9; slot++) {
+      const world = gardenMoundWorld(slot, w, h);
+      const back = {
+        x: (world.x - fit.x) / fit.scale,
+        y: (world.y - fit.y) / fit.scale,
+      };
+      assert.ok(Math.abs(back.x - world.local.x) < 1e-6, `${w}x${h} slot ${slot} x`);
+      assert.ok(Math.abs(back.y - world.local.y) < 1e-6, `${w}x${h} slot ${slot} y`);
+    }
+  }
+});
+
+test("flipping landscape to portrait does not move plants in playfield space", () => {
+  const pairs = [
+    [1280, 800],
+    [1024, 768],
+    [1920, 1080],
+  ] as const;
+  for (const [w, h] of pairs) {
+    const land = gardenMoundWorld(4, w, h);
+    const port = gardenMoundWorld(4, h, w);
+    assert.deepEqual(land.local, port.local);
+    assert.ok(land.fit.scale !== port.fit.scale || land.fit.x !== port.fit.x || land.fit.y !== port.fit.y);
+    assert.ok(Math.abs(land.x - (land.fit.x + land.local.x * land.fit.scale)) < 1e-9);
+    assert.ok(Math.abs(port.x - (port.fit.x + port.local.x * port.fit.scale)) < 1e-9);
   }
 });
 

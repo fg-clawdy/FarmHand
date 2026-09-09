@@ -19,3 +19,16 @@ test("camera 0.85 never crops the garden painting", () => {
   assert.ok(wide.scale * 1536 <= 1920 + 0.5);
   assert.ok(wide.scale * 1024 <= 1080 + 0.5);
 });
+
+test("cameraFit letterboxes both landscape and portrait without cropping", () => {
+  for (const [w, h] of [
+    [1280, 800],
+    [800, 1280],
+    [1024, 768],
+    [768, 1024],
+  ] as const) {
+    const fit = cameraFit(w, h, 1536, 1024, 0.85);
+    assert.ok(fit.scale * 1536 <= w + 0.5, `${w}x${h} width`);
+    assert.ok(fit.scale * 1024 <= h + 0.5, `${w}x${h} height`);
+  }
+});

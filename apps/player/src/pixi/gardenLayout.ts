@@ -1,4 +1,5 @@
 import { cropKindForTier, GARDEN_PLOT_COLS, PLOTS_PER_GARDEN, type PlantTier, type PublicPlot } from "@farmhand/shared";
+import { cameraFit } from "./draw";
 import type { Uv } from "./playfieldLayout";
 
 /** Zoomed garden painting (`garden_zoom_3x3.jpg`) is 1536×1024, same as the farm playfield. */
@@ -21,22 +22,32 @@ export const GARDEN_TOOL_LABEL: Record<GardenTool, string> = {
 };
 
 /**
- * UV layout on the zoomed 3×3 garden painting.
- * Regular 3×3 on the painted pebble-ring centers (stem at the apex).
+ * Clawdy-approved visual peaks on `garden_zoom_3x3.jpg` (1536×1024). Final.
+ *
+ * These are **playfield / texture pixels**, never screen pixels. UVs are
+ * `px / texture size`. Crops live on the same playfield container as the
+ * painting; `cameraFit` (resize, portrait/landscape, tablet) only scales that
+ * one transform tree, so dirt and plants cannot drift apart.
  */
+export const GARDEN_MOUND_PX = [
+  { x: 474, y: 342 }, // 0  was 430, 317
+  { x: 768, y: 338 }, // 1  was 768, 317
+  { x: 1067, y: 339 }, // 2  was 1106, 317
+  { x: 472, y: 516 }, // 3  was 430, 541
+  { x: 768, y: 518 }, // 4  was 768, 541
+  { x: 1088, y: 517 }, // 5  was 1106, 541
+  { x: 454, y: 713 }, // 6  was 430, 760
+  { x: 771, y: 716 }, // 7  was 768, 760
+  { x: 1101, y: 712 }, // 8  was 1106, 760
+] as const;
+
+function moundUvFromPx(p: { x: number; y: number }): Uv {
+  return { u: p.x / GARDEN_ZOOM_TEXTURE.width, v: p.y / GARDEN_ZOOM_TEXTURE.height };
+}
+
 export const GARDEN_ZOOM_LAYOUT = {
   sign: { u: 0.5, v: 0.145 } satisfies Uv,
-  mounds: [
-    { u: 0.28, v: 0.31 },
-    { u: 0.5, v: 0.31 },
-    { u: 0.72, v: 0.31 },
-    { u: 0.28, v: 0.528 },
-    { u: 0.5, v: 0.528 },
-    { u: 0.72, v: 0.528 },
-    { u: 0.28, v: 0.742 },
-    { u: 0.5, v: 0.742 },
-    { u: 0.72, v: 0.742 },
-  ] as const satisfies readonly Uv[],
+  mounds: GARDEN_MOUND_PX.map(moundUvFromPx),
   /** Hit ellipse in texture pixels around each mound center. */
   hit: { rx: 110, ry: 78 } as const,
 } as const;
@@ -44,9 +55,36 @@ export const GARDEN_ZOOM_LAYOUT = {
 /** Garden zoom camera vs cover-fit. 0.85 pulls out so grass/fence margin stays relaxed. */
 export const GARDEN_CAMERA_ZOOM = 0.85;
 
-export function gardenMoundUv(slot: number): Uv {
+/**
+ * Extra playfield pixels on the sprite (not the mound UV). Stays `{0,0}` —
+ * not a placement fudge. Pivot is the soil-disc center on `GARDEN_MOUND_PX`.
+ */
+export const GARDEN_CROP_SEAT = { x: 0, y: 0 } as const;
+
+export function gardenMoundLocal(slot: number) {
   const i = ((slot % PLOTS_PER_GARDEN) + PLOTS_PER_GARDEN) % PLOTS_PER_GARDEN;
-  return GARDEN_ZOOM_LAYOUT.mounds[i]!;
+  return GARDEN_MOUND_PX[i]!;
+}
+
+export function gardenMoundUv(slot: number): Uv {
+  return moundUvFromPx(gardenMoundLocal(slot));
+}
+
+/** Shared playfield camera for the zoomed garden — dirt and crops inherit this. */
+export function gardenPlayfieldFit(viewW: number, viewH: number) {
+  return cameraFit(viewW, viewH, GARDEN_ZOOM_TEXTURE.width, GARDEN_ZOOM_TEXTURE.height, GARDEN_CAMERA_ZOOM);
+}
+
+/** Screen position of a mound after cameraFit. Local coords stay texture-space. */
+export function gardenMoundWorld(slot: number, viewW: number, viewH: number) {
+  const local = gardenMoundLocal(slot);
+  const fit = gardenPlayfieldFit(viewW, viewH);
+  return {
+    x: fit.x + local.x * fit.scale,
+    y: fit.y + local.y * fit.scale,
+    local,
+    fit,
+  };
 }
 
 export function cheapestSeedCost(tiers: readonly { seedCost: number }[]) {

@@ -10,9 +10,17 @@ export default defineConfig({
       includeAssets: ["icon.svg", "art/*"],
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,jpg,webp,ico,webmanifest}"],
+        globIgnores: ["**/art/painted/plants/**"],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/admin/, /^\/parent/, /^\/api/, /^\/health/],
+        runtimeCaching: [
+          {
+            urlPattern: /\/art\/painted\/plants\/.*/,
+            handler: "NetworkFirst",
+            options: { cacheName: "farmhand-crop-sheets" },
+          },
+        ],
       },
       manifest: {
         name: "FarmHand",
