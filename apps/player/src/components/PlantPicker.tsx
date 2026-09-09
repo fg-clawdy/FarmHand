@@ -1,5 +1,6 @@
 import { cropKindForTier, formatDuration, type GameConfig } from "@farmhand/shared";
 import { AcornArt, ClockIcon, PlantFigure, StarIcon } from "../art";
+import { cheapestSeedCost } from "../pixi/gardenLayout";
 import Sheet from "./Sheet";
 
 export default function PlantPicker({
@@ -7,6 +8,7 @@ export default function PlantPicker({
   seeds,
   onPick,
   onClose,
+  onNeedJobs,
   title = "Choose a plant",
   intro,
   free = false,
@@ -15,20 +17,31 @@ export default function PlantPicker({
   seeds: number;
   onPick: (tier: number) => void;
   onClose: () => void;
+  onNeedJobs?: () => void;
   title?: string;
   intro?: string;
   /** Chore claims inject a seed — don't check the pouch. */
   free?: boolean;
 }) {
+  const broke = !free && seeds < cheapestSeedCost(config.tiers);
   return (
     <Sheet title={title} onClose={onClose}>
       <p className="picker-intro">
-        {intro ?? (
-          <>
-            You have <AcornArt className="inline-art" /> {seeds} seeds. Bigger plants take longer and earn more stars.
-          </>
-        )}
+        {broke
+          ? "Your seed pouch is empty. Do a job on the Job Board to plant a waiting seed — jobs do not spend pouch seeds."
+          : (intro ?? (
+              <>
+                You have <AcornArt className="inline-art" /> {seeds} seeds. Bigger plants take longer and earn more stars.
+              </>
+            ))}
       </p>
+      {broke && onNeedJobs && (
+        <div className="sheet-actions">
+          <button className="btn gold" type="button" onClick={onNeedJobs}>
+            Do a job to plant a waiting seed
+          </button>
+        </div>
+      )}
       <div className="tier-grid">
         {config.tiers.map((tier) => {
           const affordable = free || seeds >= tier.seedCost;

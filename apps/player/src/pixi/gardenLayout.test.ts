@@ -12,6 +12,7 @@ import {
   glowingSlots,
   plotAcceptsTool,
   gardenTapAction,
+  outOfPouchSeeds,
   PLOTS_PER_GARDEN,
 } from "./gardenLayout.ts";
 import { cameraFit } from "./draw.ts";
@@ -144,6 +145,24 @@ test("READY plots harvest on tap; empty and growing keep picker/sheet/tools", ()
   assert.equal(gardenTapAction(growing, null, ctx), "sheet");
   assert.equal(gardenTapAction(growing, "water", ctx), "water");
   assert.equal(gardenTapAction(growing, "fert", ctx), "fert");
+});
+
+test("empty plots with no pouch seeds send the kid to the Job Board", () => {
+  const empty = plot(0, "empty");
+  const growing = plot(1, "growing");
+  const broke = { seeds: 0, fertilizer: 1, canWater: true, cheapestSeed: 1 };
+  const almost = { seeds: 1, fertilizer: 1, canWater: true, cheapestSeed: 2 };
+  const rich = { seeds: 10, fertilizer: 1, canWater: true, cheapestSeed: 1 };
+  assert.equal(outOfPouchSeeds(broke), true);
+  assert.equal(outOfPouchSeeds(almost), true);
+  assert.equal(outOfPouchSeeds(rich), false);
+  assert.equal(gardenTapAction(empty, null, broke), "jobs");
+  assert.equal(gardenTapAction(empty, "seed", broke), "jobs");
+  assert.equal(gardenTapAction(empty, null, almost), "jobs");
+  assert.equal(gardenTapAction(empty, "water", broke), "noop");
+  assert.equal(gardenTapAction(empty, null, rich), "picker");
+  assert.equal(gardenTapAction(empty, "seed", rich), "picker");
+  assert.equal(gardenTapAction(growing, null, broke), "sheet");
 });
 
 test("purgatory and wilted plots ignore tools; wilted tap prunes", () => {

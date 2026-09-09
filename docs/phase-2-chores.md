@@ -16,6 +16,21 @@ This slice is **shipped** on the compose stack. Daily [selfie earn](phase-2-self
 
 Parent login is the **same account** as Admin (`/api/admin/login`, cookie `fh_admin`). This slice does not add a second password. Web Push is not wired yet — the in-app inbox is the Approve | Deny path.
 
+## Kid Job Board (browse UI)
+
+Kids browse chores on a full-screen **Job Board** (barn/corkboard, big emoji cards). Garden toolbar **Chores** opens it.
+
+- Each open card shows the title, emoji, and a **+1 waiting seed** chip (not stars). Photo chores also say **Needs a photo**.
+- **CRITICAL** dog chores (Feed Dog A.M./P.M., Walk the Dog) are pinned at the top.
+- Tap a card → short confirm (empty plot + crop) → existing claim API. Photo chores still capture before claim.
+- After a successful claim, the kid returns to the garden with a grey **WAITING** plant. Pouch seeds do not change.
+- Ineligible / already-claimed jobs sit in a muted **Done for now** section with the short reason.
+- If the garden has **no empty plots**, the board explains they need to harvest or prune before claiming.
+
+## Empty pouch seeds → Job Board
+
+If the kid has **0 pouch seeds** (cannot afford the cheapest crop) and tries to plant from the seed tool or an empty plot, do **not** leave them stuck. Show kid-friendly copy and a CTA: **Do a job to plant a waiting seed**. Job Board claims still plant a provisional seed without spending pouch seeds.
+
 ## Verify
 
 Demo PINs: Willow `1111` / Finn `2222` / Sage `3333`. Parent/admin: `admin` / `farmhand-dev`.
@@ -27,12 +42,13 @@ BASE_URL=http://127.0.0.1:8080 node scripts/smoke.mjs   # if HTTP_PORT=8080
 
 Manual:
 
-1. Kid garden → **Chores** → claim (pick empty mound + crop). Grey **WAITING** plant appears.
-2. Open [http://localhost/parent/](http://localhost/parent/) (or `$HTTP_PORT`) → Approve or Deny.
-3. Approve: plant turns normal and the countdown starts. Water still needs today’s selfie.
-4. Deny: plant **WILTED** → tap to prune → empty, pouch seeds unchanged.
-5. Fill all 9 plots and claim again — rejected.
-6. Two kids racing Feed Dog the same Chicago day — only one claim sticks.
+1. Kid garden → **Chores** → Job Board of big cards. Claim (pick empty mound + crop). Grey **WAITING** plant appears. Pouch seed count does **not** bump.
+2. With **0 pouch seeds**, tap Seeds or an empty mound → nudge with **Do a job to plant a waiting seed** → Job Board. Claim still plants without spending pouch seeds.
+3. Open [http://localhost/parent/](http://localhost/parent/) (or `$HTTP_PORT`) → Approve or Deny.
+4. Approve: plant turns normal and the countdown starts. Water still needs today’s selfie.
+5. Deny: plant **WILTED** → tap to prune → empty, pouch seeds unchanged.
+6. Fill all 9 plots and open the Job Board — it explains harvest/prune before claiming; claim is rejected.
+7. Two kids racing Feed Dog the same Chicago day — only one claim sticks.
 
 ## Implementation notes
 

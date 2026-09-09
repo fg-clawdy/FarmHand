@@ -332,6 +332,7 @@ if (dogs.length !== 3 || dogs.some((c) => c.priority !== "CRITICAL" || c.assignm
   throw new Error("dog chores should be CRITICAL races");
 }
 console.log("chore catalog 21 ok");
+// Player UI Job Board (Chores toolbar) still claims via this API: 1 purgatory plant, no pouch spend.
 
 await ensureEmptySlots(kidCookie2, adminCookie, 2);
 let kidList = await req("/api/chores", { cookie: kidCookie2 });

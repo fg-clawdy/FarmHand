@@ -3,9 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, type GardenPlayer, type HarvestReward, type PublicChore } from "../api";
 import { AcornArt, BackArrow, FertilizerBeaker, MascotArt, SceneShell, StarIcon } from "../art";
-import ChoreSheet from "../components/ChoreSheet";
 import HarvestCelebration from "../components/HarvestCelebration";
 import IngredientsSheet from "../components/IngredientsSheet";
+import JobBoard, { NeedJobsNudge } from "../components/JobBoard";
 import PinPad from "../components/PinPad";
 import PlantPicker from "../components/PlantPicker";
 import PlotSheet from "../components/PlotSheet";
@@ -18,6 +18,7 @@ import {
   GARDEN_TOOL_LABEL,
   GARDEN_TOOLS,
   glowingSlots,
+  outOfPouchSeeds,
   type GardenTool,
 } from "../pixi/gardenLayout";
 import { useGardenPixi } from "../pixi/usePixi";
@@ -28,6 +29,7 @@ type Overlay =
   | { type: "ingredients" }
   | { type: "selfie" }
   | { type: "chores" }
+  | { type: "need-jobs" }
   | { type: "chore-photo"; chore: PublicChore; slot: number; tier: number }
   | null;
 
@@ -209,8 +211,17 @@ function GardenPlay({
   const canWater = selfieUnlocked && player.water.canWater && cooldownRemainingMs === 0;
   const toolCtx = { seeds: player.seeds, fertilizer: player.fertilizer, canWater, cheapestSeed };
   const [gain, setGain] = useState<HarvestReward | null>(null);
+  const [jobToast, setJobToast] = useState(false);
   const [chores, setChores] = useState<PublicChore[]>([]);
-  const [emptySlots, setEmptySlots] = useState<number[]>([]);
+  const gardenEmptySlots = useMemo(
+    () => plots.filter((plot) => plot.state === "empty").map((plot) => plot.slot),
+    [plots],
+  );
+
+  function celebrateWaitingSeed() {
+    setJobToast(true);
+    window.setTimeout(() => setJobToast(false), 3200);
+  }
 
   useEffect(() => {
     if (overlay?.type !== "chores") return;
@@ -218,7 +229,6 @@ function GardenPlay({
       .chores()
       .then((data) => {
         setChores(data.chores);
-        setEmptySlots(data.emptySlots);
         applyGarden(data.player);
       })
       .catch(() => undefined);
@@ -249,6 +259,10 @@ function GardenPlay({
         setOverlay(null);
         return data.player;
       });
+      return;
+    }
+    if (action === "jobs") {
+      setOverlay({ type: "need-jobs" });
       return;
     }
     if (action === "picker") {
@@ -337,7 +351,7 @@ function GardenPlay({
         <button
           type="button"
           className="garden-tool selfie-tool"
-          aria-label="Chores"
+          aria-label="Job Board"
           onClick={() => setOverlay({ type: "chores" })}
         >
           <span className="selfie-tool-icon" aria-hidden="true">
@@ -367,6 +381,11 @@ function GardenPlay({
                   setOverlay({ type: "selfie" });
                   return;
                 }
+                if (id === "seed" && outOfPouchSeeds(toolCtx)) {
+                  setTool(null);
+                  setOverlay({ type: "need-jobs" });
+                  return;
+                }
                 setTool(tool === id ? null : id);
               }}
             >
@@ -382,6 +401,7 @@ function GardenPlay({
           config={config}
           seeds={player.seeds}
           onClose={() => setOverlay(null)}
+          onNeedJobs={() => setOverlay({ type: "chores" })}
           onPick={(tier) => {
             const slot = overlay.slot;
             void run(async () => {
@@ -392,10 +412,13 @@ function GardenPlay({
           }}
         />
       )}
+      {overlay?.type === "need-jobs" && (
+        <NeedJobsNudge onClose={() => setOverlay(null)} onOpenJobs={() => setOverlay({ type: "chores" })} />
+      )}
       {overlay?.type === "chores" && (
-        <ChoreSheet
+        <JobBoard
           chores={chores}
-          emptySlots={emptySlots}
+          emptySlots={gardenEmptySlots}
           config={config}
           busy={busy}
           onClose={() => setOverlay(null)}
@@ -403,6 +426,7 @@ function GardenPlay({
             const data = await api.claimChore(chore.id, { slot, tier });
             setOverlay(null);
             applyGarden(data.player);
+            celebrateWaitingSeed();
             return data.player;
           }}
           onNeedPhoto={(chore, slot, tier) => setOverlay({ type: "chore-photo", chore, slot, tier })}
@@ -425,6 +449,7 @@ function GardenPlay({
           onSuccess={(next) => {
             applyGarden(next);
             setOverlay(null);
+            celebrateWaitingSeed();
           }}
         />
       )}
@@ -474,6 +499,12 @@ function GardenPlay({
         />
       )}
       {gain && <HarvestCelebration reward={gain} />}
+      {jobToast && (
+        <div className="harvest-banner" role="status" aria-live="polite">
+          <div className="harvest-banner-title">🌱 Waiting seed planted!</div>
+          <p className="harvest-note">A grown-up will check it</p>
+        </div>
+      )}
       {overlay?.type === "ingredients" && (
         <IngredientsSheet
           player={player}

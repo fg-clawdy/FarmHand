@@ -95,7 +95,11 @@ export function glowingSlots(
   return plots.filter((plot) => plotAcceptsTool(tool, plot, ctx)).map((plot) => plot.slot);
 }
 
-export type GardenTap = "harvest" | "picker" | "sheet" | "water" | "fert" | "prune" | "noop";
+export type GardenTap = "harvest" | "picker" | "sheet" | "water" | "fert" | "prune" | "jobs" | "noop";
+
+export function outOfPouchSeeds(ctx: GardenToolContext) {
+  return ctx.seeds < ctx.cheapestSeed;
+}
 
 /** What a garden-zoom tap should do. READY plots always harvest — no confirm sheet. */
 export function gardenTapAction(
@@ -106,6 +110,9 @@ export function gardenTapAction(
   if (plot.state === "wilted") return "prune";
   if (plot.state === "purgatory") return "sheet";
   if (plot.ready) return "harvest";
+  if (plot.state === "empty" && outOfPouchSeeds(ctx) && (!tool || tool === "seed")) {
+    return "jobs";
+  }
   if (tool) {
     if (!plotAcceptsTool(tool, plot, ctx)) return "noop";
     if (tool === "seed") return "picker";
