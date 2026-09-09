@@ -62,7 +62,7 @@ export function choreClaimNotificationCopy(opts: {
 export function storeRedemptionNotificationCopy(opts: { playerName: string; title: string }) {
   return {
     title: `Store request — ${opts.title}`,
-    body: `${opts.playerName} wants this reward. Fulfill or deny.`,
+    body: `${opts.playerName} wants this reward. Approve or deny.`,
     critical: false,
   };
 }
@@ -225,7 +225,7 @@ export async function notifyChoreClaimResolved(claimId: string) {
   return notifyApprovalResolved({ kind: "chore_claim", subjectId: claimId });
 }
 
-/** Same tag / action / clear pattern as chores. Notification actions are Fulfill | Deny. */
+/** Same tag / action / clear pattern as chores. Notification actions are Approve | Deny. */
 export async function notifyStoreRedemptionPending(opts: {
   redemptionId: string;
   playerName: string;

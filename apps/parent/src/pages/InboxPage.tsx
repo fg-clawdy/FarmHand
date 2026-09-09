@@ -36,11 +36,11 @@ export default function InboxPage() {
     }
   }
 
-  async function storeAct(id: string, action: "fulfill" | "deny") {
+  async function storeAct(id: string, action: "approve" | "deny") {
     setBusyId(id);
     setError("");
     try {
-      const data = action === "fulfill" ? await api.fulfillRedemption(id) : await api.denyRedemption(id);
+      const data = action === "approve" ? await api.approveRedemption(id) : await api.denyRedemption(id);
       setClaims(data.claims);
       setRedemptions(data.redemptions ?? []);
     } catch (err) {
@@ -67,7 +67,7 @@ export default function InboxPage() {
       <h2>Inbox</h2>
       <p className="muted">
         Dog chores are listed first. Approve starts the plant growing. Deny wilts it — the kid prunes, no seed back.
-        Store requests hold stars until you Fulfill (spend) or Deny (give them back). Notifications are optional; this
+        Store requests hold stars until you Approve (kid owns it) or Deny (stars come back). Notifications are optional; this
         inbox is the fallback if push is off or a tap is stale.
       </p>
       <PushSettings />
@@ -99,9 +99,9 @@ export default function InboxPage() {
                     className="btn sage"
                     type="button"
                     disabled={busyId === row.id}
-                    onClick={() => void storeAct(row.id, "fulfill")}
+                    onClick={() => void storeAct(row.id, "approve")}
                   >
-                    Fulfill
+                    Approve
                   </button>
                   <button
                     className="btn stamp"

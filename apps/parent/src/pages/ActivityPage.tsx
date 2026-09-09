@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type KidAccolades, type KidActivity, type ParentStats } from "../api";
+import { api, type KidAccolades, type KidActivity, type ParentKid, type ParentStats } from "../api";
 
 function pct(n: number, max: number): number {
   if (max <= 0) return 0;
@@ -18,7 +18,15 @@ function medalGlyph(medal: string | null) {
   return "";
 }
 
-function KidCard({ kid, badges }: { kid: KidActivity; badges?: KidAccolades }) {
+function KidCard({
+  kid,
+  badges,
+  overview,
+}: {
+  kid: KidActivity;
+  badges?: KidAccolades;
+  overview?: ParentKid;
+}) {
   const max = Math.max(kid.claims, kid.approvals, kid.denials, 1);
   const sparkMax = Math.max(1, ...kid.series.map((row) => row.claims));
   return (
@@ -34,6 +42,43 @@ function KidCard({ kid, badges }: { kid: KidActivity; badges?: KidAccolades }) {
       <p className="muted" style={{ marginTop: 0 }}>
         {kid.claims} claimed · {kid.approvals} approved · {kid.denials} denied
       </p>
+      {overview?.wallet && (
+        <p className="muted">
+          {overview.wallet.availableStars}★ ready
+          {overview.wallet.heldStars > 0 ? ` · ${overview.wallet.heldStars}★ waiting` : ""}
+          {" · "}
+          {overview.wallet.lifetimeEarned}★ earned all time
+          {overview.wallet.lifetimeSpent > 0 ? ` · ${overview.wallet.lifetimeSpent}★ spent` : ""}
+        </p>
+      )}
+      {overview?.rewards && (
+        <ul className="chore-break">
+          {overview.rewards.pending.map((row) => (
+            <li key={row.id}>
+              <span>
+                {row.emoji} {row.title}
+              </span>
+              <span className="muted">waiting</span>
+            </li>
+          ))}
+          {overview.rewards.owned.map((row) => (
+            <li key={row.id}>
+              <span>
+                {row.emoji} {row.title}
+              </span>
+              <span className="muted">owned</span>
+            </li>
+          ))}
+          {overview.rewards.redeemed.slice(0, 4).map((row) => (
+            <li key={row.id}>
+              <span>
+                {row.emoji} {row.title}
+              </span>
+              <span className="muted">used</span>
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="bars">
         <Bar label="Claimed" value={kid.claims} width={pct(kid.claims, max)} kind="claims" />
         <Bar label="Approved" value={kid.approvals} width={pct(kid.approvals, max)} kind="ok" />
@@ -125,14 +170,16 @@ export default function ActivityPage() {
   const [range, setRange] = useState<"week" | "month">("week");
   const [stats, setStats] = useState<ParentStats | null>(null);
   const [badges, setBadges] = useState<KidAccolades[]>([]);
+  const [kids, setKids] = useState<ParentKid[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
     setStats(null);
-    void Promise.all([api.stats(range), api.accolades()])
-      .then(([nextStats, farm]) => {
+    void Promise.all([api.stats(range), api.accolades(), api.kids()])
+      .then(([nextStats, farm, kidData]) => {
         setStats(nextStats);
         setBadges(farm.kids);
+        setKids(kidData.kids);
       })
       .catch((err: Error) => setError(err.message));
   }, [range]);
@@ -142,8 +189,8 @@ export default function ActivityPage() {
       <h2>Kids</h2>
       <p className="muted">
         Who claimed chores, who you approved, and a simple streak (days in a row with at least one approved chore).
-        Chicago time. This is not the Admin harvest chart. Seasonal medals and lifetime legends use the same ledger as
-        the garden 🏅 button.
+        Chicago time. Star wallets and reward history are read-only here — kids browse the full story on their garden
+        Profile. Seasonal medals and lifetime legends use the same ledger as the garden 🏅 button.
       </p>
       <div className="row range-toggle">
         <button className={`btn ${range === "week" ? "sage" : ""}`} type="button" onClick={() => setRange("week")}>
@@ -157,7 +204,12 @@ export default function ActivityPage() {
       {!stats && !error && <p>Counting chores…</p>}
       {stats &&
         stats.kids.map((kid) => (
-          <KidCard key={kid.id} kid={kid} badges={badges.find((row) => row.id === kid.id)} />
+          <KidCard
+            key={kid.id}
+            kid={kid}
+            badges={badges.find((row) => row.id === kid.id)}
+            overview={kids.find((row) => row.id === kid.id)}
+          />
         ))}
     </div>
   );

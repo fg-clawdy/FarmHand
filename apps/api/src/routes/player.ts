@@ -1,3 +1,6 @@
+import { createReadStream } from "node:fs";
+import { access } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
 import type { FastifyInstance } from "fastify";
 import { getTier, plotIsEmpty, serializePlot } from "@farmhand/shared";
 import { prisma } from "../db.js";
@@ -16,7 +19,17 @@ import { loadConfig, plotWateringState, publicPlayer, selfieUnlockedOn, syncPlay
 import { recordAccoladeEvent, playerAccoladeLedger } from "../accolades.js";
 import { notifyChoreClaimPending, notifyStoreRedemptionPending } from "../push.js";
 import { playerStore, requestStoreSku } from "../store.js";
-import { decodeSelfiePayload, inspectJpeg, planSelfieReward, writeClaimJpeg, writeSelfieJpeg } from "../selfie.js";
+import { playerProfile } from "../profile.js";
+import {
+  decodeSelfiePayload,
+  inspectJpeg,
+  isPlayerSelfieBasename,
+  planSelfieReward,
+  selfieFilePath,
+  writeClaimJpeg,
+  writeSelfieJpeg,
+} from "../selfie.js";
+import { appendStarEvent } from "../stars.js";
 import { todayKey } from "../tz.js";
 
 function pinError() {
@@ -416,12 +429,20 @@ export async function playerRoutes(app: FastifyInstance) {
           where: { id: plot.id },
           data: EMPTY_PLOT_DATA,
         });
-        await tx.activityLog.create({
+        const harvestLog = await tx.activityLog.create({
           data: {
             playerId: player.id,
             action: "harvest",
             details: { slot, tier: tier.tier, points: tier.points, seedsReturned: config.harvestSeedReturn },
           },
+        });
+        await appendStarEvent(tx, {
+          playerId: player.id,
+          kind: "EARN_HARVEST",
+          amount: tier.points,
+          idempotencyKey: `earn:harvest:${harvestLog.id}`,
+          source: "harvest",
+          meta: { slot, tier: tier.tier },
         });
         const unlocks = await recordAccoladeEvent(tx, {
           playerId: player.id,
@@ -647,5 +668,29 @@ export async function playerRoutes(app: FastifyInstance) {
       const e = err as Error & { statusCode?: number };
       return reply.code(e.statusCode ?? 400).send({ error: e.message });
     }
+  });
+
+  app.get("/api/profile", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    return playerProfile(session.playerId);
+  });
+
+  app.get("/api/profile/selfies/:file", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    const file = decodeURIComponent((request.params as { file: string }).file);
+    if (!isPlayerSelfieBasename(session.playerId, file)) {
+      return reply.code(404).send({ error: "That photo isn't here." });
+    }
+    const full = selfieFilePath(file);
+    try {
+      await access(full, fsConstants.R_OK);
+    } catch {
+      return reply.code(404).send({ error: "That photo isn't here." });
+    }
+    reply.header("Content-Type", "image/jpeg");
+    reply.header("Cache-Control", "private, max-age=120");
+    return reply.send(createReadStream(full));
   });
 }

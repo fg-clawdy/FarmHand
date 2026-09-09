@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { decodeSelfiePayload, inspectJpeg, planSelfieReward, SELFIE_MIN_BYTES } from "./selfie.js";
+import { decodeSelfiePayload, inspectJpeg, isPlayerSelfieBasename, planSelfieReward, SELFIE_MIN_BYTES } from "./selfie.js";
 
 /** Minimal SOF0 JPEG large enough for the quality floor. */
 function stubJpeg(width: number, height: number) {
@@ -52,4 +52,14 @@ test("decodeSelfiePayload reads a data URL", () => {
   const jpeg = stubJpeg(80, 80);
   const buf = decodeSelfiePayload(`data:image/jpeg;base64,${jpeg.toString("base64")}`);
   assert.ok(buf.equals(jpeg));
+});
+
+test("selfie filenames are scoped to the kid id prefix", () => {
+  const id = "abcdef12-9999-4000-8000-ffffffffffff";
+  assert.equal(
+    isPlayerSelfieBasename(id, "2026-09-09_Willow_abcdef12_2026-09-09T16-00-00-000Z.jpg"),
+    true,
+  );
+  assert.equal(isPlayerSelfieBasename(id, "2026-09-09_Willow_ffffffff_stamp.jpg"), false);
+  assert.equal(isPlayerSelfieBasename(id, "../abcdef12.jpg"), false);
 });

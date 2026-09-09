@@ -14,6 +14,8 @@ import {
 } from "../auth.js";
 import { loadConfig, publicPlayer, saveConfig } from "../game.js";
 import { farmAccoladeLedgers } from "../accolades.js";
+import { grantEarnedStars } from "../store.js";
+import { appendStarEvent, playerWallet, publicWallet, recordOpeningBalance } from "../stars.js";
 import { chicagoDayKeys, startOfDaysAgo, startOfToday, todayKey } from "../tz.js";
 import {
   balanceKnobs,
@@ -104,10 +106,13 @@ export async function adminRoutes(app: FastifyInstance) {
     });
     const now = new Date();
     return {
-      players: players.map((player) => ({
-        ...publicPlayer(player, config, false),
-        activeSessions: player.sessions.filter((s) => s.expiresAt > now).length,
-      })),
+      players: await Promise.all(
+        players.map(async (player) => ({
+          ...publicPlayer(player, config, false),
+          activeSessions: player.sessions.filter((s) => s.expiresAt > now).length,
+          wallet: publicWallet(await playerWallet(player.id)),
+        })),
+      ),
     };
   });
 
@@ -126,6 +131,7 @@ export async function adminRoutes(app: FastifyInstance) {
       player: {
         ...publicPlayer(player, config, false),
         activeSessions: player.sessions.filter((s) => s.expiresAt > now).length,
+        wallet: publicWallet(await playerWallet(player.id)),
       },
     };
   });
@@ -147,18 +153,20 @@ export async function adminRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: "Pick a mascot." });
     }
     const config = await loadConfig();
+    const startingPoints = body.points ?? config.startingPoints;
     const player = await prisma.player.create({
       data: {
         name,
         mascot: body.mascot,
         pinHash: body.pin ? await hashSecret(String(body.pin)) : null,
         seeds: body.seeds ?? config.startingSeeds,
-        points: body.points ?? config.startingPoints,
+        points: startingPoints,
         fertilizer: body.fertilizer ?? config.startingFertilizer,
         plots: { create: Array.from({ length: config.plotCount }, (_, slot) => ({ slot })) },
       },
       include: { plots: { orderBy: { slot: "asc" } } },
     });
+    await recordOpeningBalance(prisma, player.id, startingPoints, "create_player");
     await prisma.auditLog.create({
       data: {
         adminId: session.adminId,
@@ -247,17 +255,36 @@ export async function adminRoutes(app: FastifyInstance) {
     if (!existing) return reply.code(404).send({ error: "Player not found." });
     const clamp = (n: number | undefined, fallback: number) =>
       Math.max(0, Math.floor(n ?? fallback));
-    const player = await prisma.player.update({
-      where: { id },
-      data: {
-        seeds: clamp(body.seeds, existing.seeds),
-        points: clamp(body.points, existing.points),
-        fertilizer: clamp(body.fertilizer, existing.fertilizer),
-        moonDew: clamp(body.moonDew, existing.moonDew),
-        growGoo: clamp(body.growGoo, existing.growGoo),
-        phoenixAsh: clamp(body.phoenixAsh, existing.phoenixAsh),
-      },
-      include: { plots: { orderBy: { slot: "asc" } } },
+    const nextPoints = clamp(body.points, existing.points);
+    const delta = nextPoints - existing.points;
+    const player = await prisma.$transaction(async (tx) => {
+      const updated = await tx.player.update({
+        where: { id },
+        data: {
+          seeds: clamp(body.seeds, existing.seeds),
+          points: nextPoints,
+          fertilizer: clamp(body.fertilizer, existing.fertilizer),
+          moonDew: clamp(body.moonDew, existing.moonDew),
+          growGoo: clamp(body.growGoo, existing.growGoo),
+          phoenixAsh: clamp(body.phoenixAsh, existing.phoenixAsh),
+        },
+        include: { plots: { orderBy: { slot: "asc" } } },
+      });
+      if (delta !== 0) {
+        await appendStarEvent(tx, {
+          playerId: id,
+          kind: "ADJUST_ADMIN",
+          amount: delta,
+          idempotencyKey: `adjust:${id}:${Date.now()}:${delta}`,
+          source: "admin_set",
+          meta: {
+            reason: body.reason || "manual adjust",
+            before: existing.points,
+            after: nextPoints,
+          },
+        });
+      }
+      return updated;
     });
     await prisma.auditLog.create({
       data: {
@@ -286,7 +313,36 @@ export async function adminRoutes(app: FastifyInstance) {
       },
     });
     const config = await loadConfig();
-    return { player: publicPlayer(player, config, false) };
+    return {
+      player: {
+        ...publicPlayer(player, config, false),
+        wallet: publicWallet(await playerWallet(player.id)),
+      },
+    };
+  });
+
+  app.post("/api/admin/players/:id/grant-stars", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    const body = (request.body ?? {}) as { amount?: number; reason?: string };
+    const existing = await prisma.player.findUnique({ where: { id } });
+    if (!existing) return reply.code(404).send({ error: "Player not found." });
+    try {
+      const wallet = await grantEarnedStars(id, Number(body.amount), body.reason || "admin grant");
+      await prisma.auditLog.create({
+        data: {
+          adminId: session.adminId,
+          targetPlayerId: id,
+          action: "grant_stars",
+          details: { amount: Number(body.amount), reason: body.reason || "admin grant" },
+        },
+      });
+      return { wallet: publicWallet(wallet) };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
   });
 
   app.post("/api/admin/players/:id/end-session", async (request, reply) => {

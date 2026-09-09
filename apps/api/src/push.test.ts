@@ -59,7 +59,7 @@ test("store request payload deep-links to the Store tab", () => {
     kind: "store_redemption",
     subjectId: "red-1",
     title: "Store request — Ice cream",
-    body: "Willow wants this reward. Fulfill or deny.",
+    body: "Willow wants this reward. Approve or deny.",
     url: "/parent/store",
     actionToken: "store-token",
   });

@@ -31,6 +31,7 @@ export default function PlayersPage() {
             <th>Kid</th>
             <th>Seeds</th>
             <th>Stars</th>
+            <th>Ready / held</th>
             <th>PIN</th>
             <th>Session</th>
             <th>Status</th>
@@ -46,6 +47,11 @@ export default function PlayersPage() {
               </td>
               <td>{player.seeds}</td>
               <td>{player.points}</td>
+              <td>
+                {player.wallet
+                  ? `${player.wallet.availableStars} / ${player.wallet.heldStars}`
+                  : "—"}
+              </td>
               <td>{player.hasPin ? "Yes" : "Open"}</td>
               <td>{player.activeSessions ?? 0}</td>
               <td>{player.isActive ? "Active" : "Hidden"}</td>

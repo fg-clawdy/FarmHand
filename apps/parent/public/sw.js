@@ -1,4 +1,4 @@
-/* FarmHand Parent service worker — Web Push Approve | Deny + store Fulfill | Deny + clear-across-parents. */
+/* FarmHand Parent service worker — Web Push Approve | Deny for chores and store + clear-across-parents. */
 const INBOX = "/parent/";
 const STORE = "/parent/store";
 
@@ -48,7 +48,6 @@ async function handlePush(event) {
     return;
   }
 
-  const store = payload.kind === "store_redemption";
   await self.registration.showNotification(payload.title || "FarmHand", {
     body: payload.body,
     tag: payload.tag,
@@ -57,15 +56,10 @@ async function handlePush(event) {
     badge: "/parent/icon.svg",
     renotify: true,
     requireInteraction: Boolean(payload.critical),
-    actions: store
-      ? [
-          { action: "fulfill", title: "Fulfill" },
-          { action: "deny", title: "Deny" },
-        ]
-      : [
-          { action: "approve", title: "Approve" },
-          { action: "deny", title: "Deny" },
-        ],
+    actions: [
+      { action: "approve", title: "Approve" },
+      { action: "deny", title: "Deny" },
+    ],
   });
 }
 
@@ -78,7 +72,7 @@ async function actFromNotification(data, action) {
   const headers = { "Content-Type": "application/json" };
   if (data.actionToken) headers.Authorization = `Bearer ${data.actionToken}`;
   const store = data.kind === "store_redemption";
-  const verb = action === "fulfill" || (store && action === "approve") ? "fulfill" : action;
+  const verb = action === "fulfill" || (store && action === "approve") ? "approve" : action;
   const path = store ? `/api/parent/redemptions/${subjectId}/${verb}` : `/api/parent/claims/${subjectId}/${verb}`;
   try {
     const res = await fetch(path, {

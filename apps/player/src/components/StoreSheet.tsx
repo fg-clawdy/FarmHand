@@ -5,6 +5,8 @@ import { FarmStoreArt, MascotArt } from "../art";
 import PinPad from "./PinPad";
 import Sheet from "./Sheet";
 
+type StoreTab = "shop" | "waiting" | "owned";
+
 export default function StoreSheet({
   players,
   onClose,
@@ -15,6 +17,7 @@ export default function StoreSheet({
   const [shopperId, setShopperId] = useState<string | null>(null);
   const [pinKid, setPinKid] = useState<FarmPlayerCard | null>(null);
   const [store, setStore] = useState<PlayerStore | null>(null);
+  const [tab, setTab] = useState<StoreTab>("shop");
   const [confirm, setConfirm] = useState<StoreSku | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -80,7 +83,8 @@ export default function StoreSheet({
       const data = await api.requestStore(sku.id);
       setStore(data);
       setConfirm(null);
-      setToast(`Asked a grown-up for ${sku.title}. ${sku.starCost}★ is waiting.`);
+      setTab("waiting");
+      setToast(`Asked a grown-up for ${sku.title}. ${sku.starCost}★ is set aside for now.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn't work.");
     } finally {
@@ -127,24 +131,65 @@ export default function StoreSheet({
   return (
     <Sheet title="Farm Store" className="store-sheet" onClose={onClose}>
       <p className="store-balance">
-        {shopper ? `${shopper.name}'s stars` : "Your stars"} · <strong>{store?.availableStars ?? "…"}★</strong> to spend
-        {store && store.starsHeld > 0 ? ` · ${store.starsHeld}★ waiting` : ""}
+        {shopper ? `${shopper.name}'s stars` : "Your stars"} · <strong>{store?.availableStars ?? "…"}★</strong> ready
+        {store && store.starsHeld > 0 ? ` · ${store.starsHeld}★ waiting on a grown-up` : ""}
       </p>
-      <p className="muted">Tap a card to ask a grown-up. They keep the promise in real life. Harvest plants to earn stars.</p>
+      <p className="muted">
+        Ask for a reward here. Your Profile keeps the full story — earned stars, used rewards, and badges.
+      </p>
       {toast && <p className="store-toast">{toast}</p>}
       {error && <p className="error">{error}</p>}
       {!store && <p>Opening the shelves…</p>}
-      {store && store.pending.length > 0 && (
+      {store && (
+        <div className="store-tabs" role="tablist" aria-label="Store sections">
+          <button
+            className={tab === "shop" ? "store-tab on" : "store-tab"}
+            type="button"
+            onClick={() => setTab("shop")}
+          >
+            Shop
+          </button>
+          <button
+            className={tab === "waiting" ? "store-tab on" : "store-tab"}
+            type="button"
+            onClick={() => setTab("waiting")}
+          >
+            Waiting{store.pending.length ? ` (${store.pending.length})` : ""}
+          </button>
+          <button
+            className={tab === "owned" ? "store-tab on" : "store-tab"}
+            type="button"
+            onClick={() => setTab("owned")}
+          >
+            Owned{store.owned.length ? ` (${store.owned.length})` : ""}
+          </button>
+        </div>
+      )}
+      {store && tab === "waiting" && (
         <div className="store-pending">
           <h3>Waiting on a grown-up</h3>
+          {store.pending.length === 0 && <p>Nothing waiting. Ask from Shop when you are ready.</p>}
           {store.pending.map((row) => (
             <p key={row.id}>
-              {row.emoji} {row.title} · {row.starCost}★ held
+              {row.emoji} {row.title} · {row.starCost}★ set aside
             </p>
           ))}
         </div>
       )}
-      {store && (
+      {store && tab === "owned" && (
+        <div className="store-pending">
+          <h3>Ready to use later</h3>
+          {store.owned.length === 0 && (
+            <p>When a grown-up says yes, the reward lives here until you use it in real life.</p>
+          )}
+          {store.owned.map((row) => (
+            <p key={row.id}>
+              {row.emoji} {row.title} · yours · {row.starCost}★
+            </p>
+          ))}
+        </div>
+      )}
+      {store && tab === "shop" && (
         <div className="store-grid">
           {store.catalog.map((sku) => (
             <button
@@ -156,7 +201,7 @@ export default function StoreSheet({
                 setToast("");
                 setError("");
                 if (!sku.affordable) {
-                  setError(`Need ${sku.starCost}★. You have ${store.availableStars}★ to spend.`);
+                  setError(`Need ${sku.starCost}★. You have ${store.availableStars}★ ready.`);
                   return;
                 }
                 setConfirm(sku);
@@ -168,16 +213,6 @@ export default function StoreSheet({
               {sku.description && <span className="store-card-copy">{sku.description}</span>}
               {!sku.affordable && <span className="store-card-need">Need more stars</span>}
             </button>
-          ))}
-        </div>
-      )}
-      {store && store.recent.length > 0 && (
-        <div className="store-recent">
-          <h3>Lately</h3>
-          {store.recent.map((row) => (
-            <p key={row.id}>
-              {row.emoji} {row.title} · {row.status === "fulfilled" ? "a grown-up said yes" : "a grown-up said no"}
-            </p>
           ))}
         </div>
       )}
@@ -199,8 +234,8 @@ export default function StoreSheet({
             Ask a grown-up for {confirm.emoji} <strong>{confirm.title}</strong>?
           </p>
           <p>
-            We'll hold <strong>{confirm.starCost}★</strong> until they fulfill or deny. No extra stars. This is a real-world
-            promise, not an auto-buy.
+            We'll keep <strong>{confirm.starCost}★</strong> set aside while they decide. If they say yes, it's yours to
+            use later. If they say no, you get the stars back.
           </p>
           <div className="sheet-actions">
             <button className="btn primary" type="button" disabled={busy} onClick={() => void requestSku(confirm)}>

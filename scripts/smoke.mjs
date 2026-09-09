@@ -633,6 +633,8 @@ if (iceRow) {
   });
 }
 
+const beforeSet = await req("/api/store", { cookie: kidCookie2 });
+const harvestBeforeSet = beforeSet.data.lifetimeEarnedHarvest ?? 0;
 await req(`/api/admin/players/${willow.id}/resources`, {
   method: "POST",
   body: { points: 800, reason: "smoke store stars" },
@@ -650,6 +652,11 @@ if (storeOpen.data.points !== 800) {
 }
 if (storeOpen.data.availableStars !== 800 || storeOpen.data.starsHeld !== 0) {
   throw new Error(`expected 800 available / 0 held, got ${JSON.stringify(storeOpen.data)}`);
+}
+if (storeOpen.data.lifetimeEarnedHarvest !== harvestBeforeSet) {
+  throw new Error(
+    `SET must not bump harvest earned (${harvestBeforeSet} → ${storeOpen.data.lifetimeEarnedHarvest})`,
+  );
 }
 const iceCard = storeOpen.data.catalog.find((s) => s.slug === "ice-cream");
 if (!iceCard?.affordable) throw new Error("ice cream should be affordable at 800★");
@@ -701,25 +708,160 @@ await req(`/api/parent/redemptions/${requested2.data.redemption.id}/fulfill`, {
   method: "POST",
   cookie: adminCookie,
 });
-const afterFulfill = await req("/api/store", { cookie: kidCookie2 });
-if (afterFulfill.data.points !== 300) {
-  throw new Error(`fulfill should spend 500, points 300, got ${afterFulfill.data.points}`);
+const afterStoreApprove = await req("/api/store", { cookie: kidCookie2 });
+if (afterStoreApprove.data.points !== 300) {
+  throw new Error(`approve should spend 500, points 300, got ${afterStoreApprove.data.points}`);
 }
-if (afterFulfill.data.points < 0) throw new Error("balance went negative");
-if (afterFulfill.data.starsHeld !== 0 || afterFulfill.data.availableStars !== 300) {
-  throw new Error(`expected 0 held / 300 available after fulfill, got ${JSON.stringify(afterFulfill.data)}`);
+if (afterStoreApprove.data.points < 0) throw new Error("balance went negative");
+if (afterStoreApprove.data.starsHeld !== 0 || afterStoreApprove.data.availableStars !== 300) {
+  throw new Error(`expected 0 held / 300 available after approve, got ${JSON.stringify(afterStoreApprove.data)}`);
 }
-if (!afterFulfill.data.recent?.some((r) => r.id === requested2.data.redemption.id && r.status === "fulfilled")) {
-  throw new Error("recent fulfilled missing");
+if (!afterStoreApprove.data.owned?.some((r) => r.id === requested2.data.redemption.id && r.status === "owned")) {
+  throw new Error("owned ice cream missing after approve");
 }
 try {
-  await req(`/api/parent/redemptions/${requested2.data.redemption.id}/fulfill`, {
+  await req(`/api/parent/redemptions/${requested2.data.redemption.id}/approve`, {
     method: "POST",
     cookie: adminCookie,
   });
-  throw new Error("second fulfill should be rejected");
+  throw new Error("second approve should be rejected");
 } catch (err) {
   if (!String(err.message).toLowerCase().includes("already")) throw err;
+}
+
+const willowGarden = await req("/api/garden", { cookie: kidCookie2 });
+const willowProfile = await req("/api/profile", { cookie: kidCookie2 });
+if (willowProfile.data.pouch?.seeds !== willowGarden.data.player.seeds) {
+  throw new Error("profile pouch seeds must match garden HUD");
+}
+if (willowProfile.data.pouch?.fertilizer !== willowGarden.data.player.fertilizer) {
+  throw new Error("profile pouch fertilizer must match garden HUD");
+}
+if (willowProfile.data.wallet.availableStars !== 300) {
+  throw new Error(`profile available expected 300 after ice cream, got ${willowProfile.data.wallet.availableStars}`);
+}
+if (willowProfile.data.wallet.lifetimeEarned !== afterStoreApprove.data.lifetimeEarned) {
+  throw new Error("profile lifetime earned should match store wallet");
+}
+if (willowProfile.data.wallet.lifetimeEarned !== storeOpen.data.lifetimeEarned) {
+  throw new Error("buying ice cream must not change lifetime earned");
+}
+if (!willowProfile.data.rewards.owned?.some((r) => r.id === requested2.data.redemption.id)) {
+  throw new Error("profile owned missing ice cream");
+}
+if (!willowProfile.data.accolades?.seasonal) throw new Error("profile accolades missing");
+
+await req(`/api/parent/redemptions/${requested2.data.redemption.id}/redeem`, {
+  method: "POST",
+  cookie: adminCookie,
+});
+const afterRedeem = await req("/api/profile", { cookie: kidCookie2 });
+if (!afterRedeem.data.rewards.redeemed?.some((r) => r.id === requested2.data.redemption.id)) {
+  throw new Error("profile redeemed missing ice cream");
+}
+if (afterRedeem.data.rewards.owned?.some((r) => r.id === requested2.data.redemption.id)) {
+  throw new Error("redeemed ice cream should leave owned");
+}
+try {
+  await req(`/api/parent/redemptions/${requested2.data.redemption.id}/redeem`, {
+    method: "POST",
+    cookie: adminCookie,
+  });
+  throw new Error("second redeem should be rejected");
+} catch (err) {
+  if (!String(err.message).toLowerCase().includes("already")) throw err;
+}
+
+const leftoverFinn = await req("/api/parent/store", { cookie: adminCookie });
+for (const row of leftoverFinn.data.pending ?? leftoverFinn.data.redemptions ?? []) {
+  if (row.player?.id !== finn.id && row.playerId !== finn.id) continue;
+  try {
+    await req(`/api/parent/redemptions/${row.id}/deny`, { method: "POST", cookie: adminCookie });
+  } catch {
+    /* already resolved */
+  }
+}
+const finnShop = await req(`/api/players/${finn.id}/enter`, { method: "POST", body: { pin: "2222" } });
+const finnCookie = finnShop.cookie;
+const finnBeforeGrant = await req("/api/store", { cookie: finnCookie });
+await req(`/api/admin/players/${finn.id}/grant-stars`, {
+  method: "POST",
+  body: { amount: 2100, reason: "smoke lifetime earn" },
+  cookie: adminCookie,
+});
+const finnAfterGrant = await req("/api/store", { cookie: finnCookie });
+if (finnAfterGrant.data.lifetimeEarned !== (finnBeforeGrant.data.lifetimeEarned ?? 0) + 2100) {
+  throw new Error(
+    `grant 2100 should bump lifetime earned, ${finnBeforeGrant.data.lifetimeEarned} → ${finnAfterGrant.data.lifetimeEarned}`,
+  );
+}
+if (finnAfterGrant.data.availableStars !== (finnBeforeGrant.data.availableStars ?? 0) + 2100) {
+  throw new Error("grant 2100 should add available stars");
+}
+const dateNight = leftoverFinn.data.skus.find((s) => s.slug === "date-night");
+const movieNight = leftoverFinn.data.skus.find((s) => s.slug === "movie-night");
+if (!dateNight || !movieNight) throw new Error("date night / movie night SKUs missing");
+const dateReq = await req("/api/store/request", {
+  method: "POST",
+  body: { skuId: dateNight.id },
+  cookie: finnCookie,
+});
+if (dateReq.data.starsHeld !== 2000) throw new Error("date night should hold 2000");
+if (dateReq.data.availableStars !== finnAfterGrant.data.availableStars - 2000) {
+  throw new Error("date night hold should drop available by 2000");
+}
+if (dateReq.data.lifetimeEarned !== finnAfterGrant.data.lifetimeEarned) {
+  throw new Error("hold must not change lifetime earned");
+}
+await req(`/api/parent/redemptions/${dateReq.data.redemption.id}/approve`, {
+  method: "POST",
+  cookie: adminCookie,
+});
+const afterDate = await req("/api/store", { cookie: finnCookie });
+if (afterDate.data.availableStars !== finnAfterGrant.data.availableStars - 2000) {
+  throw new Error(`after date night approve, available should be reduced once, got ${afterDate.data.availableStars}`);
+}
+if (afterDate.data.lifetimeEarned !== finnAfterGrant.data.lifetimeEarned) {
+  throw new Error("approve must not change lifetime earned");
+}
+if (!afterDate.data.owned?.some((r) => r.id === dateReq.data.redemption.id && r.status === "owned")) {
+  throw new Error("date night should be owned");
+}
+await req(`/api/admin/players/${finn.id}/grant-stars`, {
+  method: "POST",
+  body: { amount: 100, reason: "smoke extra earn" },
+  cookie: adminCookie,
+});
+const movieReq = await req("/api/store/request", {
+  method: "POST",
+  body: { skuId: movieNight.id },
+  cookie: finnCookie,
+});
+await req(`/api/parent/redemptions/${movieReq.data.redemption.id}/approve`, {
+  method: "POST",
+  cookie: adminCookie,
+});
+const afterMovie = await req("/api/store", { cookie: finnCookie });
+if (afterMovie.data.availableStars !== afterDate.data.availableStars + 100 - 200) {
+  throw new Error(`after movie, available expected ${afterDate.data.availableStars + 100 - 200}, got ${afterMovie.data.availableStars}`);
+}
+await req(`/api/parent/redemptions/${dateReq.data.redemption.id}/redeem`, {
+  method: "POST",
+  cookie: adminCookie,
+});
+await req(`/api/parent/redemptions/${movieReq.data.redemption.id}/redeem`, {
+  method: "POST",
+  cookie: adminCookie,
+});
+const finnProfile = await req("/api/profile", { cookie: finnCookie });
+if (finnProfile.data.rewards.owned?.some((r) => r.id === dateReq.data.redemption.id || r.id === movieReq.data.redemption.id)) {
+  throw new Error("Finn owned should be empty of the two redeemed rewards");
+}
+if (
+  !finnProfile.data.rewards.redeemed?.some((r) => r.id === dateReq.data.redemption.id) ||
+  !finnProfile.data.rewards.redeemed?.some((r) => r.id === movieReq.data.redemption.id)
+) {
+  throw new Error("Finn profile should list both redeemed rewards");
 }
 
 await req(`/api/parent/store/skus/${ice.id}`, {
@@ -744,7 +886,7 @@ const createdSku = await req("/api/parent/store/skus", {
 if (!createdSku.data.sku?.id || createdSku.data.sku.isActive !== false) {
   throw new Error("parent create SKU should stay off the shelf");
 }
-console.log("store hold/deny/fulfill + catalog CRUD ok");
+console.log("store ledger + profile owned/redeemed ok");
 
 const sage = players.data.players.find((p) => p.name === "Sage");
 if (!sage) throw new Error("Sage missing");

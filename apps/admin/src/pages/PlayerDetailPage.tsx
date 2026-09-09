@@ -48,6 +48,18 @@ export default function PlayerDetailPage() {
         {player.hasPin ? "PIN locked" : "No PIN"} · {player.activeSessions ?? 0} live session(s) ·{" "}
         {player.isActive ? "on the farm" : "hidden"}
       </p>
+      {player.wallet && (
+        <p className="muted">
+          {player.wallet.availableStars}★ ready
+          {player.wallet.heldStars > 0 ? ` · ${player.wallet.heldStars}★ waiting` : ""}
+          {" · "}
+          {player.wallet.lifetimeEarned}★ earned all time
+          {player.wallet.lifetimeSpent > 0 ? ` · ${player.wallet.lifetimeSpent}★ spent` : ""}
+          {typeof player.wallet.lifetimeEarnedHarvest === "number"
+            ? ` · ${player.wallet.lifetimeEarnedHarvest}★ from harvest`
+            : ""}
+        </p>
+      )}
 
       <h2>Garden (read only)</h2>
       <div className="plots-grid plots-readonly">
@@ -141,6 +153,10 @@ export default function PlayerDetailPage() {
           Reason (audit log)
           <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="birthday bonus, oops, …" />
         </label>
+        <p className="muted">
+          SET stars writes an admin adjustment. It does not count as gameplay-earned. Use grant-stars when you mean
+          “this kid earned these.”
+        </p>
         <button
           className="btn sage"
           type="button"

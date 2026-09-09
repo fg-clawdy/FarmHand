@@ -12,6 +12,13 @@ export type AdminPlayer = {
   isActive: boolean;
   plots: PublicPlot[];
   activeSessions?: number;
+  wallet?: {
+    availableStars: number;
+    heldStars: number;
+    lifetimeEarned: number;
+    lifetimeSpent: number;
+    lifetimeEarnedHarvest: number;
+  };
 };
 
 export type CropMix = {

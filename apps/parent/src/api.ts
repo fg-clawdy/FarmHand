@@ -17,14 +17,41 @@ export type ParentRedemption = {
   id: string;
   skuId: string;
   slug: string;
-  status: "pending" | "fulfilled" | "denied";
+  status: "pending" | "owned" | "redeemed" | "denied" | "fulfilled";
   title: string;
   emoji: string;
+  description?: string;
   starCost: number;
   starsHeld: number;
   requestedAt: string;
   resolvedAt: string | null;
+  approvedAt?: string | null;
+  deniedAt?: string | null;
+  redeemedAt?: string | null;
   player: { id: string; name: string; mascot: string };
+};
+
+export type ParentWallet = {
+  currentStars: number;
+  points: number;
+  heldStars: number;
+  starsHeld: number;
+  availableStars: number;
+  lifetimeEarned: number;
+  lifetimeSpent: number;
+};
+
+export type ParentKid = {
+  id: string;
+  name: string;
+  mascot: string;
+  wallet?: ParentWallet;
+  rewards?: {
+    pending: ParentRedemption[];
+    owned: ParentRedemption[];
+    redeemed: ParentRedemption[];
+    denied: ParentRedemption[];
+  };
 };
 
 export type ParentStoreSku = {
@@ -67,8 +94,6 @@ export type InboxClaim = {
   };
   player: { id: string; name: string; mascot: string };
 };
-
-export type ParentKid = { id: string; name: string; mascot: string };
 
 export type ParentChore = {
   id: string;
@@ -186,7 +211,15 @@ export const api = {
       `/api/parent/claims/${id}/deny`,
       { method: "POST" },
     ),
-  store: () => request<{ redemptions: ParentRedemption[]; skus: ParentStoreSku[] }>("/api/parent/store"),
+  store: () =>
+    request<{
+      redemptions: ParentRedemption[];
+      pending: ParentRedemption[];
+      owned: ParentRedemption[];
+      history: ParentRedemption[];
+      skus: ParentStoreSku[];
+      kids: ParentKid[];
+    }>("/api/parent/store"),
   createSku: (body: SkuWrite) =>
     request<{ sku: ParentStoreSku }>("/api/parent/store/skus", { method: "POST", body: JSON.stringify(body) }),
   updateSku: (id: string, body: SkuWrite) =>
@@ -194,6 +227,11 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
+  approveRedemption: (id: string) =>
+    request<{ ok: boolean; claims: InboxClaim[]; redemptions: ParentRedemption[] }>(
+      `/api/parent/redemptions/${id}/approve`,
+      { method: "POST" },
+    ),
   fulfillRedemption: (id: string) =>
     request<{ ok: boolean; claims: InboxClaim[]; redemptions: ParentRedemption[] }>(
       `/api/parent/redemptions/${id}/fulfill`,
@@ -202,6 +240,11 @@ export const api = {
   denyRedemption: (id: string) =>
     request<{ ok: boolean; claims: InboxClaim[]; redemptions: ParentRedemption[] }>(
       `/api/parent/redemptions/${id}/deny`,
+      { method: "POST" },
+    ),
+  redeemRedemption: (id: string) =>
+    request<{ ok: boolean; claims: InboxClaim[]; redemptions: ParentRedemption[] }>(
+      `/api/parent/redemptions/${id}/redeem`,
       { method: "POST" },
     ),
   pushConfig: () =>

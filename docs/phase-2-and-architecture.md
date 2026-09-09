@@ -266,12 +266,13 @@ Suggested slugs for future icon PNGs: `make-your-bed`, `clean-your-room`, `brush
 ## Phase 2 — Real store (LOCKED starter)
 
 - Ship the **small catalog** in [Economy](#starter-store-parent-fulfill-not-auto-buy) mid-P2.
-- Kid **requests** a reward from the player store building (today’s “Coming Soon”).
-- Parent **fulfills or denies** in the Parent PWA (not auto-buy, not Admin-primary).
-- Fulfillment is a real-world promise (movie night happens, ice cream is bought). The app records the decision and spends stars only on **fulfill** (or on request-hold — implementation may hold stars on request and release on deny; do not double-spend).
+- Kid **requests** a reward from the player store building.
+- Parent **approves or denies** in the Parent PWA (not auto-buy, not Admin-primary). Approve means the kid **owns** the promise; later mark **redeemed** when it happens in real life.
+- Approval is a real-world promise (movie night happens, ice cream is bought). The app records the decision. Stars are held on request, released on deny, spent on approve. Do not double-spend.
+- Full history lives on the kid **Profile**, not in the Farm Store: [`docs/phase-2-kid-profile.md`](phase-2-kid-profile.md).
 - Expand the catalog later with **farmstead** (Phase 4).
 
-Implemented starter (hold on request, spend on fulfill, release on deny; Parent catalog CRUD; push Fulfill | Deny): [`docs/phase-2-store.md`](phase-2-store.md).
+Implemented starter (append-only star ledger; PENDING → OWNED → REDEEMED; Parent catalog CRUD; push Approve | Deny): [`docs/phase-2-store.md`](phase-2-store.md).
 
 ---
 
