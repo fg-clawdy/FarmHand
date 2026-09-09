@@ -115,10 +115,57 @@ test("nine playable mounds sit on measured mound peaks, not a soil-rect lerp", (
   // Legacy lerp used a tight 0.20×0.24 soil box; measured peaks are a wider 3×3.
   assert.ok(slots[2].u - slots[0].u > 0.12);
   assert.ok(slots[6].v - slots[0].v > 0.11);
-  assert.ok(slots[0].u > 0.09 && slots[0].u < 0.13);
-  assert.ok(slots[8].u > 0.23 && slots[8].u < 0.27);
-  assert.ok(slots[0].v >= 0.63 && slots[0].v < 0.66, "back row is the rear pebble-ring centers");
-  assert.ok(slots[6].v > 0.75 && slots[6].v < 0.77, "front row stays on dirt, above the picket gate");
+  assert.equal(slots[0].u, 0.1133);
+  assert.equal(slots[0].v, 0.6289);
+  assert.equal(slots[8].u, 0.2285);
+  assert.equal(slots[8].v, 0.7471);
+});
+
+test("home playfield mounds are clawdy white-peak UVs on 1536×1024", () => {
+  const expected = [
+    [
+      [0.1133, 0.6289],
+      [0.1751, 0.6299],
+      [0.2396, 0.6309],
+      [0.1042, 0.6855],
+      [0.168, 0.6855],
+      [0.2344, 0.6885],
+      [0.0924, 0.748],
+      [0.1608, 0.748],
+      [0.2285, 0.7471],
+    ],
+    [
+      [0.4284, 0.6299],
+      [0.4935, 0.6328],
+      [0.5592, 0.6309],
+      [0.4258, 0.6885],
+      [0.4941, 0.6855],
+      [0.5618, 0.6855],
+      [0.4238, 0.7451],
+      [0.4948, 0.7461],
+      [0.5612, 0.7461],
+    ],
+    [
+      [0.7461, 0.6289],
+      [0.8099, 0.6289],
+      [0.8711, 0.6328],
+      [0.752, 0.6885],
+      [0.8203, 0.6895],
+      [0.8822, 0.6865],
+      [0.7591, 0.752],
+      [0.8281, 0.75],
+      [0.8945, 0.749],
+    ],
+  ] as const;
+  PLAYFIELD_LAYOUT.gardens.forEach((garden, gi) => {
+    assert.deepEqual(
+      garden.mounds.map((m) => [m.u, m.v]),
+      expected[gi],
+    );
+  });
+  const mid = uvToLocal(moundUv(PLAYFIELD_LAYOUT.gardens[1], 4), 1536, 1024);
+  assert.equal(Math.round(mid.x), 759);
+  assert.equal(Math.round(mid.y), 702);
 });
 
 test("each farm garden has its own 9 mound anchors", () => {

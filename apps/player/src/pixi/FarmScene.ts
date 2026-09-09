@@ -126,6 +126,11 @@ export class FarmScene {
     });
   }
 
+  /** QA only (`/qa/farm?markers=1`). Default off — never drawn on the live farm. */
+  setMoundMarkers(on: boolean) {
+    this.beds.forEach((bed) => bed.setMoundMarkers(on));
+  }
+
   private layout() {
     const w = this.app.screen.width;
     const h = this.app.screen.height;
@@ -153,24 +158,46 @@ export class FarmScene {
     this.app.renderer.off("resize", this.onResize);
     if (farmDebugOwner === this) {
       farmDebugOwner = null;
-      const w = globalThis as { __farmhandFarmDebug?: unknown };
+      const w = globalThis as { __farmhandFarmDebug?: unknown; __farmhandFarmCanvas?: unknown };
       if (w.__farmhandFarmDebug) delete w.__farmhandFarmDebug;
+      if (w.__farmhandFarmCanvas) delete w.__farmhandFarmCanvas;
     }
     this.root.removeFromParent();
     this.root.destroy({ children: true });
   }
 
   debugPlants() {
-    return this.beds.flatMap((bed, garden) => bed.debugPlants(garden));
+    const tw = this.ground.texture.width || PLAYFIELD_TEXTURE.width;
+    const th = this.ground.texture.height || PLAYFIELD_TEXTURE.height;
+    const fit = coverFit(this.app.screen.width, this.app.screen.height, tw, th);
+    const playfieldDrift = {
+      scale: this.playfield.scale.x - fit.scale,
+      x: this.playfield.position.x - fit.x,
+      y: this.playfield.position.y - fit.y,
+    };
+    return this.beds.flatMap((bed, garden) =>
+      bed.debugPlants(garden).map((row) => ({
+        ...row,
+        fit,
+        view: { w: this.app.screen.width, h: this.app.screen.height },
+        playfieldDrift,
+        ground: { w: this.ground.width, h: this.ground.height, tw, th },
+      })),
+    );
   }
 }
 
 let farmDebugOwner: FarmScene | null = null;
 
 function exposeFarmDebug(scene: FarmScene) {
+  if (typeof location === "undefined" || !location.pathname.startsWith("/qa/")) return;
   farmDebugOwner = scene;
-  (globalThis as { __farmhandFarmDebug?: () => ReturnType<FarmScene["debugPlants"]> }).__farmhandFarmDebug = () =>
-    scene.debugPlants();
+  const w = globalThis as {
+    __farmhandFarmDebug?: () => ReturnType<FarmScene["debugPlants"]>;
+    __farmhandFarmCanvas?: () => HTMLCanvasElement | OffscreenCanvas | undefined;
+  };
+  w.__farmhandFarmDebug = () => scene.debugPlants();
+  w.__farmhandFarmCanvas = () => scene["app"]?.canvas;
 }
 
 /** Invisible garden tap target + live name on the blank wooden sign. */
@@ -182,6 +209,8 @@ class GardenHotspot {
   private statsText: Text;
   private sparkle: SparkleField;
   private plants: Sprite[] = [];
+  private markers: Graphics[] = [];
+  private showMarkers = false;
   private cropScale = 0.16;
   private playerId = "";
   private spec: (typeof PLAYFIELD_LAYOUT.gardens)[number];
@@ -238,8 +267,12 @@ class GardenHotspot {
       spr.anchor.set(0.5, 1);
       spr.visible = false;
       this.plants.push(spr);
+      const mark = new Graphics();
+      mark.visible = false;
+      mark.eventMode = "none";
+      this.markers.push(mark);
     }
-    this.root.addChild(this.hit, ...this.plants, this.sparkle.root, this.plaque);
+    this.root.addChild(this.hit, ...this.plants, ...this.markers, this.sparkle.root, this.plaque);
     this.root.eventMode = "static";
     this.root.cursor = "pointer";
     this.root.on("pointerdown", () => this.root.scale.set(0.99));
@@ -267,10 +300,35 @@ class GardenHotspot {
       const uv = moundUv(this.spec, slot);
       const p = uvToLocal(uv, texW, texH);
       spr.position.set(p.x, p.y);
+      const mark = this.markers[slot]!;
+      mark.position.set(p.x, p.y);
     });
+    this.drawMoundMarkers();
     this.sparkle.root.position.set((soil.x0 + soil.x1) / 2, (soil.y0 + soil.y1) / 2);
     this.sparkle.setArea((soil.x1 - soil.x0) * 0.36, (soil.y1 - soil.y0) * 0.22);
     this.root.zIndex = 3500;
+  }
+
+  setMoundMarkers(on: boolean) {
+    this.showMarkers = on;
+    this.drawMoundMarkers();
+  }
+
+  private drawMoundMarkers() {
+    this.markers.forEach((mark) => {
+      mark.clear();
+      mark.visible = this.showMarkers;
+      if (!this.showMarkers) return;
+      mark.circle(0, 0, 7);
+      mark.fill({ color: 0xffffff });
+      mark.circle(0, 0, 7);
+      mark.stroke({ width: 2, color: 0x1a1008 });
+      mark.moveTo(-12, 0);
+      mark.lineTo(12, 0);
+      mark.moveTo(0, -12);
+      mark.lineTo(0, 12);
+      mark.stroke({ width: 2, color: 0xe10600 });
+    });
   }
 
   sync(player: FarmPlayerCard, accent: (typeof ACCENTS)[number]) {
@@ -318,6 +376,7 @@ class GardenHotspot {
       const frame = spr.texture.frame;
       const world = spr.getGlobalPosition();
       const mound = this.root.toGlobal(new Point(spr.x, spr.y));
+      const uv = moundUv(this.spec, slot);
       return {
         garden,
         slot,
@@ -326,10 +385,12 @@ class GardenHotspot {
         anchor: { x: spr.anchor.x, y: spr.anchor.y },
         scale: { x: spr.scale.x, y: spr.scale.y },
         local: { x: spr.x, y: spr.y },
+        uv,
         world: { x: world.x, y: world.y },
         mound: { x: mound.x, y: mound.y },
         dx: world.x - mound.x,
         dy: world.y - mound.y,
+        marker: this.showMarkers,
       };
     });
   }
