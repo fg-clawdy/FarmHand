@@ -18,11 +18,14 @@ import type { ParentSkuBody } from "../parentStoreWrite.js";
 import { buildParentStats, parseParentStatsRange, statsLookbackStart } from "../parentStats.js";
 import { farmAccoladeLedgers } from "../accolades.js";
 import {
+  approveRedemption,
   denyRedemption,
   fulfillRedemption,
-  listParentSkus,
   listPendingRedemptions,
+  parentKidsOverview,
+  parentStorePayload,
   publicSku,
+  redeemRedemption,
 } from "../store.js";
 import { parseSkuCreate, parseSkuPatch } from "../parentStoreWrite.js";
 import {
@@ -160,7 +163,7 @@ export async function parentRoutes(app: FastifyInstance) {
   app.get("/api/parent/kids", async (request, reply) => {
     const session = await requireAdmin(request, reply);
     if (!session) return;
-    return { kids: await listParentKids() };
+    return { kids: await parentKidsOverview() };
   });
 
   app.get("/api/parent/accolades", async (request, reply) => {
@@ -290,10 +293,7 @@ export async function parentRoutes(app: FastifyInstance) {
   app.get("/api/parent/store", async (request, reply) => {
     const session = await requireAdmin(request, reply);
     if (!session) return;
-    return {
-      redemptions: await listPendingRedemptions(),
-      skus: await listParentSkus(),
-    };
+    return parentStorePayload();
   });
 
   app.post("/api/parent/store/skus", async (request, reply) => {
@@ -331,6 +331,25 @@ export async function parentRoutes(app: FastifyInstance) {
     }
   });
 
+  app.post("/api/parent/redemptions/:id/approve", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const actor = await requireParentActor(request, reply, { kind: "store_redemption", subjectId: id });
+    if (!actor) return;
+    try {
+      await approveRedemption(id, actor.adminId);
+      void notifyStoreRedemptionResolved(id).catch((err) => app.log.warn({ err }, "store push clear failed"));
+      return {
+        ok: true,
+        status: "OWNED",
+        redemptions: await listPendingRedemptions(),
+        claims: await listParentInbox(),
+      };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
   app.post("/api/parent/redemptions/:id/fulfill", async (request, reply) => {
     const { id } = request.params as { id: string };
     const actor = await requireParentActor(request, reply, { kind: "store_redemption", subjectId: id });
@@ -340,7 +359,7 @@ export async function parentRoutes(app: FastifyInstance) {
       void notifyStoreRedemptionResolved(id).catch((err) => app.log.warn({ err }, "store push clear failed"));
       return {
         ok: true,
-        status: "FULFILLED",
+        status: "OWNED",
         redemptions: await listPendingRedemptions(),
         claims: await listParentInbox(),
       };
@@ -360,6 +379,24 @@ export async function parentRoutes(app: FastifyInstance) {
       return {
         ok: true,
         status: "DENIED",
+        redemptions: await listPendingRedemptions(),
+        claims: await listParentInbox(),
+      };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.post("/api/parent/redemptions/:id/redeem", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    try {
+      await redeemRedemption(id, session.adminId);
+      return {
+        ok: true,
+        status: "REDEEMED",
         redemptions: await listPendingRedemptions(),
         claims: await listParentInbox(),
       };

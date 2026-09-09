@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export const SELFIE_MAX_BYTES = 6 * 1024 * 1024;
@@ -102,4 +102,40 @@ export async function writeClaimJpeg(opts: {
   const file = path.join(dir, `${opts.choreSlug}_${safeName(opts.playerName)}_${opts.claimId.slice(0, 8)}.jpg`);
   await writeFile(file, opts.buf);
   return file;
+}
+
+export function playerSelfieNeedle(playerId: string) {
+  return `_${playerId.slice(0, 8)}_`;
+}
+
+export function isPlayerSelfieBasename(playerId: string, file: string) {
+  const base = path.basename(file);
+  return (
+    base === file &&
+    base.toLowerCase().endsWith(".jpg") &&
+    !base.includes("..") &&
+    base.includes(playerSelfieNeedle(playerId))
+  );
+}
+
+export function selfieFilePath(file: string) {
+  return path.join(selfieDropDir(), path.basename(file));
+}
+
+/** Recent watering selfies for this kid. Missing drop dir or files fail soft. */
+export async function listPlayerSelfies(playerId: string, limit = 12) {
+  try {
+    const names = await readdir(selfieDropDir());
+    return names
+      .filter((name) => isPlayerSelfieBasename(playerId, name))
+      .sort()
+      .reverse()
+      .slice(0, limit)
+      .map((file) => ({
+        file,
+        url: `/api/profile/selfies/${encodeURIComponent(file)}`,
+      }));
+  } catch {
+    return [];
+  }
 }

@@ -11,6 +11,7 @@ import JobBoard, { NeedJobsNudge } from "../components/JobBoard";
 import PinPad from "../components/PinPad";
 import PlantPicker from "../components/PlantPicker";
 import PlotSheet from "../components/PlotSheet";
+import ProfileSheet from "../components/ProfileSheet";
 import SelfieCapture from "../components/SelfieCapture";
 import {
   cheapestSeedCost,
@@ -34,6 +35,7 @@ type Overlay =
   | { type: "need-jobs" }
   | { type: "chore-photo"; chore: PublicChore; slot: number; tier: number }
   | { type: "badges" }
+  | { type: "profile" }
   | null;
 
 export default function Garden() {
@@ -330,10 +332,15 @@ function GardenPlay({
         <button className="back" type="button" onClick={onBack} aria-label="Back to farm">
           <BackArrow />
         </button>
-        <div className="who">
+        <button
+          className="who profile-entry"
+          type="button"
+          aria-label={`${player.name}'s profile`}
+          onClick={() => setOverlay({ type: "profile" })}
+        >
           <MascotArt className="mascot-img" mascot={player.mascot} />
           <span>{player.name}'s garden</span>
-        </div>
+        </button>
         <div className="meters">
           <div className={`meter ${gain && gain.points > 0 ? "bump" : ""}`}>
             <StarIcon /> {player.points}
@@ -349,6 +356,14 @@ function GardenPlay({
           <button className="icon-btn" type="button" onClick={() => setOverlay({ type: "ingredients" })}>
             <FertilizerBeaker />
             <span>+</span>
+          </button>
+          <button
+            className="icon-btn profile-btn"
+            type="button"
+            aria-label="Profile"
+            onClick={() => setOverlay({ type: "profile" })}
+          >
+            Profile
           </button>
           <button
             className="icon-btn trophies"
@@ -530,6 +545,7 @@ function GardenPlay({
       {gain && <HarvestCelebration reward={gain} />}
       {badgeQueue[0] && <AccoladeCelebration unlock={badgeQueue[0]} />}
       {overlay?.type === "badges" && <AccoladePanel onClose={() => setOverlay(null)} />}
+      {overlay?.type === "profile" && <ProfileSheet onClose={() => setOverlay(null)} />}
       {jobToast && (
         <div className="harvest-banner" role="status" aria-live="polite">
           <div className="harvest-banner-title">🌱 Waiting seed planted!</div>

@@ -2,7 +2,7 @@
 
 Product source of truth: [`phase-2-and-architecture.md`](phase-2-and-architecture.md) § Parent PWA notifications (REQUIRED).
 
-Chore claim rules and the in-app inbox are unchanged. Push is an extra path onto the **same** atomic Approve | Deny endpoints. Store fulfillment reuses the same helpers (`notifyStoreRedemptionPending` / `notifyStoreRedemptionResolved`): [`phase-2-store.md`](phase-2-store.md). The SW maps `store_redemption` to **Fulfill | Deny** on `/api/parent/redemptions/:id/fulfill|deny`.
+Chore claim rules and the in-app inbox are unchanged. Push is an extra path onto the **same** atomic Approve | Deny endpoints. Store requests reuse the same helpers (`notifyStoreRedemptionPending` / `notifyStoreRedemptionResolved`): [`phase-2-store.md`](phase-2-store.md). The SW maps `store_redemption` to **Approve | Deny** on `/api/parent/redemptions/:id/approve|deny` (legacy `fulfill` still aliases approve).
 
 ## What shipped
 

@@ -122,22 +122,52 @@ export type StoreRedemption = {
   id: string;
   skuId: string;
   slug: string;
-  status: "pending" | "fulfilled" | "denied";
+  status: "pending" | "owned" | "redeemed" | "denied" | "fulfilled";
   title: string;
   emoji: string;
+  description?: string;
   starCost: number;
   starsHeld: number;
   requestedAt: string;
   resolvedAt: string | null;
+  approvedAt?: string | null;
+  deniedAt?: string | null;
+  redeemedAt?: string | null;
 };
 
-export type PlayerStore = {
+export type StarWallet = {
+  currentStars: number;
   points: number;
+  heldStars: number;
   starsHeld: number;
   availableStars: number;
+  lifetimeEarned: number;
+  lifetimeEarnedHarvest: number;
+  lifetimeEarnedGrant: number;
+  lifetimeEarnedLegacy: number;
+  lifetimeSpent: number;
+  adjustNet: number;
+};
+
+export type PlayerStore = StarWallet & {
   catalog: StoreSku[];
   pending: StoreRedemption[];
-  recent: StoreRedemption[];
+  owned: StoreRedemption[];
+};
+
+export type KidProfile = {
+  player: { id: string; name: string; mascot: GardenPlayer["mascot"]; garden: string };
+  wallet: StarWallet;
+  pouch: { seeds: number; fertilizer: number };
+  selfies: Array<{ file: string; url: string }>;
+  rewards: {
+    pending: StoreRedemption[];
+    owned: StoreRedemption[];
+    redeemed: StoreRedemption[];
+    denied: StoreRedemption[];
+  };
+  accolades: AccoladeLedger;
+  activity: Array<{ id: string; action: string; label: string; at: string }>;
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -216,4 +246,5 @@ export const api = {
       "/api/store/request",
       { method: "POST", body: JSON.stringify({ skuId }) },
     ),
+  profile: () => request<KidProfile>("/api/profile"),
 };

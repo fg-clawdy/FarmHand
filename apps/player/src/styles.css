@@ -284,6 +284,27 @@ button, input { font: inherit; }
   flex: 1;
   text-shadow: 0 2px 0 #4d2a12;
 }
+button.who.profile-entry {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  min-height: 64px;
+}
+button.who.profile-entry:active {
+  transform: translateY(2px);
+}
+.icon-btn.profile-btn {
+  width: auto;
+  min-width: 88px;
+  padding: 0 14px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
 .mascot-img { width: 62px; height: 62px; filter: drop-shadow(0 4px 0 rgba(0,0,0,0.2)); }
 .meters { display: flex; gap: 8px; align-items: center; overflow: visible; }
 .meter {
@@ -577,6 +598,28 @@ button, input { font: inherit; }
   margin-bottom: 8px;
 }
 .store-pending p, .store-recent p { margin: 0 0 8px; font-weight: 700; }
+.store-tabs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 8px 0 12px;
+}
+.store-tab {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 800;
+  background: #ead4a4;
+  color: inherit;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #7a5a3a;
+}
+.store-tab.on {
+  background: linear-gradient(#ffe56a, #f0b429);
+  box-shadow: 0 3px 0 #c47a10;
+}
 .store-confirm {
   position: sticky;
   bottom: 0;
@@ -1035,6 +1078,42 @@ button, input { font: inherit; }
 }
 .legend-list li.earned { opacity: 1; }
 .legend-list p { margin: 2px 0 0; font-size: 14px; }
+
+.profile-sheet { text-align: left; }
+.profile-sheet h3 { margin: 16px 0 6px; font-size: 22px; }
+.profile-sheet h4 { margin: 10px 0 4px; font-size: 16px; }
+.profile-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.profile-identity h3 { margin: 0; }
+.profile-section {
+  background: rgba(255, 248, 230, 0.7);
+  border-radius: 16px;
+  padding: 8px 12px 10px;
+  margin-bottom: 10px;
+}
+.profile-wallet p, .profile-reward { margin: 0 0 6px; font-weight: 700; }
+.profile-reward {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.profile-reward.used { opacity: 0.72; }
+.profile-selfies {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+}
+.profile-selfies img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #ead4a4;
+}
 
 .busy { opacity: 0.7; pointer-events: none; }
 

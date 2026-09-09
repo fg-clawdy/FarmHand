@@ -62,8 +62,19 @@ enum ApprovalSubjectKind {
 
 enum StoreRedemptionStatus {
   PENDING
-  FULFILLED
+  OWNED
+  REDEEMED
   DENIED
+}
+
+enum StarLedgerKind {
+  EARN_HARVEST
+  EARN_GRANT
+  HOLD_REWARD
+  RELEASE_REWARD
+  SPEND_REWARD
+  ADJUST_ADMIN
+  OPENING_BALANCE
 }
 
 model Admin {
@@ -74,7 +85,8 @@ model Admin {
   sessions          AdminSession[]
   auditLogs         AuditLog[]
   resolvedClaims      ChoreClaim[]
-  resolvedRedemptions StoreRedemption[]
+  resolvedRedemptions StoreRedemption[]  @relation("StoreResolved")
+  redeemedRedemptions StoreRedemption[]  @relation("StoreRedeemed")
   pushSubscriptions   PushSubscription[]
   actionTokens        PushActionToken[]
 }
@@ -121,6 +133,7 @@ model Player {
   accoladeDays            AccoladeActiveDay[]
   accoladeUnlocks         AccoladeUnlock[]
   storeRedemptions        StoreRedemption[]
+  starLedger              StarLedgerEvent[]
 }
 
 model Plot {
@@ -333,15 +346,54 @@ model StoreRedemption {
   status            StoreRedemptionStatus @default(PENDING)
   title             String
   emoji             String
+  description       String                @default("")
   starCost          Int
   starsHeld         Int
   requestedAt       DateTime              @default(now())
   resolvedAt        DateTime?
   resolvedByAdminId String?
-  resolvedBy        Admin?                @relation(fields: [resolvedByAdminId], references: [id], onDelete: SetNull)
+  resolvedBy        Admin?                @relation("StoreResolved", fields: [resolvedByAdminId], references: [id], onDelete: SetNull)
+  approvedAt        DateTime?
+  deniedAt          DateTime?
+  denyReason        String                @default("")
+  redeemedAt        DateTime?
+  redeemedByAdminId String?
+  redeemedBy        Admin?                @relation("StoreRedeemed", fields: [redeemedByAdminId], references: [id], onDelete: SetNull)
+  events            StoreRewardEvent[]
+  ledgerEvents      StarLedgerEvent[]
 
   @@index([playerId, status])
   @@index([status, requestedAt])
+}
+
+model StoreRewardEvent {
+  id           String          @id @default(uuid())
+  redemptionId String
+  redemption   StoreRedemption @relation(fields: [redemptionId], references: [id], onDelete: Cascade)
+  fromStatus   String?
+  toStatus     String
+  adminId      String?
+  note         String          @default("")
+  createdAt    DateTime        @default(now())
+
+  @@index([redemptionId, createdAt])
+}
+
+model StarLedgerEvent {
+  id              String           @id @default(uuid())
+  playerId        String
+  player          Player           @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  kind            StarLedgerKind
+  amount          Int
+  idempotencyKey  String           @unique
+  redemptionId    String?
+  redemption      StoreRedemption? @relation(fields: [redemptionId], references: [id], onDelete: SetNull)
+  source          String           @default("")
+  meta            Json?
+  createdAt       DateTime         @default(now())
+
+  @@index([playerId, createdAt])
+  @@index([playerId, kind])
 }
 
 model AccoladeUnlock {

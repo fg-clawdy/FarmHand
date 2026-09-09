@@ -3,7 +3,8 @@ import { DEFAULT_GAME_CONFIG, mergeGameConfig } from "@farmhand/shared";
 import { hashSecret } from "./auth.js";
 import type { Mascot } from "@prisma/client";
 import { seedChoreCatalog } from "./chores.js";
-import { seedStoreCatalog } from "./store.js";
+import { backfillStarLedgers, seedStoreCatalog } from "./store.js";
+import { recordOpeningBalance } from "./stars.js";
 import { syncAllPlayerPlots } from "./game.js";
 
 const DEMO_KIDS: Array<{ name: string; mascot: Mascot; pin: string }> = [
@@ -38,7 +39,7 @@ export async function seedIfEmpty() {
   const playerCount = await prisma.player.count();
   if (playerCount === 0) {
     for (const kid of DEMO_KIDS) {
-      await prisma.player.create({
+      const player = await prisma.player.create({
         data: {
           name: kid.name,
           mascot: kid.mascot,
@@ -51,6 +52,7 @@ export async function seedIfEmpty() {
           },
         },
       });
+      await recordOpeningBalance(prisma, player.id, config.startingPoints, "seed");
     }
     console.log("Seeded demo kids: Willow/1111, Finn/2222, Sage/3333");
   } else {
@@ -59,6 +61,7 @@ export async function seedIfEmpty() {
 
   await seedChoreCatalog();
   await seedStoreCatalog();
+  await backfillStarLedgers();
 }
 
 if (process.argv[1]?.includes("seed")) {
