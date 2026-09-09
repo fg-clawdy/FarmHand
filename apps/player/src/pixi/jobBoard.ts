@@ -22,8 +22,8 @@ function easeOutBack(t: number) {
 }
 
 /**
- * Farm-store-class hotspot: standing corkboard + rotating Wanted frames inside
- * `jobBoardHit`. Not a garden plot. Game Engineer hooks `onOpen` + `setJobs`.
+ * Farm-store-class hotspot: hanging corkboard on the barn face + rotating Wanted frames.
+ * Not a garden plot. Game Engineer hooks `onOpen` + `setJobs`.
  */
 export class CorkboardHotspot {
   readonly root = new Container();
@@ -33,8 +33,6 @@ export class CorkboardHotspot {
   private readonly emojiText: Text;
   private readonly titleText: Text;
   private readonly chipText: Text;
-  private readonly hitW: number;
-  private readonly hitH: number;
   private jobs: WantedJob[] = PLACEHOLDER_WANTED_JOBS;
   private index = 0;
   private phase: "show" | "tear" | "pin" = "show";
@@ -48,31 +46,27 @@ export class CorkboardHotspot {
     const rect = uvRectToLocal(PLAYFIELD_LAYOUT.jobBoardHit, texW, texH);
     const w = rect.x1 - rect.x0;
     const h = rect.y1 - rect.y0;
-    this.hitW = w;
-    this.hitH = h;
     this.root.position.set(rect.x0, rect.y0);
     this.frames = painted.wantedPosterFrames;
 
-    const labelH = Math.max(18, h * 0.07);
+    const labelH = Math.max(16, h * 0.09);
     this.board = new Sprite(painted.corkboard);
     this.board.anchor.set(0.5, 0);
-    const artW = painted.corkboard.width || 721;
-    const artH = painted.corkboard.height || 814;
-    // Sit in the upper hit so posts plant in grass and the calf can walk in front.
-    const boardScale = Math.min((w * 0.58) / artW, ((h - labelH) * 0.62) / artH);
+    const artW = painted.corkboard.width || 708;
+    const artH = painted.corkboard.height || 556;
+    const boardScale = Math.min(w / artW, (h - labelH) / artH);
     this.board.scale.set(boardScale);
     this.board.position.set(w / 2, labelH);
 
     const boardW = artW * boardScale;
     const boardH = artH * boardScale;
-    const corkCenterY = labelH + boardH * 0.34;
     this.poster.anchor.set(0.5);
     this.poster.texture = this.frames[0] ?? painted.corkboard;
     const posterH = this.poster.texture.height || 466;
     const posterW = this.poster.texture.width || 311;
-    this.baseScale = Math.min((boardW * 0.72) / posterW, (boardH * 0.52) / posterH);
+    this.baseScale = Math.min((boardW * 0.78) / posterW, (boardH * 0.9) / posterH);
     this.restX = w / 2;
-    this.restY = corkCenterY;
+    this.restY = labelH + boardH * 0.52;
     this.poster.scale.set(this.baseScale);
     this.poster.position.set(this.restX, this.restY);
 
@@ -113,7 +107,7 @@ export class CorkboardHotspot {
       text: "Job Board",
       style: {
         fontFamily: "Fredoka, sans-serif",
-        fontSize: 26,
+        fontSize: 22,
         fill: 0xfff8ec,
         fontWeight: "700",
         stroke: { color: 0x3a2410, width: 5 },
@@ -127,7 +121,7 @@ export class CorkboardHotspot {
     hit.fill({ color: 0xffffff, alpha: 0.001 });
 
     this.root.addChild(this.board, this.poster, label, hit);
-    this.root.zIndex = 4000;
+    this.root.zIndex = 4200;
     this.root.eventMode = "static";
     this.root.cursor = "pointer";
     this.root.on("pointerup", onOpen);
@@ -167,9 +161,7 @@ export class CorkboardHotspot {
       const p = Math.min(1, this.phaseT / 0.5);
       this.setFrame(p < 0.55 ? 1 : 2);
       this.poster.rotation = p * 0.45;
-      const x = Math.min(this.hitW - 8, this.restX + p * this.hitW * 0.08);
-      const y = Math.min(this.hitH - 8, this.restY + p * this.hitH * 0.12);
-      this.poster.position.set(x, y);
+      this.poster.position.set(this.restX + p * 22, this.restY + p * 48);
       this.poster.alpha = 1 - p * 0.15;
       this.copy.visible = p < 0.55;
       if (p >= 1) {
@@ -206,7 +198,6 @@ export class CorkboardHotspot {
     return {
       uv,
       local,
-      blocker: PLAYFIELD_LAYOUT.blockers.jobBoard,
       zIndex: this.root.zIndex,
       job: this.jobs[this.index] ?? null,
       phase: this.phase,

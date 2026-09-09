@@ -8,6 +8,7 @@ import {
   COW_EAT_SHEET,
   FARM_MOUND_COVER_PX,
   PAINTED_ART,
+  CORKBOARD_HANG,
   SHEET_INSET,
   WANTED_POSTER_SHEET,
   ZOOM_MOUND_COVER_PX,
@@ -80,12 +81,14 @@ test("crop sheet slices are equal, in-bounds, and do not share pixels", () => {
   }
 });
 
-test("mid-path corkboard and wanted poster sheet are farm props, not crop sheets", () => {
+test("barn corkboard and wanted poster sheet are farm props, not crop sheets", () => {
   assert.equal(PAINTED_ART.corkboard, "/art/painted/farm/corkboard.png");
   assert.equal(PAINTED_ART.wantedPoster, "/art/painted/farm/wanted_poster_sheet.png");
   assert.equal(WANTED_POSTER_SHEET.width, 1260);
   assert.equal(WANTED_POSTER_SHEET.height, 470);
   assert.equal(WANTED_POSTER_SHEET.frames, 4);
+  assert.equal(CORKBOARD_HANG.y + CORKBOARD_HANG.h, 560);
+  assert.ok(CORKBOARD_HANG.h < 814, "must not use the standing board full height");
   const rects = sheetFrameRects(WANTED_POSTER_SHEET.width, WANTED_POSTER_SHEET.height, WANTED_POSTER_SHEET.frames);
   assert.equal(rects.length, 4);
   for (let i = 1; i < rects.length; i++) {

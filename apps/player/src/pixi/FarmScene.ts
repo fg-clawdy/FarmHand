@@ -76,15 +76,15 @@ export class FarmScene {
     this.store = this.makeStoreHit(tw, th);
     this.playfield.addChild(this.store);
 
+    this.jobBoard = new CorkboardHotspot(painted, tw, th, () => this.onJobBoard());
+    this.playfield.addChild(this.jobBoard.root);
+
     for (let i = 0; i < 3; i++) {
       const bed = new GardenHotspot(atlas, painted, PLAYFIELD_LAYOUT.gardens[i]!, (id) => this.onPlayer(id));
       bed.place(tw, th);
       this.beds.push(bed);
       this.playfield.addChild(bed.root);
     }
-
-    this.jobBoard = new CorkboardHotspot(painted, tw, th, () => this.onJobBoard());
-    this.playfield.addChild(this.jobBoard.root);
 
     this.root.addChild(this.fill, this.playfield);
     this.app.stage.removeChildren();

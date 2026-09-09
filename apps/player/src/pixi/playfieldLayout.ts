@@ -13,8 +13,8 @@ import { GARDEN_PLOT_COLS, PLOTS_PER_GARDEN } from "@farmhand/shared";
  *   right sign   ~ (1221, 496) = UV (0.795, 0.484)
  *
  * Only the animated cow is drawn. Barn, tractor, hay, market stand, corkboard
- * (mid-path, just right of the tractor), and the three garden fences (full 3×3
- * soil + plaques) are solid blockers.
+ * (barn face), and the three garden fences (full 3×3 soil + plaques) are solid
+ * blockers.
  */
 
 export type Uv = { u: number; v: number };
@@ -26,29 +26,26 @@ export const PLAYFIELD_TEXTURE = { width: 1536, height: 1024 } as const;
 export const PLAYFIELD_LAYOUT = {
   /** Mouth of the tractor’s vertical exhaust stack (texture px 419, 258). */
   exhaustTip: { u: 0.273, v: 0.252 } satisfies Uv,
-  /** Open grass in front of the corkboard posts, above the garden fences. */
-  cowStart: { u: 0.5, v: 0.35 } satisfies Uv,
+  /** Open grass right of the tractor, above the garden fences. */
+  cowStart: { u: 0.5, v: 0.3 } satisfies Uv,
   /** Barn-side corridor — stays above the garden fence / plaque line. */
   cowRoam: { u0: 0.12, v0: 0.2, u1: 0.6, v1: 0.36 } satisfies UvRect,
   storeHit: { u0: 0.64, v0: 0.02, u1: 0.98, v1: 0.38 } satisfies UvRect,
   /**
-   * Corkboard Job Board — same hotspot class as Farm Store, not a garden plot.
-   * Game Engineer lock on 1536×1024: texture px ≈ (645, 61)–(952, 369).
-   * Just right of the tractor (u1 0.4), left of storeHit (u0 0.64), above the
-   * garden fence (v0 0.4). Tap → Job Coach / family board (no PIN to browse).
+   * Corkboard Job Board on the barn face — same hotspot class as Farm Store,
+   * not a garden plot. Locked with Game Engineer (PR #1 HEAD 5df37fc).
+   * Texture px ≈ (31, 0)–(338, 205) on 1536×1024. Do not use the obsolete
+   * mid-path rect { u0: 0.42, v0: 0.06, u1: 0.62, v1: 0.36 }.
+   * Tap → Job Coach / family board (no PIN to browse); claim is PR #1.
    */
-  jobBoardHit: { u0: 0.42, v0: 0.06, u1: 0.62, v1: 0.36 } satisfies UvRect,
+  jobBoardHit: { u0: 0.02, v0: 0.0, u1: 0.22, v1: 0.2 } satisfies UvRect,
   /** Solid footprints — tractor chassis is intentionally large so the calf cannot climb the hood. */
   blockers: {
     barn: { u0: 0.0, v0: 0.0, u1: 0.26, v1: 0.26 } satisfies UvRect,
     hay: { u0: 0.0, v0: 0.08, u1: 0.14, v1: 0.28 } satisfies UvRect,
     tractor: { u0: 0.14, v0: 0.1, u1: 0.4, v1: 0.38 } satisfies UvRect,
     stand: { u0: 0.64, v0: 0.0, u1: 0.99, v1: 0.4 } satisfies UvRect,
-    /**
-     * Standing-board footprint inside jobBoardHit. The full tap square seals
-     * the cow corridor (tractor pad + board pad overlap; zero legal spawns).
-     */
-    jobBoard: { u0: 0.46, v0: 0.08, u1: 0.58, v1: 0.24 } satisfies UvRect,
+    jobBoard: { u0: 0.02, v0: 0.0, u1: 0.22, v1: 0.2 } satisfies UvRect,
   },
   gardens: [
     {
