@@ -115,6 +115,8 @@ const login = await req("/api/admin/login", {
 let adminCookie = login.cookie;
 console.log("admin login ok");
 
+await req("/api/admin/config/reset", { method: "POST", cookie: adminCookie });
+
 const players = await req("/api/admin/players", { cookie: adminCookie });
 const willow = players.data.players.find((p) => p.name === "Willow");
 if (!willow) throw new Error("Willow missing from seed");
@@ -143,6 +145,25 @@ async function harvestOccupied(plots, cookie) {
       /* not ready yet — skip */
     }
   }
+}
+
+async function ensureEmptySlots(cookie, adminCookie, needed) {
+  let garden = (await req("/api/garden", { cookie })).data.player;
+  let empties = garden.plots.filter((p) => p.state === "empty");
+  if (empties.length >= needed) return garden;
+  await harvestOccupied(garden.plots, cookie);
+  garden = (await req("/api/garden", { cookie })).data.player;
+  empties = garden.plots.filter((p) => p.state === "empty");
+  if (empties.length >= needed) return garden;
+  const cfgRes = await req("/api/admin/config", { cookie: adminCookie });
+  const saved = structuredClone(cfgRes.data.config);
+  const fast = structuredClone(saved);
+  fast.tiers = fast.tiers.map((t) => ({ ...t, durationMinutes: 0 }));
+  await req("/api/admin/config", { method: "PUT", body: { config: fast }, cookie: adminCookie });
+  garden = (await req("/api/garden", { cookie })).data.player;
+  await harvestOccupied(garden.plots, cookie);
+  await req("/api/admin/config", { method: "PUT", body: { config: saved }, cookie: adminCookie });
+  return (await req("/api/garden", { cookie })).data.player;
 }
 
 let plots = enter.data.player.plots;
@@ -312,7 +333,8 @@ if (dogs.length !== 3 || dogs.some((c) => c.priority !== "CRITICAL" || c.assignm
 }
 console.log("chore catalog 21 ok");
 
-const kidList = await req("/api/chores", { cookie: kidCookie2 });
+await ensureEmptySlots(kidCookie2, adminCookie, 2);
+let kidList = await req("/api/chores", { cookie: kidCookie2 });
 const bed = kidList.data.chores.find((c) => c.slug === "make-your-bed" && c.eligible);
 if (!bed) throw new Error("Willow should be able to claim Make your bed");
 const emptyChore = kidList.data.emptySlots?.[0];
