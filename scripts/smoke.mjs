@@ -353,8 +353,10 @@ console.log("parent push subscribe/unsubscribe ok; vapid enabled", Boolean(pushC
 
 await ensureEmptySlots(kidCookie2, adminCookie, 2);
 let kidList = await req("/api/chores", { cookie: kidCookie2 });
-const bed = kidList.data.chores.find((c) => c.slug === "make-your-bed" && c.eligible);
-if (!bed) throw new Error("Willow should be able to claim Make your bed");
+const bed =
+  kidList.data.chores.find((c) => c.slug === "make-your-bed" && c.eligible) ??
+  kidList.data.chores.find((c) => c.eligible && c.assignmentMode === "ALL");
+if (!bed) throw new Error("Willow should have an eligible ALL chore to claim");
 const emptyChore = kidList.data.emptySlots?.[0];
 if (emptyChore == null) throw new Error("Willow needs an empty plot for a chore claim");
 const seedsBeforeClaim = kidList.data.player.seeds;
@@ -410,9 +412,11 @@ try {
 }
 console.log("approve started growth; same-period claim blocked");
 
-const raceChore = kidList.data.chores.find((c) => c.slug === "feed-dog-am" && c.eligible)
-  ?? (await req("/api/chores", { cookie: kidCookie2 })).data.chores.find((c) => c.slug === "feed-dog-am");
-if (!raceChore) throw new Error("Feed Dog A.M. missing");
+const raceChore =
+  kidList.data.chores.find((c) => c.slug === "feed-dog-am" && c.eligible) ??
+  kidList.data.chores.find((c) => ["feed-dog-pm", "walk-the-dog"].includes(c.slug) && c.eligible) ??
+  (await req("/api/chores", { cookie: kidCookie2 })).data.chores.find((c) => c.assignmentMode === "RACE" && c.eligible);
+if (!raceChore) throw new Error("no eligible dog/race chore for the race test");
 const emptyRace = afterApprove.data.player.plots.find((p) => p.state === "empty");
 if (!emptyRace) throw new Error("need an empty plot for race claim");
 const raceClaim = await req(`/api/chores/${raceChore.id}/claim`, {
