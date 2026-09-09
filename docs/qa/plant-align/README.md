@@ -75,6 +75,12 @@ Painted visual-peak centers (clawdy white dots) vs the old regular-grid estimate
 
 Live Pixi marker proof: `/qa/garden?pack=empty&markers=1` (white disc + red cross at each new local). Captures in [`after-fix/`](after-fix/).
 
+## Home playfield (farm dashboard)
+
+Clawdy white-peak UVs on `farmhand_painted_playfield_v3_no_static_cow.jpg` (1536×1024) for the three 3×3 gardens. Same UV + shared `playfield` / `coverFit` parenting as the rest of the farm. Opt-in markers: `/qa/farm?pack=empty&markers=1`. Willow zoom `GARDEN_MOUND_PX` is unchanged.
+
+Proof captures: [`farm-mounds-markers.png`](after-fix/farm-mounds-markers.png), [`farm-crops.png`](after-fix/farm-crops.png).
+
 ## Pass bar
 
 A human can name corn seed vs sprout vs stalk, strawberry, and cotton. The disc *is* the plot. No pink, no floating scraps.
