@@ -74,6 +74,9 @@ export type PublicPlot = {
   emoji: string | null;
   face: string | null;
   ready: boolean;
+  canWater?: boolean;
+  watersLeftToday?: number;
+  waterCooldownRemainingMs?: number;
 };
 
 export type FarmPlayerCard = {

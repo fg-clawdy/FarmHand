@@ -81,7 +81,7 @@ export type GardenToolContext = {
 export function plotAcceptsTool(tool: GardenTool, plot: PublicPlot, ctx: GardenToolContext) {
   if (tool === "seed") return plot.state === "empty" && ctx.seeds >= ctx.cheapestSeed;
   if (plot.state !== "growing" || plot.ready) return false;
-  if (tool === "water") return ctx.canWater;
+  if (tool === "water") return plot.canWater ?? ctx.canWater;
   return ctx.fertilizer >= 1;
 }
 

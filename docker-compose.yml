@@ -26,6 +26,9 @@ services:
       ADMIN_BOOTSTRAP_USER: ${ADMIN_BOOTSTRAP_USER:-admin}
       ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-farmhand-dev}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SELFIE_DROP_DIR: /data/selfies
+    volumes:
+      - ${SELFIE_DROP_DIR:-./data/selfies}:/data/selfies
     depends_on:
       postgres:
         condition: service_healthy

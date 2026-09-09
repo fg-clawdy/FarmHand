@@ -7,7 +7,7 @@ import { playerRoutes } from "./routes/player.js";
 import { adminRoutes } from "./routes/admin.js";
 
 export async function buildApp() {
-  const app = Fastify({ logger: true });
+  const app = Fastify({ logger: true, bodyLimit: 8 * 1024 * 1024 });
   app.addContentTypeParser("application/json", { parseAs: "string" }, (request, body, done) => {
     if (!body) {
       done(null, {});

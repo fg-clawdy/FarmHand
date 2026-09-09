@@ -46,27 +46,107 @@ export async function saveConfig(config: GameConfig) {
   return merged;
 }
 
-export function wateringState(
-  player: {
-    lastWateredAt: Date | null;
-    wateringsOnDate: string | null;
-    wateringsCount: number;
+export function selfieUnlockedOn(unlockDate: string | null | undefined, timezone: string, now = new Date()) {
+  return unlockDate === todayKey(timezone, now);
+}
+
+/** Per-plant 4h / 3-per-Chicago-day caps (values come from tunables). */
+export function plotWateringState(
+  plot: {
+    lastWateredAt?: Date | null;
+    wateringsOnDate?: string | null;
+    wateringsCount?: number;
   },
   config: GameConfig,
   now = new Date(),
 ) {
   const today = todayKey(config.timezone, now);
-  const count = player.wateringsOnDate === today ? player.wateringsCount : 0;
+  const used = plot.wateringsOnDate === today ? (plot.wateringsCount ?? 0) : 0;
   const cooldownMs = config.wateringCooldownMinutes * 60 * 1000;
-  const cooldownRemainingMs = player.lastWateredAt
-    ? Math.max(0, player.lastWateredAt.getTime() + cooldownMs - now.getTime())
+  const cooldownRemainingMs = plot.lastWateredAt
+    ? Math.max(0, plot.lastWateredAt.getTime() + cooldownMs - now.getTime())
     : 0;
+  const wateringsLeft = Math.max(0, config.wateringMaxPerDay - used);
   return {
     today,
-    wateringsUsed: count,
-    wateringsLeft: Math.max(0, config.wateringMaxPerDay - count),
+    wateringsUsed: used,
+    wateringsLeft,
     cooldownRemainingMs,
-    canWater: count < config.wateringMaxPerDay && cooldownRemainingMs === 0,
+    canWater: wateringsLeft > 0 && cooldownRemainingMs === 0,
+  };
+}
+
+/** Garden summary: selfie unlock + whether any growing plot can take water. */
+export function wateringState(
+  player: {
+    selfieUnlockDate?: string | null;
+    selfieSeedGrantDate?: string | null;
+    lastWateredAt?: Date | null;
+    wateringsOnDate?: string | null;
+    wateringsCount?: number;
+    plots?: Array<{
+      plantTier?: number | null;
+      plantedAt?: Date | null;
+      lastWateredAt?: Date | null;
+      wateringsOnDate?: string | null;
+      wateringsCount?: number;
+      waterReductionMinutes?: number;
+      fertilizerReductionMinutes?: number;
+      slot?: number;
+    }>;
+  },
+  config: GameConfig,
+  now = new Date(),
+) {
+  const today = todayKey(config.timezone, now);
+  const unlocked = selfieUnlockedOn(player.selfieUnlockDate, config.timezone, now);
+  const plots = player.plots ?? [];
+  let wateringsUsed = 0;
+  let wateringsLeft = 0;
+  let cooldownRemainingMs = 0;
+  let anyCan = false;
+  for (const plot of plots) {
+    if (!plot.plantedAt || !plot.plantTier) continue;
+    const serialized = serializePlot(
+      {
+        slot: plot.slot ?? 0,
+        plantTier: plot.plantTier,
+        plantedAt: plot.plantedAt,
+        waterReductionMinutes: plot.waterReductionMinutes ?? 0,
+        fertilizerReductionMinutes: plot.fertilizerReductionMinutes ?? 0,
+      },
+      config,
+      now,
+    );
+    if (serialized.ready) continue;
+    const pw = plotWateringState(plot, config, now);
+    wateringsUsed += pw.wateringsUsed;
+    wateringsLeft = Math.max(wateringsLeft, pw.wateringsLeft);
+    if (anyCan) {
+      cooldownRemainingMs = Math.min(cooldownRemainingMs, pw.cooldownRemainingMs);
+    } else {
+      cooldownRemainingMs = pw.cooldownRemainingMs;
+    }
+    if (pw.canWater) anyCan = true;
+  }
+  if (!plots.length) {
+    const legacyUsed = player.wateringsOnDate === today ? (player.wateringsCount ?? 0) : 0;
+    const cooldownMs = config.wateringCooldownMinutes * 60 * 1000;
+    cooldownRemainingMs = player.lastWateredAt
+      ? Math.max(0, player.lastWateredAt.getTime() + cooldownMs - now.getTime())
+      : 0;
+    wateringsUsed = legacyUsed;
+    wateringsLeft = Math.max(0, config.wateringMaxPerDay - legacyUsed);
+    anyCan = wateringsLeft > 0 && cooldownRemainingMs === 0;
+  }
+  return {
+    today,
+    unlocked,
+    seedGrantedToday: player.selfieSeedGrantDate === today,
+    wateringsUsed,
+    wateringsLeft: unlocked ? wateringsLeft : 0,
+    cooldownRemainingMs: unlocked ? cooldownRemainingMs : 0,
+    canWater: unlocked && anyCan,
   };
 }
 
@@ -102,6 +182,8 @@ export function publicPlayer(player: {
   lastWateredAt: Date | null;
   wateringsOnDate: string | null;
   wateringsCount: number;
+  selfieUnlockDate?: string | null;
+  selfieSeedGrantDate?: string | null;
   pinHash: string | null;
   isActive: boolean;
   plots: Array<{
@@ -110,11 +192,15 @@ export function publicPlayer(player: {
     plantedAt: Date | null;
     waterReductionMinutes: number;
     fertilizerReductionMinutes: number;
+    lastWateredAt?: Date | null;
+    wateringsOnDate?: string | null;
+    wateringsCount?: number;
   }>;
-}, config: GameConfig, unlocked = true) {
-  const water = wateringState(player, config);
-  const today = todayKey(config.timezone);
+}, config: GameConfig, unlocked = true, now = new Date()) {
+  const water = wateringState(player, config, now);
+  const today = todayKey(config.timezone, now);
   const nextIngredient = config.ingredients[player.nextIngredientIndex % config.ingredients.length];
+  const selfieOn = selfieUnlockedOn(player.selfieUnlockDate, config.timezone, now);
   return {
     id: player.id,
     name: player.name,
@@ -133,8 +219,23 @@ export function publicPlayer(player: {
     hasPin: Boolean(player.pinHash),
     isActive: player.isActive,
     unlocked,
+    selfie: {
+      today,
+      unlocked: selfieOn,
+      seedGrantedToday: player.selfieSeedGrantDate === today,
+    },
     water,
-    plots: ensurePlots(player.plots, config.plotCount).map((plot) => serializePlot(plot, config)),
+    plots: ensurePlots(player.plots, config.plotCount).map((plot) => {
+      const serialized = serializePlot(plot, config, now);
+      const pw = plotWateringState(plot, config, now);
+      const canWater = selfieOn && serialized.state === "growing" && !serialized.ready && pw.canWater;
+      return {
+        ...serialized,
+        canWater,
+        watersLeftToday: selfieOn ? pw.wateringsLeft : 0,
+        waterCooldownRemainingMs: selfieOn ? pw.cooldownRemainingMs : 0,
+      };
+    }),
   };
 }
 

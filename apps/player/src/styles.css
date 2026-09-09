@@ -647,6 +647,49 @@ button, input { font: inherit; }
   line-height: 28px;
   box-shadow: 0 2px 0 #5c3218, inset 0 1px 0 rgba(255,255,255,0.25);
 }
+.garden-tool.locked {
+  opacity: 0.72;
+}
+.garden-tool.selfie-tool {
+  width: 88px;
+  min-height: 112px;
+}
+.garden-tool.selfie-tool.done {
+  background: linear-gradient(#d9f5c8, #9ed36a);
+}
+.selfie-tool-icon {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  font-size: 40px;
+  line-height: 1;
+}
+.selfie-copy { font-size: 16px; }
+.selfie-frame {
+  position: relative;
+  width: min(420px, 70vw);
+  margin: 0 auto 10px;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 4px solid #7a451c;
+  background: #1a1008;
+  aspect-ratio: 4 / 3;
+}
+.selfie-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+.selfie-guide {
+  position: absolute;
+  inset: 12%;
+  border: 3px dashed rgba(255, 248, 230, 0.7);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
 .plot-time { font-size: 18px; font-weight: 700; margin: 8px 0 0; }
 
 .plot-hero { text-align: center; }

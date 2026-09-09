@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { serializePlot } from "@farmhand/shared";
 import { prisma } from "../db.js";
-import { ensurePlots, loadConfig, syncAllPlayerPlots, wateringState } from "../game.js";
+import { ensurePlots, loadConfig, selfieUnlockedOn, syncAllPlayerPlots } from "../game.js";
 import { getPlayerSession } from "../auth.js";
 
 export async function farmRoutes(app: FastifyInstance) {
@@ -19,7 +19,6 @@ export async function farmRoutes(app: FastifyInstance) {
       storeStatus: "coming_soon",
       config,
       players: players.map((player) => {
-        const water = wateringState(player, config);
         return {
           id: player.id,
           name: player.name,
@@ -27,7 +26,7 @@ export async function farmRoutes(app: FastifyInstance) {
           seeds: player.seeds,
           points: player.points,
           fertilizer: player.fertilizer,
-          canWater: water.canWater,
+          canWater: selfieUnlockedOn(player.selfieUnlockDate, config.timezone),
           plots: ensurePlots(player.plots, config.plotCount).map((plot) => serializePlot(plot, config)),
           hasPin: Boolean(player.pinHash),
           unlocked: session?.playerId === player.id,

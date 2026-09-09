@@ -2,10 +2,18 @@ import type { CropKind, FarmPlayerCard, GameConfig, PublicPlot } from "@farmhand
 
 export type WaterState = {
   today: string;
+  unlocked?: boolean;
+  seedGrantedToday?: boolean;
   wateringsUsed: number;
   wateringsLeft: number;
   cooldownRemainingMs: number;
   canWater: boolean;
+};
+
+export type SelfieState = {
+  today: string;
+  unlocked: boolean;
+  seedGrantedToday: boolean;
 };
 
 export type GardenPlayer = {
@@ -22,6 +30,7 @@ export type GardenPlayer = {
   hasPin: boolean;
   isActive: boolean;
   unlocked: boolean;
+  selfie?: SelfieState;
   water: WaterState;
   plots: PublicPlot[];
 };
@@ -73,4 +82,15 @@ export const api = {
       method: "POST",
     }),
   mix: () => request<{ player: GardenPlayer }>("/api/ingredients/mix", { method: "POST" }),
+  selfieStatus: () =>
+    request<{ today: string; unlocked: boolean; seedGrantedToday: boolean }>("/api/selfie"),
+  submitSelfie: (image: string) =>
+    request<{
+      player: GardenPlayer;
+      today: string;
+      unlocked: boolean;
+      seedGranted: boolean;
+      alreadyUnlocked: boolean;
+      reward: { seedsReturned: number; points: number };
+    }>("/api/selfie", { method: "POST", body: JSON.stringify({ image }) }),
 };

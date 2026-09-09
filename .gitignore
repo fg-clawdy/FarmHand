@@ -9,3 +9,5 @@ coverage/
 *.tsbuildinfo
 apps/api/generated/
 .prisma/
+data/selfies/*
+!data/selfies/.gitkeep

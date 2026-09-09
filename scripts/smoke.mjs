@@ -78,6 +78,16 @@ function assertSeries(series, days) {
   }
 }
 
+function stubJpeg(width = 320, height = 240) {
+  const sof = Buffer.from([
+    0xff, 0xd8, 0xff, 0xc0, 0x00, 0x0b, 0x08,
+    (height >> 8) & 0xff, height & 0xff,
+    (width >> 8) & 0xff, width & 0xff,
+    0x01, 0x01, 0x11, 0x00, 0xff, 0xd9,
+  ]);
+  return Buffer.concat([sof, Buffer.alloc(Math.max(0, 800 - sof.length), 0)]);
+}
+
 async function req(path, { method = "GET", body, cookie } = {}) {
   const headers = { "Content-Type": "application/json" };
   if (cookie) headers.Cookie = cookie;
@@ -232,7 +242,38 @@ const planted2 = await req(`/api/plots/${empty2.slot}/plant`, {
   body: { tier: 1 },
   cookie: kidCookie2,
 });
-const before = planted2.data.player.plots.find((p) => p.slot === empty2.slot).remainingMs;
+const selfieStatus = await req("/api/selfie", { cookie: kidCookie2 });
+if (!selfieStatus.data.unlocked) {
+  try {
+    await req(`/api/plots/${empty2.slot}/water`, { method: "POST", cookie: kidCookie2 });
+    throw new Error("water should fail without today's selfie");
+  } catch (err) {
+    if (!String(err.message).includes("selfie")) {
+      throw err;
+    }
+  }
+  console.log("water rejected without selfie unlock");
+}
+
+const seedsBeforeSelfie = planted2.data.player.seeds;
+const jpeg = `data:image/jpeg;base64,${stubJpeg().toString("base64")}`;
+const firstSelfie = await req("/api/selfie", { method: "POST", body: { image: jpeg }, cookie: kidCookie2 });
+if (!firstSelfie.data.unlocked) throw new Error("selfie did not unlock watering");
+if (!selfieStatus.data.unlocked && !firstSelfie.data.seedGranted) {
+  throw new Error("first selfie of the day should grant +1 seed");
+}
+if (!selfieStatus.data.unlocked && firstSelfie.data.player.seeds !== seedsBeforeSelfie + 1) {
+  throw new Error(`expected +1 seed, ${seedsBeforeSelfie} -> ${firstSelfie.data.player.seeds}`);
+}
+if (firstSelfie.data.reward?.points) throw new Error("selfie must not grant stars");
+const secondSelfie = await req("/api/selfie", { method: "POST", body: { image: jpeg }, cookie: kidCookie2 });
+if (secondSelfie.data.seedGranted) throw new Error("second selfie same day stacked a seed");
+if (secondSelfie.data.player.seeds !== firstSelfie.data.player.seeds) {
+  throw new Error("second selfie changed seed count");
+}
+console.log("selfie unlock + one seed per Chicago day ok");
+
+const before = firstSelfie.data.player.plots.find((p) => p.slot === empty2.slot).remainingMs;
 const watered = await req(`/api/plots/${empty2.slot}/water`, { method: "POST", cookie: kidCookie2 });
 const after = watered.data.player.plots.find((p) => p.slot === empty2.slot).remainingMs;
 if (after >= before) throw new Error(`watering did not reduce time (${before} -> ${after})`);

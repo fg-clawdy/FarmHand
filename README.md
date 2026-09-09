@@ -63,7 +63,7 @@ Change `ADMIN_BOOTSTRAP_*` in `.env` **before** the first boot if you do not wan
 1. Open the farm dashboard. The painted playfield shows three gardens with **live names** on the blank wooden signs (from `/api/farm`; change a name in Admin and it updates on the next poll). Tap a garden, or use the seed/point chips along the bottom.
 2. Tap a garden. Enter the 4-digit PIN. A successful PIN starts a **30-minute server session**; coming back during that window skips the pad.
 3. Plant on an empty plot. Unaffordable tiers are disabled.
-4. Water (free, 4h cooldown, max 3/day) or fertilize while a plant is growing. Countdown and READY state come from the server.
+4. Take **today’s selfie** (garden toolbar) to unlock watering and get +1 seed once per Chicago day. Then water (free, **per plant** 4h cooldown, max 3/day) or fertilize while a plant is growing. Countdown and READY state come from the server.
 5. Harvest when the plot glows gold. The kid earns **25 stars** and **1 seed is returned** (plant cost is also 1, so a harvest is seed-neutral).
 6. Open the ingredient shed (🧪+) to claim the daily ingredient (Moon Dew → Grow Goo → Phoenix Ash) and mix 1 of each into fertilizer.
 7. The Farm Store building is **Coming Soon** only.
@@ -133,6 +133,7 @@ See `.env.example`. Compose variables:
 - `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`
 - `ADMIN_BOOTSTRAP_USER` / `ADMIN_BOOTSTRAP_PASSWORD` — only used when no admin row exists
 - `COOKIE_SECURE` — `true` when the app is behind HTTPS
+- `SELFIE_DROP_DIR` — host folder Immich can watch; Compose bind-mounts it to `/data/selfies` in the API. See [`docs/phase-2-selfie.md`](docs/phase-2-selfie.md).
 
 ## Tests
 
@@ -152,5 +153,5 @@ BASE_URL=http://127.0.0.1:8080 node scripts/smoke.mjs
 
 Phase 1 closeout checklist: [`docs/phase-1-done.md`](docs/phase-1-done.md).
 
-Phase 2+ product / architecture spec: [`docs/phase-2-and-architecture.md`](docs/phase-2-and-architecture.md).
+Phase 2+ product / architecture spec: [`docs/phase-2-and-architecture.md`](docs/phase-2-and-architecture.md). Selfie earn implementation notes: [`docs/phase-2-selfie.md`](docs/phase-2-selfie.md).
 

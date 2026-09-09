@@ -10,6 +10,8 @@ export default function PlotSheet({
   onWater,
   onFertilize,
   onClose,
+  onNeedSelfie,
+  selfieUnlocked,
   busy,
 }: {
   plot: PublicPlot;
@@ -18,6 +20,8 @@ export default function PlotSheet({
   onWater: () => void;
   onFertilize: () => void;
   onClose: () => void;
+  onNeedSelfie: () => void;
+  selfieUnlocked: boolean;
   busy: boolean;
 }) {
   const kind = plantKind(plot);
@@ -31,8 +35,19 @@ export default function PlotSheet({
         <p className="plot-time">Matures in {formatCountdown(plot.remainingMs)}</p>
       </div>
       <div className={`sheet-actions ${busy ? "busy" : ""}`}>
-        <button className="btn water" type="button" disabled={!player.water.canWater} onClick={onWater}>
-          Water (−1h)
+        <button
+          className="btn water"
+          type="button"
+          disabled={selfieUnlocked && !plot.canWater}
+          onClick={() => {
+            if (!selfieUnlocked) {
+              onNeedSelfie();
+              return;
+            }
+            onWater();
+          }}
+        >
+          {selfieUnlocked ? "Water (−1h)" : "Take today's selfie to water"}
         </button>
         <button className="btn primary" type="button" disabled={player.fertilizer < 1} onClick={onFertilize}>
           Fertilize

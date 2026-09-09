@@ -11,7 +11,8 @@ import {
   requirePlayer,
   verifySecret,
 } from "../auth.js";
-import { loadConfig, publicPlayer, syncPlayerPlots, wateringState } from "../game.js";
+import { loadConfig, plotWateringState, publicPlayer, selfieUnlockedOn, syncPlayerPlots } from "../game.js";
+import { decodeSelfiePayload, inspectJpeg, planSelfieReward, writeSelfieJpeg } from "../selfie.js";
 import { todayKey } from "../tz.js";
 
 function pinError() {
@@ -95,6 +96,71 @@ export async function playerRoutes(app: FastifyInstance) {
     return { player: publicPlayer(player, config, true), config };
   });
 
+  app.get("/api/selfie", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    const config = await loadConfig();
+    const today = todayKey(config.timezone);
+    return {
+      today,
+      unlocked: selfieUnlockedOn(session.player.selfieUnlockDate, config.timezone),
+      seedGrantedToday: session.player.selfieSeedGrantDate === today,
+    };
+  });
+
+  app.post("/api/selfie", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    const config = await loadConfig();
+    const today = todayKey(config.timezone);
+    const body = (request.body ?? {}) as { image?: unknown; jpeg?: unknown };
+    try {
+      const buf = decodeSelfiePayload(body.image ?? body.jpeg);
+      inspectJpeg(buf);
+      const file = await writeSelfieJpeg({
+        buf,
+        playerId: session.playerId,
+        playerName: session.player.name,
+        today,
+      });
+      const result = await prisma.$transaction(async (tx) => {
+        const player = await tx.player.findUniqueOrThrow({
+          where: { id: session.playerId },
+          include: { plots: { orderBy: { slot: "asc" } } },
+        });
+        const plan = planSelfieReward(player, today);
+        const updated = await tx.player.update({
+          where: { id: player.id },
+          data: {
+            selfieUnlockDate: today,
+            selfieSeedGrantDate: today,
+            ...(plan.grantSeed ? { seeds: { increment: 1 } } : {}),
+          },
+          include: { plots: { orderBy: { slot: "asc" } } },
+        });
+        await tx.activityLog.create({
+          data: {
+            playerId: player.id,
+            action: "selfie",
+            details: { seedGranted: plan.grantSeed, alreadyUnlocked: plan.alreadyUnlocked, file },
+          },
+        });
+        return { player: updated, plan };
+      });
+      return {
+        player: publicPlayer(result.player, config, true),
+        today,
+        unlocked: true,
+        seedGranted: result.plan.grantSeed,
+        alreadyUnlocked: result.plan.alreadyUnlocked,
+        reward: result.plan.grantSeed ? { seedsReturned: 1, points: 0 } : { seedsReturned: 0, points: 0 },
+      };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
   app.post("/api/plots/:slot/plant", async (request, reply) => {
     const session = await requirePlayer(request, reply);
     if (!session) return;
@@ -130,6 +196,9 @@ export async function playerRoutes(app: FastifyInstance) {
             plantedAt: new Date(),
             waterReductionMinutes: 0,
             fertilizerReductionMinutes: 0,
+            lastWateredAt: null,
+            wateringsOnDate: null,
+            wateringsCount: 0,
           },
         });
         await tx.activityLog.create({
@@ -164,27 +233,38 @@ export async function playerRoutes(app: FastifyInstance) {
         if (!plot?.plantedAt || !plot.plantTier) {
           throw Object.assign(new Error("Nothing to water yet."), { statusCode: 400 });
         }
-        const serialized = publicPlayer(player, config, true).plots.find((p) => p.slot === slot);
+        const serialized = publicPlayer(player, config, true, now).plots.find((p) => p.slot === slot);
         if (serialized?.ready) {
           throw Object.assign(new Error("That plant is ready to harvest."), { statusCode: 400 });
         }
-        const water = wateringState(player, config, now);
-        if (water.cooldownRemainingMs > 0) {
-          throw Object.assign(new Error("The watering can is still cooling off."), { statusCode: 400 });
+        if (!selfieUnlockedOn(player.selfieUnlockDate, config.timezone, now)) {
+          throw Object.assign(new Error("Take today's selfie to water your plants."), { statusCode: 400 });
         }
-        if (water.wateringsLeft <= 0) {
-          throw Object.assign(new Error("All waterings for today are used up."), { statusCode: 400 });
+        const pw = plotWateringState(plot, config, now);
+        if (pw.cooldownRemainingMs > 0) {
+          throw Object.assign(new Error("That plant already had a drink. Wait a bit."), { statusCode: 400 });
+        }
+        if (pw.wateringsLeft <= 0) {
+          throw Object.assign(
+            new Error(`That plant already had ${config.wateringMaxPerDay} waters today.`),
+            { statusCode: 400 },
+          );
         }
         await tx.plot.update({
           where: { id: plot.id },
-          data: { waterReductionMinutes: { increment: config.wateringReductionMinutes } },
+          data: {
+            waterReductionMinutes: { increment: config.wateringReductionMinutes },
+            lastWateredAt: now,
+            wateringsOnDate: pw.today,
+            wateringsCount: pw.wateringsUsed + 1,
+          },
         });
         await tx.player.update({
           where: { id: player.id },
           data: {
             lastWateredAt: now,
-            wateringsOnDate: water.today,
-            wateringsCount: water.wateringsUsed + 1,
+            wateringsOnDate: pw.today,
+            wateringsCount: player.wateringsOnDate === pw.today ? player.wateringsCount + 1 : 1,
           },
         });
         await tx.activityLog.create({
@@ -284,6 +364,9 @@ export async function playerRoutes(app: FastifyInstance) {
             plantedAt: null,
             waterReductionMinutes: 0,
             fertilizerReductionMinutes: 0,
+            lastWateredAt: null,
+            wateringsOnDate: null,
+            wateringsCount: 0,
           },
         });
         await tx.activityLog.create({

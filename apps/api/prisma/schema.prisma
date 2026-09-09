@@ -51,6 +51,8 @@ model Player {
   wateringsOnDate         String?
   wateringsCount          Int             @default(0)
   lastWateredAt           DateTime?
+  selfieUnlockDate        String?
+  selfieSeedGrantDate     String?
   isActive                Boolean         @default(true)
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
@@ -69,6 +71,9 @@ model Plot {
   plantedAt                  DateTime?
   waterReductionMinutes      Int      @default(0)
   fertilizerReductionMinutes Int      @default(0)
+  lastWateredAt              DateTime?
+  wateringsOnDate            String?
+  wateringsCount             Int      @default(0)
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
 

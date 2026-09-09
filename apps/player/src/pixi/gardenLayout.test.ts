@@ -70,6 +70,11 @@ test("glow eligibility: water and fert only growing (not ready) plots with inven
   const noFert = { seeds: 10, fertilizer: 0, canWater: true, cheapestSeed: 1 };
   assert.deepEqual(glowingSlots("water", plots, can), [1]);
   assert.deepEqual(glowingSlots("water", plots, dry), []);
+  assert.deepEqual(
+    glowingSlots("water", [plot(1, "growing", { canWater: false })], can),
+    [],
+    "per-plot lock wins over garden canWater",
+  );
   assert.deepEqual(glowingSlots("fert", plots, can), [1]);
   assert.deepEqual(glowingSlots("fert", plots, noFert), []);
   assert.deepEqual(glowingSlots(null, plots, can), []);

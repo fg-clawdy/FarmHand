@@ -162,6 +162,7 @@ P2 watering model (replaces “watering is always free at garden-level caps”):
 - **Per plant:** at most one water every **4 hours**, and at most **3 waters per Chicago day**.
 - Caps are **per plant**, not shared across the garden. Every growing plant may be watered under those caps.
 - Unlocked watering is still free (no seed cost). Fertilizer stays a separate pouch item.
+- Implementation uses existing tunables `wateringCooldownMinutes` (default 240) and `wateringMaxPerDay` (default 3) **per plant**, gated on `selfieUnlockDate` for the Chicago day. See [`phase-2-selfie.md`](phase-2-selfie.md).
 
 ---
 

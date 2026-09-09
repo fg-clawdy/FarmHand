@@ -8,6 +8,7 @@ import IngredientsSheet from "../components/IngredientsSheet";
 import PinPad from "../components/PinPad";
 import PlantPicker from "../components/PlantPicker";
 import PlotSheet from "../components/PlotSheet";
+import SelfieCapture from "../components/SelfieCapture";
 import {
   cheapestSeedCost,
   cropNameForPlot,
@@ -24,6 +25,7 @@ type Overlay =
   | { type: "picker"; slot: number }
   | { type: "plot"; slot: number }
   | { type: "ingredients" }
+  | { type: "selfie" }
   | null;
 
 export default function Garden() {
@@ -160,6 +162,7 @@ export default function Garden() {
       busy={busy}
       error={error}
       run={run}
+      applyGarden={applyGarden}
       onBack={() => navigate("/")}
     />
   );
@@ -178,6 +181,7 @@ function GardenPlay({
   busy,
   error,
   run,
+  applyGarden,
   onBack,
 }: {
   player: GardenPlayer;
@@ -192,17 +196,19 @@ function GardenPlay({
   busy: boolean;
   error: string;
   run: (action: () => Promise<GardenPlayer>) => Promise<void>;
+  applyGarden: (next: GardenPlayer, nextConfig?: GameConfig) => void;
   onBack: () => void;
 }) {
   const cheapestSeed = cheapestSeedCost(config.tiers);
   const elapsed = now - fetchedAt;
+  const selfieUnlocked = player.selfie?.unlocked ?? player.water.unlocked ?? false;
   const cooldownRemainingMs = Math.max(0, player.water.cooldownRemainingMs - elapsed);
-  const canWater = player.water.wateringsLeft > 0 && cooldownRemainingMs === 0;
+  const canWater = selfieUnlocked && player.water.canWater && cooldownRemainingMs === 0;
   const toolCtx = { seeds: player.seeds, fertilizer: player.fertilizer, canWater, cheapestSeed };
   const [gain, setGain] = useState<HarvestReward | null>(null);
   const glow = useMemo(
     () => glowingSlots(tool, plots, toolCtx),
-    [tool, plots, player.seeds, player.fertilizer, canWater, cheapestSeed],
+    [tool, plots, player.seeds, player.fertilizer, canWater, cheapestSeed, selfieUnlocked],
   );
 
   const { hostRef, sceneRef, ready } = useGardenPixi((slot) => {
@@ -292,17 +298,41 @@ function GardenPlay({
         </div>
       </div>
       <div className="garden-tools" role="toolbar" aria-label="Garden tools">
+        <button
+          type="button"
+          className={`garden-tool selfie-tool ${selfieUnlocked ? "done" : ""}`}
+          aria-label={selfieUnlocked ? "Today's selfie is done" : "Take today's selfie"}
+          onClick={() => setOverlay({ type: "selfie" })}
+        >
+          <span className="selfie-tool-icon" aria-hidden="true">
+            {selfieUnlocked ? "✓" : "📸"}
+          </span>
+          <span>Selfie</span>
+        </button>
         {GARDEN_TOOLS.map((id) => {
-          const remaining = id === "water" ? player.water.wateringsLeft : id === "fert" ? player.fertilizer : null;
+          const remaining =
+            id === "water" ? (selfieUnlocked ? player.water.wateringsLeft : 0) : id === "fert" ? player.fertilizer : null;
           const label = GARDEN_TOOL_LABEL[id];
           return (
             <button
               key={id}
               type="button"
-              className={`garden-tool ${tool === id ? "selected" : ""}`}
+              className={`garden-tool ${tool === id ? "selected" : ""} ${id === "water" && !selfieUnlocked ? "locked" : ""}`}
               aria-pressed={tool === id}
-              aria-label={remaining == null ? label : `${label}, ${remaining} remaining`}
-              onClick={() => setTool(tool === id ? null : id)}
+              aria-label={
+                id === "water" && !selfieUnlocked
+                  ? "Water locked. Take today's selfie."
+                  : remaining == null
+                    ? label
+                    : `${label}, ${remaining} remaining`
+              }
+              onClick={() => {
+                if (id === "water" && !selfieUnlocked) {
+                  setOverlay({ type: "selfie" });
+                  return;
+                }
+                setTool(tool === id ? null : id);
+              }}
             >
               <img src={GARDEN_TOOL_ART[id]} alt="" draggable={false} />
               <span>{label}</span>
@@ -326,11 +356,26 @@ function GardenPlay({
           }}
         />
       )}
+      {overlay?.type === "selfie" && (
+        <SelfieCapture
+          onClose={() => setOverlay(null)}
+          onSuccess={(next, reward) => {
+            applyGarden(next);
+            setOverlay(null);
+            if (reward) {
+              setGain(reward);
+              window.setTimeout(() => setGain((cur) => (cur === reward ? null : cur)), 4200);
+            }
+          }}
+        />
+      )}
       {overlay?.type === "plot" && selected && selected.state !== "empty" && !selected.ready && (
         <PlotSheet
           plot={selected}
           cropName={cropNameForPlot(selected, config.tiers)}
           player={livePlayer}
+          selfieUnlocked={selfieUnlocked}
+          onNeedSelfie={() => setOverlay({ type: "selfie" })}
           busy={busy}
           onClose={() => setOverlay(null)}
           onWater={() =>
@@ -371,6 +416,9 @@ function GardenPlay({
         />
       )}
       {error && <div className="toast">{error}</div>}
+      {tool === "water" && !selfieUnlocked && (
+        <div className="toast">Take today's selfie to water.</div>
+      )}
     </div>
   );
 }
@@ -387,6 +435,9 @@ function emptyPlot(slot: number): PublicPlot {
     emoji: null,
     face: null,
     ready: false,
+    canWater: false,
+    watersLeftToday: 0,
+    waterCooldownRemainingMs: 0,
   };
 }
 

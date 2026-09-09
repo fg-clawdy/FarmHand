@@ -46,13 +46,13 @@ export default function ConfigPage() {
         <div className="row">
           <Num
             label="Waters per day"
-            hint="Daily cap across the garden"
+            hint="Daily cap per plant after today's selfie unlock"
             value={config.wateringMaxPerDay}
             onChange={(v) => num("wateringMaxPerDay", v)}
           />
           <Num
             label="Minutes between waters"
-            hint="Cooldown after each watering (240 = 4 hours)"
+            hint="Per-plant cooldown after each watering (240 = 4 hours)"
             value={config.wateringCooldownMinutes}
             onChange={(v) => num("wateringCooldownMinutes", v)}
           />

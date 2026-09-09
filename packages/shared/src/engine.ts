@@ -64,6 +64,9 @@ export function serializePlot(plot: PlotInput, config: GameConfig, now = new Dat
       emoji: null,
       face: null,
       ready: false,
+      canWater: false,
+      watersLeftToday: 0,
+      waterCooldownRemainingMs: 0,
     };
   }
 
@@ -86,6 +89,9 @@ export function serializePlot(plot: PlotInput, config: GameConfig, now = new Dat
     emoji: tier.stages[index],
     face: tier.faces[index],
     ready,
+    canWater: false,
+    watersLeftToday: 0,
+    waterCooldownRemainingMs: 0,
   };
 }
 
