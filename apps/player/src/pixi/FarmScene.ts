@@ -6,6 +6,7 @@ import type { Atlas } from "./atlas";
 import { coverFit } from "./draw";
 import type { PixiEngine } from "./engine";
 import { SparkleField } from "./fx";
+import { CorkboardHotspot, type WantedJob } from "./jobBoard";
 import {
   FARM_MOUND_COVER_PX,
   cropCoverScale,
@@ -34,20 +35,23 @@ export class FarmScene {
   private cow: PaintedCow;
   private exhaust: ExhaustPuff;
   private store: Container;
+  private jobBoard: CorkboardHotspot;
   private app: Application;
   private onPlayer: (id: string) => void;
   private onStore: () => void;
+  private onJobBoard: () => void;
   private t = 0;
 
   constructor(
     engine: PixiEngine,
     atlas: Atlas,
     painted: PaintedArt,
-    handlers: { onPlayer: (id: string) => void; onStore: () => void },
+    handlers: { onPlayer: (id: string) => void; onStore: () => void; onJobBoard?: () => void },
   ) {
     this.app = engine.app;
     this.onPlayer = handlers.onPlayer;
     this.onStore = handlers.onStore;
+    this.onJobBoard = handlers.onJobBoard ?? (() => undefined);
 
     this.ground = new Sprite(painted.playfield);
     this.ground.anchor.set(0, 0);
@@ -71,6 +75,9 @@ export class FarmScene {
 
     this.store = this.makeStoreHit(tw, th);
     this.playfield.addChild(this.store);
+
+    this.jobBoard = new CorkboardHotspot(painted, tw, th, () => this.onJobBoard());
+    this.playfield.addChild(this.jobBoard.root);
 
     for (let i = 0; i < 3; i++) {
       const bed = new GardenHotspot(atlas, painted, PLAYFIELD_LAYOUT.gardens[i]!, (id) => this.onPlayer(id));
@@ -126,6 +133,11 @@ export class FarmScene {
     });
   }
 
+  /** Game Engineer: highlighted open chores for Wanted rotation. */
+  setWantedJobs(jobs: WantedJob[]) {
+    this.jobBoard.setJobs(jobs);
+  }
+
   /** QA only (`/qa/farm?markers=1`). Default off — never drawn on the live farm. */
   setMoundMarkers(on: boolean) {
     this.beds.forEach((bed) => bed.setMoundMarkers(on));
@@ -150,6 +162,7 @@ export class FarmScene {
   private tick(dt: number) {
     this.t += dt;
     this.cow.update(dt);
+    this.jobBoard.update(dt);
     this.beds.forEach((b) => b.breathe(this.t));
   }
 
@@ -158,12 +171,19 @@ export class FarmScene {
     this.app.renderer.off("resize", this.onResize);
     if (farmDebugOwner === this) {
       farmDebugOwner = null;
-      const w = globalThis as { __farmhandFarmDebug?: unknown; __farmhandFarmCanvas?: unknown };
+      const w = globalThis as { __farmhandFarmDebug?: unknown; __farmhandFarmCanvas?: unknown; __farmhandJobBoard?: unknown };
       if (w.__farmhandFarmDebug) delete w.__farmhandFarmDebug;
       if (w.__farmhandFarmCanvas) delete w.__farmhandFarmCanvas;
+      if (w.__farmhandJobBoard) delete w.__farmhandJobBoard;
     }
     this.root.removeFromParent();
     this.root.destroy({ children: true });
+  }
+
+  debugJobBoard() {
+    const tw = this.ground.texture.width || PLAYFIELD_TEXTURE.width;
+    const th = this.ground.texture.height || PLAYFIELD_TEXTURE.height;
+    return this.jobBoard.debugHit(tw, th);
   }
 
   debugPlants() {
@@ -195,9 +215,11 @@ function exposeFarmDebug(scene: FarmScene) {
   const w = globalThis as {
     __farmhandFarmDebug?: () => ReturnType<FarmScene["debugPlants"]>;
     __farmhandFarmCanvas?: () => HTMLCanvasElement | OffscreenCanvas | undefined;
+    __farmhandJobBoard?: () => ReturnType<FarmScene["debugJobBoard"]>;
   };
   w.__farmhandFarmDebug = () => scene.debugPlants();
   w.__farmhandFarmCanvas = () => scene["app"]?.canvas;
+  w.__farmhandJobBoard = () => scene.debugJobBoard();
 }
 
 /** Invisible garden tap target + live name on the blank wooden sign. */

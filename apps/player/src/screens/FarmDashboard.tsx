@@ -4,16 +4,20 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { FarmTitle } from "../art";
 import ComingSoon from "../components/ComingSoon";
+import JobBoardHint from "../components/JobBoardHint";
+import { PLACEHOLDER_WANTED_JOBS } from "../pixi/jobBoard";
 import { useFarmPixi } from "../pixi/usePixi";
 
 export default function FarmDashboard() {
   const navigate = useNavigate();
   const [players, setPlayers] = useState<FarmPlayerCard[]>([]);
   const [storeOpen, setStoreOpen] = useState(false);
+  const [jobsOpen, setJobsOpen] = useState(false);
   const [error, setError] = useState("");
   const { hostRef, sceneRef, ready } = useFarmPixi({
     onPlayer: (id) => navigate(`/garden/${id}`),
     onStore: () => setStoreOpen(true),
+    onJobBoard: () => setJobsOpen(true),
   });
 
   async function load() {
@@ -33,6 +37,7 @@ export default function FarmDashboard() {
 
   useEffect(() => {
     sceneRef.current?.setPlayers(players);
+    sceneRef.current?.setWantedJobs(PLACEHOLDER_WANTED_JOBS);
   }, [players, ready, sceneRef]);
 
   return (
@@ -42,6 +47,7 @@ export default function FarmDashboard() {
         <FarmTitle />
       </header>
       {storeOpen && <ComingSoon onClose={() => setStoreOpen(false)} />}
+      {jobsOpen && <JobBoardHint onClose={() => setJobsOpen(false)} />}
       {error && <div className="toast">{error}</div>}
     </div>
   );

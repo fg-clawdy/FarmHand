@@ -36,13 +36,31 @@ test("cover-fit local pixels match the 1536×1024 painting", () => {
   assert.equal(Math.round(tip.y), 258);
 });
 
-test("cow blockers include barn, tractor, hay, stand, and gardens", () => {
+test("cow blockers include barn, tractor, hay, stand, corkboard, and gardens", () => {
   const keys = Object.keys(PLAYFIELD_LAYOUT.blockers);
-  for (const key of ["barn", "hay", "tractor", "stand"]) {
+  for (const key of ["barn", "hay", "tractor", "stand", "jobBoard"]) {
     assert.ok(keys.includes(key), key);
   }
   assert.ok(!keys.includes("mamaCow"));
-  assert.equal(cowForbiddenRects(1536, 1024).length, 7);
+  assert.equal(cowForbiddenRects(1536, 1024).length, 8);
+});
+
+test("job board corkboard hangs on the barn, above gardens and left of the store", () => {
+  const hit = PLAYFIELD_LAYOUT.jobBoardHit;
+  const locked = { u0: 0.02, v0: 0.0, u1: 0.22, v1: 0.2 };
+  assert.deepEqual(hit, locked);
+  assert.deepEqual(PLAYFIELD_LAYOUT.blockers.jobBoard, locked);
+  assert.ok(hit.u1 < PLAYFIELD_LAYOUT.storeHit.u0);
+  assert.ok(hit.u0 < PLAYFIELD_LAYOUT.blockers.barn.u1);
+  assert.ok(hit.u1 < PLAYFIELD_LAYOUT.blockers.barn.u1 + 0.001);
+  assert.ok(hit.v1 <= PLAYFIELD_LAYOUT.cowRoam.v0 + 0.001);
+  for (const garden of PLAYFIELD_LAYOUT.gardens) {
+    assert.ok(hit.v1 < garden.hit.v0);
+    assert.ok(hit.v1 < garden.soil.v0);
+  }
+  const obsoleteMidPath = { u0: 0.42, v0: 0.06, u1: 0.62, v1: 0.36 };
+  assert.notDeepEqual(hit, obsoleteMidPath);
+  assert.ok(hit.u1 < obsoleteMidPath.u0, "barn face is left of the mid-path corridor");
 });
 
 test("cow body cannot sit on garden soil, plaque, or fence", () => {

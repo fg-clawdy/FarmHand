@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { FarmPlayerCard, PublicPlot } from "@farmhand/shared";
+import { PLACEHOLDER_WANTED_JOBS } from "../pixi/jobBoard";
 import { useFarmPixi } from "../pixi/usePixi";
 
 /** Live Pixi farm with planted plots — no API. Used to proof playfield mound UVs. */
@@ -11,12 +12,14 @@ export default function FarmQa() {
   const { hostRef, sceneRef, ready } = useFarmPixi({
     onPlayer: () => undefined,
     onStore: () => undefined,
+    onJobBoard: () => undefined,
   });
 
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene || !ready) return;
     scene.setPlayers(qaPlayers(pack));
+    scene.setWantedJobs(PLACEHOLDER_WANTED_JOBS);
     scene.setMoundMarkers(markers);
   }, [ready, pack, markers, sceneRef]);
 
