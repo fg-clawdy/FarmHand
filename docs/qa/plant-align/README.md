@@ -102,7 +102,15 @@ Game Engineer lock on `PLAYFIELD_TEXTURE` 1536×1024:
 
 `jobBoardHit` = `{ u0: 0.42, v0: 0.06, u1: 0.62, v1: 0.36 }` (px ≈ 645–952 × 61–369).
 
-Tap square is store-class (not a garden plot). Standing cork + Wanted frames sit **inside** that UV. `blockers.jobBoard` is the planted footprint only — the full square as a cow collider leaves zero legal calf spawns. Live `/qa/farm?pack=mix`.
+Tap square is store-class (not a garden plot). Standing cork + Wanted frames sit **inside** that UV. `blockers.jobBoard` is the planted footprint only — the full square as a cow collider leaves zero legal calf spawns. Live `/qa/farm?pack=mix`:
+
+| File | What it is |
+| --- | --- |
+| [`farm-corkboard-midpath.png`](after-fix/farm-corkboard-midpath.png) | Full farm: standing Wanted board between tractor and store |
+| [`farm-corkboard-midpath-close.png`](after-fix/farm-corkboard-midpath-close.png) | Corridor crop: cork + Dishes poster, cow in front |
+| [`farm-corkboard-midpath-hit.json`](after-fix/farm-corkboard-midpath-hit.json) | `__farmhandJobBoard` UV + local px |
+
+Garden mound UVs / crop seating are unchanged.
 
 ## Pass bar
 
