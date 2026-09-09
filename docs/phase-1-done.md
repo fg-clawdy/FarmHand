@@ -40,7 +40,10 @@ Playfield Art owns garden zoom centering at **0.85**, strawberry left clip, and 
 
 ## Out of scope (later phases)
 
+Locked direction lives in [`phase-2-and-architecture.md`](phase-2-and-architecture.md).
+
 - Selfie / chore earn
+- Parent PWA (`/parent`) and Web Push
 - Real-world store
 - Accolades
 - Farmstead

@@ -26,6 +26,8 @@ Monorepo layout:
 - `nginx/` — reverse proxy
 - `docker-compose.yml` — one-command deploy
 
+Locked product surfaces, economy, and Phase 2+ plans: [`docs/phase-2-and-architecture.md`](docs/phase-2-and-architecture.md). Phase 1 closeout: [`docs/phase-1-done.md`](docs/phase-1-done.md).
+
 The API never trusts client timers. Maturity is `planted_at + tier duration − watering reductions − fertilizer reductions`. Plants do not wither.
 
 Design numbers (session length, seed costs, grow times, water/fertilizer reductions, and so on) live in the `GameConfigRow` table. Change them in **Admin → Tunables** without rebuilding.
@@ -149,4 +151,6 @@ BASE_URL=http://127.0.0.1:8080 node scripts/smoke.mjs
 ```
 
 Phase 1 closeout checklist: [`docs/phase-1-done.md`](docs/phase-1-done.md).
+
+Phase 2+ product / architecture spec: [`docs/phase-2-and-architecture.md`](docs/phase-2-and-architecture.md).
 
