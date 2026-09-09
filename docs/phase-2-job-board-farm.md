@@ -6,7 +6,7 @@ Product lock for the **shared family corkboard** on the main farm playfield. Gar
 
 The Job Board is a **separate playfield prop**, like Farm Store — not a garden plot.
 
-- UV hit: `PLAYFIELD_LAYOUT.jobBoardHit` (between tractor and market stand, above the cow corridor).
+- UV hit: `PLAYFIELD_LAYOUT.jobBoardHit` (barn face, left of the FarmHand title, above the gardens).
 - Painted cork board + a **Wanted poster** for the highlighted open chore (emoji, title, **+1 waiting seed**; CRITICAL dog chores use WANTED emphasis).
 - **Rotation:** cycle chores that are still open for *someone* in the family (active, period-eligible, assignment-aware). SPECIFIC chores assigned to a subset (e.g. Dishes → Willow+Finn) still show. Current poster **tears off**, next **pins up**.
 - Label: **Job Board**. Tap opens the Job Coach, then the family board. **No PIN to browse.**

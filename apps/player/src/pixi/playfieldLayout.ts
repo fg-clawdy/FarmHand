@@ -31,15 +31,15 @@ export const PLAYFIELD_LAYOUT = {
   /** Barn-side corridor — stays above the garden fence / plaque line. */
   cowRoam: { u0: 0.12, v0: 0.2, u1: 0.6, v1: 0.36 } satisfies UvRect,
   storeHit: { u0: 0.64, v0: 0.02, u1: 0.98, v1: 0.38 } satisfies UvRect,
-  /** Corkboard between the tractor and the market stand, above the cow corridor. */
-  jobBoardHit: { u0: 0.42, v0: 0.0, u1: 0.62, v1: 0.165 } satisfies UvRect,
+  /** Corkboard on the barn face — left of the HTML title, above the gardens. */
+  jobBoardHit: { u0: 0.02, v0: 0.0, u1: 0.22, v1: 0.2 } satisfies UvRect,
   /** Solid footprints — tractor chassis is intentionally large so the calf cannot climb the hood. */
   blockers: {
     barn: { u0: 0.0, v0: 0.0, u1: 0.26, v1: 0.26 } satisfies UvRect,
     hay: { u0: 0.0, v0: 0.08, u1: 0.14, v1: 0.28 } satisfies UvRect,
     tractor: { u0: 0.14, v0: 0.1, u1: 0.4, v1: 0.38 } satisfies UvRect,
     stand: { u0: 0.64, v0: 0.0, u1: 0.99, v1: 0.4 } satisfies UvRect,
-    jobBoard: { u0: 0.42, v0: 0.0, u1: 0.62, v1: 0.165 } satisfies UvRect,
+    jobBoard: { u0: 0.02, v0: 0.0, u1: 0.22, v1: 0.2 } satisfies UvRect,
   },
   gardens: [
     {

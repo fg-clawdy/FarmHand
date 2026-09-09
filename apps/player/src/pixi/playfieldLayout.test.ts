@@ -43,10 +43,10 @@ test("cow blockers include barn, tractor, hay, stand, corkboard, and gardens", (
   assert.equal(cowForbiddenRects(1536, 1024).length, 8);
 });
 
-test("job board corkboard sits between the tractor and store, above gardens", () => {
+test("job board corkboard hangs on the barn, above gardens and left of the store", () => {
   const hit = PLAYFIELD_LAYOUT.jobBoardHit;
-  assert.ok(hit.u0 > PLAYFIELD_LAYOUT.blockers.tractor.u1);
   assert.ok(hit.u1 < PLAYFIELD_LAYOUT.storeHit.u0);
+  assert.ok(hit.u0 < PLAYFIELD_LAYOUT.blockers.barn.u1);
   assert.ok(hit.v1 <= PLAYFIELD_LAYOUT.cowRoam.v0 + 0.001);
   for (const garden of PLAYFIELD_LAYOUT.gardens) {
     assert.ok(hit.v1 < garden.hit.v0);
