@@ -58,6 +58,11 @@ export type GameConfig = {
   harvestSeedReturn: number;
   plotCount: number;
   mixYield: number;
+  /**
+   * Seconds a Wanted poster stays pinned on the Job Board before the tear.
+   * Admin-tunable; tear/pin animations stay short.
+   */
+  jobBoardPosterDwellSeconds: number;
   /** Parent-authored “what good play looks like” for AI balance review. */
   balanceGoals: string;
   ingredients: IngredientDef[];

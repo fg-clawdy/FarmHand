@@ -1,5 +1,6 @@
+import { clampJobBoardPosterDwell, DEFAULT_GAME_CONFIG } from "@farmhand/shared";
 import { Container, Graphics, Sprite, Text } from "pixi.js";
-import type { PaintedArt } from "./paintedAssets";
+import { CORKBOARD_HANG, WANTED_POSTER_PAPER_INSET, type PaintedArt } from "./paintedAssets";
 import { PLAYFIELD_LAYOUT, uvRectToLocal } from "./playfieldLayout";
 
 export type WantedJob = {
@@ -21,10 +22,12 @@ function easeOutBack(t: number) {
   return 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2;
 }
 
+/** Sheet cells: 0 pinned paper, 1 tearing paper, 2 empty cork (unused), 3 pinning paper. */
+const WANTED_FRAME = { pinned: 0, tearing: 1, pinning: 3 } as const;
+
 /**
- * Ground stake in front of the barn door: standing corkboard with posts
- * anchored bottom-center, feet at the bottom of the hit rect, poster on the
- * upper board face. Game Engineer hooks `onOpen` + `setJobs`.
+ * Ground stake Job Board: standing corkboard stays planted; only the paper
+ * poster tears and pins. Game Engineer hooks `onOpen` + `setJobs`.
  */
 export class CorkboardHotspot {
   readonly root = new Container();
@@ -38,6 +41,7 @@ export class CorkboardHotspot {
   private index = 0;
   private phase: "show" | "tear" | "pin" = "show";
   private phaseT = 0;
+  private dwellSeconds = DEFAULT_GAME_CONFIG.jobBoardPosterDwellSeconds;
   private restX = 0;
   private restY = 0;
   private baseScale = 1;
@@ -53,23 +57,23 @@ export class CorkboardHotspot {
     // Standing corkboard with posts — anchor bottom-center, feet at bottom of hit rect.
     this.board = new Sprite(painted.corkboard);
     this.board.anchor.set(0.5, 1);
-    const artW = painted.corkboard.width || 708;
-    const artH = painted.corkboard.height || 556;
+    const artW = painted.corkboard.width || 721;
+    const artH = painted.corkboard.height || 814;
     const boardScale = Math.min(w / artW, h / artH);
     this.board.scale.set(boardScale);
     this.board.position.set(w / 2, h);
 
-    const boardW = artW * boardScale;
-    const boardH = artH * boardScale;
-
-    // Poster on the upper board face.
+    // Paper-only poster nested on the cork face (not the posts).
     this.poster.anchor.set(0.5);
-    this.poster.texture = this.frames[0] ?? painted.corkboard;
-    const posterH = this.poster.texture.height || 466;
-    const posterW = this.poster.texture.width || 311;
-    this.baseScale = Math.min((boardW * 0.78) / posterW, (boardH * 0.9) / posterH);
+    this.poster.texture = this.frames[WANTED_FRAME.pinned] ?? painted.corkboard;
+    const posterH = this.poster.texture.height || WANTED_POSTER_PAPER_INSET.h;
+    const posterW = this.poster.texture.width || WANTED_POSTER_PAPER_INSET.w;
+    const faceW = CORKBOARD_HANG.w * boardScale;
+    const faceH = CORKBOARD_HANG.h * boardScale;
+    this.baseScale = Math.min((faceW * 0.72) / posterW, (faceH * 0.78) / posterH);
+    const faceCenterFromBottom = (artH - (CORKBOARD_HANG.y + CORKBOARD_HANG.h / 2)) * boardScale;
     this.restX = w / 2;
-    this.restY = h - boardH * 0.6;
+    this.restY = h - faceCenterFromBottom;
     this.poster.scale.set(this.baseScale);
     this.poster.position.set(this.restX, this.restY);
 
@@ -131,7 +135,8 @@ export class CorkboardHotspot {
     this.paintPoster(this.jobs[0] ?? null);
   }
 
-  setJobs(jobs: WantedJob[]) {
+  setJobs(jobs: WantedJob[], dwellSeconds?: number) {
+    if (dwellSeconds != null) this.dwellSeconds = clampJobBoardPosterDwell(dwellSeconds);
     const next = jobs.length ? jobs : PLACEHOLDER_WANTED_JOBS;
     const same = next.length === this.jobs.length && next.every((job, i) => job.id === this.jobs[i]?.id);
     this.jobs = next;
@@ -144,17 +149,21 @@ export class CorkboardHotspot {
     }
   }
 
+  setPosterDwellSeconds(seconds: number) {
+    this.dwellSeconds = clampJobBoardPosterDwell(seconds);
+  }
+
   update(dt: number) {
     if (this.jobs.length < 2) {
       this.resetPosterPose();
-      this.setFrame(0);
+      this.setFrame(WANTED_FRAME.pinned);
       return;
     }
     this.phaseT += dt;
     if (this.phase === "show") {
       this.resetPosterPose();
-      this.setFrame(0);
-      if (this.phaseT >= 4.2) {
+      this.setFrame(WANTED_FRAME.pinned);
+      if (this.phaseT >= this.dwellSeconds) {
         this.phase = "tear";
         this.phaseT = 0;
       }
@@ -162,10 +171,11 @@ export class CorkboardHotspot {
     }
     if (this.phase === "tear") {
       const p = Math.min(1, this.phaseT / 0.5);
-      this.setFrame(p < 0.55 ? 1 : 2);
+      // Paper only — never swap to cell 2 (empty cork plate).
+      this.setFrame(WANTED_FRAME.tearing);
       this.poster.rotation = p * 0.45;
       this.poster.position.set(this.restX + p * 22, this.restY + p * 48);
-      this.poster.alpha = 1 - p * 0.15;
+      this.poster.alpha = 1 - p * 0.85;
       this.copy.visible = p < 0.55;
       if (p >= 1) {
         this.index = (this.index + 1) % this.jobs.length;
@@ -176,7 +186,7 @@ export class CorkboardHotspot {
         this.poster.position.set(this.restX, this.restY - 10);
         this.poster.alpha = 1;
         this.poster.scale.set(this.baseScale * 0.35);
-        this.setFrame(3);
+        this.setFrame(WANTED_FRAME.pinning);
         this.copy.visible = true;
       }
       return;
@@ -187,7 +197,7 @@ export class CorkboardHotspot {
     this.poster.rotation = -0.08 * (1 - p);
     this.poster.position.set(this.restX, this.restY - 10 * (1 - p));
     this.poster.alpha = 1;
-    this.setFrame(p < 0.5 ? 3 : 0);
+    this.setFrame(p < 0.5 ? WANTED_FRAME.pinning : WANTED_FRAME.pinned);
     if (p >= 1) {
       this.phase = "show";
       this.phaseT = 0;
@@ -229,6 +239,6 @@ export class CorkboardHotspot {
     this.titleText.position.set(0, 48);
     this.chipText.text = job ? "+1 waiting seed" : "Check back soon";
     this.chipText.position.set(0, 110);
-    this.setFrame(0);
+    this.setFrame(WANTED_FRAME.pinned);
   }
 }

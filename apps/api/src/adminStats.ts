@@ -158,6 +158,7 @@ export function balanceKnobs(config: GameConfig) {
     harvestSeedReturn: config.harvestSeedReturn,
     mixYield: config.mixYield,
     plotCount: config.plotCount,
+    jobBoardPosterDwellSeconds: config.jobBoardPosterDwellSeconds,
     tiers: config.tiers.map((tier) => ({
       tier: tier.tier,
       kind: tier.kind,

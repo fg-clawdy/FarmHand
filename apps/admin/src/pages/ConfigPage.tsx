@@ -91,6 +91,18 @@ export default function ConfigPage() {
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
+        <h2>Job Board</h2>
+        <div className="row">
+          <Num
+            label="Wanted poster dwell (seconds)"
+            hint="How long a chore stays pinned before the tear. Tear/pin stay short. 5–120."
+            value={config.jobBoardPosterDwellSeconds}
+            onChange={(v) => num("jobBoardPosterDwellSeconds", v)}
+          />
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
         <h2>Crops — time, cost, and fertilizer</h2>
         <p className="muted">
           Corn, strawberry, and cotton are the same for now: 1 seed to plant, 24 hours, 25 stars on harvest. Pick by

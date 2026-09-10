@@ -47,6 +47,7 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   harvestSeedReturn: 1,
   plotCount: PLOTS_PER_GARDEN,
   mixYield: 1,
+  jobBoardPosterDwellSeconds: 18,
   balanceGoals: DEFAULT_BALANCE_GOALS,
   ingredients: [
     { id: "moonDew", name: "Moon Dew", emoji: "🌙" },
@@ -95,6 +96,19 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
 
 const LEGACY_TIER_NAMES = new Set(["Prairie Daisy", "Kitchen Herbs", "Sunflower", "Homestead Oak"]);
 
+/** Wanted poster pinned time. Tear/pin stay short; this is the readable pause. */
+export const JOB_BOARD_POSTER_DWELL_SECONDS_MIN = 5;
+export const JOB_BOARD_POSTER_DWELL_SECONDS_MAX = 120;
+
+export function clampJobBoardPosterDwell(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_GAME_CONFIG.jobBoardPosterDwellSeconds;
+  return Math.min(
+    JOB_BOARD_POSTER_DWELL_SECONDS_MAX,
+    Math.max(JOB_BOARD_POSTER_DWELL_SECONDS_MIN, n),
+  );
+}
+
 export function mergeGameConfig(raw: unknown): GameConfig {
   const incoming = raw && typeof raw === "object" ? (raw as Partial<GameConfig>) : {};
   const incomingTiers = Array.isArray(incoming.tiers) ? incoming.tiers : undefined;
@@ -141,6 +155,9 @@ export function mergeGameConfig(raw: unknown): GameConfig {
     ...incoming,
     timezone: incoming.timezone || DEFAULT_GAME_CONFIG.timezone,
     plotCount: Math.max(PLOTS_PER_GARDEN, Number(incoming.plotCount) || 0),
+    jobBoardPosterDwellSeconds: clampJobBoardPosterDwell(
+      incoming.jobBoardPosterDwellSeconds ?? DEFAULT_GAME_CONFIG.jobBoardPosterDwellSeconds,
+    ),
     balanceGoals:
       typeof incoming.balanceGoals === "string" ? incoming.balanceGoals : DEFAULT_GAME_CONFIG.balanceGoals,
     tiers,

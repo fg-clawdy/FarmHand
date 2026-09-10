@@ -11,10 +11,12 @@ import {
   CORKBOARD_HANG,
   SHEET_INSET,
   WANTED_POSTER_SHEET,
+  WANTED_POSTER_PAPER_INSET,
   ZOOM_MOUND_COVER_PX,
   cropCoverScale,
   cropDiscAnchor,
   sheetFrameRects,
+  wantedPosterFrameRects,
 } from "./paintedAssets.ts";
 
 test("walk uses two separate textures, not a combined walk/eat sheet", () => {
@@ -95,6 +97,29 @@ test("barn corkboard and wanted poster sheet are farm props, not crop sheets", (
     const prev = rects[i - 1]!;
     const r = rects[i]!;
     assert.ok(prev.x + prev.w <= r.x, "adjacent wanted frames must not share an x pixel");
+  }
+});
+
+test("wanted poster frames crop to paper, dropping the painted cork plate", () => {
+  const cell = WANTED_POSTER_SHEET.width / WANTED_POSTER_SHEET.frames;
+  const paper = wantedPosterFrameRects();
+  assert.equal(paper.length, 4);
+  assert.equal(WANTED_POSTER_PAPER_INSET.x, 28);
+  assert.equal(WANTED_POSTER_PAPER_INSET.y, 20);
+  assert.ok(WANTED_POSTER_PAPER_INSET.w < cell - 24, "drop left/right cork");
+  assert.ok(WANTED_POSTER_PAPER_INSET.h < WANTED_POSTER_SHEET.height - 40, "drop top/bottom cork");
+  for (let i = 0; i < paper.length; i++) {
+    const r = paper[i]!;
+    assert.equal(r.x, i * cell + WANTED_POSTER_PAPER_INSET.x);
+    assert.equal(r.y, WANTED_POSTER_PAPER_INSET.y);
+    assert.equal(r.w, WANTED_POSTER_PAPER_INSET.w);
+    assert.equal(r.h, WANTED_POSTER_PAPER_INSET.h);
+    assert.ok(r.x >= i * cell);
+    assert.ok(r.x + r.w <= (i + 1) * cell);
+    assert.ok(r.y + r.h <= WANTED_POSTER_SHEET.height);
+    if (i > 0) {
+      assert.ok(paper[i - 1]!.x + paper[i - 1]!.w <= r.x, "paper frames must not overlap");
+    }
   }
 });
 

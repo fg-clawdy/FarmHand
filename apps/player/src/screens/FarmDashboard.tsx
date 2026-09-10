@@ -44,8 +44,8 @@ export default function FarmDashboard() {
   }, [players, ready, sceneRef]);
 
   useEffect(() => {
-    sceneRef.current?.setWantedJobs(jobs);
-  }, [jobs, ready, sceneRef]);
+    sceneRef.current?.setWantedJobs(jobs, config?.jobBoardPosterDwellSeconds);
+  }, [jobs, config, ready, sceneRef]);
 
   return (
     <div className="scene farm-hybrid">

@@ -62,11 +62,16 @@ export const CROP_FRAME_HEIGHT = CROP_SHEET_HEIGHT.corn;
 
 /** Padded 4-frame eat/graze PNG with real alpha (equal cells; Pixi insets so frames never share pixels). */
 export const COW_EAT_SHEET = { width: 1704, height: 304, frames: 4 } as const;
-/** 4-frame Wanted poster: pinned, tearing, torn-off, pinning up. Equal cells. */
+/** 4-frame Wanted poster sheet: pinned, tearing, torn-off, pinning up. Equal 315×470 cells. */
 export const WANTED_POSTER_SHEET = { width: 1260, height: 470, frames: 4 } as const;
 /**
- * Standing corkboard PNG includes posts + grass. Previously cropped for barn-face
- * hanging; now loaded full as a ground stake prop.
+ * Cream paper + WANTED header inside each cell. The sheet paints a cork plate
+ * around the poster; crop it off so only paper layers on the standing stake.
+ */
+export const WANTED_POSTER_PAPER_INSET = { x: 28, y: 20, w: 258, h: 386 } as const;
+/**
+ * Standing corkboard PNG includes posts + grass. Loaded full as a ground stake.
+ * Hang rect is the cork face (no posts) used to nest the paper poster.
  */
 export const CORKBOARD_HANG = { x: 6, y: 4, w: 708, h: 556 } as const;
 
@@ -129,6 +134,29 @@ export function sliceSheet(texture: Texture, frames: number, inset: number = SHE
   );
 }
 
+/** Paper-only Wanted frames — same size for pinned / tearing / torn / pinning. */
+export function wantedPosterFrameRects(): Array<{ x: number; y: number; w: number; h: number }> {
+  const cell = Math.floor(WANTED_POSTER_SHEET.width / WANTED_POSTER_SHEET.frames);
+  const { x, y, w, h } = WANTED_POSTER_PAPER_INSET;
+  return Array.from({ length: WANTED_POSTER_SHEET.frames }, (_, i) => ({
+    x: i * cell + x,
+    y,
+    w,
+    h,
+  }));
+}
+
+export function sliceWantedPoster(texture: Texture): Texture[] {
+  return wantedPosterFrameRects().map(
+    (rect) =>
+      new Texture({
+        source: texture.source,
+        frame: new Rectangle(rect.x, rect.y, rect.w, rect.h),
+        orig: new Rectangle(0, 0, rect.w, rect.h),
+      }),
+  );
+}
+
 export function cropStageFrame(crops: Record<CropKind, Texture[]>, kind: CropKind, stage: 1 | 2 | 3 | 4): Texture {
   return crops[kind]?.[stage - 1] ?? Texture.EMPTY;
 }
@@ -182,7 +210,7 @@ export async function loadPaintedArt(): Promise<PaintedArt> {
     cowWalk: [walkA, walkB],
     cowEat: sliceSheet(eat, COW_EAT_SHEET.frames),
     corkboard,
-    wantedPosterFrames: sliceSheet(wantedPoster, WANTED_POSTER_SHEET.frames),
+    wantedPosterFrames: sliceWantedPoster(wantedPoster),
     crops,
   };
 }

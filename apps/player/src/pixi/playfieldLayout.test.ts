@@ -45,25 +45,23 @@ test("cow blockers include barn, tractor, hay, stand, corkboard, and gardens", (
   assert.equal(cowForbiddenRects(1536, 1024).length, 8);
 });
 
-test("job board ground stake is northeast of the tractor, left of the store, above gardens", () => {
+test("job board ground stake sits left of the title, right of the exhaust, above gardens", () => {
   const hit = PLAYFIELD_LAYOUT.jobBoardHit;
-  const locked = { u0: 0.38, v0: 0.14, u1: 0.52, v1: 0.36 };
-  assert.deepEqual(hit, locked);
-  assert.deepEqual(PLAYFIELD_LAYOUT.blockers.jobBoard, locked);
-  // Northeast of tractor — right of the hood and above the tractor footprint top.
-  assert.ok(hit.u0 >= PLAYFIELD_LAYOUT.blockers.tractor.u1 - 0.02);
-  assert.ok(hit.v0 >= PLAYFIELD_LAYOUT.blockers.tractor.v0);
-  // Left of the Farm Store.
+  const stake = { u0: 0.28, v0: 0.12, u1: 0.4, v1: 0.34 };
+  assert.deepEqual(hit, stake);
+  assert.deepEqual(PLAYFIELD_LAYOUT.blockers.jobBoard, stake);
+  assert.ok(hit.u0 >= PLAYFIELD_LAYOUT.exhaustTip.u, "clear of exhaust puff");
+  assert.ok(hit.u1 < 0.5, "left of FarmHand title center");
+  assert.ok(hit.u1 <= 0.42, "not under the wordmark");
   assert.ok(hit.u1 < PLAYFIELD_LAYOUT.storeHit.u0);
-  // Above all three gardens.
   for (const garden of PLAYFIELD_LAYOUT.gardens) {
     assert.ok(hit.v1 < garden.hit.v0);
     assert.ok(hit.v1 < garden.soil.v0);
   }
+  const obsoleteTitleCover = { u0: 0.38, v0: 0.14, u1: 0.52, v1: 0.36 };
+  assert.notDeepEqual(hit, obsoleteTitleCover);
   const obsoleteMidPath = { u0: 0.42, v0: 0.06, u1: 0.62, v1: 0.36 };
   assert.notDeepEqual(hit, obsoleteMidPath);
-  assert.ok(hit.u0 < obsoleteMidPath.u0 + 0.001 || hit.u1 > obsoleteMidPath.u1 - 0.001,
-    "ground stake is clear of the obsolete mid-path corridor");
 });
 
 test("cow body cannot sit on garden soil, plaque, or fence", () => {

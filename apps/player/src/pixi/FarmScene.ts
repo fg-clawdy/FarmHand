@@ -134,8 +134,8 @@ export class FarmScene {
   }
 
   /** Game Engineer: highlighted open chores for Wanted rotation. */
-  setWantedJobs(jobs: WantedJob[]) {
-    this.jobBoard.setJobs(jobs);
+  setWantedJobs(jobs: WantedJob[], dwellSeconds?: number) {
+    this.jobBoard.setJobs(jobs, dwellSeconds);
   }
 
   /** QA only (`/qa/farm?markers=1`). Default off — never drawn on the live farm. */

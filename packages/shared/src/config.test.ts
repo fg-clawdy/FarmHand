@@ -96,4 +96,12 @@ describe("v1 crop kinds", () => {
     assert.equal(merged.tiers[0]?.points, 10);
     assert.equal(merged.tiers[2]?.points, 14);
   });
+
+  it("defaults Wanted poster dwell to 18s and clamps 5–120", () => {
+    assert.equal(DEFAULT_GAME_CONFIG.jobBoardPosterDwellSeconds, 18);
+    assert.equal(mergeGameConfig({}).jobBoardPosterDwellSeconds, 18);
+    assert.equal(mergeGameConfig({ jobBoardPosterDwellSeconds: 30 }).jobBoardPosterDwellSeconds, 30);
+    assert.equal(mergeGameConfig({ jobBoardPosterDwellSeconds: 4.2 }).jobBoardPosterDwellSeconds, 5);
+    assert.equal(mergeGameConfig({ jobBoardPosterDwellSeconds: 200 }).jobBoardPosterDwellSeconds, 120);
+  });
 });
