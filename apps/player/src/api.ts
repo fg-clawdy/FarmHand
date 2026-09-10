@@ -64,6 +64,9 @@ export type FamilyJob = {
   priority: string;
   assignmentMode: string;
   requiresSelfie: boolean;
+  rewardSeedCount?: number;
+  rewardSeedKind?: "seed" | "super_seed";
+  rewardLabel?: string;
 };
 
 export type HarvestReward = {

@@ -7,6 +7,7 @@ import {
   compareChoresForParent,
   compareClaimsForInbox,
   getTier,
+  JOB_BOARD_V1_REWARD_SEED_COUNT,
   plotIsEmpty,
   recurrenceFreesOnHarvest,
   serializePlot,
@@ -150,6 +151,9 @@ export type FamilyOpenJob = {
   assignmentMode: Chore["assignmentMode"];
   requiresSelfie: boolean;
   sortOrder: number;
+  rewardSeedCount: number;
+  rewardSeedKind?: "seed" | "super_seed";
+  rewardLabel?: string;
 };
 
 export async function listFamilyOpenChores(timezone: string, now = new Date()): Promise<FamilyOpenJob[]> {
@@ -187,6 +191,8 @@ export async function listFamilyOpenChores(timezone: string, now = new Date()): 
       assignmentMode: chore.assignmentMode,
       requiresSelfie: chore.requiresSelfie,
       sortOrder: chore.sortOrder,
+      rewardSeedCount: JOB_BOARD_V1_REWARD_SEED_COUNT,
+      rewardSeedKind: "seed",
     });
   }
   return jobs.sort(compareChoresForParent);

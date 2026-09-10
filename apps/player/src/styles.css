@@ -28,11 +28,7 @@ button, input { font: inherit; }
   inset: 0;
   z-index: 0;
 }
-.farm-hybrid .title-bar,
 .garden-hybrid .topbar {
-  pointer-events: none;
-}
-.farm-hybrid .title-bar svg {
   pointer-events: none;
 }
 .garden-hybrid .topbar > * {

@@ -1,4 +1,4 @@
-import { clampJobBoardPosterDwell, DEFAULT_GAME_CONFIG } from "@farmhand/shared";
+import { clampJobBoardPosterDwell, DEFAULT_GAME_CONFIG, formatJobBoardReward, JOB_BOARD_V1_REWARD_SEED_COUNT } from "@farmhand/shared";
 import { Container, Graphics, Sprite, Text } from "pixi.js";
 import { CORKBOARD_HANG, WANTED_POSTER_PAPER_INSET, type PaintedArt } from "./paintedAssets";
 import { PLAYFIELD_LAYOUT, uvRectToLocal } from "./playfieldLayout";
@@ -8,12 +8,15 @@ export type WantedJob = {
   title: string;
   emoji: string;
   priority: string;
+  rewardSeedCount?: number;
+  rewardSeedKind?: "seed" | "super_seed";
+  rewardLabel?: string;
 };
 
-/** Placeholder chores so the board has a Wanted poster before Game Engineer wires `/api/farm/jobs`. */
+/** Placeholder chores so Farm QA can preview the board without `/api/farm/jobs`. */
 export const PLACEHOLDER_WANTED_JOBS: WantedJob[] = [
-  { id: "placeholder-dishes", title: "Dishes", emoji: "🍽️", priority: "NORMAL" },
-  { id: "placeholder-dog", title: "Walk the dog", emoji: "🐕", priority: "CRITICAL" },
+  { id: "placeholder-dishes", title: "Dishes", emoji: "🍽️", priority: "NORMAL", rewardSeedCount: JOB_BOARD_V1_REWARD_SEED_COUNT },
+  { id: "placeholder-dog", title: "Walk the dog", emoji: "🐕", priority: "CRITICAL", rewardSeedCount: JOB_BOARD_V1_REWARD_SEED_COUNT },
 ];
 
 function easeOutBack(t: number) {
@@ -22,7 +25,7 @@ function easeOutBack(t: number) {
   return 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2;
 }
 
-/** Sheet cells: 0 pinned paper, 1 tearing paper, 2 empty cork (unused), 3 pinning paper. */
+/** Sheet cells: 0 pinned paper, 1 tearing paper, 2 empty (unused), 3 pinning paper. */
 const WANTED_FRAME = { pinned: 0, tearing: 1, pinning: 3 } as const;
 
 /**
@@ -35,8 +38,7 @@ export class CorkboardHotspot {
   private readonly poster = new Sprite();
   private readonly copy = new Container();
   private readonly emojiText: Text;
-  private readonly titleText: Text;
-  private readonly chipText: Text;
+  private readonly rewardText: Text;
   private jobs: WantedJob[] = PLACEHOLDER_WANTED_JOBS;
   private index = 0;
   private phase: "show" | "tear" | "pin" = "show";
@@ -79,35 +81,24 @@ export class CorkboardHotspot {
 
     const typeScale = 1 / Math.max(0.2, this.baseScale);
     this.emojiText = new Text({
-      text: "📌",
-      style: { fontFamily: "Fredoka, sans-serif", fontSize: 22 * typeScale, fill: 0x3a2410, align: "center" },
+      text: "",
+      style: { fontFamily: "Fredoka, sans-serif", fontSize: 30 * typeScale, fill: 0x3a2410, align: "center" },
     });
-    this.emojiText.anchor.set(0.5, 0);
-    this.titleText = new Text({
-      text: "Open jobs",
+    this.emojiText.anchor.set(0.5);
+    this.rewardText = new Text({
+      text: "Check back soon",
       style: {
-        fontFamily: "Fredoka, sans-serif",
-        fontSize: 13 * typeScale,
-        fill: 0x3a2410,
+        fontFamily: "Georgia, 'Times New Roman', Fredoka, serif",
+        fontSize: 11 * typeScale,
+        fill: 0x3a1808,
         fontWeight: "700",
         wordWrap: true,
-        wordWrapWidth: Math.max(64, posterW * 0.55),
+        wordWrapWidth: Math.max(72, posterW * 0.78),
         align: "center",
       },
     });
-    this.titleText.anchor.set(0.5, 0);
-    this.chipText = new Text({
-      text: "+1 waiting seed",
-      style: {
-        fontFamily: "Fredoka, sans-serif",
-        fontSize: 10 * typeScale,
-        fill: 0x5c3218,
-        fontWeight: "700",
-        align: "center",
-      },
-    });
-    this.chipText.anchor.set(0.5, 0);
-    this.copy.addChild(this.emojiText, this.titleText, this.chipText);
+    this.rewardText.anchor.set(0.5, 0);
+    this.copy.addChild(this.emojiText, this.rewardText);
     this.poster.addChild(this.copy);
 
     const label = new Text({
@@ -137,7 +128,7 @@ export class CorkboardHotspot {
 
   setJobs(jobs: WantedJob[], dwellSeconds?: number) {
     if (dwellSeconds != null) this.dwellSeconds = clampJobBoardPosterDwell(dwellSeconds);
-    const next = jobs.length ? jobs : PLACEHOLDER_WANTED_JOBS;
+    const next = jobs;
     const same = next.length === this.jobs.length && next.every((job, i) => job.id === this.jobs[i]?.id);
     this.jobs = next;
     if (!same) {
@@ -171,7 +162,7 @@ export class CorkboardHotspot {
     }
     if (this.phase === "tear") {
       const p = Math.min(1, this.phaseT / 0.5);
-      // Paper only — never swap to cell 2 (empty cork plate).
+      // Paper only — never swap to cell 2 (empty frame).
       this.setFrame(WANTED_FRAME.tearing);
       this.poster.rotation = p * 0.45;
       this.poster.position.set(this.restX + p * 22, this.restY + p * 48);
@@ -232,13 +223,12 @@ export class CorkboardHotspot {
 
   private paintPoster(job: WantedJob | null) {
     const critical = job?.priority === "CRITICAL";
-    this.poster.tint = critical ? 0xffd0c4 : 0xffffff;
-    this.emojiText.text = job?.emoji || "📌";
-    this.emojiText.position.set(0, -8);
-    this.titleText.text = job?.title || "No open jobs";
-    this.titleText.position.set(0, 48);
-    this.chipText.text = job ? "+1 waiting seed" : "Check back soon";
-    this.chipText.position.set(0, 110);
+    this.poster.tint = critical ? 0xffe6d2 : 0xffffff;
+    this.emojiText.text = job?.emoji || "";
+    this.emojiText.visible = Boolean(job?.emoji);
+    this.emojiText.position.set(0, -4);
+    this.rewardText.text = formatJobBoardReward(job);
+    this.rewardText.position.set(0, job ? 52 : 8);
     this.setFrame(WANTED_FRAME.pinned);
   }
 }

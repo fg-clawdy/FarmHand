@@ -57,3 +57,28 @@ export function closedPeriodKey(status: "DENIED" | "DONE", claimId: string): str
 export function recurrenceFreesOnHarvest(recurrence: ChoreRecurrence): boolean {
   return recurrence === "NONE";
 }
+
+export type JobBoardRewardKind = "seed" | "super_seed";
+
+/** v1: every job-board claim plants exactly 1 provisional seed. */
+export const JOB_BOARD_V1_REWARD_SEED_COUNT = 1;
+
+export type JobBoardRewardFields = {
+  rewardSeedCount?: number;
+  rewardSeedKind?: JobBoardRewardKind;
+  rewardLabel?: string;
+};
+
+/** Farm poster / empty-board copy. Title stays off the flyer. */
+export function formatJobBoardReward(job: JobBoardRewardFields | null | undefined): string {
+  if (!job) return "Check back soon";
+  const label = job.rewardLabel?.trim();
+  if (label) return label;
+  const raw = Number(job.rewardSeedCount);
+  const count = Number.isFinite(raw) && raw > 0 ? Math.round(raw) : JOB_BOARD_V1_REWARD_SEED_COUNT;
+  if (job.rewardSeedKind === "super_seed") {
+    return count === 1 ? "Reward: 1 super seed" : `Reward: ${count} super seeds`;
+  }
+  return count === 1 ? "Reward: 1 seed" : `Reward: ${count} seeds`;
+}
+

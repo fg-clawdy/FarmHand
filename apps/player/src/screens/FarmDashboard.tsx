@@ -2,7 +2,6 @@ import { type FarmPlayerCard, type GameConfig } from "@farmhand/shared";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type FamilyJob } from "../api";
-import { FarmTitle } from "../art";
 import FarmJobFlow from "../components/FarmJobFlow";
 import StoreSheet from "../components/StoreSheet";
 import { useFarmPixi } from "../pixi/usePixi";
@@ -50,9 +49,6 @@ export default function FarmDashboard() {
   return (
     <div className="scene farm-hybrid">
       <div className="pixi-host" ref={hostRef} />
-      <header className="title-bar">
-        <FarmTitle />
-      </header>
       {storeOpen && <StoreSheet players={players} onClose={() => setStoreOpen(false)} />}
       {jobsOpen && config && (
         <FarmJobFlow

@@ -62,11 +62,11 @@ export const CROP_FRAME_HEIGHT = CROP_SHEET_HEIGHT.corn;
 
 /** Padded 4-frame eat/graze PNG with real alpha (equal cells; Pixi insets so frames never share pixels). */
 export const COW_EAT_SHEET = { width: 1704, height: 304, frames: 4 } as const;
-/** 4-frame Wanted poster sheet: pinned, tearing, torn-off, pinning up. Equal 315×470 cells. */
+/** 4-frame Wanted poster sheet: pinned, tearing, empty, pinning up. Equal 315×470 cells. */
 export const WANTED_POSTER_SHEET = { width: 1260, height: 470, frames: 4 } as const;
 /**
- * Cream paper + WANTED header inside each cell. The sheet paints a cork plate
- * around the poster; crop it off so only paper layers on the standing stake.
+ * Aged Wanted paper inside each cell. Crop to the paper inset so only the flyer
+ * layers on the standing cork (no second cork plate, no paper bolts).
  */
 export const WANTED_POSTER_PAPER_INSET = { x: 28, y: 20, w: 258, h: 386 } as const;
 /**

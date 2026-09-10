@@ -484,6 +484,9 @@ if (!Array.isArray(farmJobs.data.jobs) || farmJobs.data.jobs.length === 0) {
 if (!farmJobs.data.jobs.some((j) => j.priority === "CRITICAL")) {
   throw new Error("family job board should include an open CRITICAL dog chore");
 }
+if (farmJobs.data.jobs.some((j) => j.rewardSeedCount !== 1)) {
+  throw new Error("v1 family jobs should grant 1 waiting seed");
+}
 await reqShouldFail(
   `/api/chores/${farmJobs.data.jobs[0].id}/claim`,
   { method: "POST", body: { slot: 0, tier: 1 } },
