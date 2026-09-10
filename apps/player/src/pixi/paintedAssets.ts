@@ -186,11 +186,3 @@ export async function loadPaintedArt(): Promise<PaintedArt> {
     crops,
   };
 }
-
-function cropTexture(texture: Texture, rect: { x: number; y: number; w: number; h: number }): Texture {
-  return new Texture({
-    source: texture.source,
-    frame: new Rectangle(rect.x, rect.y, rect.w, rect.h),
-    orig: new Rectangle(0, 0, rect.w, rect.h),
-  });
-}
