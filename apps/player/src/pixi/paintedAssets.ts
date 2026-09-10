@@ -65,8 +65,8 @@ export const COW_EAT_SHEET = { width: 1704, height: 304, frames: 4 } as const;
 /** 4-frame Wanted poster: pinned, tearing, torn-off, pinning up. Equal cells. */
 export const WANTED_POSTER_SHEET = { width: 1260, height: 470, frames: 4 } as const;
 /**
- * Standing corkboard PNG includes posts + grass. Hang only the framed board on
- * the barn face — crop posts/grass so it is a wall mount, not a path prop.
+ * Standing corkboard PNG includes posts + grass. Previously cropped for barn-face
+ * hanging; now loaded full as a ground stake prop.
  */
 export const CORKBOARD_HANG = { x: 6, y: 4, w: 708, h: 556 } as const;
 
@@ -181,7 +181,7 @@ export async function loadPaintedArt(): Promise<PaintedArt> {
     smokeFrames: sliceSheet(smoke, 6),
     cowWalk: [walkA, walkB],
     cowEat: sliceSheet(eat, COW_EAT_SHEET.frames),
-    corkboard: cropTexture(corkboard, CORKBOARD_HANG),
+    corkboard,
     wantedPosterFrames: sliceSheet(wantedPoster, WANTED_POSTER_SHEET.frames),
     crops,
   };

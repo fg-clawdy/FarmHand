@@ -22,8 +22,9 @@ function easeOutBack(t: number) {
 }
 
 /**
- * Farm-store-class hotspot: hanging corkboard on the barn face + rotating Wanted frames.
- * Not a garden plot. Game Engineer hooks `onOpen` + `setJobs`.
+ * Ground stake in front of the barn door: standing corkboard with posts
+ * anchored bottom-center, feet at the bottom of the hit rect, poster on the
+ * upper board face. Game Engineer hooks `onOpen` + `setJobs`.
  */
 export class CorkboardHotspot {
   readonly root = new Container();
@@ -49,24 +50,26 @@ export class CorkboardHotspot {
     this.root.position.set(rect.x0, rect.y0);
     this.frames = painted.wantedPosterFrames;
 
-    const labelH = Math.max(16, h * 0.09);
+    // Standing corkboard with posts — anchor bottom-center, feet at bottom of hit rect.
     this.board = new Sprite(painted.corkboard);
-    this.board.anchor.set(0.5, 0);
+    this.board.anchor.set(0.5, 1);
     const artW = painted.corkboard.width || 708;
     const artH = painted.corkboard.height || 556;
-    const boardScale = Math.min(w / artW, (h - labelH) / artH);
+    const boardScale = Math.min(w / artW, h / artH);
     this.board.scale.set(boardScale);
-    this.board.position.set(w / 2, labelH);
+    this.board.position.set(w / 2, h);
 
     const boardW = artW * boardScale;
     const boardH = artH * boardScale;
+
+    // Poster on the upper board face.
     this.poster.anchor.set(0.5);
     this.poster.texture = this.frames[0] ?? painted.corkboard;
     const posterH = this.poster.texture.height || 466;
     const posterW = this.poster.texture.width || 311;
     this.baseScale = Math.min((boardW * 0.78) / posterW, (boardH * 0.9) / posterH);
     this.restX = w / 2;
-    this.restY = labelH + boardH * 0.52;
+    this.restY = h - boardH * 0.6;
     this.poster.scale.set(this.baseScale);
     this.poster.position.set(this.restX, this.restY);
 
@@ -114,7 +117,7 @@ export class CorkboardHotspot {
       },
     });
     label.anchor.set(0.5, 1);
-    label.position.set(w / 2, labelH);
+    label.position.set(w / 2, 0);
 
     const hit = new Graphics();
     hit.rect(0, 0, w, h);
