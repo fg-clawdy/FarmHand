@@ -1,0 +1,21 @@
+export { ACCENTS } from "./theme";
+export {
+  AcornArt,
+  BackArrow,
+  CameraIcon,
+  ClockIcon,
+  FarmArtDefs,
+  FarmStoreArt,
+  FarmTitle,
+  FertilizerBeaker,
+  IngredientOrb,
+  LockIcon,
+  MascotArt,
+  MiniGarden,
+  PlantFigure,
+  SceneShell,
+  StarIcon,
+  WateringCan,
+  WoodSign,
+  plantKind,
+} from "./illustrations";

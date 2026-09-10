@@ -1,0 +1,414 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Mascot {
+  cow
+  chicken
+  pig
+  sheep
+  horse
+}
+
+enum PlotPhase {
+  empty
+  growing
+  purgatory
+  wilted
+}
+
+enum ChoreRecurrence {
+  DAILY
+  WEEKLY
+  WEEKDAYS
+  NONE
+}
+
+enum ChoreTimeOfDay {
+  MORNING
+  AFTERNOON
+  EVENING
+  ANYTIME
+}
+
+enum ChorePriority {
+  CRITICAL
+  HIGH
+  NORMAL
+  LOW
+}
+
+enum ChoreAssignmentMode {
+  ALL
+  SPECIFIC
+  RACE
+}
+
+enum ChoreClaimStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+enum ApprovalSubjectKind {
+  chore_claim
+  store_redemption
+}
+
+enum StoreRedemptionStatus {
+  PENDING
+  OWNED
+  REDEEMED
+  DENIED
+}
+
+enum StarLedgerKind {
+  EARN_HARVEST
+  EARN_GRANT
+  HOLD_REWARD
+  RELEASE_REWARD
+  SPEND_REWARD
+  ADJUST_ADMIN
+  OPENING_BALANCE
+}
+
+model Admin {
+  id                String             @id @default(uuid())
+  username          String             @unique
+  passwordHash      String
+  createdAt         DateTime           @default(now())
+  sessions          AdminSession[]
+  auditLogs         AuditLog[]
+  resolvedClaims      ChoreClaim[]
+  resolvedRedemptions StoreRedemption[]  @relation("StoreResolved")
+  redeemedRedemptions StoreRedemption[]  @relation("StoreRedeemed")
+  pushSubscriptions   PushSubscription[]
+  actionTokens        PushActionToken[]
+}
+
+model AdminSession {
+  id        String   @id @default(uuid())
+  adminId   String
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+model Player {
+  id                      String          @id @default(uuid())
+  name                    String
+  mascot                  Mascot
+  pinHash                 String?
+  seeds                   Int             @default(10)
+  points                  Int             @default(0)
+  fertilizer              Int             @default(0)
+  moonDew                 Int             @default(0)
+  growGoo                 Int             @default(0)
+  phoenixAsh              Int             @default(0)
+  lastIngredientClaimDate String?
+  nextIngredientIndex     Int             @default(0)
+  wateringsOnDate         String?
+  wateringsCount          Int             @default(0)
+  lastWateredAt           DateTime?
+  selfieUnlockDate        String?
+  selfieSeedGrantDate     String?
+  isActive                Boolean         @default(true)
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+  plots                   Plot[]
+  sessions                PlayerSession[]
+  activity                ActivityLog[]
+  auditLogs               AuditLog[]
+  choreAssignments        ChoreAssignment[]
+  choreClaims             ChoreClaim[]
+  accoladeCounters        AccoladeCounter[]
+  accoladeDays            AccoladeActiveDay[]
+  accoladeUnlocks         AccoladeUnlock[]
+  storeRedemptions        StoreRedemption[]
+  starLedger              StarLedgerEvent[]
+}
+
+model Plot {
+  id                         String      @id @default(uuid())
+  playerId                   String
+  player                     Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  slot                       Int
+  plantTier                  Int?
+  plantedAt                  DateTime?
+  phase                      PlotPhase   @default(empty)
+  choreClaimId               String?     @unique
+  choreClaim                 ChoreClaim? @relation(fields: [choreClaimId], references: [id], onDelete: SetNull)
+  waterReductionMinutes      Int         @default(0)
+  fertilizerReductionMinutes Int         @default(0)
+  lastWateredAt              DateTime?
+  wateringsOnDate            String?
+  wateringsCount             Int         @default(0)
+  createdAt                  DateTime    @default(now())
+  updatedAt                  DateTime    @updatedAt
+
+  @@unique([playerId, slot])
+}
+
+model Chore {
+  id               String              @id @default(uuid())
+  slug             String              @unique
+  title            String
+  emoji            String
+  description      String              @default("")
+  recurrence       ChoreRecurrence
+  timeOfDay        ChoreTimeOfDay
+  priority         ChorePriority       @default(NORMAL)
+  estimatedMinutes Int?
+  requiresApproval Boolean             @default(true)
+  requiresSelfie   Boolean             @default(false)
+  allowsSkip       Boolean             @default(false)
+  isGlobal         Boolean             @default(false)
+  includeInPath    Boolean             @default(false)
+  isActive         Boolean             @default(true)
+  legacyPoints     Int?
+  assignmentMode   ChoreAssignmentMode
+  sortOrder        Int                 @default(0)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  assignments      ChoreAssignment[]
+  claims           ChoreClaim[]
+  raceSlots        ChoreRaceSlot[]
+}
+
+model ChoreAssignment {
+  id        String   @id @default(uuid())
+  choreId   String
+  chore     Chore    @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([choreId, playerId])
+}
+
+model ChoreRaceSlot {
+  id        String   @id @default(uuid())
+  choreId   String
+  chore     Chore    @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  periodKey String
+  createdAt DateTime @default(now())
+
+  @@unique([choreId, periodKey])
+}
+
+model ChoreClaim {
+  id                String           @id @default(uuid())
+  choreId           String
+  chore             Chore            @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  playerId          String
+  player            Player           @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  periodKey         String
+  status            ChoreClaimStatus @default(PENDING)
+  slot              Int
+  plantTier         Int
+  proofJpegPath     String?
+  claimedAt         DateTime         @default(now())
+  resolvedAt        DateTime?
+  resolvedByAdminId String?
+  resolvedBy        Admin?           @relation(fields: [resolvedByAdminId], references: [id], onDelete: SetNull)
+  plot              Plot?
+
+  @@unique([choreId, playerId, periodKey])
+  @@index([status, claimedAt])
+}
+
+model PlayerSession {
+  id        String   @id @default(uuid())
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+model GameConfigRow {
+  id        String   @id @default("default")
+  data      Json
+  updatedAt DateTime @updatedAt
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  playerId  String?
+  player    Player?  @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  action    String
+  details   Json?
+  createdAt DateTime @default(now())
+
+  @@index([playerId, createdAt])
+  @@index([action, createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  adminId   String
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([adminId])
+}
+
+model PushActionToken {
+  id          String              @id @default(uuid())
+  tokenHash   String              @unique
+  adminId     String
+  admin       Admin               @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  subjectKind ApprovalSubjectKind
+  subjectId   String
+  expiresAt   DateTime
+  createdAt   DateTime            @default(now())
+
+  @@unique([adminId, subjectKind, subjectId])
+  @@index([subjectKind, subjectId])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  adminId        String?
+  admin          Admin?   @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  targetPlayerId String?
+  targetPlayer   Player?  @relation(fields: [targetPlayerId], references: [id], onDelete: SetNull)
+  action         String
+  details        Json?
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model AccoladeCounter {
+  id          String   @id @default(uuid())
+  playerId    String
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  seasonKey   String
+  harvests    Int      @default(0)
+  waterings   Int      @default(0)
+  plantings   Int      @default(0)
+  selfies     Int      @default(0)
+  chorePhotos Int      @default(0)
+  cropsMask   Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([playerId, seasonKey])
+}
+
+model AccoladeActiveDay {
+  id        String @id @default(uuid())
+  playerId  String
+  player    Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  dayKey    String
+  seasonKey String
+
+  @@unique([playerId, dayKey])
+  @@index([playerId, seasonKey])
+}
+
+model StoreSku {
+  id           String            @id @default(uuid())
+  slug         String            @unique
+  title        String
+  emoji        String
+  description  String            @default("")
+  starCost     Int
+  isActive     Boolean           @default(true)
+  sortOrder    Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  redemptions  StoreRedemption[]
+}
+
+model StoreRedemption {
+  id                String                @id @default(uuid())
+  playerId          String
+  player            Player                @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  skuId             String
+  sku               StoreSku              @relation(fields: [skuId], references: [id], onDelete: Restrict)
+  status            StoreRedemptionStatus @default(PENDING)
+  title             String
+  emoji             String
+  description       String                @default("")
+  starCost          Int
+  starsHeld         Int
+  requestedAt       DateTime              @default(now())
+  resolvedAt        DateTime?
+  resolvedByAdminId String?
+  resolvedBy        Admin?                @relation("StoreResolved", fields: [resolvedByAdminId], references: [id], onDelete: SetNull)
+  approvedAt        DateTime?
+  deniedAt          DateTime?
+  denyReason        String                @default("")
+  redeemedAt        DateTime?
+  redeemedByAdminId String?
+  redeemedBy        Admin?                @relation("StoreRedeemed", fields: [redeemedByAdminId], references: [id], onDelete: SetNull)
+  events            StoreRewardEvent[]
+  ledgerEvents      StarLedgerEvent[]
+
+  @@index([playerId, status])
+  @@index([status, requestedAt])
+}
+
+model StoreRewardEvent {
+  id           String          @id @default(uuid())
+  redemptionId String
+  redemption   StoreRedemption @relation(fields: [redemptionId], references: [id], onDelete: Cascade)
+  fromStatus   String?
+  toStatus     String
+  adminId      String?
+  note         String          @default("")
+  createdAt    DateTime        @default(now())
+
+  @@index([redemptionId, createdAt])
+}
+
+model StarLedgerEvent {
+  id              String           @id @default(uuid())
+  playerId        String
+  player          Player           @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  kind            StarLedgerKind
+  amount          Int
+  idempotencyKey  String           @unique
+  redemptionId    String?
+  redemption      StoreRedemption? @relation(fields: [redemptionId], references: [id], onDelete: SetNull)
+  source          String           @default("")
+  meta            Json?
+  createdAt       DateTime         @default(now())
+
+  @@index([playerId, createdAt])
+  @@index([playerId, kind])
+}
+
+model AccoladeUnlock {
+  id         String   @id @default(uuid())
+  playerId   String
+  player     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  slug       String
+  kind       String
+  seasonKey  String   @default("")
+  medal      String   @default("")
+  title      String
+  emoji      String
+  blurb      String   @default("")
+  unlockedAt DateTime @default(now())
+
+  @@unique([playerId, slug, seasonKey, medal])
+  @@index([playerId, unlockedAt])
+}
