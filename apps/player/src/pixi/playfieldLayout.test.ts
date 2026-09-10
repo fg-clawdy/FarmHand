@@ -11,6 +11,8 @@ import {
   gardenSignStats,
   moundUv,
   pathHitsForbidden,
+  readySparkleSeats,
+  soilRectCenterUv,
   pickRoamTarget,
   pointInRect,
   uvRectToLocal,
@@ -45,13 +47,20 @@ test("cow blockers include barn, tractor, hay, stand, corkboard, and gardens", (
 
 test("job board corkboard hangs on the barn, above gardens and left of the store", () => {
   const hit = PLAYFIELD_LAYOUT.jobBoardHit;
+  const locked = { u0: 0.02, v0: 0.0, u1: 0.22, v1: 0.2 };
+  assert.deepEqual(hit, locked);
+  assert.deepEqual(PLAYFIELD_LAYOUT.blockers.jobBoard, locked);
   assert.ok(hit.u1 < PLAYFIELD_LAYOUT.storeHit.u0);
   assert.ok(hit.u0 < PLAYFIELD_LAYOUT.blockers.barn.u1);
+  assert.ok(hit.u1 < PLAYFIELD_LAYOUT.blockers.barn.u1 + 0.001);
   assert.ok(hit.v1 <= PLAYFIELD_LAYOUT.cowRoam.v0 + 0.001);
   for (const garden of PLAYFIELD_LAYOUT.gardens) {
     assert.ok(hit.v1 < garden.hit.v0);
     assert.ok(hit.v1 < garden.soil.v0);
   }
+  const obsoleteMidPath = { u0: 0.42, v0: 0.06, u1: 0.62, v1: 0.36 };
+  assert.notDeepEqual(hit, obsoleteMidPath);
+  assert.ok(hit.u1 < obsoleteMidPath.u0, "barn face is left of the mid-path corridor");
 });
 
 test("cow body cannot sit on garden soil, plaque, or fence", () => {
@@ -190,6 +199,31 @@ test("each farm garden has its own 9 mound anchors", () => {
   const center = moundUv(PLAYFIELD_LAYOUT.gardens[1], 4);
   const right = moundUv(PLAYFIELD_LAYOUT.gardens[2], 4);
   assert.ok(left.u < center.u && center.u < right.u);
+});
+
+test("ready sparkles sit on ready mounds, not the soil-rect center", () => {
+  const garden = PLAYFIELD_LAYOUT.gardens[1]!;
+  const plots = [
+    { slot: 1, ready: true },
+    { slot: 4, ready: false },
+    { slot: 8, ready: true },
+  ];
+  const seats = readySparkleSeats(garden, plots);
+  assert.deepEqual(
+    seats.map((s) => s.slot),
+    [1, 8],
+  );
+  const center = soilRectCenterUv(garden.soil);
+  for (const seat of seats) {
+    const mound = moundUv(garden, seat.slot);
+    assert.equal(seat.uv.u, mound.u);
+    assert.equal(seat.uv.v, mound.v);
+    const du = Math.abs(seat.uv.u - center.u);
+    const dv = Math.abs(seat.uv.v - center.v);
+    assert.ok(du > 0.02 || dv > 0.02, `slot ${seat.slot} must not be soil center`);
+  }
+  assert.equal(readySparkleSeats(garden, [{ slot: 4, ready: false }]).length, 0);
+  assert.equal(readySparkleSeats(garden, []).length, 0);
 });
 
 test("right-facing cow sheet flips via scale.x when roaming left", () => {

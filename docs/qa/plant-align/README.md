@@ -81,6 +81,38 @@ Clawdy white-peak UVs on `farmhand_painted_playfield_v3_no_static_cow.jpg` (1536
 
 Proof captures: [`farm-mounds-markers.png`](after-fix/farm-mounds-markers.png), [`farm-mounds-old-vs-new.png`](after-fix/farm-mounds-old-vs-new.png), [`farm-crops.png`](after-fix/farm-crops.png).
 
+## Ready sparkles (home farm)
+
+Sparkles used to sit on each garden’s **soil-rect center** whenever *any* plot was ready. They now use one `SparkleField` per mound, seated on the same `moundUv` local as the plant, active only when that plot is `ready`.
+
+`/qa/farm?pack=mix` (Willow slot 0 READY corn; Finn slots 1 + 8 READY; Sage slot 8 READY):
+
+| File | What it is |
+| --- | --- |
+| [`farm-sparkle-before.png`](after-fix/farm-sparkle-before.png) | Bug: glitter on empty middle dirt |
+| [`farm-sparkle-after.png`](after-fix/farm-sparkle-after.png) | Fix: glitter on each READY mound |
+| [`farm-sparkle-finn-before-after.png`](after-fix/farm-sparkle-finn-before-after.png) | Finn crop: center blob → slot 1 + slot 8 |
+| [`farm-sparkle-after.json`](after-fix/farm-sparkle-after.json) | Debug locals: active sparkle == plant local |
+
+Wood dialogs (Profile / selfie / shed / badges) at `/qa/ui?sheet=profile|selfie|shed|badges`. Body copy sits on cream parchment, not raw grain. Kid **Profile** is history/overview (wallet, pouch, selfies, Pending/Owned/Redeemed, accolades) — not the Farm Store. Store stays on the farm building.
+
+## Job Board corkboard (barn face)
+
+Game Engineer lock (PR #1 HEAD `5df37fc`) on `PLAYFIELD_TEXTURE` 1536×1024:
+
+```
+jobBoardHit: { u0: 0.02, v0: 0.0, u1: 0.22, v1: 0.2 }
+blockers.jobBoard: same
+```
+
+Hanging cork (posts/grass cropped) + Wanted frames on the **barn face**. The mid-path rect `{ u0: 0.42, v0: 0.06, u1: 0.62, v1: 0.36 }` is **obsolete** unless Game Engineer re-nudges. `cowStart` stays `{ u: 0.5, v: 0.3 }` on open grass — barn face does not seal the calf corridor. Garden mound UVs unchanged. Live `/qa/farm?pack=mix`:
+
+| File | What it is |
+| --- | --- |
+| [`farm-corkboard-barn-face.png`](after-fix/farm-corkboard-barn-face.png) | Full farm: Wanted board on the barn, mid-path empty |
+| [`farm-corkboard-barn-face-close.png`](after-fix/farm-corkboard-barn-face-close.png) | Barn crop: hanging cork + Dishes poster |
+| [`farm-corkboard-barn-face-hit.json`](after-fix/farm-corkboard-barn-face-hit.json) | `__farmhandJobBoard` UV 0.02–0.22 × 0.0–0.2 |
+
 ## Pass bar
 
 A human can name corn seed vs sprout vs stalk, strawberry, and cotton. The disc *is* the plot. No pink, no floating scraps.

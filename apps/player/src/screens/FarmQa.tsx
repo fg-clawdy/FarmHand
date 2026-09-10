@@ -1,12 +1,14 @@
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { FarmPlayerCard, PublicPlot } from "@farmhand/shared";
+import { PLACEHOLDER_WANTED_JOBS } from "../pixi/jobBoard";
 import { useFarmPixi } from "../pixi/usePixi";
 
-/** Live Pixi farm with planted plots — no API. Playfield mound QA helper. */
+/** Live Pixi farm with planted plots — no API. Used to proof playfield mound UVs. */
 export default function FarmQa() {
   const [params] = useSearchParams();
   const pack = params.get("pack") ?? "mix";
+  const markers = params.get("markers") === "1";
   const { hostRef, sceneRef, ready } = useFarmPixi({
     onPlayer: () => undefined,
     onStore: () => undefined,
@@ -17,11 +19,9 @@ export default function FarmQa() {
     const scene = sceneRef.current;
     if (!scene || !ready) return;
     scene.setPlayers(qaPlayers(pack));
-    scene.setWantedJobs([
-      { id: "qa-dishes", title: "Dishes", emoji: "🍽️", priority: "NORMAL" },
-      { id: "qa-dog", title: "Walk the dog", emoji: "🐕", priority: "CRITICAL" },
-    ]);
-  }, [ready, pack, sceneRef]);
+    scene.setWantedJobs(PLACEHOLDER_WANTED_JOBS);
+    scene.setMoundMarkers(markers);
+  }, [ready, pack, markers, sceneRef]);
 
   return (
     <div className="scene farm-hybrid">
