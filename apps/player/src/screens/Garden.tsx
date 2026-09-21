@@ -33,7 +33,7 @@ type Overlay =
   | { type: "selfie" }
   | { type: "chores" }
   | { type: "need-jobs" }
-  | { type: "chore-photo"; chore: PublicChore; slot: number; tier: number }
+  | { type: "chore-photo"; chore: PublicChore }
   | { type: "badges" }
   | { type: "profile" }
   | null;
@@ -214,15 +214,11 @@ function GardenPlay({
   const selfieUnlocked = player.selfie?.unlocked ?? player.water.unlocked ?? false;
   const cooldownRemainingMs = Math.max(0, player.water.cooldownRemainingMs - elapsed);
   const canWater = selfieUnlocked && player.water.canWater && cooldownRemainingMs === 0;
-  const toolCtx = { seeds: player.seeds, fertilizer: player.fertilizer, canWater, cheapestSeed };
+  const toolCtx = { seeds: player.seeds + player.provisionalSeeds, fertilizer: player.fertilizer, canWater, cheapestSeed };
   const [gain, setGain] = useState<HarvestReward | null>(null);
   const [badgeQueue, setBadgeQueue] = useState<AccoladeUnlock[]>([]);
   const [jobToast, setJobToast] = useState(false);
   const [chores, setChores] = useState<PublicChore[]>([]);
-  const gardenEmptySlots = useMemo(
-    () => plots.filter((plot) => plot.state === "empty").map((plot) => plot.slot),
-    [plots],
-  );
 
   function celebrateWaitingSeed() {
     setJobToast(true);
@@ -251,7 +247,7 @@ function GardenPlay({
   }, [overlay?.type]);
   const glow = useMemo(
     () => glowingSlots(tool, plots, toolCtx),
-    [tool, plots, player.seeds, player.fertilizer, canWater, cheapestSeed, selfieUnlocked],
+    [tool, plots, player.seeds, player.provisionalSeeds, player.fertilizer, canWater, cheapestSeed, selfieUnlocked],
   );
 
   const { hostRef, sceneRef, ready } = useGardenPixi((slot) => {
@@ -347,7 +343,7 @@ function GardenPlay({
             {gain && gain.points > 0 && <span className="meter-delta">+{gain.points}</span>}
           </div>
           <div className={`meter ${gain && gain.seedsReturned > 0 ? "bump" : ""}`}>
-            <AcornArt /> {player.seeds}
+            <AcornArt /> {player.seeds + player.provisionalSeeds}
             {gain && gain.seedsReturned > 0 && <span className="meter-delta">+{gain.seedsReturned}</span>}
           </div>
           <div className="meter">
@@ -439,6 +435,7 @@ function GardenPlay({
         <PlantPicker
           config={config}
           seeds={player.seeds}
+          provisionalSeeds={player.provisionalSeeds}
           onClose={() => setOverlay(null)}
           onNeedJobs={() => setOverlay({ type: "need-jobs" })}
           onPick={(tier) => {
@@ -458,19 +455,17 @@ function GardenPlay({
       {overlay?.type === "chores" && (
         <JobBoard
           chores={chores}
-          emptySlots={gardenEmptySlots}
-          config={config}
           busy={busy}
           onClose={() => setOverlay(null)}
-          onClaim={async (chore, slot, tier) => {
-            const data = await api.claimChore(chore.id, { slot, tier });
+          onClaim={async (chore) => {
+            const data = await api.claimChore(chore.id);
             setOverlay(null);
             applyGarden(data.player);
             noteUnlocks(data.unlocks);
             celebrateWaitingSeed();
             return data.player;
           }}
-          onNeedPhoto={(chore, slot, tier) => setOverlay({ type: "chore-photo", chore, slot, tier })}
+          onNeedPhoto={(chore) => setOverlay({ type: "chore-photo", chore })}
         />
       )}
       {overlay?.type === "chore-photo" && (
@@ -481,8 +476,6 @@ function GardenPlay({
           onClose={() => setOverlay({ type: "chores" })}
           submit={async (image) => {
             const data = await api.claimChore(overlay.chore.id, {
-              slot: overlay.slot,
-              tier: overlay.tier,
               image,
             });
             return { player: data.player, unlocks: data.unlocks };

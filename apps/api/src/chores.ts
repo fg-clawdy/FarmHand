@@ -6,9 +6,7 @@ import {
   compareChoresForKid,
   compareChoresForParent,
   compareClaimsForInbox,
-  getTier,
   JOB_BOARD_V1_REWARD_SEED_COUNT,
-  plotIsEmpty,
   recurrenceFreesOnHarvest,
   serializePlot,
   type ChorePriority,
@@ -19,6 +17,7 @@ import { prisma } from "./db.js";
 import { chorePeriod } from "./tz.js";
 import { recordAccoladeEvent } from "./accolades.js";
 import { loadConfig } from "./game.js";
+import { withLockedClaim } from "./locks.js";
 
 export function httpError(message: string, statusCode = 400): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode });
@@ -201,8 +200,6 @@ export async function listFamilyOpenChores(timezone: string, now = new Date()): 
 export async function claimChore(opts: {
   playerId: string;
   choreId: string;
-  slot: number;
-  tier: number;
   timezone: string;
   config: GameConfig;
   proofPath?: string | null;
@@ -247,59 +244,38 @@ export async function claimChore(opts: {
           throw httpError("That chore needs a photo for a grown-up to check.");
         }
 
-        if (!Number.isInteger(opts.slot) || opts.slot < 0 || opts.slot >= opts.config.plotCount) {
-          throw httpError("No plot there.", 404);
-        }
-        const plantTier = getTier(opts.config, opts.tier);
+        // Lock player row
+        await tx.$queryRaw`SELECT id FROM "Player" WHERE id = ${opts.playerId} FOR UPDATE`;
         const player = await tx.player.findUniqueOrThrow({
           where: { id: opts.playerId },
-          include: { plots: true },
         });
-        const plot =
-          player.plots.find((p) => p.slot === opts.slot) ??
-          (await tx.plot.create({ data: { playerId: player.id, slot: opts.slot } }));
-        await tx.$queryRaw`SELECT id FROM "Plot" WHERE id = ${plot.id} FOR UPDATE`;
-        const locked = await tx.plot.findUniqueOrThrow({ where: { id: plot.id } });
-        if (!plotIsEmpty(locked)) {
-          throw httpError("Need an empty plot to plant your chore seed.");
-        }
 
         if (chore.assignmentMode === "RACE") {
           await tx.choreRaceSlot.create({ data: { choreId: chore.id, periodKey: period.key } });
         }
 
+        // Create the claim (no slot or plantTier yet — seed goes to pouch)
         const claim = await tx.choreClaim.create({
           data: {
             choreId: chore.id,
             playerId: opts.playerId,
             periodKey: period.key,
             status: "PENDING",
-            slot: opts.slot,
-            plantTier: plantTier.tier,
             proofJpegPath: opts.proofPath ?? null,
           },
         });
 
-        await tx.plot.update({
-          where: { id: locked.id },
-          data: {
-            plantTier: plantTier.tier,
-            plantedAt: null,
-            phase: "purgatory",
-            choreClaimId: claim.id,
-            waterReductionMinutes: 0,
-            fertilizerReductionMinutes: 0,
-            lastWateredAt: null,
-            wateringsOnDate: null,
-            wateringsCount: 0,
-          },
+        // Add provisional seed to pouch
+        await tx.player.update({
+          where: { id: opts.playerId },
+          data: { provisionalSeeds: { increment: 1 } },
         });
 
         await tx.activityLog.create({
           data: {
             playerId: opts.playerId,
             action: "chore_claim",
-            details: { choreId: chore.id, slug: chore.slug, slot: opts.slot, claimId: claim.id },
+            details: { choreId: chore.id, slug: chore.slug, claimId: claim.id },
           },
         });
         let unlocks: Awaited<ReturnType<typeof recordAccoladeEvent>> = [];
@@ -329,106 +305,128 @@ export async function claimChore(opts: {
 }
 
 export async function approveClaim(claimId: string, adminId: string, now = new Date()) {
-  return prisma.$transaction(async (tx) => {
-    const claim = await tx.choreClaim.findUnique({
-      where: { id: claimId },
-      include: { chore: true, plot: true, player: { include: { plots: true } } },
-    });
-    if (!claim) throw httpError("That claim is gone.", 404);
-    if (claim.status !== "PENDING") throw httpError("A grown-up already handled that one.");
-    const plot = claim.plot ?? claim.player.plots.find((p) => p.choreClaimId === claim.id);
-    if (!plot) throw httpError("That plant isn't in the garden anymore.");
+  return withLockedClaim(claimId, async (tx, lockedClaim) => {
+    // Re-read claim status AFTER lock — prevents concurrent approve/deny
+    // from both acting on the same PENDING claim.
+    if (lockedClaim.status !== "PENDING") throw httpError("A grown-up already handled that one.");
+
     await tx.choreClaim.update({
-      where: { id: claim.id },
+      where: { id: claimId },
       data: { status: "APPROVED", resolvedAt: now, resolvedByAdminId: adminId },
     });
-    await tx.plot.update({
-      where: { id: plot.id },
-      data: {
-        phase: "growing",
-        plantedAt: now,
-        plantTier: claim.plantTier,
-        waterReductionMinutes: 0,
-        fertilizerReductionMinutes: 0,
-        lastWateredAt: null,
-        wateringsOnDate: null,
-        wateringsCount: 0,
-      },
+
+    // If claim has a linked plot (kid already planted the provisional seed),
+    // transition purgatory -> growing
+    const plot = await tx.plot.findFirst({
+      where: { choreClaimId: claimId },
     });
+    if (plot) {
+      await tx.plot.update({
+        where: { id: plot.id },
+        data: {
+          phase: "growing",
+          plantedAt: now,
+          plantTier: lockedClaim.plantTier ?? 1,
+          waterReductionMinutes: 0,
+          fertilizerReductionMinutes: 0,
+          lastWateredAt: null,
+          wateringsOnDate: null,
+          wateringsCount: 0,
+        },
+      });
+    } else {
+      // No plot yet — convert provisional seed to approved seed
+      await tx.player.update({
+        where: { id: lockedClaim.playerId },
+        data: {
+          provisionalSeeds: { decrement: 1 },
+          seeds: { increment: 1 },
+        },
+      });
+    }
+
     await tx.activityLog.create({
       data: {
-        playerId: claim.playerId,
+        playerId: lockedClaim.playerId,
         action: "chore_approve",
-        details: { claimId: claim.id, choreId: claim.choreId, slug: claim.chore.slug, slot: plot.slot },
+        details: { claimId, choreId: lockedClaim.choreId, slug: lockedClaim.choreId, slot: plot?.slot ?? null },
       },
     });
     await tx.auditLog.create({
       data: {
         adminId,
-        targetPlayerId: claim.playerId,
+        targetPlayerId: lockedClaim.playerId,
         action: "chore_approve",
-        details: { claimId: claim.id, slug: claim.chore.slug },
+        details: { claimId, slug: lockedClaim.choreId },
       },
     });
     const config = await loadConfig();
     await recordAccoladeEvent(tx, {
-      playerId: claim.playerId,
+      playerId: lockedClaim.playerId,
       timezone: config.timezone,
       event: { type: "planting" },
       now,
     });
-    return { claim, plot };
+    return { claim: { ...lockedClaim, status: "APPROVED" } as typeof lockedClaim, plot };
   });
 }
 
 export async function denyClaim(claimId: string, adminId: string) {
-  return prisma.$transaction(async (tx) => {
-    const claim = await tx.choreClaim.findUnique({
-      where: { id: claimId },
-      include: { chore: true, plot: true, player: { include: { plots: true } } },
+  return withLockedClaim(claimId, async (tx, lockedClaim) => {
+    // Re-read claim status AFTER lock — prevents concurrent approve/deny
+    // from both acting on the same PENDING claim.
+    if (lockedClaim.status !== "PENDING") throw httpError("A grown-up already handled that one.");
+    const plot = await tx.plot.findFirst({
+      where: { choreClaimId: claimId },
     });
-    if (!claim) throw httpError("That claim is gone.", 404);
-    if (claim.status !== "PENDING") throw httpError("A grown-up already handled that one.");
-    const plot = claim.plot ?? claim.player.plots.find((p) => p.choreClaimId === claim.id);
-    const originalKey = claim.periodKey;
+    const originalKey = lockedClaim.periodKey;
     await tx.choreClaim.update({
-      where: { id: claim.id },
+      where: { id: claimId },
       data: {
         status: "DENIED",
         resolvedAt: new Date(),
         resolvedByAdminId: adminId,
-        periodKey: closedPeriodKey("DENIED", claim.id),
+        periodKey: closedPeriodKey("DENIED", claimId),
       },
     });
-    if (claim.chore.assignmentMode === "RACE") {
-      await tx.choreRaceSlot.deleteMany({ where: { choreId: claim.choreId, periodKey: originalKey } });
+    // We need the chore for the assignmentMode check — read it separately
+    const chore = await tx.chore.findUniqueOrThrow({ where: { id: lockedClaim.choreId } });
+    if (chore.assignmentMode === "RACE") {
+      await tx.choreRaceSlot.deleteMany({ where: { choreId: lockedClaim.choreId, periodKey: originalKey } });
     }
     if (plot) {
+      // Plant already placed — wilt it
       await tx.plot.update({
         where: { id: plot.id },
         data: {
           phase: "wilted",
           plantedAt: null,
-          plantTier: claim.plantTier,
+          plantTier: lockedClaim.plantTier ?? 1,
         },
+      });
+    } else {
+      // No plot yet — remove provisional seed from pouch
+      await tx.player.update({
+        where: { id: lockedClaim.playerId },
+        data: { provisionalSeeds: { decrement: 1 } },
       });
     }
     await tx.activityLog.create({
       data: {
-        playerId: claim.playerId,
+        playerId: lockedClaim.playerId,
         action: "chore_deny",
-        details: { claimId: claim.id, choreId: claim.choreId, slug: claim.chore.slug, slot: plot?.slot ?? claim.slot },
+        details: { claimId, choreId: lockedClaim.choreId, slug: lockedClaim.choreId, slot: plot?.slot ?? null },
       },
     });
     await tx.auditLog.create({
       data: {
         adminId,
-        targetPlayerId: claim.playerId,
+        targetPlayerId: lockedClaim.playerId,
         action: "chore_deny",
-        details: { claimId: claim.id, slug: claim.chore.slug },
+        details: { claimId, slug: lockedClaim.choreId },
       },
     });
-    return { claim, plot };
+    return { claim: { ...lockedClaim, status: "DENIED" } as typeof lockedClaim, plot };
   });
 }
 

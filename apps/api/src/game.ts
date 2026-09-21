@@ -174,6 +174,7 @@ export function publicPlayer(player: {
   name: string;
   mascot: string;
   seeds: number;
+  provisionalSeeds: number;
   points: number;
   fertilizer: number;
   moonDew: number;
@@ -209,6 +210,7 @@ export function publicPlayer(player: {
     name: player.name,
     mascot: player.mascot,
     seeds: player.seeds,
+    provisionalSeeds: player.provisionalSeeds,
     points: player.points,
     fertilizer: player.fertilizer,
     ingredients: {

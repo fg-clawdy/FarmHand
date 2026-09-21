@@ -66,6 +66,7 @@ function card(id: string, name: string, plots: PublicPlot[]): FarmPlayerCard {
     name,
     mascot: "cow",
     seeds: 8,
+    provisionalSeeds: 0,
     points: 12,
     fertilizer: 1,
     canWater: true,

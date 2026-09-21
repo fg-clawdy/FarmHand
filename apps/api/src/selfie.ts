@@ -1,4 +1,4 @@
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { promises as fsPromises } from "node:fs";
 import path from "node:path";
 
 export const SELFIE_MAX_BYTES = 6 * 1024 * 1024;
@@ -83,10 +83,10 @@ export async function writeSelfieJpeg(opts: {
   today: string;
 }) {
   const dir = selfieDropDir();
-  await mkdir(dir, { recursive: true });
+  await fsPromises.mkdir(dir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const file = path.join(dir, `${opts.today}_${safeName(opts.playerName)}_${opts.playerId.slice(0, 8)}_${stamp}.jpg`);
-  await writeFile(file, opts.buf);
+  await fsPromises.writeFile(file, opts.buf);
   return file;
 }
 
@@ -98,9 +98,9 @@ export async function writeClaimJpeg(opts: {
   claimId: string;
 }) {
   const dir = path.join(selfieDropDir(), "chores");
-  await mkdir(dir, { recursive: true });
+  await fsPromises.mkdir(dir, { recursive: true });
   const file = path.join(dir, `${opts.choreSlug}_${safeName(opts.playerName)}_${opts.claimId.slice(0, 8)}.jpg`);
-  await writeFile(file, opts.buf);
+  await fsPromises.writeFile(file, opts.buf);
   return file;
 }
 
@@ -125,13 +125,13 @@ export function selfieFilePath(file: string) {
 /** Recent watering selfies for this kid. Missing drop dir or files fail soft. */
 export async function listPlayerSelfies(playerId: string, limit = 12) {
   try {
-    const names = await readdir(selfieDropDir());
+    const names = await fsPromises.readdir(selfieDropDir());
     return names
-      .filter((name) => isPlayerSelfieBasename(playerId, name))
+      .filter((name: string) => isPlayerSelfieBasename(playerId, name))
       .sort()
       .reverse()
       .slice(0, limit)
-      .map((file) => ({
+      .map((file: string) => ({
         file,
         url: `/api/profile/selfies/${encodeURIComponent(file)}`,
       }));

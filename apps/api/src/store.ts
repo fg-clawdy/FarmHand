@@ -9,6 +9,7 @@ import {
   publicWallet,
   starsHeldForPlayer,
 } from "./stars.js";
+import { withSerializableRetry } from "./locks.js";
 
 type Tx = Prisma.TransactionClient;
 
@@ -16,20 +17,6 @@ const redemptionInclude = {
   sku: true,
   player: { select: { id: true, name: true, mascot: true } },
 } as const;
-
-async function withSerializableRetry<T>(run: () => Promise<T>): Promise<T> {
-  let lastErr: unknown;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      return await run();
-    } catch (err) {
-      lastErr = err;
-      const retry = err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2034";
-      if (!retry || attempt === 2) throw err;
-    }
-  }
-  throw lastErr;
-}
 
 export async function seedStoreCatalog() {
   for (const row of STARTER_STORE_CATALOG) {
@@ -436,9 +423,15 @@ export async function redeemRedemption(redemptionId: string, adminId: string) {
   );
 }
 
-export async function grantEarnedStars(playerId: string, amount: number, reason: string) {
+export async function grantEarnedStars(
+  playerId: string,
+  amount: number,
+  reason: string,
+  requestId: string,
+) {
   if (!Number.isInteger(amount) || amount < 1) throw httpError("Grant a whole number of stars.");
-  const key = `grant:${playerId}:${Date.now()}:${amount}`;
+  if (!requestId || typeof requestId !== "string") throw httpError("requestId is required.");
+  const key = `grant:${playerId}:${requestId}`;
   return prisma.$transaction(async (tx) => {
     await tx.player.update({ where: { id: playerId }, data: { points: { increment: amount } } });
     await appendStarEvent(tx, {
@@ -447,7 +440,7 @@ export async function grantEarnedStars(playerId: string, amount: number, reason:
       amount,
       idempotencyKey: key,
       source: "admin_grant",
-      meta: { reason },
+      meta: { reason, requestId },
     });
     return playerWallet(playerId, tx);
   });

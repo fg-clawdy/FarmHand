@@ -364,7 +364,7 @@ class GardenHotspot {
   sync(player: FarmPlayerCard, accent: (typeof ACCENTS)[number]) {
     this.playerId = player.id;
     this.nameText.text = gardenSignName(player.name);
-    this.statsText.text = gardenSignStats(player.seeds, player.points);
+    this.statsText.text = gardenSignStats(player.seeds + player.provisionalSeeds, player.points);
     this.nameText.style.fill = 0xfff6df;
     this.statsText.style.fill = 0xfff6df;
     const stroke = { color: Number(accent.border.replace("#", "0x")), width: 5 };

@@ -1,6 +1,4 @@
-import { createReadStream } from "node:fs";
-import { access } from "node:fs/promises";
-import { constants as fsConstants } from "node:fs";
+import { createReadStream, constants as fsConstants, promises as fsPromises } from "node:fs";
 import type { FastifyInstance } from "fastify";
 import { getTier, plotIsEmpty, serializePlot } from "@farmhand/shared";
 import { prisma } from "../db.js";
@@ -31,6 +29,7 @@ import {
 } from "../selfie.js";
 import { appendStarEvent } from "../stars.js";
 import { todayKey } from "../tz.js";
+import { withLockedPlot, withLockedPlayer } from "../locks.js";
 
 function pinError() {
   return { error: "That PIN didn't work. Try again." };
@@ -147,14 +146,12 @@ export async function playerRoutes(app: FastifyInstance) {
         playerName: session.player.name,
         today,
       });
-      const result = await prisma.$transaction(async (tx) => {
-        const player = await tx.player.findUniqueOrThrow({
-          where: { id: session.playerId },
-          include: { plots: { orderBy: { slot: "asc" } } },
-        });
-        const plan = planSelfieReward(player, today);
+      const result = await withLockedPlayer(session.playerId, async (tx, lockedPlayer) => {
+        // Re-read selfie dates AFTER lock — prevents concurrent selfies from
+        // granting two seeds on the same day.
+        const plan = planSelfieReward(lockedPlayer, today);
         const updated = await tx.player.update({
-          where: { id: player.id },
+          where: { id: session.playerId },
           data: {
             selfieUnlockDate: today,
             selfieSeedGrantDate: today,
@@ -164,7 +161,7 @@ export async function playerRoutes(app: FastifyInstance) {
         });
         await tx.activityLog.create({
           data: {
-            playerId: player.id,
+            playerId: session.playerId,
             action: "selfie",
             details: { seedGranted: plan.grantSeed, alreadyUnlocked: plan.alreadyUnlocked, file },
           },
@@ -172,7 +169,7 @@ export async function playerRoutes(app: FastifyInstance) {
         const unlocks = plan.alreadyUnlocked
           ? []
           : await recordAccoladeEvent(tx, {
-              playerId: player.id,
+              playerId: session.playerId,
               timezone: config.timezone,
               event: { type: "selfie" },
             });
@@ -201,33 +198,81 @@ export async function playerRoutes(app: FastifyInstance) {
     const config = await loadConfig();
 
     try {
-      const result = await prisma.$transaction(async (tx) => {
-        const player = await tx.player.findUniqueOrThrow({
-          where: { id: session.playerId },
-          include: { plots: true },
-        });
+      const result = await withLockedPlayer(session.playerId, async (tx, lockedPlayer) => {
+        // Re-read seeds AFTER lock — prevents concurrent plants from both
+        // passing the seed check on the same pre-lock snapshot.
         if (!Number.isInteger(slot) || slot < 0 || slot >= config.plotCount) {
           throw Object.assign(new Error("No plot there."), { statusCode: 404 });
         }
-        const plot =
-          player.plots.find((p) => p.slot === slot) ??
-          (await tx.plot.create({ data: { playerId: player.id, slot } }));
+        const plot = await tx.plot.findFirst({
+          where: { playerId: session.playerId, slot },
+        }) ?? await tx.plot.create({ data: { playerId: session.playerId, slot } });
         if (plot.plantTier) throw Object.assign(new Error("That plot already has a plant."), { statusCode: 400 });
         const plantTier = getTier(config, Number(tier));
-        if (player.seeds < plantTier.seedCost) {
+        const totalSeeds = lockedPlayer.seeds + lockedPlayer.provisionalSeeds;
+        if (totalSeeds < plantTier.seedCost) {
           throw Object.assign(new Error("Not enough seeds for that plant."), { statusCode: 400 });
         }
-        await tx.player.update({
-          where: { id: player.id },
-          data: { seeds: { decrement: plantTier.seedCost } },
-        });
+
+        let choreClaimId: string | null = null;
+        let phase: "growing" | "purgatory" = "growing";
+
+        if (lockedPlayer.seeds >= plantTier.seedCost) {
+          // Use approved seeds — plant directly as growing
+          await tx.player.update({
+            where: { id: session.playerId },
+            data: { seeds: { decrement: plantTier.seedCost } },
+          });
+        } else {
+          // Not enough approved seeds — use a provisional seed
+          const approvedUsed = lockedPlayer.seeds;
+          const provisionalNeeded = plantTier.seedCost - approvedUsed;
+
+          // Consume all approved seeds first
+          if (approvedUsed > 0) {
+            await tx.player.update({
+              where: { id: session.playerId },
+              data: { seeds: { decrement: approvedUsed } },
+            });
+          }
+
+          // Find the oldest PENDING claim for this player without a linked plot
+          const pendingClaim = await tx.choreClaim.findFirst({
+            where: {
+              playerId: session.playerId,
+              status: "PENDING",
+              slot: null,
+            },
+            orderBy: { claimedAt: "asc" },
+          });
+
+          if (!pendingClaim) {
+            throw Object.assign(new Error("No pending chore claim for provisional seed."), { statusCode: 400 });
+          }
+
+          // Link the claim to this plot and set plant tier
+          await tx.choreClaim.update({
+            where: { id: pendingClaim.id },
+            data: { slot, plantTier: plantTier.tier },
+          });
+
+          // Consume provisional seeds
+          await tx.player.update({
+            where: { id: session.playerId },
+            data: { provisionalSeeds: { decrement: provisionalNeeded } },
+          });
+
+          choreClaimId = pendingClaim.id;
+          phase = "purgatory";
+        }
+
         await tx.plot.update({
           where: { id: plot.id },
           data: {
             plantTier: plantTier.tier,
-            plantedAt: new Date(),
-            phase: "growing",
-            choreClaimId: null,
+            plantedAt: phase === "growing" ? new Date() : null,
+            phase,
+            choreClaimId,
             waterReductionMinutes: 0,
             fertilizerReductionMinutes: 0,
             lastWateredAt: null,
@@ -236,15 +281,15 @@ export async function playerRoutes(app: FastifyInstance) {
           },
         });
         await tx.activityLog.create({
-          data: { playerId: player.id, action: "plant", details: { slot, tier: plantTier.tier } },
+          data: { playerId: session.playerId, action: "plant", details: { slot, tier: plantTier.tier, phase, choreClaimId } },
         });
         const unlocks = await recordAccoladeEvent(tx, {
-          playerId: player.id,
+          playerId: session.playerId,
           timezone: config.timezone,
           event: { type: "planting" },
         });
         const updated = await tx.player.findUniqueOrThrow({
-          where: { id: player.id },
+          where: { id: session.playerId },
           include: { plots: { orderBy: { slot: "asc" } } },
         });
         return { player: updated, unlocks };
@@ -264,32 +309,33 @@ export async function playerRoutes(app: FastifyInstance) {
     const now = new Date();
 
     try {
-      const result = await prisma.$transaction(async (tx) => {
-        const player = await tx.player.findUniqueOrThrow({
-          where: { id: session.playerId },
-          include: { plots: true },
-        });
-        const plot = player.plots.find((p) => p.slot === slot);
-        if (!plot || plotIsEmpty(plot)) {
+      const result = await withLockedPlot(session.playerId, slot, async (tx, lockedPlot) => {
+        // Re-read plot state AFTER lock — prevents concurrent waterings from
+        // both passing the daily-cap check on the same pre-lock snapshot.
+        if (!lockedPlot || plotIsEmpty(lockedPlot)) {
           throw Object.assign(new Error("Nothing to water yet."), { statusCode: 400 });
         }
-        const serialized = serializePlot(plot, config, now);
+        const serialized = serializePlot(lockedPlot, config, now);
         if (serialized.state === "purgatory") {
           throw Object.assign(new Error("That plant is waiting for a grown-up."), { statusCode: 400 });
         }
         if (serialized.state === "wilted") {
           throw Object.assign(new Error("Prune that wilted plant first."), { statusCode: 400 });
         }
-        if (!plot.plantedAt || !plot.plantTier) {
+        if (!lockedPlot.plantedAt || !lockedPlot.plantTier) {
           throw Object.assign(new Error("Nothing to water yet."), { statusCode: 400 });
         }
         if (serialized.ready) {
           throw Object.assign(new Error("That plant is ready to harvest."), { statusCode: 400 });
         }
+        // Read player for selfie check — unlocked state is static per-day so lock is not critical here
+        const player = await tx.player.findUniqueOrThrow({
+          where: { id: session.playerId },
+        });
         if (!selfieUnlockedOn(player.selfieUnlockDate, config.timezone, now)) {
           throw Object.assign(new Error("Take today's selfie to water your plants."), { statusCode: 400 });
         }
-        const pw = plotWateringState(plot, config, now);
+        const pw = plotWateringState(lockedPlot, config, now);
         if (pw.cooldownRemainingMs > 0) {
           throw Object.assign(new Error("That plant already had a drink. Wait a bit."), { statusCode: 400 });
         }
@@ -300,7 +346,7 @@ export async function playerRoutes(app: FastifyInstance) {
           );
         }
         await tx.plot.update({
-          where: { id: plot.id },
+          where: { id: lockedPlot.id },
           data: {
             waterReductionMinutes: { increment: config.wateringReductionMinutes },
             lastWateredAt: now,
@@ -309,7 +355,7 @@ export async function playerRoutes(app: FastifyInstance) {
           },
         });
         await tx.player.update({
-          where: { id: player.id },
+          where: { id: session.playerId },
           data: {
             lastWateredAt: now,
             wateringsOnDate: pw.today,
@@ -317,15 +363,15 @@ export async function playerRoutes(app: FastifyInstance) {
           },
         });
         await tx.activityLog.create({
-          data: { playerId: player.id, action: "watering", details: { slot } },
+          data: { playerId: session.playerId, action: "watering", details: { slot } },
         });
         const unlocks = await recordAccoladeEvent(tx, {
-          playerId: player.id,
+          playerId: session.playerId,
           timezone: config.timezone,
           event: { type: "watering" },
         });
         const updated = await tx.player.findUniqueOrThrow({
-          where: { id: player.id },
+          where: { id: session.playerId },
           include: { plots: { orderBy: { slot: "asc" } } },
         });
         return { player: updated, unlocks };
@@ -344,12 +390,12 @@ export async function playerRoutes(app: FastifyInstance) {
     const config = await loadConfig();
 
     try {
-      const result = await prisma.$transaction(async (tx) => {
-        const player = await tx.player.findUniqueOrThrow({
-          where: { id: session.playerId },
-          include: { plots: true },
+      const result = await withLockedPlayer(session.playerId, async (tx, lockedPlayer) => {
+        // Re-read fertilizer AFTER lock — prevents concurrent fertilizes from
+        // both passing the balance check on the same pre-lock snapshot.
+        const plot = await tx.plot.findFirst({
+          where: { playerId: session.playerId, slot },
         });
-        const plot = player.plots.find((p) => p.slot === slot);
         if (!plot || plotIsEmpty(plot)) {
           throw Object.assign(new Error("Nothing to fertilize yet."), { statusCode: 400 });
         }
@@ -366,12 +412,12 @@ export async function playerRoutes(app: FastifyInstance) {
         if (serialized.ready) {
           throw Object.assign(new Error("That plant is ready to harvest."), { statusCode: 400 });
         }
-        if (player.fertilizer < 1) {
+        if (lockedPlayer.fertilizer < 1) {
           throw Object.assign(new Error("No fertilizer left. Mix some in the shed."), { statusCode: 400 });
         }
         const tier = getTier(config, plot.plantTier);
         await tx.player.update({
-          where: { id: player.id },
+          where: { id: session.playerId },
           data: { fertilizer: { decrement: 1 } },
         });
         await tx.plot.update({
@@ -379,10 +425,10 @@ export async function playerRoutes(app: FastifyInstance) {
           data: { fertilizerReductionMinutes: { increment: tier.fertilizerReductionMinutes } },
         });
         await tx.activityLog.create({
-          data: { playerId: player.id, action: "fertilizer", details: { slot, tier: plot.plantTier } },
+          data: { playerId: session.playerId, action: "fertilizer", details: { slot, tier: plot.plantTier } },
         });
         return tx.player.findUniqueOrThrow({
-          where: { id: player.id },
+          where: { id: session.playerId },
           include: { plots: { orderBy: { slot: "asc" } } },
         });
       });
@@ -400,44 +446,41 @@ export async function playerRoutes(app: FastifyInstance) {
     const config = await loadConfig();
 
     try {
-      const result = await prisma.$transaction(async (tx) => {
-        const player = await tx.player.findUniqueOrThrow({
-          where: { id: session.playerId },
-          include: { plots: true },
-        });
-        const plot = player.plots.find((p) => p.slot === slot);
-        if (!plot?.plantedAt || !plot.plantTier) {
+      const result = await withLockedPlot(session.playerId, slot, async (tx, lockedPlot) => {
+        // Re-read state AFTER lock — if another request already cleared this
+        // plot, the re-read will show empty/cleared state and validation fails.
+        if (!lockedPlot.plantedAt || !lockedPlot.plantTier) {
           throw Object.assign(new Error("Nothing to harvest."), { statusCode: 400 });
         }
-        const serialized = serializePlot(plot, config);
+        const serialized = serializePlot(lockedPlot, config);
         if (serialized.state === "purgatory" || serialized.state === "wilted") {
           throw Object.assign(new Error("That plant isn't ready to harvest."), { statusCode: 400 });
         }
         if (!serialized.ready) {
           throw Object.assign(new Error("That plant is still growing."), { statusCode: 400 });
         }
-        const tier = getTier(config, plot.plantTier);
+        const tier = getTier(config, lockedPlot.plantTier);
         await tx.player.update({
-          where: { id: player.id },
+          where: { id: session.playerId },
           data: {
             points: { increment: tier.points },
             seeds: { increment: config.harvestSeedReturn },
           },
         });
-        await releaseClaimIfNeeded(tx, plot, "harvest");
+        await releaseClaimIfNeeded(tx, lockedPlot, "harvest");
         await tx.plot.update({
-          where: { id: plot.id },
+          where: { id: lockedPlot.id },
           data: EMPTY_PLOT_DATA,
         });
         const harvestLog = await tx.activityLog.create({
           data: {
-            playerId: player.id,
+            playerId: session.playerId,
             action: "harvest",
             details: { slot, tier: tier.tier, points: tier.points, seedsReturned: config.harvestSeedReturn },
           },
         });
         await appendStarEvent(tx, {
-          playerId: player.id,
+          playerId: session.playerId,
           kind: "EARN_HARVEST",
           amount: tier.points,
           idempotencyKey: `earn:harvest:${harvestLog.id}`,
@@ -445,12 +488,12 @@ export async function playerRoutes(app: FastifyInstance) {
           meta: { slot, tier: tier.tier },
         });
         const unlocks = await recordAccoladeEvent(tx, {
-          playerId: player.id,
+          playerId: session.playerId,
           timezone: config.timezone,
           event: { type: "harvest", cropKind: tier.kind },
         });
         const updated = await tx.player.findUniqueOrThrow({
-          where: { id: player.id },
+          where: { id: session.playerId },
           include: { plots: { orderBy: { slot: "asc" } } },
         });
         return {
@@ -485,7 +528,6 @@ export async function playerRoutes(app: FastifyInstance) {
     return {
       timezone: config.timezone,
       chores,
-      emptySlots: player.plots.filter((plot) => plotIsEmpty(plot)).map((plot) => plot.slot),
       player: publicPlayer(player, config, true),
     };
   });
@@ -494,7 +536,7 @@ export async function playerRoutes(app: FastifyInstance) {
     const session = await requirePlayer(request, reply);
     if (!session) return;
     const { id } = request.params as { id: string };
-    const body = (request.body ?? {}) as { slot?: number; tier?: number; image?: unknown };
+    const body = (request.body ?? {}) as { image?: unknown };
     const config = await loadConfig();
     try {
       const chore = await prisma.chore.findUnique({ where: { id } });
@@ -507,8 +549,6 @@ export async function playerRoutes(app: FastifyInstance) {
       const result = await claimChore({
         playerId: session.playerId,
         choreId: id,
-        slot: Number(body.slot),
-        tier: Number(body.tier ?? 1),
         timezone: config.timezone,
         config,
         proofPath: null,
@@ -569,25 +609,26 @@ export async function playerRoutes(app: FastifyInstance) {
     const today = todayKey(config.timezone);
 
     try {
-      const result = await prisma.$transaction(async (tx) => {
-        const player = await tx.player.findUniqueOrThrow({ where: { id: session.playerId } });
-        if (player.lastIngredientClaimDate === today) {
+      const result = await withLockedPlayer(session.playerId, async (tx, lockedPlayer) => {
+        // Re-read claim date AFTER lock — prevents concurrent claims from
+        // both passing the "already claimed today" check.
+        if (lockedPlayer.lastIngredientClaimDate === today) {
           throw Object.assign(new Error("You already claimed today's ingredient."), { statusCode: 400 });
         }
-        const ingredient = config.ingredients[player.nextIngredientIndex % config.ingredients.length];
+        const ingredient = config.ingredients[lockedPlayer.nextIngredientIndex % config.ingredients.length];
         const data: Record<string, unknown> = {
           lastIngredientClaimDate: today,
-          nextIngredientIndex: (player.nextIngredientIndex + 1) % config.ingredients.length,
+          nextIngredientIndex: (lockedPlayer.nextIngredientIndex + 1) % config.ingredients.length,
         };
         if (ingredient.id === "moonDew") data.moonDew = { increment: 1 };
         if (ingredient.id === "growGoo") data.growGoo = { increment: 1 };
         if (ingredient.id === "phoenixAsh") data.phoenixAsh = { increment: 1 };
-        await tx.player.update({ where: { id: player.id }, data });
+        await tx.player.update({ where: { id: session.playerId }, data });
         await tx.activityLog.create({
-          data: { playerId: player.id, action: "ingredient_claim", details: { ingredient: ingredient.id } },
+          data: { playerId: session.playerId, action: "ingredient_claim", details: { ingredient: ingredient.id } },
         });
         return { ingredient, player: await tx.player.findUniqueOrThrow({
-          where: { id: player.id },
+          where: { id: session.playerId },
           include: { plots: { orderBy: { slot: "asc" } } },
         }) };
       });
@@ -604,13 +645,14 @@ export async function playerRoutes(app: FastifyInstance) {
     const config = await loadConfig();
 
     try {
-      const result = await prisma.$transaction(async (tx) => {
-        const player = await tx.player.findUniqueOrThrow({ where: { id: session.playerId } });
-        if (player.moonDew < 1 || player.growGoo < 1 || player.phoenixAsh < 1) {
+      const result = await withLockedPlayer(session.playerId, async (tx, lockedPlayer) => {
+        // Re-read ingredients AFTER lock — prevents concurrent mixes from
+        // both passing the balance check on the same pre-lock snapshot.
+        if (lockedPlayer.moonDew < 1 || lockedPlayer.growGoo < 1 || lockedPlayer.phoenixAsh < 1) {
           throw Object.assign(new Error("Need one of each ingredient to mix fertilizer."), { statusCode: 400 });
         }
         await tx.player.update({
-          where: { id: player.id },
+          where: { id: session.playerId },
           data: {
             moonDew: { decrement: 1 },
             growGoo: { decrement: 1 },
@@ -619,10 +661,10 @@ export async function playerRoutes(app: FastifyInstance) {
           },
         });
         await tx.activityLog.create({
-          data: { playerId: player.id, action: "mix_fertilizer", details: { yield: config.mixYield } },
+          data: { playerId: session.playerId, action: "mix_fertilizer", details: { yield: config.mixYield } },
         });
         return tx.player.findUniqueOrThrow({
-          where: { id: player.id },
+          where: { id: session.playerId },
           include: { plots: { orderBy: { slot: "asc" } } },
         });
       });
@@ -690,7 +732,7 @@ export async function playerRoutes(app: FastifyInstance) {
     }
     const full = selfieFilePath(file);
     try {
-      await access(full, fsConstants.R_OK);
+      await fsPromises.access(full, fsConstants.R_OK);
     } catch {
       return reply.code(404).send({ error: "That photo isn't here." });
     }

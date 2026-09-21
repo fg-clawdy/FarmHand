@@ -6,6 +6,7 @@ import Sheet from "./Sheet";
 export default function PlantPicker({
   config,
   seeds,
+  provisionalSeeds = 0,
   onPick,
   onClose,
   onNeedJobs,
@@ -15,6 +16,7 @@ export default function PlantPicker({
 }: {
   config: GameConfig;
   seeds: number;
+  provisionalSeeds?: number;
   onPick: (tier: number) => void;
   onClose: () => void;
   onNeedJobs?: () => void;
@@ -23,7 +25,8 @@ export default function PlantPicker({
   /** Chore claims inject a seed — don't check the pouch. */
   free?: boolean;
 }) {
-  const broke = !free && seeds < cheapestSeedCost(config.tiers);
+  const totalSeeds = seeds + provisionalSeeds;
+  const broke = !free && totalSeeds < cheapestSeedCost(config.tiers);
   return (
     <Sheet title={title} onClose={onClose}>
       <p className="picker-intro">
@@ -31,7 +34,9 @@ export default function PlantPicker({
           ? "Your seed pouch is empty. Do a job on the Job Board to plant a waiting seed — jobs do not spend pouch seeds."
           : (intro ?? (
               <>
-                You have <AcornArt className="inline-art" /> {seeds} seeds. Bigger plants take longer and earn more stars.
+                You have <AcornArt className="inline-art" /> {totalSeeds} seeds
+                {provisionalSeeds > 0 && <span className="provisional-note"> ({provisionalSeeds} waiting approval)</span>}
+                . Bigger plants take longer and earn more stars.
               </>
             ))}
       </p>
@@ -44,7 +49,7 @@ export default function PlantPicker({
       )}
       <div className="tier-grid">
         {config.tiers.map((tier) => {
-          const affordable = free || seeds >= tier.seedCost;
+          const affordable = free || totalSeeds >= tier.seedCost;
           const kind = tier.kind ?? cropKindForTier(tier.tier);
           return (
             <button

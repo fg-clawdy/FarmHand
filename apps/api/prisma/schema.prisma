@@ -108,6 +108,7 @@ model Player {
   mascot                  Mascot
   pinHash                 String?
   seeds                   Int             @default(10)
+  provisionalSeeds        Int             @default(0)
   points                  Int             @default(0)
   fertilizer              Int             @default(0)
   moonDew                 Int             @default(0)
@@ -212,8 +213,8 @@ model ChoreClaim {
   player            Player           @relation(fields: [playerId], references: [id], onDelete: Cascade)
   periodKey         String
   status            ChoreClaimStatus @default(PENDING)
-  slot              Int
-  plantTier         Int
+  slot              Int?
+  plantTier         Int?
   proofJpegPath     String?
   claimedAt         DateTime         @default(now())
   resolvedAt        DateTime?

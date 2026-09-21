@@ -25,6 +25,7 @@ export async function farmRoutes(app: FastifyInstance) {
           name: player.name,
           mascot: player.mascot,
           seeds: player.seeds,
+          provisionalSeeds: player.provisionalSeeds,
           points: player.points,
           fertilizer: player.fertilizer,
           canWater: selfieUnlockedOn(player.selfieUnlockDate, config.timezone),

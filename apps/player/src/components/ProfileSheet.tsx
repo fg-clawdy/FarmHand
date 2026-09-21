@@ -80,7 +80,10 @@ export default function ProfileSheet({ onClose }: { onClose: () => void }) {
           <section className="profile-section">
             <h3>Pouch</h3>
             <p>
-              {profile.pouch.seeds} seeds · {profile.pouch.fertilizer} fertilizer
+              {profile.pouch.seeds + profile.pouch.provisionalSeeds} seeds
+              {profile.pouch.provisionalSeeds > 0 && <span className="provisional-note"> ({profile.pouch.provisionalSeeds} waiting)</span>}
+              {' · '}
+              {profile.pouch.fertilizer} fertilizer
             </p>
           </section>
 

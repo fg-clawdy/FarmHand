@@ -1,4 +1,4 @@
-import type { FarmPlayerCard, GameConfig } from "@farmhand/shared";
+import type { FarmPlayerCard } from "@farmhand/shared";
 import { useState } from "react";
 import { api, type FamilyJob, type GardenPlayer, type PublicChore } from "../api";
 import JobBoard, { FamilyJobBoard } from "./JobBoard";
@@ -8,13 +8,11 @@ import WhoseKidPicker from "./WhoseKidPicker";
 
 export default function FarmJobFlow({
   players,
-  config,
   jobs,
   onClose,
   onClaimed,
 }: {
   players: FarmPlayerCard[];
-  config: GameConfig;
   jobs: FamilyJob[];
   onClose: () => void;
   onClaimed: (name: string) => void;
@@ -22,18 +20,14 @@ export default function FarmJobFlow({
   const [step, setStep] = useState<"coach" | "family" | "identify" | "board" | "photo">("coach");
   const [pendingJobId, setPendingJobId] = useState<string | null>(null);
   const [chores, setChores] = useState<PublicChore[]>([]);
-  const [emptySlots, setEmptySlots] = useState<number[]>([]);
   const [kid, setKid] = useState<GardenPlayer | null>(null);
-  const [kidConfig, setKidConfig] = useState(config);
   const [busy, setBusy] = useState(false);
-  const [photo, setPhoto] = useState<{ chore: PublicChore; slot: number; tier: number } | null>(null);
+  const [photo, setPhoto] = useState<{ chore: PublicChore } | null>(null);
 
-  async function loadKidBoard(nextConfig?: GameConfig) {
+  async function loadKidBoard() {
     const data = await api.chores();
     setKid(data.player);
-    if (nextConfig) setKidConfig(nextConfig);
     setChores(data.chores);
-    setEmptySlots(data.emptySlots);
     setStep("board");
   }
 
@@ -41,7 +35,7 @@ export default function FarmJobFlow({
     setPendingJobId(job.id);
     const session = await api.session();
     if (session.player) {
-      await loadKidBoard(session.config);
+      await loadKidBoard();
       return;
     }
     setStep("identify");
@@ -67,7 +61,7 @@ export default function FarmJobFlow({
         copy="Pick who is claiming this job. The waiting seed is planted in that kid's garden."
         players={players}
         onCancel={() => setStep("family")}
-        onIdentified={() => void loadKidBoard(config)}
+        onIdentified={() => void loadKidBoard()}
       />
     );
   }
@@ -80,11 +74,7 @@ export default function FarmJobFlow({
         buttonLabel="Send photo"
         onClose={() => setStep("board")}
         submit={async (image) => {
-          const data = await api.claimChore(photo.chore.id, {
-            slot: photo.slot,
-            tier: photo.tier,
-            image,
-          });
+          const data = await api.claimChore(photo.chore.id, { image });
           return { player: data.player, unlocks: data.unlocks };
         }}
         onSuccess={(next) => {
@@ -99,16 +89,14 @@ export default function FarmJobFlow({
     return (
       <JobBoard
         chores={chores}
-        emptySlots={emptySlots}
-        config={kidConfig}
         busy={busy}
         kidName={kid.name}
         initialChoreId={pendingJobId}
         onClose={onClose}
-        onClaim={async (chore, slot, tier) => {
+        onClaim={async (chore) => {
           setBusy(true);
           try {
-            const data = await api.claimChore(chore.id, { slot, tier });
+            const data = await api.claimChore(chore.id);
             onClaimed(data.player.name);
             onClose();
             return data.player;
@@ -116,8 +104,8 @@ export default function FarmJobFlow({
             setBusy(false);
           }
         }}
-        onNeedPhoto={(chore, slot, tier) => {
-          setPhoto({ chore, slot, tier });
+        onNeedPhoto={(chore) => {
+          setPhoto({ chore });
           setStep("photo");
         }}
       />

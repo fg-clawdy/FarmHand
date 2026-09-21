@@ -1,66 +1,65 @@
 import { useEffect, useState } from "react";
 import { api, type AccoladeLedger } from "../api";
+import BadgeInfoModal, { type SelectedBadge } from "./BadgeInfoModal";
+import { BadgePatch, type BadgePatchState } from "./BadgePatch";
 import Sheet from "./Sheet";
 
-function medalGlyph(medal: string | null) {
-  if (medal === "bronze") return "🥉";
-  if (medal === "silver") return "🥈";
-  if (medal === "gold") return "🥇";
-  return "";
-}
-
 export function AccoladeLedgerBody({ ledger }: { ledger: AccoladeLedger }) {
+  const [selected, setSelected] = useState<SelectedBadge | null>(null);
+
   return (
     <div className="badge-ledger">
       <p className="badge-season">This season · {ledger.seasonLabel}</p>
-      <div className="badge-tracks">
-        {ledger.seasonal.tracks.map((track) => (
-          <div key={track.slug} className="badge-track">
-            <div className="badge-track-head">
-              <span className="badge-emoji">{track.emoji}</span>
-              <div>
-                <strong>{track.title}</strong>
-                <p className="badge-medals">
-                  {track.medals.length
-                    ? track.medals.map((medal) => medalGlyph(medal)).join(" ")
-                    : "No medal yet"}
-                </p>
+      <div className="badge-cards">
+        {ledger.seasonal.tracks.map((track) => {
+          const complete = track.next.done;
+          const pct = complete
+            ? 100
+            : track.next.at
+              ? Math.min(100, (track.count / track.next.at) * 100)
+              : 0;
+          const patchState: BadgePatchState = complete ? "complete" : track.count > 0 ? "progress" : "locked";
+          return (
+            <button
+              key={track.slug}
+              type="button"
+              className={complete ? "badge-card badge-card--complete" : "badge-card"}
+              onClick={() => setSelected({ kind: "seasonal", track })}
+            >
+              <div className="badge-card-fill" style={{ width: `${pct}%` }} />
+              <div className="badge-card-body">
+                <BadgePatch slug={track.slug} emoji={track.emoji} state={patchState} size={56} />
+                <span className="badge-card-name">{track.title}</span>
               </div>
-              <span className="badge-count">{track.count}</span>
-            </div>
-            <div className="badge-bar">
-              <div
-                style={{
-                  width: `${Math.min(100, track.next.at ? (track.count / track.next.at) * 100 : 100)}%`,
-                }}
-              />
-            </div>
-            <p className="muted">{track.blurb}</p>
-            <p className="muted">
-              {track.next.done
-                ? "Gold this season!"
-                : `${track.next.remaining} more to ${track.next.medal}`}
-            </p>
-          </div>
-        ))}
+            </button>
+          );
+        })}
       </div>
       <h3>Forever legends</h3>
-      <ul className="legend-list">
-        {ledger.lifetime.legends.map((legend) => (
-          <li key={legend.slug} className={legend.earned ? "earned" : ""}>
-            <span>{legend.emoji}</span>
-            <div>
-              <strong>{legend.title}</strong>
-              <p>
-                {legend.earned
-                  ? "Earned forever"
-                  : `${legend.count} / ${legend.at} · ${legend.remaining} to go`}
-              </p>
-            </div>
-          </li>
-        ))}
-      </ul>
-      <p className="muted">Badges do not give extra stars or seeds.</p>
+      <div className="badge-cards">
+        {ledger.lifetime.legends.map((legend) => {
+          const pct = legend.earned ? 100 : legend.at ? Math.min(100, (legend.count / legend.at) * 100) : 0;
+          const patchState: BadgePatchState = legend.earned ? "complete" : legend.count > 0 ? "progress" : "locked";
+          return (
+            <button
+              key={legend.slug}
+              type="button"
+              className={legend.earned ? "badge-card badge-card--complete" : "badge-card"}
+              onClick={() => setSelected({ kind: "lifetime", legend })}
+            >
+              <div className="badge-card-fill" style={{ width: `${pct}%` }} />
+              <div className="badge-card-body">
+                <BadgePatch slug={legend.slug} emoji={legend.emoji} state={patchState} size={56} />
+                <span className="badge-card-name">{legend.title}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <p className="badge-footnote">Badges do not give extra stars or seeds.</p>
+      {selected && (
+        <BadgeInfoModal selected={selected} seasonLabel={ledger.seasonLabel} onClose={() => setSelected(null)} />
+      )}
     </div>
   );
 }

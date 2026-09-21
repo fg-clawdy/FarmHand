@@ -1,6 +1,4 @@
-import { createReadStream } from "node:fs";
-import { access } from "node:fs/promises";
-import { constants as fsConstants } from "node:fs";
+import { createReadStream, constants as fsConstants, promises as fsPromises } from "node:fs";
 import type { FastifyInstance } from "fastify";
 import { getAdminSession, requireAdmin } from "../auth.js";
 import { prisma } from "../db.js";
@@ -281,7 +279,7 @@ export async function parentRoutes(app: FastifyInstance) {
     const claim = await prisma.choreClaim.findUnique({ where: { id } });
     if (!claim?.proofJpegPath) return reply.code(404).send({ error: "That photo isn't here." });
     try {
-      await access(claim.proofJpegPath, fsConstants.R_OK);
+      await fsPromises.access(claim.proofJpegPath, fsConstants.R_OK);
     } catch {
       return reply.code(404).send({ error: "That photo isn't here." });
     }

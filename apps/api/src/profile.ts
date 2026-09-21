@@ -45,7 +45,7 @@ export async function playerProfile(playerId: string) {
     selfies,
     rewards,
     accolades,
-    activity: logs.map((log) => ({
+    activity: logs.map((log: { id: string; action: string; details: unknown; createdAt: Date }) => ({
       id: log.id,
       action: log.action,
       label: activityLabel(log.action, log.details),

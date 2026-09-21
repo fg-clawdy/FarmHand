@@ -92,6 +92,7 @@ export type FarmPlayerCard = {
   name: string;
   mascot: Mascot;
   seeds: number;
+  provisionalSeeds: number;
   points: number;
   fertilizer: number;
   canWater: boolean;

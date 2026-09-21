@@ -15,7 +15,7 @@ import {
 import { loadConfig, publicPlayer, saveConfig } from "../game.js";
 import { farmAccoladeLedgers } from "../accolades.js";
 import { grantEarnedStars } from "../store.js";
-import { appendStarEvent, playerWallet, publicWallet, recordOpeningBalance } from "../stars.js";
+import { appendStarEvent, playerWallet, publicWallet, recordOpeningBalance, starsHeldForPlayer } from "../stars.js";
 import { chicagoDayKeys, startOfDaysAgo, startOfToday, todayKey } from "../tz.js";
 import {
   balanceKnobs,
@@ -247,7 +247,14 @@ export async function adminRoutes(app: FastifyInstance) {
       growGoo?: number;
       phoenixAsh?: number;
       reason?: string;
+      requestId?: string;
     };
+    const requestId = typeof body.requestId === "string" && body.requestId.length > 0
+      ? body.requestId
+      : null;
+    if (!requestId) {
+      return reply.code(400).send({ error: "requestId is required (generate a UUID once and reuse for retries)." });
+    }
     const existing = await prisma.player.findUnique({
       where: { id },
       include: { plots: { orderBy: { slot: "asc" } } },
@@ -256,6 +263,17 @@ export async function adminRoutes(app: FastifyInstance) {
     const clamp = (n: number | undefined, fallback: number) =>
       Math.max(0, Math.floor(n ?? fallback));
     const nextPoints = clamp(body.points, existing.points);
+
+    // F-006 guard: refuse to set points below outstanding PENDING holds
+    if (nextPoints < existing.points) {
+      const held = await starsHeldForPlayer(id);
+      if (nextPoints < held) {
+        return reply.code(400).send({
+          error: `Cannot set points below outstanding holds. The player has ${held}★ held in pending rewards. Release those holds first, or set points to at least ${held}.`,
+        });
+      }
+    }
+
     const delta = nextPoints - existing.points;
     const player = await prisma.$transaction(async (tx) => {
       const updated = await tx.player.update({
@@ -275,12 +293,13 @@ export async function adminRoutes(app: FastifyInstance) {
           playerId: id,
           kind: "ADJUST_ADMIN",
           amount: delta,
-          idempotencyKey: `adjust:${id}:${Date.now()}:${delta}`,
+          idempotencyKey: `adjust:${id}:${requestId}`,
           source: "admin_set",
           meta: {
             reason: body.reason || "manual adjust",
             before: existing.points,
             after: nextPoints,
+            requestId,
           },
         });
       }
@@ -325,17 +344,23 @@ export async function adminRoutes(app: FastifyInstance) {
     const session = await requireAdmin(request, reply);
     if (!session) return;
     const { id } = request.params as { id: string };
-    const body = (request.body ?? {}) as { amount?: number; reason?: string };
+    const body = (request.body ?? {}) as { amount?: number; reason?: string; requestId?: string };
     const existing = await prisma.player.findUnique({ where: { id } });
     if (!existing) return reply.code(404).send({ error: "Player not found." });
+    const requestId = typeof body.requestId === "string" && body.requestId.length > 0
+      ? body.requestId
+      : null;
+    if (!requestId) {
+      return reply.code(400).send({ error: "requestId is required (generate a UUID once and reuse for retries)." });
+    }
     try {
-      const wallet = await grantEarnedStars(id, Number(body.amount), body.reason || "admin grant");
+      const wallet = await grantEarnedStars(id, Number(body.amount), body.reason || "admin grant", requestId);
       await prisma.auditLog.create({
         data: {
           adminId: session.adminId,
           targetPlayerId: id,
           action: "grant_stars",
-          details: { amount: Number(body.amount), reason: body.reason || "admin grant" },
+          details: { amount: Number(body.amount), reason: body.reason || "admin grant", requestId },
         },
       });
       return { wallet: publicWallet(wallet) };

@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
@@ -37,6 +38,17 @@ export default defineConfig({
       },
     }),
   ],
+  resolve: {
+    alias: {
+      // react-router v7 ships only .js (CJS) in dist/; exports map references missing .mjs
+      "react-router/dom": fileURLToPath(
+        new URL("../../node_modules/react-router/dist/development/dom-export.js", import.meta.url),
+      ),
+      "react-router": fileURLToPath(
+        new URL("../../node_modules/react-router/dist/development/index.js", import.meta.url),
+      ),
+    },
+  },
   server: {
     proxy: { "/api": "http://localhost:3000" },
   },

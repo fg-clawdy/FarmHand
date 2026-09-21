@@ -109,6 +109,13 @@ export function clampJobBoardPosterDwell(value: unknown): number {
   );
 }
 
+/** Clamp a numeric value to [min, max], floor to int. Returns fallback on NaN. */
+function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(n)));
+}
+
 export function mergeGameConfig(raw: unknown): GameConfig {
   const incoming = raw && typeof raw === "object" ? (raw as Partial<GameConfig>) : {};
   const incomingTiers = Array.isArray(incoming.tiers) ? incoming.tiers : undefined;
@@ -150,11 +157,23 @@ export function mergeGameConfig(raw: unknown): GameConfig {
       })
     : DEFAULT_GAME_CONFIG.ingredients;
 
+  // Clamp all numeric config knobs to sane ranges.
+  // These guard against misconfiguration (negative costs, zero durations, etc.)
+  // while preserving parent-authored custom values within bounds.
   return {
     ...DEFAULT_GAME_CONFIG,
     ...incoming,
     timezone: incoming.timezone || DEFAULT_GAME_CONFIG.timezone,
-    plotCount: Math.max(PLOTS_PER_GARDEN, Number(incoming.plotCount) || 0),
+    sessionMinutes: clampInt(incoming.sessionMinutes, 5, 480, DEFAULT_GAME_CONFIG.sessionMinutes),
+    startingSeeds: clampInt(incoming.startingSeeds, 0, 1000, DEFAULT_GAME_CONFIG.startingSeeds),
+    startingPoints: clampInt(incoming.startingPoints, 0, 1_000_000, DEFAULT_GAME_CONFIG.startingPoints),
+    startingFertilizer: clampInt(incoming.startingFertilizer, 0, 100, DEFAULT_GAME_CONFIG.startingFertilizer),
+    wateringCooldownMinutes: clampInt(incoming.wateringCooldownMinutes, 1, 1440, DEFAULT_GAME_CONFIG.wateringCooldownMinutes),
+    wateringMaxPerDay: clampInt(incoming.wateringMaxPerDay, 1, 50, DEFAULT_GAME_CONFIG.wateringMaxPerDay),
+    wateringReductionMinutes: clampInt(incoming.wateringReductionMinutes, 1, 1440, DEFAULT_GAME_CONFIG.wateringReductionMinutes),
+    harvestSeedReturn: clampInt(incoming.harvestSeedReturn, 0, 10, DEFAULT_GAME_CONFIG.harvestSeedReturn),
+    plotCount: Math.max(PLOTS_PER_GARDEN, clampInt(incoming.plotCount, PLOTS_PER_GARDEN, 100, PLOTS_PER_GARDEN)),
+    mixYield: clampInt(incoming.mixYield, 1, 100, DEFAULT_GAME_CONFIG.mixYield),
     jobBoardPosterDwellSeconds: clampJobBoardPosterDwell(
       incoming.jobBoardPosterDwellSeconds ?? DEFAULT_GAME_CONFIG.jobBoardPosterDwellSeconds,
     ),

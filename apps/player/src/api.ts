@@ -21,6 +21,7 @@ export type GardenPlayer = {
   name: string;
   mascot: FarmPlayerCard["mascot"];
   seeds: number;
+  provisionalSeeds: number;
   points: number;
   fertilizer: number;
   ingredients: { moonDew: number; growGoo: number; phoenixAsh: number };
@@ -172,7 +173,7 @@ export type PlayerStore = StarWallet & {
 export type KidProfile = {
   player: { id: string; name: string; mascot: GardenPlayer["mascot"]; garden: string };
   wallet: StarWallet;
-  pouch: { seeds: number; fertilizer: number };
+  pouch: { seeds: number; provisionalSeeds: number; fertilizer: number };
   selfies: Array<{ file: string; url: string }>;
   rewards: {
     pending: StoreRedemption[];
@@ -245,13 +246,13 @@ export const api = {
     }>("/api/selfie", { method: "POST", body: JSON.stringify({ image }) }),
   accolades: () => request<AccoladeLedger>("/api/accolades"),
   chores: () =>
-    request<{ chores: PublicChore[]; emptySlots: number[]; timezone: string; player: GardenPlayer }>("/api/chores"),
-  claimChore: (id: string, body: { slot: number; tier: number; image?: string }) =>
-    request<{ player: GardenPlayer; claim: { id: string; status: string; slot: number }; unlocks?: AccoladeUnlock[] }>(
+    request<{ chores: PublicChore[]; timezone: string; player: GardenPlayer }>("/api/chores"),
+  claimChore: (id: string, body?: { image?: string }) =>
+    request<{ player: GardenPlayer; claim: { id: string; status: string; slot: number | null }; unlocks?: AccoladeUnlock[] }>(
       `/api/chores/${id}/claim`,
       {
         method: "POST",
-        body: JSON.stringify(body),
+        body: JSON.stringify(body ?? {}),
       },
     ),
   prune: (slot: number) => request<{ player: GardenPlayer }>(`/api/plots/${slot}/prune`, { method: "POST" }),

@@ -53,7 +53,6 @@ export default function FarmDashboard() {
       {jobsOpen && config && (
         <FarmJobFlow
           players={players}
-          config={config}
           jobs={jobs}
           onClose={() => setJobsOpen(false)}
           onClaimed={(name) => {
