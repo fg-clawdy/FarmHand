@@ -266,10 +266,9 @@ const CROP_SHEETS: Record<CropKind, string> = {
   corn: "/art/painted/plants/plant_corn_stages.png?v=3blossom",
   strawberry: "/art/painted/plants/plant_strawberry_stages.png?v=3blossom",
   cotton: "/art/painted/plants/plant_cotton_stages.png?v=3blossom",
-  /** Placeholders — art not yet painted. Reuse corn sheet. */
-  tomato: "/art/painted/plants/plant_corn_stages.png?v=3blossom",
-  pumpkin: "/art/painted/plants/plant_corn_stages.png?v=3blossom",
-  sunflower: "/art/painted/plants/plant_corn_stages.png?v=3blossom",
+  tomato: "/art/painted/plants/plant_tomato_stages.png?v=1",
+  pumpkin: "/art/painted/plants/plant_pumpkin_stages.png?v=1",
+  sunflower: "/art/painted/plants/plant_sunflower_stages.png?v=1",
 };
 
 export function plantKind(plot: Pick<PublicPlot, "state" | "tier" | "growthStage" | "ready">): PlantKind | null {
