@@ -5,20 +5,25 @@ import type { Uv } from "./playfieldLayout";
 /** Zoomed garden painting (`garden_zoom_3x3.jpg`) is 1536×1024, same as the farm playfield. */
 export const GARDEN_ZOOM_TEXTURE = { width: 1536, height: 1024 } as const;
 
-export type GardenTool = "seed" | "water" | "fert";
+/** Fertilizer ("fert") removed — incomplete, reserved for a future phase. */
+export type GardenTool = "water" | "seed";
 
-export const GARDEN_TOOLS: GardenTool[] = ["seed", "water", "fert"];
+/** Water first so it's the most prominent action; seed second. */
+export const GARDEN_TOOLS: GardenTool[] = ["water", "seed"];
 
 export const GARDEN_TOOL_ART: Record<GardenTool, string> = {
-  seed: "/art/painted/garden/tool_seeds.png",
   water: "/art/painted/garden/tool_water.png",
-  fert: "/art/painted/garden/tool_fert.png",
+  seed: "/art/painted/garden/tool_seeds.png",
+};
+
+/** Locked water icon shown when the kid hasn't taken today's selfie yet. */
+export const GARDEN_TOOL_ART_LOCKED: Partial<Record<GardenTool, string>> = {
+  water: "/art/painted/garden/tool_water_locked.png",
 };
 
 export const GARDEN_TOOL_LABEL: Record<GardenTool, string> = {
-  seed: "Seeds",
   water: "Water",
-  fert: "Fertilizer",
+  seed: "Seeds",
 };
 
 /**
@@ -108,20 +113,20 @@ export function cropNameForPlot(
   return KIND_LABEL[cropKindForTier(plot.tier)] ?? "Plant";
 }
 
+/** Fertilizer removed — incomplete, future phase. */
 export type GardenToolContext = {
   seeds: number;
-  fertilizer: number;
   canWater: boolean;
   cheapestSeed: number;
 };
 
-/** Plots that can accept the selected tool right now. */
+/** Plots that can accept the selected tool right now. Fertilizer removed — incomplete, future phase. */
 export function plotAcceptsTool(tool: GardenTool, plot: PublicPlot, ctx: GardenToolContext) {
   if (plot.state === "purgatory" || plot.state === "wilted") return false;
   if (tool === "seed") return plot.state === "empty" && ctx.seeds >= ctx.cheapestSeed;
   if (plot.state !== "growing" || plot.ready) return false;
   if (tool === "water") return plot.canWater ?? ctx.canWater;
-  return ctx.fertilizer >= 1;
+  return false;
 }
 
 export function glowingSlots(
@@ -133,13 +138,14 @@ export function glowingSlots(
   return plots.filter((plot) => plotAcceptsTool(tool, plot, ctx)).map((plot) => plot.slot);
 }
 
-export type GardenTap = "harvest" | "picker" | "sheet" | "water" | "fert" | "prune" | "jobs" | "noop";
+/** Fertilizer tap removed — incomplete, future phase. */
+export type GardenTap = "harvest" | "picker" | "sheet" | "water" | "prune" | "jobs" | "noop";
 
 export function outOfPouchSeeds(ctx: GardenToolContext) {
   return ctx.seeds < ctx.cheapestSeed;
 }
 
-/** What a garden-zoom tap should do. READY plots always harvest — no confirm sheet. */
+/** What a garden-zoom tap should do. READY plots always harvest — no confirm sheet. Fertilizer removed, incomplete. */
 export function gardenTapAction(
   plot: PublicPlot,
   tool: GardenTool | null,
@@ -155,7 +161,7 @@ export function gardenTapAction(
     if (!plotAcceptsTool(tool, plot, ctx)) return "noop";
     if (tool === "seed") return "picker";
     if (tool === "water") return "water";
-    return "fert";
+    return "noop";
   }
   return plot.state === "empty" ? "picker" : "sheet";
 }

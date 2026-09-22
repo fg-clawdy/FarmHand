@@ -8,6 +8,7 @@ import {
   slugifyTitle,
   type ParentChoreBody,
 } from "./parentChoreWrite.js";
+import { generateWantedFlyer, wantedFlyerPublicUrl } from "./wantedFlyer.js";
 
 const choreInclude = {
   assignments: { include: { player: true }, orderBy: { createdAt: "asc" as const } },
@@ -41,6 +42,7 @@ export function serializeParentChore(chore: ChoreWithKids) {
     assignmentMode: chore.assignmentMode,
     sortOrder: chore.sortOrder,
     seedGrant: 1,
+    flyerUrl: wantedFlyerPublicUrl(chore.slug),
     assignments,
     assignedPlayerIds: assignments.map((row) => row.playerId),
   };
@@ -112,6 +114,12 @@ export async function createParentChore(body: ParentChoreBody) {
     }
     return tx.chore.findUniqueOrThrow({ where: { id: row.id }, include: choreInclude });
   });
+  await generateWantedFlyer({
+    slug: created.slug,
+    title: created.title,
+    emoji: created.emoji,
+    rewardLabel: "+1 SEED",
+  });
   return serializeParentChore(created);
 }
 
@@ -156,6 +164,12 @@ export async function updateParentChore(id: string, body: ParentChoreBody) {
       }
     }
     return tx.chore.findUniqueOrThrow({ where: { id }, include: choreInclude });
+  });
+  await generateWantedFlyer({
+    slug: updated.slug,
+    title: updated.title,
+    emoji: updated.emoji,
+    rewardLabel: "+1 SEED",
   });
   return serializeParentChore(updated);
 }

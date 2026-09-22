@@ -107,24 +107,22 @@ test("white-peak anchors sit tens of pixels off the old regular grid", () => {
 test("tool art stays PNG with real alpha paths", () => {
   assert.ok(GARDEN_TOOL_ART.seed.endsWith(".png"));
   assert.ok(GARDEN_TOOL_ART.water.endsWith(".png"));
-  assert.ok(GARDEN_TOOL_ART.fert.endsWith(".png"));
 });
 
 test("glow eligibility: seeds only empty plots the kid can afford", () => {
   const plots = [plot(0, "empty"), plot(1, "growing"), plot(2, "mature")];
-  const broke = { seeds: 0, fertilizer: 2, canWater: true, cheapestSeed: 1 };
-  const rich = { seeds: 10, fertilizer: 2, canWater: true, cheapestSeed: 1 };
+  const broke = { seeds: 0, canWater: true, cheapestSeed: 1 };
+  const rich = { seeds: 10, canWater: true, cheapestSeed: 1 };
   assert.deepEqual(glowingSlots("seed", plots, broke), []);
   assert.deepEqual(glowingSlots("seed", plots, rich), [0]);
   assert.equal(plotAcceptsTool("seed", plots[0]!, rich), true);
   assert.equal(plotAcceptsTool("seed", plots[1]!, rich), false);
 });
 
-test("glow eligibility: water and fert only growing (not ready) plots with inventory", () => {
+test("glow eligibility: water only growing (not ready) plots with inventory", () => {
   const plots = [plot(0, "empty"), plot(1, "growing"), plot(2, "mature")];
-  const can = { seeds: 10, fertilizer: 1, canWater: true, cheapestSeed: 1 };
-  const dry = { seeds: 10, fertilizer: 1, canWater: false, cheapestSeed: 1 };
-  const noFert = { seeds: 10, fertilizer: 0, canWater: true, cheapestSeed: 1 };
+  const can = { seeds: 10, canWater: true, cheapestSeed: 1 };
+  const dry = { seeds: 10, canWater: false, cheapestSeed: 1 };
   assert.deepEqual(glowingSlots("water", plots, can), [1]);
   assert.deepEqual(glowingSlots("water", plots, dry), []);
   assert.deepEqual(
@@ -132,8 +130,6 @@ test("glow eligibility: water and fert only growing (not ready) plots with inven
     [],
     "per-plot lock wins over garden canWater",
   );
-  assert.deepEqual(glowingSlots("fert", plots, can), [1]);
-  assert.deepEqual(glowingSlots("fert", plots, noFert), []);
   assert.deepEqual(glowingSlots(null, plots, can), []);
 });
 
@@ -253,25 +249,23 @@ test("READY plots harvest on tap; empty and growing keep picker/sheet/tools", ()
   const growing = plot(1, "growing");
   const ripe = plot(2, "mature");
   const empty = plot(0, "empty");
-  const ctx = { seeds: 10, fertilizer: 1, canWater: true, cheapestSeed: 1 };
+  const ctx = { seeds: 10, canWater: true, cheapestSeed: 1 };
   assert.equal(gardenTapAction(ripe, null, ctx), "harvest");
   assert.equal(gardenTapAction(ripe, "water", ctx), "harvest");
   assert.equal(gardenTapAction(ripe, "seed", ctx), "harvest");
-  assert.equal(gardenTapAction(ripe, "fert", ctx), "harvest");
   assert.equal(gardenTapAction(empty, null, ctx), "picker");
   assert.equal(gardenTapAction(empty, "seed", ctx), "picker");
   assert.equal(gardenTapAction(empty, "water", ctx), "noop");
   assert.equal(gardenTapAction(growing, null, ctx), "sheet");
   assert.equal(gardenTapAction(growing, "water", ctx), "water");
-  assert.equal(gardenTapAction(growing, "fert", ctx), "fert");
 });
 
 test("empty plots with no pouch seeds send the kid to the Job Board", () => {
   const empty = plot(0, "empty");
   const growing = plot(1, "growing");
-  const broke = { seeds: 0, fertilizer: 1, canWater: true, cheapestSeed: 1 };
-  const almost = { seeds: 1, fertilizer: 1, canWater: true, cheapestSeed: 2 };
-  const rich = { seeds: 10, fertilizer: 1, canWater: true, cheapestSeed: 1 };
+  const broke = { seeds: 0, canWater: true, cheapestSeed: 1 };
+  const almost = { seeds: 1, canWater: true, cheapestSeed: 2 };
+  const rich = { seeds: 10, canWater: true, cheapestSeed: 1 };
   assert.equal(outOfPouchSeeds(broke), true);
   assert.equal(outOfPouchSeeds(almost), true);
   assert.equal(outOfPouchSeeds(rich), false);
@@ -287,9 +281,8 @@ test("empty plots with no pouch seeds send the kid to the Job Board", () => {
 test("purgatory and wilted plots ignore tools; wilted tap prunes", () => {
   const waiting = plot(3, "purgatory");
   const wilted = plot(4, "wilted");
-  const ctx = { seeds: 10, fertilizer: 1, canWater: true, cheapestSeed: 1 };
+  const ctx = { seeds: 10, canWater: true, cheapestSeed: 1 };
   assert.equal(plotAcceptsTool("water", waiting, ctx), false);
-  assert.equal(plotAcceptsTool("fert", waiting, ctx), false);
   assert.equal(plotAcceptsTool("seed", waiting, ctx), false);
   assert.equal(gardenTapAction(waiting, "water", ctx), "sheet");
   assert.equal(gardenTapAction(wilted, null, ctx), "prune");

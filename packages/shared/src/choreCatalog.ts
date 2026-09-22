@@ -36,6 +36,8 @@ export type SeedChore = {
   includeInPath: boolean;
   isActive: boolean;
   legacyPoints: number | null;
+  difficulty: number | null;
+  seedReward: number | null;
 };
 
 /** `isGlobal` → each kid may claim once per period. Otherwise farm-wide race (one claim per period). */
@@ -64,6 +66,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: true,
     isActive: true,
     legacyPoints: null,
+    difficulty: 1,
+    seedReward: null,
   },
   {
     slug: "clean-your-room",
@@ -81,6 +85,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: false,
     isActive: true,
     legacyPoints: null,
+    difficulty: 4,
+    seedReward: null,
   },
   {
     slug: "brush-teeth-am",
@@ -98,6 +104,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: true,
     isActive: true,
     legacyPoints: null,
+    difficulty: 2,
+    seedReward: null,
   },
   {
     slug: "brush-teeth-bedtime",
@@ -115,6 +123,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: true,
     isActive: true,
     legacyPoints: null,
+    difficulty: 2,
+    seedReward: null,
   },
   {
     slug: "dishes-1-6",
@@ -132,6 +142,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: true,
     isActive: true,
     legacyPoints: null,
+    difficulty: 4,
+    seedReward: null,
   },
   {
     slug: "feed-dog-am",
@@ -149,6 +161,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: true,
     isActive: true,
     legacyPoints: null,
+    difficulty: 4,
+    seedReward: null,
   },
   {
     slug: "feed-dog-pm",
@@ -166,6 +180,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: true,
     isActive: true,
     legacyPoints: null,
+    difficulty: 4,
+    seedReward: null,
   },
   {
     slug: "walk-the-dog",
@@ -183,6 +199,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: true,
     isActive: true,
     legacyPoints: null,
+    difficulty: 7,
+    seedReward: null,
   },
   {
     slug: "take-out-trash",
@@ -200,6 +218,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: false,
     isActive: true,
     legacyPoints: null,
+    difficulty: 4,
+    seedReward: null,
   },
   {
     slug: "put-up-clean-laundry",
@@ -217,6 +237,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: false,
     isActive: true,
     legacyPoints: null,
+    difficulty: 5,
+    seedReward: null,
   },
   {
     slug: "brush-your-hair",
@@ -234,6 +256,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: true,
     isActive: true,
     legacyPoints: null,
+    difficulty: 3,
+    seedReward: null,
   },
   {
     slug: "set-out-school-clothes",
@@ -251,6 +275,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: false,
     isActive: false,
     legacyPoints: null,
+    difficulty: 2,
+    seedReward: null,
   },
   {
     slug: "easy-bedtime",
@@ -268,6 +294,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: true,
     isActive: true,
     legacyPoints: null,
+    difficulty: 6,
+    seedReward: null,
   },
   {
     slug: "clean-living-room",
@@ -285,6 +313,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: false,
     isActive: true,
     legacyPoints: null,
+    difficulty: 7,
+    seedReward: null,
   },
   {
     slug: "clean-dining-room",
@@ -302,6 +332,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: false,
     isActive: true,
     legacyPoints: null,
+    difficulty: 4,
+    seedReward: null,
   },
   {
     slug: "clean-shoe-room",
@@ -319,6 +351,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: true,
     isActive: true,
     legacyPoints: null,
+    difficulty: 3,
+    seedReward: null,
   },
   {
     slug: "clean-formal-living",
@@ -336,6 +370,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: false,
     isActive: true,
     legacyPoints: null,
+    difficulty: 7,
+    seedReward: null,
   },
   {
     slug: "clean-formal-dining",
@@ -353,6 +389,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: false,
     isActive: true,
     legacyPoints: null,
+    difficulty: 4,
+    seedReward: null,
   },
   {
     slug: "clean-table",
@@ -370,6 +408,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: true,
     isActive: true,
     legacyPoints: null,
+    difficulty: 2,
+    seedReward: null,
   },
   {
     slug: "sweep-and-vacuum-downstairs",
@@ -387,6 +427,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: false,
     isActive: true,
     legacyPoints: 100,
+    difficulty: 9,
+    seedReward: null,
   },
   {
     slug: "mop-the-downstairs",
@@ -404,6 +446,8 @@ export const CHORE_CATALOG: SeedChore[] = [
     includeInPath: false,
     isActive: true,
     legacyPoints: 100,
+    difficulty: 9,
+    seedReward: null,
   },
 ];
 

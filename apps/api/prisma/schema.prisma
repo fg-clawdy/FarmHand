@@ -111,6 +111,7 @@ model Player {
   provisionalSeeds        Int             @default(0)
   points                  Int             @default(0)
   fertilizer              Int             @default(0)
+  seedShards              Int             @default(0)
   moonDew                 Int             @default(0)
   growGoo                 Int             @default(0)
   phoenixAsh              Int             @default(0)
@@ -175,6 +176,8 @@ model Chore {
   includeInPath    Boolean             @default(false)
   isActive         Boolean             @default(true)
   legacyPoints     Int?
+  difficulty       Int?
+  seedReward       Int?
   assignmentMode   ChoreAssignmentMode
   sortOrder        Int                 @default(0)
   createdAt        DateTime            @default(now())

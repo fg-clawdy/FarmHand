@@ -6,7 +6,7 @@
  *   BASE_URL=http://127.0.0.1:8080 node scripts/smoke.mjs   # Compose with HTTP_PORT=8080
  */
 const base = process.env.BASE_URL || "http://localhost";
-const CROP_KINDS = ["corn", "strawberry", "cotton"];
+const CROP_KINDS = ["corn", "cotton", "tomato", "strawberry", "pumpkin"];
 const SERIES_KEYS = ["harvests", "waterings", "logins", "plants"];
 const ECONOMY_KEYS = [
   "plants",
@@ -48,16 +48,33 @@ function assertWindow(window, label) {
   assertEconomy(window?.economy, label);
 }
 
-function assertFlatEconomy(config, label) {
+function assertDifferentiatedEconomy(config, label) {
   if (!config?.tiers?.length) throw new Error(`${label} missing tiers`);
-  if (config.harvestSeedReturn !== 1) {
-    throw new Error(`${label} harvestSeedReturn expected 1, got ${config.harvestSeedReturn}`);
+  if (config.tiers.length !== 6) {
+    throw new Error(`${label} expected 6 tiers, got ${config.tiers.length}`);
+  }
+  // Verify shard-based config fields exist
+  if (typeof config.shardsPerSeed !== "number" || config.shardsPerSeed < 1) {
+    throw new Error(`${label} shardsPerSeed must be >= 1`);
+  }
+  if (!Array.isArray(config.seedRewardBandUpperBounds) || config.seedRewardBandUpperBounds.length === 0) {
+    throw new Error(`${label} missing seedRewardBandUpperBounds`);
+  }
+  if (!Array.isArray(config.seedRewardBandPayouts) || config.seedRewardBandPayouts.length === 0) {
+    throw new Error(`${label} missing seedRewardBandPayouts`);
   }
   for (const tier of config.tiers) {
-    if (tier.seedCost !== 1 || tier.durationMinutes !== 24 * 60 || tier.points !== 25) {
-      throw new Error(
-        `${label} tier ${tier.tier} expected 1 seed / 1440 min / 25★, got ${tier.seedCost}/${tier.durationMinutes}/${tier.points}`,
-      );
+    if (typeof tier.seedCost !== "number" || tier.seedCost < 1) {
+      throw new Error(`${label} tier ${tier.tier} invalid seedCost`);
+    }
+    if (typeof tier.durationMinutes !== "number" || tier.durationMinutes < 1) {
+      throw new Error(`${label} tier ${tier.tier} invalid durationMinutes`);
+    }
+    if (typeof tier.points !== "number" || tier.points < 1) {
+      throw new Error(`${label} tier ${tier.tier} invalid points`);
+    }
+    if (typeof tier.shardRefund !== "number") {
+      throw new Error(`${label} tier ${tier.tier} missing shardRefund`);
     }
   }
 }
@@ -136,8 +153,8 @@ if (!willow) throw new Error("Willow missing from seed");
 console.log("seeded kids ok", players.data.players.map((p) => p.name).join(", "));
 
 const configRes = await req("/api/admin/config", { cookie: adminCookie });
-assertFlatEconomy(configRes.data.defaults, "admin config defaults");
-assertFlatEconomy(configRes.data.config, "live config");
+assertDifferentiatedEconomy(configRes.data.defaults, "admin config defaults");
+assertDifferentiatedEconomy(configRes.data.config, "live config");
 const fast = structuredClone(configRes.data.config);
 fast.tiers = fast.tiers.map((t) => (t.tier === 1 ? { ...t, durationMinutes: 0 } : t));
 fast.wateringCooldownMinutes = 0;
@@ -204,17 +221,24 @@ const reward = harvest.data.reward;
 if (typeof reward?.points !== "number" || reward.points !== 25) {
   throw new Error(`harvest reward.points expected 25, got ${JSON.stringify(reward)}`);
 }
-if (typeof reward?.seedsReturned !== "number" || reward.seedsReturned !== 1) {
-  throw new Error(`harvest reward.seedsReturned expected 1, got ${JSON.stringify(reward)}`);
+if (typeof reward?.seedsFromShards !== "number") {
+  throw new Error(`harvest reward.seedsFromShards expected number, got ${JSON.stringify(reward)}`);
+}
+if (typeof reward?.shardsEarned !== "number" || reward.shardsEarned !== 1) {
+  throw new Error(`harvest reward.shardsEarned expected 1 (1 shard per seed cost), got ${JSON.stringify(reward)}`);
+}
+if (typeof reward?.remainingShards !== "number") {
+  throw new Error(`harvest reward.remainingShards expected number, got ${JSON.stringify(reward)}`);
 }
 if (harvest.data.player.points !== planted.data.player.points + 25) {
   throw new Error(
     `harvest should grant 25★ only (no badge payout), ${planted.data.player.points} -> ${harvest.data.player.points}`,
   );
 }
-if (harvest.data.player.seeds !== planted.data.player.seeds + 1) {
+// First harvest with shardsPerSeed=10 and shardRefund=1: 1 shard earned, 0 seeds from shards.
+if (harvest.data.player.seeds !== planted.data.player.seeds) {
   throw new Error(
-    `harvest should grant 1 seed only (no badge payout), ${planted.data.player.seeds} -> ${harvest.data.player.seeds}`,
+    `harvest should grant 0 seeds on first harvest (shards < threshold), ${planted.data.player.seeds} -> ${harvest.data.player.seeds}`,
   );
 }
 if (harvest.data.player.plots.find((p) => p.slot === empty.slot).state !== "empty") {
@@ -266,8 +290,8 @@ while ((track(badges, "harvests")?.count ?? 0) < 10) {
   if (slot == null) throw new Error("no empty plot to reach Harvester bronze");
   const morePlant = await req(`/api/plots/${slot}/plant`, { method: "POST", body: { tier: 1 }, cookie: kidCookie });
   const moreHarvest = await req(`/api/plots/${slot}/harvest`, { method: "POST", cookie: kidCookie });
-  if (moreHarvest.data.reward?.points !== 25 || moreHarvest.data.reward?.seedsReturned !== 1) {
-    throw new Error(`badge harvest still must pay 25★/1 seed, got ${JSON.stringify(moreHarvest.data.reward)}`);
+  if (moreHarvest.data.reward?.points !== 25 || typeof moreHarvest.data.reward?.seedsFromShards !== "number") {
+    throw new Error(`badge harvest still must pay 25★, got ${JSON.stringify(moreHarvest.data.reward)}`);
   }
   if (moreHarvest.data.player.points !== morePlant.data.player.points + 25) {
     throw new Error("Harvester bronze path granted extra stars");
@@ -1039,6 +1063,6 @@ console.log("full garden claim succeeds (provisional seed in pouch)");
 
 await req("/api/admin/config/reset", { method: "POST", cookie: adminCookie });
 const resetConfig = await req("/api/admin/config", { cookie: adminCookie });
-assertFlatEconomy(resetConfig.data.config, "config after reset");
+assertDifferentiatedEconomy(resetConfig.data.config, "config after reset");
 console.log("restored default tunables");
 console.log("SMOKE OK");

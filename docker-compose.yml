@@ -27,11 +27,14 @@ services:
       ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-farmhand-dev}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       SELFIE_DROP_DIR: /data/selfies
+      WANTED_FLYER_DIR: /data/wanted-flyers
+      WANTED_TEMPLATE_PATH: /app/apps/api/assets/wanted_poster_template.png
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:farmhand@localhost}
     volumes:
       - ${SELFIE_DROP_DIR:-./data/selfies}:/data/selfies
+      - ${WANTED_FLYER_DIR:-./data/wanted-flyers}:/data/wanted-flyers
     depends_on:
       postgres:
         condition: service_healthy

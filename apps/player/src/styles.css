@@ -725,7 +725,30 @@ button.who.profile-entry:active {
 .tier b { display: block; font-size: 15px; margin-bottom: 6px; }
 .picker-intro { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
+/* PIN pad modal overlay */
+.pin-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: pin-fade-in 0.18s ease-out;
+}
+@keyframes pin-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 .pin { display: grid; place-items: center; }
+.pin-buffer {
+  padding: min(48px, 10vw);
+  /* absorbs stray taps near the card edges so kids don't accidentally dismiss */
+}
 .pin-card {
   position: relative;
   z-index: 3;
@@ -753,20 +776,64 @@ button.who.profile-entry:active {
 }
 .dot.on { background: linear-gradient(#ffe56a, #c9892a); }
 .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.pad button {
+.pad-num,
+.pad-act {
   height: 72px;
   border: 0;
   border-radius: 18px;
+  font-size: 28px;
+  font-weight: 900;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: transform 0.06s ease-out, box-shadow 0.06s ease-out;
+}
+.pad-num {
   background:
     linear-gradient(180deg, rgba(255,255,255,0.35), transparent 40%),
     linear-gradient(#e2b36a, #8a4f2a);
   color: #fffaf0;
-  font-size: 28px;
-  font-weight: 900;
   box-shadow: 0 5px 0 #3d2416, inset 0 2px 0 rgba(255,255,255,0.35);
 }
-.pad button:active { transform: translateY(3px); }
+.pad-num:active {
+  transform: translateY(4px) scale(0.94);
+  box-shadow: 0 1px 0 #3d2416, inset 0 1px 0 rgba(255,255,255,0.25);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.15), transparent 40%),
+    linear-gradient(#c99a4e, #6b3a1a);
+}
+.pad-act {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.2), transparent 50%),
+    linear-gradient(#b8956a, #5a3a1e);
+  color: #ffe8c0;
+  box-shadow: 0 4px 0 #2d180a, inset 0 1px 0 rgba(255,255,255,0.25);
+}
+.pad-act:active {
+  transform: translateY(3px) scale(0.94);
+  box-shadow: 0 1px 0 #2d180a;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08), transparent 50%),
+    linear-gradient(#9a7848, #4a2a12);
+}
 .pin-error { color: var(--barn); min-height: 24px; font-weight: 700; }
+
+/* Shake animation for wrong PIN — smooth, exaggerated head-shake */
+.pin-shake {
+  animation: pin-shake 0.65s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+@keyframes pin-shake {
+  0%   { transform: translateX(0) rotate(0deg); }
+  12%  { transform: translateX(-16px) rotate(-3deg); }
+  24%  { transform: translateX(15px) rotate(3deg); }
+  36%  { transform: translateX(-13px) rotate(-2.5deg); }
+  48%  { transform: translateX(11px) rotate(2deg); }
+  60%  { transform: translateX(-6px) rotate(-1deg); }
+  72%  { transform: translateX(5px) rotate(0.8deg); }
+  84%  { transform: translateX(-2px) rotate(-0.3deg); }
+  92%  { transform: translateX(1px) rotate(0.1deg); }
+  100% { transform: translateX(0) rotate(0deg); }
+}
 
 .celebrate { text-align: center; padding: 8px 8px 4px; }
 .hero-art { width: min(220px, 50%); height: auto; animation: pop 0.6s ease; }
@@ -1084,6 +1151,23 @@ button.who.profile-entry:active {
   font-size: 18px;
 }
 .job-card-emoji { font-size: 48px; line-height: 1; }
+.job-card.has-flyer {
+  padding-top: 10px;
+}
+.job-card-flyer {
+  width: 100%;
+  max-width: 168px;
+  height: auto;
+  aspect-ratio: 516 / 772;
+  object-fit: contain;
+  border-radius: 8px;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 0 rgba(58, 36, 16, 0.18));
+}
+.job-card.has-flyer .job-chip {
+  margin-top: 4px;
+}
+
 .job-card-title { font-size: 16px; line-height: 1.15; }
 .job-chip {
   background: linear-gradient(#ffe56a, #f0b429);

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type FamilyJob } from "../api";
 import FarmJobFlow from "../components/FarmJobFlow";
+import PinPad from "../components/PinPad";
 import StoreSheet from "../components/StoreSheet";
 import { useFarmPixi } from "../pixi/usePixi";
 
@@ -15,8 +16,46 @@ export default function FarmDashboard() {
   const [jobsOpen, setJobsOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
+  const [pinPlayer, setPinPlayer] = useState<{ id: string; name: string } | null>(null);
+
+  async function handlePlayerTap(id: string) {
+    const player = players.find((p) => p.id === id);
+    if (!player) return;
+
+    try {
+      const session = await api.session();
+      if (session.player?.id === id) {
+        navigate(`/garden/${id}`);
+        return;
+      }
+    } catch {
+      /* no session — expected */
+    }
+
+    if (!player.hasPin) {
+      try {
+        await api.enter(id);
+        navigate(`/garden/${id}`);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not open garden.");
+      }
+      return;
+    }
+
+    setPinPlayer({ id: player.id, name: player.name });
+  }
+
+  async function handlePinSubmit(pin: string) {
+    if (!pinPlayer) return;
+    await api.enter(pinPlayer.id, pin);
+    setPinPlayer(null);
+    navigate(`/garden/${pinPlayer.id}`);
+  }
+
   const { hostRef, sceneRef, ready } = useFarmPixi({
-    onPlayer: (id) => navigate(`/garden/${id}`),
+    onPlayer: (id) => {
+      void handlePlayerTap(id);
+    },
     onStore: () => setStoreOpen(true),
     onJobBoard: () => setJobsOpen(true),
   });
@@ -59,6 +98,15 @@ export default function FarmDashboard() {
             setToast(`Waiting seed planted in ${name}'s garden.`);
             window.setTimeout(() => setToast(""), 3200);
             void load();
+          }}
+        />
+      )}
+      {pinPlayer && (
+        <PinPad
+          name={pinPlayer.name}
+          onCancel={() => setPinPlayer(null)}
+          onSubmit={async (pin) => {
+            await handlePinSubmit(pin);
           }}
         />
       )}

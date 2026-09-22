@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { coverFit } from "./draw.ts";
 import {
   PLAYFIELD_LAYOUT,
   PLAYFIELD_TEXTURE,
@@ -8,7 +9,11 @@ import {
   cowRoamAvoidsGardens,
   facingFromDx,
   gardenSignName,
-  gardenSignStats,
+  gardenSignPlankLocal,
+  gardenSignPlankUv,
+  gardenSignPoints,
+  gardenSignSeeds,
+  GARDEN_SIGN_PLANKS,
   moundUv,
   pathHitsForbidden,
   readySparkleSeats,
@@ -122,9 +127,63 @@ test("sign overlays use the live child name from farm/admin data", () => {
   assert.equal(gardenSignName(""), "Garden");
 });
 
-test("garden plaques show seeds and points under the name", () => {
-  assert.equal(gardenSignStats(10, 0), "10 seeds · 0 pts");
-  assert.equal(gardenSignStats(3, 12), "3 seeds · 12 pts");
+test("garden plaques put one line on each plank", () => {
+  assert.equal(gardenSignSeeds(6), "6 seeds");
+  assert.equal(gardenSignPoints(301), "301 points");
+  assert.equal(gardenSignSeeds(10), "10 seeds");
+  assert.equal(gardenSignPoints(0), "0 points");
+  assert.equal(gardenSignSeeds(3), "3 seeds");
+  assert.equal(gardenSignPoints(12), "12 points");
+});
+
+test("sign lines stay on plank UVs at any browser size", () => {
+  assert.equal(GARDEN_SIGN_PLANKS.length, 3);
+  assert.ok(GARDEN_SIGN_PLANKS.every((plank) => plank.rotation === 0));
+  assert.ok(GARDEN_SIGN_PLANKS[0].dv < GARDEN_SIGN_PLANKS[1].dv);
+  assert.ok(GARDEN_SIGN_PLANKS[1].dv < GARDEN_SIGN_PLANKS[2].dv);
+  assert.ok(GARDEN_SIGN_PLANKS[0].maxU > GARDEN_SIGN_PLANKS[2].maxU, "bottom plank is the narrowest");
+
+  const faces = [
+    { x: 278, y: 501.5 },
+    { x: 762, y: 497.5 },
+    { x: 1241, y: 498.5 },
+  ];
+  PLAYFIELD_LAYOUT.gardens.forEach((garden, i) => {
+    assert.equal(garden.signFace.u * PLAYFIELD_TEXTURE.width, faces[i]!.x);
+    assert.equal(garden.signFace.v * PLAYFIELD_TEXTURE.height, faces[i]!.y);
+    const [name, seeds, points] = [0, 1, 2].map((plank) => gardenSignPlankUv(garden.signFace, plank));
+    assert.equal(name.u, seeds.u);
+    assert.equal(seeds.u, points.u);
+    assert.equal(name.rotation, 0);
+    assert.ok(name.v < seeds.v && seeds.v < points.v);
+    assert.equal(seeds.v, garden.signFace.v, "seeds sit on the middle plank centerline");
+    const nameLocal = gardenSignPlankLocal(garden.signFace, 0, PLAYFIELD_TEXTURE.width, PLAYFIELD_TEXTURE.height);
+    const pointsLocal = gardenSignPlankLocal(garden.signFace, 2, PLAYFIELD_TEXTURE.width, PLAYFIELD_TEXTURE.height);
+    assert.equal(nameLocal.y, faces[i]!.y - 44.5);
+    assert.equal(pointsLocal.y, faces[i]!.y + 41.5);
+    assert.equal(nameLocal.x, faces[i]!.x);
+  });
+
+  const face = PLAYFIELD_LAYOUT.gardens[1]!.signFace;
+  const full = gardenSignPlankLocal(face, 2, 1536, 1024);
+  const half = gardenSignPlankLocal(face, 2, 768, 512);
+  assert.equal(half.x, full.x / 2);
+  assert.equal(half.y, full.y / 2);
+
+  const uv = gardenSignPlankUv(face, 2);
+  for (const [w, h] of [
+    [390, 844],
+    [1600, 900],
+    [800, 600],
+  ] as const) {
+    const fit = coverFit(w, h, PLAYFIELD_TEXTURE.width, PLAYFIELD_TEXTURE.height);
+    const screenX = fit.x + full.x * fit.scale;
+    const screenY = fit.y + full.y * fit.scale;
+    const u = (screenX - fit.x) / fit.scale / PLAYFIELD_TEXTURE.width;
+    const v = (screenY - fit.y) / fit.scale / PLAYFIELD_TEXTURE.height;
+    assert.ok(Math.abs(u - uv.u) < 1e-9, `u drifts at ${w}x${h}`);
+    assert.ok(Math.abs(v - uv.v) < 1e-9, `v drifts at ${w}x${h}`);
+  }
 });
 
 test("nine playable mounds sit on measured mound peaks, not a soil-rect lerp", () => {

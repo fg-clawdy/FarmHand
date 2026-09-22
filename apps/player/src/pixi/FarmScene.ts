@@ -19,8 +19,12 @@ import {
   PLAYFIELD_TEXTURE,
   PLAYFIELD_LAYOUT,
   cowForbiddenRects,
+  gardenSignFontPx,
   gardenSignName,
-  gardenSignStats,
+  gardenSignPlankLocal,
+  gardenSignPoints,
+  gardenSignSeeds,
+  GARDEN_SIGN_PLANKS,
   moundUv,
   uvRectToLocal,
   uvToLocal,
@@ -155,6 +159,8 @@ export class FarmScene {
     const tw = tex.width || PLAYFIELD_TEXTURE.width;
     const th = tex.height || PLAYFIELD_TEXTURE.height;
     const fit = coverFit(w, h, tw, th);
+    // Sign lines are children of this container, placed in texture UV space.
+    // Resize only cover-fits the painting — do not re-place text in screen pixels.
     this.playfield.scale.set(fit.scale);
     this.playfield.position.set(fit.x, fit.y);
   }
@@ -222,19 +228,50 @@ function exposeFarmDebug(scene: FarmScene) {
   w.__farmhandJobBoard = () => scene.debugJobBoard();
 }
 
-/** Invisible garden tap target + live name on the blank wooden sign. */
+function gardenSignText(
+  fontSize: number,
+  weight: "600" | "700",
+  strokeWidth: number,
+  shadow: { alpha: number; blur: number; distance: number },
+) {
+  const text = new Text({
+    text: "",
+    style: {
+      fontFamily: "Fredoka, sans-serif",
+      fontSize,
+      fill: 0xfff6df,
+      fontWeight: weight,
+      stroke: { color: 0x2a1608, width: strokeWidth },
+      dropShadow: {
+        color: 0x140c06,
+        alpha: shadow.alpha,
+        blur: shadow.blur,
+        distance: shadow.distance,
+      },
+      align: "center",
+      wordWrap: false,
+    },
+  });
+  text.anchor.set(0.5, 0.5);
+  return text;
+}
+
+/** Invisible garden tap target + one Fredoka line on each painted sign plank. */
 class GardenHotspot {
   readonly root = new Container();
   private hit = new Graphics();
   private plaque = new Container();
   private nameText: Text;
-  private statsText: Text;
+  private seedsText: Text;
+  private pointsText: Text;
   private sparkles: SparkleField[] = [];
   private plants: Sprite[] = [];
   private markers: Graphics[] = [];
   private showMarkers = false;
   private cropScale = 0.16;
   private playerId = "";
+  private texW: number = PLAYFIELD_TEXTURE.width;
+  private texH: number = PLAYFIELD_TEXTURE.height;
   private spec: (typeof PLAYFIELD_LAYOUT.gardens)[number];
   private painted: PaintedArt;
 
@@ -246,43 +283,10 @@ class GardenHotspot {
   ) {
     this.spec = spec;
     this.painted = painted;
-    this.nameText = new Text({
-      text: "",
-      style: {
-        fontFamily: "Fredoka, sans-serif",
-        fontSize: 40,
-        fill: 0xfff6df,
-        fontWeight: "700",
-        stroke: { color: 0x2a1608, width: 5 },
-        dropShadow: {
-          color: 0x140c06,
-          alpha: 0.55,
-          blur: 4,
-          distance: 2,
-        },
-        align: "center",
-      },
-    });
-    this.nameText.anchor.set(0.5, 1);
-    this.statsText = new Text({
-      text: "",
-      style: {
-        fontFamily: "Fredoka, sans-serif",
-        fontSize: 20,
-        fill: 0xfff6df,
-        fontWeight: "600",
-        stroke: { color: 0x2a1608, width: 4 },
-        dropShadow: {
-          color: 0x140c06,
-          alpha: 0.45,
-          blur: 3,
-          distance: 1,
-        },
-        align: "center",
-      },
-    });
-    this.statsText.anchor.set(0.5, 0);
-    this.plaque.addChild(this.nameText, this.statsText);
+    this.nameText = gardenSignText(26, "700", 5, { alpha: 0.55, blur: 4, distance: 2 });
+    this.seedsText = gardenSignText(18, "600", 4, { alpha: 0.45, blur: 3, distance: 1 });
+    this.pointsText = gardenSignText(18, "600", 4, { alpha: 0.45, blur: 3, distance: 1 });
+    this.plaque.addChild(this.nameText, this.seedsText, this.pointsText);
     for (let i = 0; i < PLAYABLE_PLOT_SLOTS; i++) {
       const spr = new Sprite();
       spr.anchor.set(0.5, 1);
@@ -313,16 +317,13 @@ class GardenHotspot {
 
   place(texW: number, texH: number) {
     const rect = uvRectToLocal(this.spec.hit, texW, texH);
-    const sign = uvToLocal(this.spec.sign, texW, texH);
     this.hit.clear();
     this.hit.rect(rect.x0, rect.y0, rect.x1 - rect.x0, rect.y1 - rect.y0);
     this.hit.fill({ color: 0xffffff, alpha: 0.001 });
-    this.plaque.position.set(sign.x, sign.y);
-    const nameSize = Math.max(30, (rect.x1 - rect.x0) * 0.12);
-    this.nameText.style.fontSize = nameSize;
-    this.statsText.style.fontSize = Math.max(18, nameSize * 0.52);
-    this.nameText.position.set(0, -2);
-    this.statsText.position.set(0, 2);
+    this.texW = texW;
+    this.texH = texH;
+    this.plaque.position.set(0, 0);
+    this.placeSignLines();
     this.plants.forEach((spr, slot) => {
       const uv = moundUv(this.spec, slot);
       const p = uvToLocal(uv, texW, texH);
@@ -337,6 +338,29 @@ class GardenHotspot {
       field.setArea(FARM_MOUND_COVER_PX * 0.55, FARM_MOUND_COVER_PX * 0.42);
     });
     this.root.zIndex = 3500;
+  }
+
+  /** Plank centerlines in texture pixels. Parent cover-fit handles the viewport. */
+  private placeSignLines() {
+    const fonts = gardenSignFontPx(this.texH);
+    const lines = [this.nameText, this.seedsText, this.pointsText];
+    lines.forEach((line, i) => {
+      const local = gardenSignPlankLocal(this.spec.signFace, i, this.texW, this.texH);
+      line.position.set(local.x, local.y);
+      line.rotation = local.rotation;
+      line.style.fontSize = i === 0 ? fonts.name : fonts.stats;
+    });
+    this.fitSignLines();
+  }
+
+  private fitSignLines() {
+    const lines = [this.nameText, this.seedsText, this.pointsText];
+    lines.forEach((line, i) => {
+      const maxW = GARDEN_SIGN_PLANKS[i]!.maxU * this.texW;
+      line.scale.set(1);
+      const w = line.width;
+      if (w > maxW && w > 0) line.scale.set(maxW / w);
+    });
   }
 
   setMoundMarkers(on: boolean) {
@@ -364,12 +388,16 @@ class GardenHotspot {
   sync(player: FarmPlayerCard, accent: (typeof ACCENTS)[number]) {
     this.playerId = player.id;
     this.nameText.text = gardenSignName(player.name);
-    this.statsText.text = gardenSignStats(player.seeds + player.provisionalSeeds, player.points);
+    this.seedsText.text = gardenSignSeeds(player.seeds + player.provisionalSeeds);
+    this.pointsText.text = gardenSignPoints(player.points);
     this.nameText.style.fill = 0xfff6df;
-    this.statsText.style.fill = 0xfff6df;
+    this.seedsText.style.fill = 0xfff6df;
+    this.pointsText.style.fill = 0xfff6df;
     const stroke = { color: Number(accent.border.replace("#", "0x")), width: 5 };
     this.nameText.style.stroke = stroke;
-    this.statsText.style.stroke = { ...stroke, width: 4 };
+    this.seedsText.style.stroke = { ...stroke, width: 4 };
+    this.pointsText.style.stroke = { ...stroke, width: 4 };
+    this.fitSignLines();
     const plots = Array.from({ length: PLAYABLE_PLOT_SLOTS }, (_, slot) => player.plots?.find((p) => p.slot === slot));
     this.sparkles.forEach((field, slot) => {
       field.setActive(Boolean(plots[slot]?.ready));

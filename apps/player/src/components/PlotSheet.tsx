@@ -6,9 +6,8 @@ import Sheet from "./Sheet";
 export default function PlotSheet({
   plot,
   cropName,
-  player,
+  player: _player,
   onWater,
-  onFertilize,
   onPrune,
   onClose,
   onNeedSelfie,
@@ -17,9 +16,9 @@ export default function PlotSheet({
 }: {
   plot: PublicPlot;
   cropName: string;
-  player: GardenPlayer;
+  /** @deprecated Fertilizer disabled — incomplete, future phase. */
+  player?: GardenPlayer;
   onWater: () => void;
-  onFertilize: () => void;
   onPrune?: () => void;
   onClose: () => void;
   onNeedSelfie: () => void;
@@ -65,9 +64,7 @@ export default function PlotSheet({
             >
               {selfieUnlocked ? "Water (−1h)" : "Take today's selfie to water"}
             </button>
-            <button className="btn primary" type="button" disabled={player.fertilizer < 1} onClick={onFertilize}>
-              Fertilize
-            </button>
+            {/* Fertilize button removed — incomplete, future phase. */}
           </>
         )}
         <button className="btn ghost" type="button" onClick={onClose}>

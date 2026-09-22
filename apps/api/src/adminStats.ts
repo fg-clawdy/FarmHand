@@ -15,7 +15,11 @@ export type CropMix = {
 };
 
 function emptyCounts(): Record<CropKind, number> {
-  return { corn: 0, strawberry: 0, cotton: 0 };
+  const counts = {} as Record<CropKind, number>;
+  for (const kind of CROP_KINDS) {
+    counts[kind] = 0;
+  }
+  return counts;
 }
 
 function pctOf(counts: Record<CropKind, number>, total: number): Record<CropKind, number> {
@@ -84,6 +88,7 @@ export type Economy = {
   pointsAwarded: number;
   seedsSpent: number;
   seedsReturned: number;
+  shardsEarned: number;
   netSeeds: number;
 };
 
@@ -98,15 +103,24 @@ export function economyFromLogs(logs: readonly LogRow[], config: GameConfig): Ec
   let pointsAwarded = 0;
   let seedsSpent = 0;
   let seedsReturned = 0;
+  let shardsEarned = 0;
   for (const log of logs) {
-    const details = (log.details ?? {}) as { tier?: number; points?: number; seedsReturned?: number };
+    const details = (log.details ?? {}) as {
+      tier?: number;
+      points?: number;
+      seedsReturned?: number;
+      seedsFromShards?: number;
+      shardsEarned?: number;
+    };
     if (log.action === "plant") {
       plants += 1;
       seedsSpent += costByTier.get(details.tier ?? 0) ?? 0;
     } else if (log.action === "harvest") {
       harvests += 1;
       pointsAwarded += details.points ?? pointsByTier.get(details.tier ?? 0) ?? 0;
-      seedsReturned += details.seedsReturned ?? config.harvestSeedReturn;
+      // New shard-based reward: use seedsFromShards if present, fall back to legacy seedsReturned
+      seedsReturned += details.seedsFromShards ?? details.seedsReturned ?? config.harvestSeedReturn;
+      shardsEarned += details.shardsEarned ?? 0;
     } else if (log.action === "watering") {
       waterings += 1;
     } else if (log.action === "login") {
@@ -124,6 +138,7 @@ export function economyFromLogs(logs: readonly LogRow[], config: GameConfig): Ec
     pointsAwarded,
     seedsSpent,
     seedsReturned,
+    shardsEarned,
     netSeeds: seedsReturned - seedsSpent,
   };
 }
@@ -155,7 +170,10 @@ export function balanceKnobs(config: GameConfig) {
     wateringCooldownMinutes: config.wateringCooldownMinutes,
     wateringMaxPerDay: config.wateringMaxPerDay,
     wateringReductionMinutes: config.wateringReductionMinutes,
-    harvestSeedReturn: config.harvestSeedReturn,
+    harvestSeedReturn: config.harvestSeedReturn, // DEPRECATED
+    shardsPerSeed: config.shardsPerSeed,
+    seedRewardBandUpperBounds: config.seedRewardBandUpperBounds,
+    seedRewardBandPayouts: config.seedRewardBandPayouts,
     mixYield: config.mixYield,
     plotCount: config.plotCount,
     jobBoardPosterDwellSeconds: config.jobBoardPosterDwellSeconds,
@@ -167,6 +185,7 @@ export function balanceKnobs(config: GameConfig) {
       durationMinutes: tier.durationMinutes,
       points: tier.points,
       fertilizerReductionMinutes: tier.fertilizerReductionMinutes,
+      shardRefund: tier.shardRefund,
     })),
   };
 }

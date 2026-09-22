@@ -110,7 +110,8 @@ describe("serializePlot", () => {
 
   it("uses distinct stage emojis while growing", () => {
     const plantedAt = new Date("2026-01-01T00:00:00.000Z");
-    const now = new Date("2026-01-01T02:00:00.000Z");
+    // At 10 min into a 24 h grow cycle (0.7% progress) → stage 1 → 🌱 sprout
+    const now = new Date("2026-01-01T00:10:00.000Z");
     const plot = serializePlot(
       {
         slot: 0,

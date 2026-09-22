@@ -15,6 +15,10 @@ export const CROP_SHEET_HEIGHT: Record<CropKind, number> = {
   corn: 854,
   strawberry: 464,
   cotton: 623,
+  /** Placeholders — art not yet painted. Use corn dimensions. */
+  tomato: 854,
+  pumpkin: 854,
+  sunflower: 854,
 };
 
 type Disc = { x: number; y: number; d: number };
@@ -41,6 +45,25 @@ export const CROP_DISC_IN_CELL: Record<CropKind, readonly Disc[]> = {
     { x: 210, y: 504, d: 320 },
     { x: 208, y: 511, d: 307 },
     { x: 228, y: 501, d: 322 },
+  ],
+  /** Placeholders — art not yet painted. Reuse corn disc measurements. */
+  tomato: [
+    { x: 240, y: 763, d: 316 },
+    { x: 236, y: 768, d: 312 },
+    { x: 239, y: 766, d: 300 },
+    { x: 223, y: 766, d: 311 },
+  ],
+  pumpkin: [
+    { x: 240, y: 763, d: 316 },
+    { x: 236, y: 768, d: 312 },
+    { x: 239, y: 766, d: 300 },
+    { x: 223, y: 766, d: 311 },
+  ],
+  sunflower: [
+    { x: 240, y: 763, d: 316 },
+    { x: 236, y: 768, d: 312 },
+    { x: 239, y: 766, d: 300 },
+    { x: 223, y: 766, d: 311 },
   ],
 };
 
@@ -89,6 +112,10 @@ export const PAINTED_ART = {
     corn: "/art/painted/plants/plant_corn_stages.png?v=3blossom",
     strawberry: "/art/painted/plants/plant_strawberry_stages.png?v=3blossom",
     cotton: "/art/painted/plants/plant_cotton_stages.png?v=3blossom",
+    /** Placeholders — art not yet painted for these crops. */
+    tomato: "/art/painted/plants/plant_tomato_stages.png?v=1",
+    pumpkin: "/art/painted/plants/plant_pumpkin_stages.png?v=1",
+    sunflower: "/art/painted/plants/plant_sunflower_stages.png?v=1",
   },
 } as const;
 

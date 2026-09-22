@@ -1,10 +1,12 @@
 import { clampJobBoardPosterDwell, DEFAULT_GAME_CONFIG, formatJobBoardReward, JOB_BOARD_V1_REWARD_SEED_COUNT } from "@farmhand/shared";
-import { Container, Graphics, Sprite, Text } from "pixi.js";
+import { Assets, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 import { CORKBOARD_HANG, WANTED_POSTER_PAPER_INSET, type PaintedArt } from "./paintedAssets";
 import { PLAYFIELD_LAYOUT, uvRectToLocal } from "./playfieldLayout";
 
 export type WantedJob = {
   id: string;
+  slug?: string;
+  flyerUrl?: string | null;
   title: string;
   emoji: string;
   priority: string;
@@ -15,8 +17,8 @@ export type WantedJob = {
 
 /** Placeholder chores so Farm QA can preview the board without `/api/farm/jobs`. */
 export const PLACEHOLDER_WANTED_JOBS: WantedJob[] = [
-  { id: "placeholder-dishes", title: "Dishes", emoji: "🍽️", priority: "NORMAL", rewardSeedCount: JOB_BOARD_V1_REWARD_SEED_COUNT },
-  { id: "placeholder-dog", title: "Walk the dog", emoji: "🐕", priority: "CRITICAL", rewardSeedCount: JOB_BOARD_V1_REWARD_SEED_COUNT },
+  { id: "placeholder-dishes", slug: "dishes", title: "Dishes", emoji: "🍽️", priority: "NORMAL", rewardSeedCount: JOB_BOARD_V1_REWARD_SEED_COUNT },
+  { id: "placeholder-dog", slug: "walk-the-dog", title: "Walk the dog", emoji: "🐕", priority: "CRITICAL", rewardSeedCount: JOB_BOARD_V1_REWARD_SEED_COUNT },
 ];
 
 function easeOutBack(t: number) {
@@ -27,6 +29,13 @@ function easeOutBack(t: number) {
 
 /** Sheet cells: 0 pinned paper, 1 tearing paper, 2 empty (unused), 3 pinning paper. */
 const WANTED_FRAME = { pinned: 0, tearing: 1, pinning: 3 } as const;
+
+function flyerUrlFor(job: WantedJob | null): string | null {
+  if (!job) return null;
+  if (job.flyerUrl) return job.flyerUrl;
+  if (job.slug) return `/api/media/wanted/${job.slug}.png`;
+  return null;
+}
 
 /**
  * Ground stake Job Board: standing corkboard stays planted; only the paper
@@ -48,6 +57,9 @@ export class CorkboardHotspot {
   private restY = 0;
   private baseScale = 1;
   private frames: PaintedArt["wantedPosterFrames"];
+  private flyerById = new Map<string, Texture>();
+  private activeFlyer: Texture | null = null;
+  private loadToken = 0;
 
   constructor(painted: PaintedArt, texW: number, texH: number, onOpen: () => void) {
     const rect = uvRectToLocal(PLAYFIELD_LAYOUT.jobBoardHit, texW, texH);
@@ -56,7 +68,6 @@ export class CorkboardHotspot {
     this.root.position.set(rect.x0, rect.y0);
     this.frames = painted.wantedPosterFrames;
 
-    // Standing corkboard with posts — anchor bottom-center, feet at bottom of hit rect.
     this.board = new Sprite(painted.corkboard);
     this.board.anchor.set(0.5, 1);
     const artW = painted.corkboard.width || 721;
@@ -65,14 +76,14 @@ export class CorkboardHotspot {
     this.board.scale.set(boardScale);
     this.board.position.set(w / 2, h);
 
-    // Paper-only poster nested on the cork face (not the posts).
     this.poster.anchor.set(0.5);
     this.poster.texture = this.frames[WANTED_FRAME.pinned] ?? painted.corkboard;
     const posterH = this.poster.texture.height || WANTED_POSTER_PAPER_INSET.h;
     const posterW = this.poster.texture.width || WANTED_POSTER_PAPER_INSET.w;
     const faceW = CORKBOARD_HANG.w * boardScale;
     const faceH = CORKBOARD_HANG.h * boardScale;
-    this.baseScale = Math.min((faceW * 0.72) / posterW, (faceH * 0.78) / posterH);
+    // Nearly fill the cork face (nested chore→poster→board).
+    this.baseScale = Math.min((faceW * 0.92) / posterW, (faceH * 0.9) / posterH);
     const faceCenterFromBottom = (artH - (CORKBOARD_HANG.y + CORKBOARD_HANG.h / 2)) * boardScale;
     this.restX = w / 2;
     this.restY = h - faceCenterFromBottom;
@@ -123,7 +134,7 @@ export class CorkboardHotspot {
     this.root.eventMode = "static";
     this.root.cursor = "pointer";
     this.root.on("pointerup", onOpen);
-    this.paintPoster(this.jobs[0] ?? null);
+    void this.paintPoster(this.jobs[0] ?? null);
   }
 
   setJobs(jobs: WantedJob[], dwellSeconds?: number) {
@@ -136,7 +147,7 @@ export class CorkboardHotspot {
       this.phase = "show";
       this.phaseT = 0;
       this.resetPosterPose();
-      this.paintPoster(this.jobs[0] ?? null);
+      void this.paintPoster(this.jobs[0] ?? null);
     }
   }
 
@@ -162,15 +173,14 @@ export class CorkboardHotspot {
     }
     if (this.phase === "tear") {
       const p = Math.min(1, this.phaseT / 0.5);
-      // Paper only — never swap to cell 2 (empty frame).
       this.setFrame(WANTED_FRAME.tearing);
       this.poster.rotation = p * 0.45;
       this.poster.position.set(this.restX + p * 22, this.restY + p * 48);
       this.poster.alpha = 1 - p * 0.85;
-      this.copy.visible = p < 0.55;
+      this.copy.visible = p < 0.55 && !this.activeFlyer;
       if (p >= 1) {
         this.index = (this.index + 1) % this.jobs.length;
-        this.paintPoster(this.jobs[this.index] ?? null);
+        void this.paintPoster(this.jobs[this.index] ?? null);
         this.phase = "pin";
         this.phaseT = 0;
         this.poster.rotation = -0.08;
@@ -178,7 +188,7 @@ export class CorkboardHotspot {
         this.poster.alpha = 1;
         this.poster.scale.set(this.baseScale * 0.35);
         this.setFrame(WANTED_FRAME.pinning);
-        this.copy.visible = true;
+        this.copy.visible = !this.activeFlyer;
       }
       return;
     }
@@ -209,6 +219,11 @@ export class CorkboardHotspot {
   }
 
   private setFrame(i: number) {
+    // Resting / pinned: prefer baked chore flyer. Tear & pin use sheet frames.
+    if (i === WANTED_FRAME.pinned && this.activeFlyer) {
+      if (this.poster.texture !== this.activeFlyer) this.poster.texture = this.activeFlyer;
+      return;
+    }
     const frame = this.frames[i] ?? this.frames[0];
     if (frame && this.poster.texture !== frame) this.poster.texture = frame;
   }
@@ -218,15 +233,45 @@ export class CorkboardHotspot {
     this.poster.alpha = 1;
     this.poster.scale.set(this.baseScale);
     this.poster.position.set(this.restX, this.restY);
-    this.copy.visible = true;
+    this.copy.visible = !this.activeFlyer;
   }
 
-  private paintPoster(job: WantedJob | null) {
+  private async paintPoster(job: WantedJob | null) {
+    const token = ++this.loadToken;
     const critical = job?.priority === "CRITICAL";
     this.poster.tint = critical ? 0xffe6d2 : 0xffffff;
+
+    const url = flyerUrlFor(job);
+    let flyer: Texture | null = null;
+    if (job && url) {
+      flyer = this.flyerById.get(job.id) ?? null;
+      if (!flyer) {
+        try {
+          const tex = await Assets.load<Texture>(url);
+          if (token !== this.loadToken) return;
+          flyer = tex;
+          this.flyerById.set(job.id, tex);
+        } catch {
+          flyer = null;
+        }
+      }
+    }
+    if (token !== this.loadToken) return;
+
+    this.activeFlyer = flyer;
+    if (flyer) {
+      this.emojiText.visible = false;
+      this.rewardText.visible = false;
+      this.copy.visible = false;
+      this.setFrame(WANTED_FRAME.pinned);
+      return;
+    }
+
+    this.copy.visible = true;
     this.emojiText.text = job?.emoji || "";
     this.emojiText.visible = Boolean(job?.emoji);
     this.emojiText.position.set(0, -4);
+    this.rewardText.visible = true;
     this.rewardText.text = formatJobBoardReward(job);
     this.rewardText.position.set(0, job ? 52 : 8);
     this.setFrame(WANTED_FRAME.pinned);

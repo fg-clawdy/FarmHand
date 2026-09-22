@@ -129,7 +129,7 @@ export class GardenScene {
     const n = this.slots[slot];
     if (n) this.fx.burst(n.root.x, n.root.y - 20, "fert");
   }
-  fxHarvest(slot: number, reward?: { points: number; seedsReturned: number }) {
+  fxHarvest(slot: number, reward?: { points: number; seedsFromShards: number }) {
     const n = this.slots[slot];
     if (!n) return;
     n.celebrateHarvest();
@@ -137,8 +137,8 @@ export class GardenScene {
     this.fx.burst(n.root.x, n.root.y - 70, "harvest");
     const bits: string[] = [];
     if (reward && reward.points > 0) bits.push(`+${reward.points} ★`);
-    if (reward && reward.seedsReturned > 0) {
-      bits.push(`+${reward.seedsReturned} seed${reward.seedsReturned === 1 ? "" : "s"}`);
+    if (reward && reward.seedsFromShards > 0) {
+      bits.push(`+${reward.seedsFromShards} seed${reward.seedsFromShards === 1 ? "" : "s"}`);
     }
     if (!bits.length) return;
     const text = new Text({

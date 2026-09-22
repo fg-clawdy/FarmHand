@@ -69,6 +69,7 @@ function card(id: string, name: string, plots: PublicPlot[]): FarmPlayerCard {
     provisionalSeeds: 0,
     points: 12,
     fertilizer: 1,
+    seedShards: 0,
     canWater: true,
     plots,
     hasPin: false,

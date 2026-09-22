@@ -1,4 +1,5 @@
 import type { ChoreAssignmentMode, ChoreRecurrence } from "./choreCatalog.js";
+import type { GameConfig } from "./types.js";
 
 export type ClaimGate = {
   ok: boolean;
@@ -56,6 +57,30 @@ export function closedPeriodKey(status: "DENIED" | "DONE", claimId: string): str
 /** NONE chores reuse periodKey "open" until the claim is finished (deny or harvest). */
 export function recurrenceFreesOnHarvest(recurrence: ChoreRecurrence): boolean {
   return recurrence === "NONE";
+}
+
+/** Resolve the seed reward for a chore claim using the band system.
+ *
+ * Priority:
+ * 1. Per-chore `seedReward` override (if non-null).
+ * 2. If `difficulty` is null, fall back to legacy 1 seed.
+ * 3. Walk the `seedRewardBandUpperBounds` array; the first band whose upper
+ *    bound is >= difficulty determines the payout.
+ * 4. If difficulty exceeds all bands, use the last band's payout.
+ */
+export function resolveSeedReward(
+  chore: { seedReward?: number | null; difficulty?: number | null },
+  config: GameConfig,
+): number {
+  if (chore.seedReward != null) return chore.seedReward;
+  if (chore.difficulty == null) return 1;
+  const d = chore.difficulty;
+  for (let i = 0; i < config.seedRewardBandUpperBounds.length; i++) {
+    if (d <= config.seedRewardBandUpperBounds[i]) {
+      return config.seedRewardBandPayouts[i];
+    }
+  }
+  return config.seedRewardBandPayouts[config.seedRewardBandPayouts.length - 1];
 }
 
 export type JobBoardRewardKind = "seed" | "super_seed";

@@ -177,6 +177,7 @@ export function publicPlayer(player: {
   provisionalSeeds: number;
   points: number;
   fertilizer: number;
+  seedShards: number;
   moonDew: number;
   growGoo: number;
   phoenixAsh: number;
@@ -213,6 +214,7 @@ export function publicPlayer(player: {
     provisionalSeeds: player.provisionalSeeds,
     points: player.points,
     fertilizer: player.fertilizer,
+    seedShards: player.seedShards,
     ingredients: {
       moonDew: player.moonDew,
       growGoo: player.growGoo,

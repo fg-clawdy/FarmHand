@@ -23,10 +23,17 @@ export type GardenPlayer = {
   seeds: number;
   provisionalSeeds: number;
   points: number;
+  /** Shard fragments accumulated toward the next seed. */
+  seedShards: number;
+  /** @deprecated Fertilizer is disabled — incomplete, future phase. */
   fertilizer: number;
+  /** @deprecated Ingredients are disabled — incomplete, future phase. */
   ingredients: { moonDew: number; growGoo: number; phoenixAsh: number };
+  /** @deprecated Ingredients are disabled — incomplete, future phase. */
   claimedIngredientToday: boolean;
+  /** @deprecated Ingredients are disabled — incomplete, future phase. */
   nextIngredient: { id: string; name: string; emoji: string };
+  /** @deprecated Ingredients are disabled — incomplete, future phase. */
   canMix: boolean;
   hasPin: boolean;
   isActive: boolean;
@@ -54,6 +61,7 @@ export type PublicChore = {
   reason: string | null;
   claimed: boolean;
   claimedByOther: boolean;
+  flyerUrl?: string;
 };
 
 export type FamilyJob = {
@@ -68,11 +76,17 @@ export type FamilyJob = {
   rewardSeedCount?: number;
   rewardSeedKind?: "seed" | "super_seed";
   rewardLabel?: string;
+  flyerUrl?: string;
 };
 
 export type HarvestReward = {
   points: number;
-  seedsReturned: number;
+  /** Whole seeds converted from accumulated shards (the new shard-based reward). */
+  seedsFromShards: number;
+  /** Shards earned from this harvest (before shard-to-seed conversion). */
+  shardsEarned: number;
+  /** Shards remaining after conversion. */
+  remainingShards: number;
   emoji: string;
   name: string;
   kind?: CropKind;

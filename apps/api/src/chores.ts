@@ -8,12 +8,14 @@ import {
   compareClaimsForInbox,
   JOB_BOARD_V1_REWARD_SEED_COUNT,
   recurrenceFreesOnHarvest,
+  resolveSeedReward,
   serializePlot,
   type ChorePriority,
   type GameConfig,
 } from "@farmhand/shared";
 import { Prisma, type Chore, type PrismaClient } from "@prisma/client";
 import { prisma } from "./db.js";
+import { ensureWantedFlyer, wantedFlyerPublicUrl } from "./wantedFlyer.js";
 import { chorePeriod } from "./tz.js";
 import { recordAccoladeEvent } from "./accolades.js";
 import { loadConfig } from "./game.js";
@@ -46,27 +48,45 @@ export async function seedChoreCatalog() {
   for (const [index, row] of CHORE_CATALOG.entries()) {
     const assignmentMode = assignmentModeForSeed(row);
     const existing = await prisma.chore.findUnique({ where: { slug: row.slug } });
-    if (existing) continue;
-    await prisma.chore.create({
-      data: {
-        slug: row.slug,
-        title: row.title,
-        emoji: row.emoji,
-        description: row.description,
-        recurrence: row.recurrence,
-        timeOfDay: row.timeOfDay,
-        priority: row.priority,
-        estimatedMinutes: row.estimatedMinutes,
-        requiresApproval: row.requiresApproval,
-        requiresSelfie: row.requiresSelfie,
-        allowsSkip: row.allowsSkip,
-        isGlobal: row.isGlobal,
-        includeInPath: row.includeInPath,
-        isActive: row.isActive,
-        legacyPoints: row.legacyPoints,
-        assignmentMode,
-        sortOrder: index + 1,
-      },
+    if (!existing) {
+      await prisma.chore.create({
+        data: {
+          slug: row.slug,
+          title: row.title,
+          emoji: row.emoji,
+          description: row.description,
+          recurrence: row.recurrence,
+          timeOfDay: row.timeOfDay,
+          priority: row.priority,
+          estimatedMinutes: row.estimatedMinutes,
+          requiresApproval: row.requiresApproval,
+          requiresSelfie: row.requiresSelfie,
+          allowsSkip: row.allowsSkip,
+          isGlobal: row.isGlobal,
+          includeInPath: row.includeInPath,
+          isActive: row.isActive,
+          legacyPoints: row.legacyPoints,
+          difficulty: row.difficulty,
+          seedReward: row.seedReward,
+          assignmentMode,
+          sortOrder: index + 1,
+        },
+      });
+    }
+    await ensureWantedFlyer({
+      slug: row.slug,
+      title: row.title,
+      emoji: row.emoji,
+      rewardLabel: "+1 SEED",
+    });
+  }
+  const extras = await prisma.chore.findMany();
+  for (const chore of extras) {
+    await ensureWantedFlyer({
+      slug: chore.slug,
+      title: chore.title,
+      emoji: chore.emoji,
+      rewardLabel: "+1 SEED",
     });
   }
 }
@@ -119,6 +139,7 @@ export function publicChore(
     reason: gate.ok ? null : gate.reason ?? null,
     claimed: alreadyClaimedByPlayer,
     claimedByOther: chore.assignmentMode === "RACE" && raceTaken && !alreadyClaimedByPlayer,
+    flyerUrl: wantedFlyerPublicUrl(chore.slug),
   };
 }
 
@@ -153,6 +174,7 @@ export type FamilyOpenJob = {
   rewardSeedCount: number;
   rewardSeedKind?: "seed" | "super_seed";
   rewardLabel?: string;
+  flyerUrl: string;
 };
 
 export async function listFamilyOpenChores(timezone: string, now = new Date()): Promise<FamilyOpenJob[]> {
@@ -162,6 +184,7 @@ export async function listFamilyOpenChores(timezone: string, now = new Date()): 
     prisma.choreClaim.findMany({ select: { choreId: true, playerId: true, periodKey: true } }),
     prisma.choreRaceSlot.findMany({ select: { choreId: true, periodKey: true } }),
   ]);
+  const config = await loadConfig();
   const activePlayerIds = players.map((row) => row.id);
   const raceTakenKeys = new Set(raceSlots.map((row) => `${row.choreId}:${row.periodKey}`));
   const jobs: FamilyOpenJob[] = [];
@@ -190,8 +213,9 @@ export async function listFamilyOpenChores(timezone: string, now = new Date()): 
       assignmentMode: chore.assignmentMode,
       requiresSelfie: chore.requiresSelfie,
       sortOrder: chore.sortOrder,
-      rewardSeedCount: JOB_BOARD_V1_REWARD_SEED_COUNT,
+      rewardSeedCount: resolveSeedReward(chore, config),
       rewardSeedKind: "seed",
+      flyerUrl: wantedFlyerPublicUrl(chore.slug),
     });
   }
   return jobs.sort(compareChoresForParent);
@@ -255,6 +279,7 @@ export async function claimChore(opts: {
         }
 
         // Create the claim (no slot or plantTier yet — seed goes to pouch)
+        const jobSeedReward = resolveSeedReward(chore, config);
         const claim = await tx.choreClaim.create({
           data: {
             choreId: chore.id,
@@ -262,14 +287,17 @@ export async function claimChore(opts: {
             periodKey: period.key,
             status: "PENDING",
             proofJpegPath: opts.proofPath ?? null,
+            rewardSeedCount: jobSeedReward,
           },
         });
 
-        // Add provisional seed to pouch
-        await tx.player.update({
-          where: { id: opts.playerId },
-          data: { provisionalSeeds: { increment: 1 } },
-        });
+        // Add provisional seeds to pouch
+        if (jobSeedReward > 0) {
+          await tx.player.update({
+            where: { id: opts.playerId },
+            data: { provisionalSeeds: { increment: jobSeedReward } },
+          });
+        }
 
         await tx.activityLog.create({
           data: {

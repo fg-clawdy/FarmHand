@@ -54,44 +54,93 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
     { id: "growGoo", name: "Grow Goo", emoji: "🟢" },
     { id: "phoenixAsh", name: "Phoenix Ash", emoji: "🔥" },
   ],
+  /** 6-tier crop ladder with escalating seed cost, duration, and shard refund. */
   tiers: [
     {
       tier: 1,
       kind: "corn",
       emoji: "🌽",
       name: "Sweet Corn",
-      seedCost: FLAT_TIER_SEED_COST,
-      durationMinutes: FLAT_TIER_DURATION_MINUTES,
-      points: FLAT_TIER_POINTS,
+      seedCost: 1,
+      durationMinutes: 24 * 60,
+      points: 10,
+      shardRefund: 1,
       fertilizerReductionMinutes: 4 * 60,
       stages: ["🌱", "🌿", "🌽", "🌽"],
       faces: ["😌", "🙂", "😊", "😄"],
     },
     {
       tier: 2,
-      kind: "strawberry",
-      emoji: "🍓",
-      name: "Strawberry",
-      seedCost: FLAT_TIER_SEED_COST,
-      durationMinutes: FLAT_TIER_DURATION_MINUTES,
-      points: FLAT_TIER_POINTS,
+      kind: "cotton",
+      emoji: "☁️",
+      name: "Cotton",
+      seedCost: 2,
+      durationMinutes: 24 * 60,
+      points: 20,
+      shardRefund: 2,
       fertilizerReductionMinutes: 6 * 60,
-      stages: ["🌱", "🌿", "🌸", "🍓"],
+      stages: ["🌱", "🌿", "🟢", "☁️"],
       faces: ["😌", "🙂", "😊", "😄"],
     },
     {
       tier: 3,
-      kind: "cotton",
-      emoji: "☁️",
-      name: "Cotton",
-      seedCost: FLAT_TIER_SEED_COST,
-      durationMinutes: FLAT_TIER_DURATION_MINUTES,
-      points: FLAT_TIER_POINTS,
+      kind: "tomato",
+      emoji: "🍅",
+      name: "Heirloom Tomato",
+      seedCost: 4,
+      durationMinutes: 24 * 60,
+      points: 40,
+      shardRefund: 4,
       fertilizerReductionMinutes: 8 * 60,
-      stages: ["🌱", "🌿", "🟢", "☁️"],
+      stages: ["🌱", "🌿", "🟢", "🍅"],
+      faces: ["😌", "🙂", "😊", "😄"],
+    },
+    {
+      tier: 4,
+      kind: "strawberry",
+      emoji: "🍓",
+      name: "Strawberry",
+      seedCost: 6,
+      durationMinutes: 24 * 60,
+      points: 60,
+      shardRefund: 6,
+      fertilizerReductionMinutes: 10 * 60,
+      stages: ["🌱", "🌿", "🌸", "🍓"],
+      faces: ["��", "🙂", "😊", "😄"],
+    },
+    {
+      tier: 5,
+      kind: "pumpkin",
+      emoji: "🎃",
+      name: "Giant Pumpkin",
+      seedCost: 8,
+      durationMinutes: 24 * 60,
+      points: 80,
+      shardRefund: 8,
+      fertilizerReductionMinutes: 12 * 60,
+      stages: ["🌱", "🌿", "🎃", "🎃"],
+      faces: ["😌", "🙂", "😊", "😄"],
+    },
+    {
+      tier: 6,
+      kind: "sunflower",
+      emoji: "🌻",
+      name: "Sunflower",
+      seedCost: 10,
+      durationMinutes: 24 * 60,
+      points: 100,
+      shardRefund: 10,
+      fertilizerReductionMinutes: 14 * 60,
+      stages: ["🌱", "🌿", "🌻", "🌻"],
       faces: ["😌", "🙂", "😊", "😄"],
     },
   ],
+  /** How many shards = 1 full seed. Default 10. */
+  shardsPerSeed: 10,
+  /** Upper bound (inclusive) of each seed-reward band. */
+  seedRewardBandUpperBounds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  /** Seeds rewarded for a chore whose difficulty falls into each band. */
+  seedRewardBandPayouts: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
 };
 
 const LEGACY_TIER_NAMES = new Set(["Prairie Daisy", "Kitchen Herbs", "Sunflower", "Homestead Oak"]);
@@ -137,13 +186,10 @@ export function mergeGameConfig(raw: unknown): GameConfig {
         if (isLegacyTierEconomy(match)) {
           return {
             ...tier,
-            ...match,
-            kind: match.kind ?? tier.kind,
-            stages: match.stages ?? tier.stages,
-            faces: match.faces ?? tier.faces,
             seedCost: tier.seedCost,
             durationMinutes: tier.durationMinutes,
             points: tier.points,
+            fertilizerReductionMinutes: match.fertilizerReductionMinutes ?? tier.fertilizerReductionMinutes,
           };
         }
         return { ...tier, ...match, kind: match.kind ?? tier.kind, stages: match.stages ?? tier.stages, faces: match.faces ?? tier.faces };
@@ -181,5 +227,22 @@ export function mergeGameConfig(raw: unknown): GameConfig {
       typeof incoming.balanceGoals === "string" ? incoming.balanceGoals : DEFAULT_GAME_CONFIG.balanceGoals,
     tiers,
     ingredients,
+    shardsPerSeed: clampInt(incoming.shardsPerSeed, 1, 100, DEFAULT_GAME_CONFIG.shardsPerSeed),
+    seedRewardBandUpperBounds: validateBandArrays(incoming.seedRewardBandUpperBounds, incoming.seedRewardBandPayouts).bounds,
+    seedRewardBandPayouts: validateBandArrays(incoming.seedRewardBandUpperBounds, incoming.seedRewardBandPayouts).payouts,
   };
+}
+
+function validateBandArrays(
+  rawBounds: unknown,
+  rawPayouts: unknown,
+): { bounds: number[]; payouts: number[] } {
+  const bounds = Array.isArray(rawBounds) ? rawBounds.filter((v): v is number => typeof v === "number" && v > 0) : [];
+  const payouts = Array.isArray(rawPayouts) ? rawPayouts.filter((v): v is number => typeof v === "number" && v >= 0) : [];
+  // Must be same length; if mismatched, trim to the shorter and ensure non-empty.
+  const len = Math.min(bounds.length, payouts.length);
+  if (len === 0) {
+    return { bounds: DEFAULT_GAME_CONFIG.seedRewardBandUpperBounds, payouts: DEFAULT_GAME_CONFIG.seedRewardBandPayouts };
+  }
+  return { bounds: bounds.slice(0, len), payouts: payouts.slice(0, len) };
 }

@@ -2,11 +2,10 @@ import { PLOTS_PER_GARDEN, type GameConfig, type PublicPlot } from "@farmhand/sh
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, type AccoladeUnlock, type GardenPlayer, type HarvestReward, type PublicChore } from "../api";
-import { AcornArt, BackArrow, FertilizerBeaker, MascotArt, SceneShell, StarIcon } from "../art";
+import { AcornArt, BackArrow, MascotArt, SceneShell, StarIcon } from "../art";
 import HarvestCelebration from "../components/HarvestCelebration";
 import AccoladeCelebration from "../components/AccoladeCelebration";
 import AccoladePanel from "../components/AccoladePanel";
-import IngredientsSheet from "../components/IngredientsSheet";
 import JobBoard, { NeedJobsNudge } from "../components/JobBoard";
 import PinPad from "../components/PinPad";
 import PlantPicker from "../components/PlantPicker";
@@ -18,6 +17,7 @@ import {
   cropNameForPlot,
   gardenTapAction,
   GARDEN_TOOL_ART,
+  GARDEN_TOOL_ART_LOCKED,
   GARDEN_TOOL_LABEL,
   GARDEN_TOOLS,
   glowingSlots,
@@ -29,7 +29,6 @@ import { useGardenPixi } from "../pixi/usePixi";
 type Overlay =
   | { type: "picker"; slot: number }
   | { type: "plot"; slot: number }
-  | { type: "ingredients" }
   | { type: "selfie" }
   | { type: "chores" }
   | { type: "need-jobs" }
@@ -136,11 +135,21 @@ export default function Garden() {
 
   if (needsPin) {
     return (
-      <PinPad
-        name={playerName}
-        onCancel={() => navigate("/")}
-        onSubmit={async (pin) => enter(pin)}
-      />
+      <>
+        <SceneShell dim className="screen">
+          <div className="topbar">
+            <button className="back" type="button" onClick={() => navigate("/")}>
+              <BackArrow />
+            </button>
+            <div className="who">Opening the garden…</div>
+          </div>
+        </SceneShell>
+        <PinPad
+          name={playerName}
+          onCancel={() => navigate("/")}
+          onSubmit={async (pin) => enter(pin)}
+        />
+      </>
     );
   }
 
@@ -214,7 +223,7 @@ function GardenPlay({
   const selfieUnlocked = player.selfie?.unlocked ?? player.water.unlocked ?? false;
   const cooldownRemainingMs = Math.max(0, player.water.cooldownRemainingMs - elapsed);
   const canWater = selfieUnlocked && player.water.canWater && cooldownRemainingMs === 0;
-  const toolCtx = { seeds: player.seeds + player.provisionalSeeds, fertilizer: player.fertilizer, canWater, cheapestSeed };
+  const toolCtx = { seeds: player.seeds + player.provisionalSeeds, canWater, cheapestSeed };
   const [gain, setGain] = useState<HarvestReward | null>(null);
   const [badgeQueue, setBadgeQueue] = useState<AccoladeUnlock[]>([]);
   const [jobToast, setJobToast] = useState(false);
@@ -247,7 +256,7 @@ function GardenPlay({
   }, [overlay?.type]);
   const glow = useMemo(
     () => glowingSlots(tool, plots, toolCtx),
-    [tool, plots, player.seeds, player.provisionalSeeds, player.fertilizer, canWater, cheapestSeed, selfieUnlocked],
+    [tool, plots, player.seeds, player.provisionalSeeds, canWater, cheapestSeed, selfieUnlocked],
   );
 
   const { hostRef, sceneRef, ready } = useGardenPixi((slot) => {
@@ -287,14 +296,6 @@ function GardenPlay({
         const data = await api.water(slot);
         sceneRef.current?.fxWater(slot);
         noteUnlocks(data.unlocks);
-        return data.player;
-      });
-      return;
-    }
-    if (action === "fert") {
-      void run(async () => {
-        const data = await api.fertilize(slot);
-        sceneRef.current?.fxFertilizer(slot);
         return data.player;
       });
       return;
@@ -342,17 +343,16 @@ function GardenPlay({
             <StarIcon /> {player.points}
             {gain && gain.points > 0 && <span className="meter-delta">+{gain.points}</span>}
           </div>
-          <div className={`meter ${gain && gain.seedsReturned > 0 ? "bump" : ""}`}>
+          <div className={`meter ${gain && gain.seedsFromShards > 0 ? "bump" : ""}`}>
             <AcornArt /> {player.seeds + player.provisionalSeeds}
-            {gain && gain.seedsReturned > 0 && <span className="meter-delta">+{gain.seedsReturned}</span>}
+            {gain && gain.seedsFromShards > 0 && <span className="meter-delta">+{gain.seedsFromShards}</span>}
           </div>
-          <div className="meter">
-            <FertilizerBeaker /> {player.fertilizer}
+          {/* Shard meter: fills toward 1 seed. Fertilizer removed — incomplete, future phase. */}
+          <div className={`meter shard-meter ${gain && gain.shardsEarned > 0 ? "bump" : ""}`}>
+            <span className="shard-icon" aria-hidden="true">💎</span>
+            <span className="shard-count">{player.seedShards}/{config.shardsPerSeed}</span>
+            {gain && gain.shardsEarned > 0 && <span className="meter-delta">+{gain.shardsEarned}</span>}
           </div>
-          <button className="icon-btn" type="button" onClick={() => setOverlay({ type: "ingredients" })}>
-            <FertilizerBeaker />
-            <span>+</span>
-          </button>
           <button
             className="icon-btn profile-btn"
             type="button"
@@ -374,17 +374,6 @@ function GardenPlay({
       <div className="garden-tools" role="toolbar" aria-label="Garden tools">
         <button
           type="button"
-          className={`garden-tool selfie-tool ${selfieUnlocked ? "done" : ""}`}
-          aria-label={selfieUnlocked ? "Today's selfie is done" : "Take today's selfie"}
-          onClick={() => setOverlay({ type: "selfie" })}
-        >
-          <span className="selfie-tool-icon" aria-hidden="true">
-            {selfieUnlocked ? "✓" : "📸"}
-          </span>
-          <span>Selfie</span>
-        </button>
-        <button
-          type="button"
           className="garden-tool selfie-tool"
           aria-label="Job Board"
           onClick={() => setOverlay({ type: "chores" })}
@@ -396,23 +385,25 @@ function GardenPlay({
         </button>
         {GARDEN_TOOLS.map((id) => {
           const remaining =
-            id === "water" ? (selfieUnlocked ? player.water.wateringsLeft : 0) : id === "fert" ? player.fertilizer : null;
+            id === "water" ? (selfieUnlocked ? player.water.wateringsLeft : 0) : null;
           const label = GARDEN_TOOL_LABEL[id];
+          const locked = id === "water" && !selfieUnlocked;
+          const artSrc = locked ? (GARDEN_TOOL_ART_LOCKED[id] ?? GARDEN_TOOL_ART[id]) : GARDEN_TOOL_ART[id];
           return (
             <button
               key={id}
               type="button"
-              className={`garden-tool ${tool === id ? "selected" : ""} ${id === "water" && !selfieUnlocked ? "locked" : ""}`}
+              className={`garden-tool ${tool === id ? "selected" : ""} ${locked ? "locked" : ""}`}
               aria-pressed={tool === id}
               aria-label={
-                id === "water" && !selfieUnlocked
+                locked
                   ? "Water locked. Take today's selfie."
                   : remaining == null
                     ? label
                     : `${label}, ${remaining} remaining`
               }
               onClick={() => {
-                if (id === "water" && !selfieUnlocked) {
+                if (locked) {
                   setOverlay({ type: "selfie" });
                   return;
                 }
@@ -424,7 +415,7 @@ function GardenPlay({
                 setTool(tool === id ? null : id);
               }}
             >
-              <img src={GARDEN_TOOL_ART[id]} alt="" draggable={false} />
+              <img src={artSrc} alt="" draggable={false} />
               <span>{label}</span>
               {remaining != null && <span className="tool-count">{remaining}</span>}
             </button>
@@ -526,16 +517,9 @@ function GardenPlay({
               return data.player;
             })
           }
-          onFertilize={() =>
-            void run(async () => {
-              const data = await api.fertilize(overlay.slot);
-              sceneRef.current?.fxFertilizer(overlay.slot);
-              return data.player;
-            })
-          }
         />
       )}
-      {gain && <HarvestCelebration reward={gain} />}
+      {gain && <HarvestCelebration reward={gain} config={config} />}
       {badgeQueue[0] && <AccoladeCelebration unlock={badgeQueue[0]} />}
       {overlay?.type === "badges" && <AccoladePanel onClose={() => setOverlay(null)} />}
       {overlay?.type === "profile" && <ProfileSheet onClose={() => setOverlay(null)} />}
@@ -544,26 +528,6 @@ function GardenPlay({
           <div className="harvest-banner-title">🌱 Waiting seed planted!</div>
           <p className="harvest-note">A grown-up will check it</p>
         </div>
-      )}
-      {overlay?.type === "ingredients" && (
-        <IngredientsSheet
-          player={player}
-          config={config}
-          busy={busy}
-          onClose={() => setOverlay(null)}
-          onClaim={() =>
-            void run(async () => {
-              const data = await api.claimIngredient();
-              return data.player;
-            })
-          }
-          onMix={() =>
-            void run(async () => {
-              const data = await api.mix();
-              return data.player;
-            })
-          }
-        />
       )}
       {error && <div className="toast">{error}</div>}
       {tool === "water" && !selfieUnlocked && (

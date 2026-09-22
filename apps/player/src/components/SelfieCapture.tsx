@@ -88,7 +88,7 @@ export default function SelfieCapture({
       const data = await api.submitSelfie(image);
       const reward =
         data.reward.seedsReturned > 0
-          ? { points: 0, seedsReturned: data.reward.seedsReturned, emoji: "📸", name: "Selfie" }
+          ? { points: 0, seedsFromShards: data.reward.seedsReturned, shardsEarned: 0, remainingShards: 0, emoji: "📸", name: "Selfie" }
           : null;
       onSuccess(data.player, reward, data.unlocks);
     } catch (err) {

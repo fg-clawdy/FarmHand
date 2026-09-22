@@ -3,6 +3,12 @@ import type { FamilyJob, GardenPlayer, PublicChore } from "../api";
 import JobCoach from "./JobCoach";
 import Sheet from "./Sheet";
 
+function flyerSrc(chore: { slug?: string; flyerUrl?: string | null }) {
+  if (chore.flyerUrl) return chore.flyerUrl;
+  if (chore.slug) return `/api/media/wanted/${chore.slug}.png`;
+  return null;
+}
+
 export function NeedJobsNudge({ onClose, onOpenJobs }: { onClose: () => void; onOpenJobs: () => void }) {
   return (
     <JobCoach
@@ -205,28 +211,47 @@ export default function JobBoard({
   );
 }
 
+type JobCardChore = {
+  id: string;
+  title: string;
+  emoji: string;
+  priority: string;
+  slug?: string;
+  flyerUrl?: string | null;
+  requiresSelfie?: boolean;
+  reason?: string | null;
+};
+
 function JobCard({
   chore,
   muted = false,
   onPick,
 }: {
-  chore: { id: string; title: string; emoji: string; priority: string; requiresSelfie?: boolean; reason?: string | null };
+  chore: JobCardChore;
   muted?: boolean;
   onPick?: () => void;
 }) {
   const critical = chore.priority === "CRITICAL";
+  const flyer = flyerSrc(chore);
   return (
     <button
       type="button"
-      className={`job-card ${critical ? "critical" : ""} ${muted ? "muted" : ""}`}
+      className={`job-card ${critical ? "critical" : ""} ${muted ? "muted" : ""} ${flyer ? "has-flyer" : ""}`}
       disabled={muted}
       onClick={() => onPick?.()}
+      aria-label={chore.title}
     >
       <span className="job-card-pin" aria-hidden="true">
         {critical ? "📌" : "📎"}
       </span>
-      <span className="job-card-emoji">{chore.emoji}</span>
-      <b className="job-card-title">{chore.title}</b>
+      {flyer ? (
+        <img className="job-card-flyer" src={flyer} alt="" draggable={false} />
+      ) : (
+        <>
+          <span className="job-card-emoji">{chore.emoji}</span>
+          <b className="job-card-title">{chore.title}</b>
+        </>
+      )}
       <span className="job-chip">+1 waiting seed</span>
       {chore.requiresSelfie && <span className="job-photo">Needs a photo</span>}
       {muted && chore.reason && <small className="job-reason">{chore.reason}</small>}

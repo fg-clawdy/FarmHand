@@ -12,6 +12,12 @@ import { GARDEN_PLOT_COLS, PLOTS_PER_GARDEN } from "@farmhand/shared";
  *   center sign  ~ (760, 492)  = UV (0.495, 0.480)
  *   right sign   ~ (1221, 496) = UV (0.795, 0.484)
  *
+ * Live sign copy does not use those plaque points. It sits on the three plank
+ * faces (`gardens[].signFace` + `GARDEN_SIGN_PLANKS`). Those values are fractions
+ * of this texture. Cover-fit scales the whole playfield on resize, so the lines
+ * stay on the boards at any browser size — never place them in screen pixels.
+ * Measured gaps between boards are level (rotation 0).
+ *
  * Only the animated cow is drawn. Barn, tractor, hay, market stand, corkboard
  * (ground stake), and the three garden fences (full 3×3 soil + plaques) are
  * solid blockers.
@@ -49,6 +55,8 @@ export const PLAYFIELD_LAYOUT = {
     {
       hit: { u0: 0.02, v0: 0.4, u1: 0.32, v1: 0.9 } satisfies UvRect,
       sign: { u: 0.163, v: 0.484 } satisfies Uv,
+      /** Middle plank face center (texture px 278, 501.5). Not the plaque `sign` point. */
+      signFace: { u: 278 / 1536, v: 501.5 / 1024 } satisfies Uv,
       soil: { u0: 0.09, v0: 0.62, u1: 0.27, v1: 0.78 } satisfies UvRect,
       /** Clawdy white-peak approved (home playfield, 1536×1024). */
       mounds: [
@@ -66,6 +74,8 @@ export const PLAYFIELD_LAYOUT = {
     {
       hit: { u0: 0.34, v0: 0.4, u1: 0.66, v1: 0.9 } satisfies UvRect,
       sign: { u: 0.495, v: 0.48 } satisfies Uv,
+      /** Middle plank face center (texture px 762, 497.5). */
+      signFace: { u: 762 / 1536, v: 497.5 / 1024 } satisfies Uv,
       soil: { u0: 0.41, v0: 0.62, u1: 0.59, v1: 0.78 } satisfies UvRect,
       /** Clawdy white-peak approved (home playfield, 1536×1024). */
       mounds: [
@@ -83,6 +93,8 @@ export const PLAYFIELD_LAYOUT = {
     {
       hit: { u0: 0.66, v0: 0.4, u1: 0.99, v1: 0.9 } satisfies UvRect,
       sign: { u: 0.795, v: 0.484 } satisfies Uv,
+      /** Middle plank face center (texture px 1241, 498.5). */
+      signFace: { u: 1241 / 1536, v: 498.5 / 1024 } satisfies Uv,
       soil: { u0: 0.72, v0: 0.62, u1: 0.91, v1: 0.78 } satisfies UvRect,
       /** Clawdy white-peak approved (home playfield, 1536×1024). */
       mounds: [
@@ -243,8 +255,54 @@ export function gardenSignName(name: string) {
   return name.trim() || "Garden";
 }
 
-export function gardenSignStats(seeds: number, points: number) {
-  return `${seeds} seeds · ${points} pts`;
+export function gardenSignSeeds(seeds: number) {
+  return `${seeds} seeds`;
+}
+
+export function gardenSignPoints(points: number) {
+  return `${points} points`;
+}
+
+export type GardenSignPlank = {
+  /** Offset from `gardens[].signFace.v`, as a fraction of texture height. */
+  dv: number;
+  /** Radians along the plank centerline. Painted gaps are level, so 0. */
+  rotation: number;
+  /** Max line width as a fraction of texture width, so glyphs stay on that plank. */
+  maxU: number;
+};
+
+/**
+ * One line per painted board, shared by left/center/right.
+ * Pitch measured on the 1536×1024 playfield: name 44.5px above the middle
+ * plank, points 41.5px below. `maxU` fits the narrowest garden's face
+ * (right bottom plank is ~178px) with a margin so stroke does not spill.
+ *
+ * Screen size is not an input. Convert with `gardenSignPlankLocal`, then let
+ * `coverFit` scale the playfield container — the same transform as the painting.
+ */
+export const GARDEN_SIGN_PLANKS = [
+  { dv: -44.5 / PLAYFIELD_TEXTURE.height, rotation: 0, maxU: 200 / PLAYFIELD_TEXTURE.width },
+  { dv: 0, rotation: 0, maxU: 186 / PLAYFIELD_TEXTURE.width },
+  { dv: 41.5 / PLAYFIELD_TEXTURE.height, rotation: 0, maxU: 150 / PLAYFIELD_TEXTURE.width },
+] as const satisfies readonly GardenSignPlank[];
+
+/** Name is slightly smaller than the old 40px plaque style so it fits plank 1. Stats match the smaller line. */
+export function gardenSignFontPx(texH: number) {
+  const scale = texH / PLAYFIELD_TEXTURE.height;
+  return { name: 26 * scale, stats: 18 * scale };
+}
+
+export function gardenSignPlankUv(signFace: Uv, plankIndex: number): Uv & { rotation: number } {
+  const plank = GARDEN_SIGN_PLANKS[plankIndex]!;
+  return { u: signFace.u, v: signFace.v + plank.dv, rotation: plank.rotation };
+}
+
+/** Texture-local pixels. Independent of the browser viewport. */
+export function gardenSignPlankLocal(signFace: Uv, plankIndex: number, texW: number, texH: number) {
+  const uv = gardenSignPlankUv(signFace, plankIndex);
+  const p = uvToLocal(uv, texW, texH);
+  return { x: p.x, y: p.y, rotation: uv.rotation };
 }
 
 /**

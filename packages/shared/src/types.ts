@@ -19,7 +19,7 @@ export type PlotPhase = "empty" | "growing" | "purgatory" | "wilted";
 export const GARDEN_PLOT_COLS = 3;
 export const PLOTS_PER_GARDEN = 9;
 
-export const CROP_KINDS = ["corn", "strawberry", "cotton"] as const;
+export const CROP_KINDS = ["corn", "cotton", "tomato", "strawberry", "pumpkin", "sunflower"] as const;
 export type CropKind = (typeof CROP_KINDS)[number];
 
 export function cropKindForTier(tier: number | null | undefined): CropKind {
@@ -35,6 +35,8 @@ export type PlantTier = {
   seedCost: number;
   durationMinutes: number;
   points: number;
+  /** Shards returned at harvest (before shard-to-seed conversion). */
+  shardRefund: number;
   fertilizerReductionMinutes: number;
   stages: [string, string, string, string];
   faces: [string, string, string, string];
@@ -67,6 +69,12 @@ export type GameConfig = {
   balanceGoals: string;
   ingredients: IngredientDef[];
   tiers: PlantTier[];
+  /** How many shards = 1 full seed. Default 10. */
+  shardsPerSeed: number;
+  /** Upper bound (inclusive) of each seed-reward band. Length = number of bands. */
+  seedRewardBandUpperBounds: number[];
+  /** Seeds rewarded for a chore whose difficulty falls into each band. */
+  seedRewardBandPayouts: number[];
 };
 
 export type PublicPlot = {
@@ -100,4 +108,5 @@ export type FarmPlayerCard = {
   hasPin: boolean;
   unlocked: boolean;
   isActive: boolean;
+  seedShards: number;
 };

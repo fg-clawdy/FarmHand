@@ -383,60 +383,9 @@ export async function playerRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post("/api/plots/:slot/fertilize", async (request, reply) => {
-    const session = await requirePlayer(request, reply);
-    if (!session) return;
-    const slot = Number((request.params as { slot: string }).slot);
-    const config = await loadConfig();
-
-    try {
-      const result = await withLockedPlayer(session.playerId, async (tx, lockedPlayer) => {
-        // Re-read fertilizer AFTER lock — prevents concurrent fertilizes from
-        // both passing the balance check on the same pre-lock snapshot.
-        const plot = await tx.plot.findFirst({
-          where: { playerId: session.playerId, slot },
-        });
-        if (!plot || plotIsEmpty(plot)) {
-          throw Object.assign(new Error("Nothing to fertilize yet."), { statusCode: 400 });
-        }
-        const serialized = serializePlot(plot, config);
-        if (serialized.state === "purgatory") {
-          throw Object.assign(new Error("That plant is waiting for a grown-up."), { statusCode: 400 });
-        }
-        if (serialized.state === "wilted") {
-          throw Object.assign(new Error("Prune that wilted plant first."), { statusCode: 400 });
-        }
-        if (!plot.plantedAt || !plot.plantTier) {
-          throw Object.assign(new Error("Nothing to fertilize yet."), { statusCode: 400 });
-        }
-        if (serialized.ready) {
-          throw Object.assign(new Error("That plant is ready to harvest."), { statusCode: 400 });
-        }
-        if (lockedPlayer.fertilizer < 1) {
-          throw Object.assign(new Error("No fertilizer left. Mix some in the shed."), { statusCode: 400 });
-        }
-        const tier = getTier(config, plot.plantTier);
-        await tx.player.update({
-          where: { id: session.playerId },
-          data: { fertilizer: { decrement: 1 } },
-        });
-        await tx.plot.update({
-          where: { id: plot.id },
-          data: { fertilizerReductionMinutes: { increment: tier.fertilizerReductionMinutes } },
-        });
-        await tx.activityLog.create({
-          data: { playerId: session.playerId, action: "fertilizer", details: { slot, tier: plot.plantTier } },
-        });
-        return tx.player.findUniqueOrThrow({
-          where: { id: session.playerId },
-          include: { plots: { orderBy: { slot: "asc" } } },
-        });
-      });
-      return { player: publicPlayer(result, config, true) };
-    } catch (err) {
-      const e = err as Error & { statusCode?: number };
-      return reply.code(e.statusCode ?? 400).send({ error: e.message });
-    }
+  /** Fertilizer disabled — incomplete, reserved for a future phase. */
+  app.post("/api/plots/:slot/fertilize", async (_request, reply) => {
+    return reply.code(501).send({ error: "Fertilizer is not available yet. Coming in a future update!" });
   });
 
   app.post("/api/plots/:slot/harvest", async (request, reply) => {
@@ -460,11 +409,21 @@ export async function playerRoutes(app: FastifyInstance) {
           throw Object.assign(new Error("That plant is still growing."), { statusCode: 400 });
         }
         const tier = getTier(config, lockedPlot.plantTier);
+        // Shard-based harvest: add shard refund, then convert accumulated shards to whole seeds.
+        const player = await tx.player.findUniqueOrThrow({
+          where: { id: session.playerId },
+          select: { seedShards: true },
+        });
+        const currentShards = player.seedShards;
+        const totalShards = currentShards + (tier.shardRefund ?? 0);
+        const seedsFromShards = Math.floor(totalShards / config.shardsPerSeed);
+        const remainingShards = totalShards % config.shardsPerSeed;
         await tx.player.update({
           where: { id: session.playerId },
           data: {
             points: { increment: tier.points },
-            seeds: { increment: config.harvestSeedReturn },
+            seeds: { increment: seedsFromShards },
+            seedShards: remainingShards,
           },
         });
         await releaseClaimIfNeeded(tx, lockedPlot, "harvest");
@@ -476,7 +435,14 @@ export async function playerRoutes(app: FastifyInstance) {
           data: {
             playerId: session.playerId,
             action: "harvest",
-            details: { slot, tier: tier.tier, points: tier.points, seedsReturned: config.harvestSeedReturn },
+            details: {
+              slot,
+              tier: tier.tier,
+              points: tier.points,
+              shardsEarned: tier.shardRefund ?? 0,
+              seedsFromShards,
+              remainingShards,
+            },
           },
         });
         await appendStarEvent(tx, {
@@ -501,7 +467,9 @@ export async function playerRoutes(app: FastifyInstance) {
           unlocks,
           reward: {
             points: tier.points,
-            seedsReturned: config.harvestSeedReturn,
+            shardsEarned: tier.shardRefund ?? 0,
+            seedsFromShards,
+            remainingShards,
             emoji: tier.emoji,
             name: tier.name,
             kind: tier.kind,
@@ -602,77 +570,14 @@ export async function playerRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post("/api/ingredients/claim", async (request, reply) => {
-    const session = await requirePlayer(request, reply);
-    if (!session) return;
-    const config = await loadConfig();
-    const today = todayKey(config.timezone);
-
-    try {
-      const result = await withLockedPlayer(session.playerId, async (tx, lockedPlayer) => {
-        // Re-read claim date AFTER lock — prevents concurrent claims from
-        // both passing the "already claimed today" check.
-        if (lockedPlayer.lastIngredientClaimDate === today) {
-          throw Object.assign(new Error("You already claimed today's ingredient."), { statusCode: 400 });
-        }
-        const ingredient = config.ingredients[lockedPlayer.nextIngredientIndex % config.ingredients.length];
-        const data: Record<string, unknown> = {
-          lastIngredientClaimDate: today,
-          nextIngredientIndex: (lockedPlayer.nextIngredientIndex + 1) % config.ingredients.length,
-        };
-        if (ingredient.id === "moonDew") data.moonDew = { increment: 1 };
-        if (ingredient.id === "growGoo") data.growGoo = { increment: 1 };
-        if (ingredient.id === "phoenixAsh") data.phoenixAsh = { increment: 1 };
-        await tx.player.update({ where: { id: session.playerId }, data });
-        await tx.activityLog.create({
-          data: { playerId: session.playerId, action: "ingredient_claim", details: { ingredient: ingredient.id } },
-        });
-        return { ingredient, player: await tx.player.findUniqueOrThrow({
-          where: { id: session.playerId },
-          include: { plots: { orderBy: { slot: "asc" } } },
-        }) };
-      });
-      return { player: publicPlayer(result.player, config, true), claimed: result.ingredient };
-    } catch (err) {
-      const e = err as Error & { statusCode?: number };
-      return reply.code(e.statusCode ?? 400).send({ error: e.message });
-    }
+  /** Ingredient claim disabled — fertilizer is incomplete, reserved for a future phase. */
+  app.post("/api/ingredients/claim", async (_request, reply) => {
+    return reply.code(501).send({ error: "Ingredient claiming is not available yet. Coming in a future update!" });
   });
 
-  app.post("/api/ingredients/mix", async (request, reply) => {
-    const session = await requirePlayer(request, reply);
-    if (!session) return;
-    const config = await loadConfig();
-
-    try {
-      const result = await withLockedPlayer(session.playerId, async (tx, lockedPlayer) => {
-        // Re-read ingredients AFTER lock — prevents concurrent mixes from
-        // both passing the balance check on the same pre-lock snapshot.
-        if (lockedPlayer.moonDew < 1 || lockedPlayer.growGoo < 1 || lockedPlayer.phoenixAsh < 1) {
-          throw Object.assign(new Error("Need one of each ingredient to mix fertilizer."), { statusCode: 400 });
-        }
-        await tx.player.update({
-          where: { id: session.playerId },
-          data: {
-            moonDew: { decrement: 1 },
-            growGoo: { decrement: 1 },
-            phoenixAsh: { decrement: 1 },
-            fertilizer: { increment: config.mixYield },
-          },
-        });
-        await tx.activityLog.create({
-          data: { playerId: session.playerId, action: "mix_fertilizer", details: { yield: config.mixYield } },
-        });
-        return tx.player.findUniqueOrThrow({
-          where: { id: session.playerId },
-          include: { plots: { orderBy: { slot: "asc" } } },
-        });
-      });
-      return { player: publicPlayer(result, config, true) };
-    } catch (err) {
-      const e = err as Error & { statusCode?: number };
-      return reply.code(e.statusCode ?? 400).send({ error: e.message });
-    }
+  /** Mix disabled — fertilizer is incomplete, reserved for a future phase. */
+  app.post("/api/ingredients/mix", async (_request, reply) => {
+    return reply.code(501).send({ error: "Mixing ingredients is not available yet. Coming in a future update!" });
   });
 
   app.get("/api/store/catalog", async () => {
