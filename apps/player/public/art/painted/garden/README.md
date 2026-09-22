@@ -6,7 +6,8 @@
 | --- | --- |
 | `garden_zoom_3x3.jpg` | Cover-fit garden zoom background |
 | `tool_seeds.png` | Seeds bag tool |
-| `tool_water.png` | Watering can tool |
+| `tool_water.png` | Watering can tool (unlocked for the day) |
+| `tool_water_locked.png` | Watering can locked — show until today’s selfie unlocks water |
 | `tool_fert.png` | Fertilizer beaker tool |
 
 Mound UVs live in `apps/player/src/pixi/gardenLayout.ts`.
