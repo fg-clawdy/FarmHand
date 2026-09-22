@@ -35,6 +35,15 @@ export function isLegacyTierEconomy(tier: {
   );
 }
 
+
+/** True when every stored tier still has the old flat seedCost=1 lock. */
+export function isFlatSeedCostTable(
+  tiers: Array<{ seedCost?: number }> | undefined,
+): boolean {
+  if (!tiers?.length) return false;
+  return tiers.every((tier) => Number(tier.seedCost) === FLAT_TIER_SEED_COST);
+}
+
 export const DEFAULT_GAME_CONFIG: GameConfig = {
   timezone: "America/Chicago",
   sessionMinutes: 30,
@@ -169,6 +178,7 @@ export function mergeGameConfig(raw: unknown): GameConfig {
   const incoming = raw && typeof raw === "object" ? (raw as Partial<GameConfig>) : {};
   const incomingTiers = Array.isArray(incoming.tiers) ? incoming.tiers : undefined;
   const legacy = incomingTiers?.some((t) => t?.name && LEGACY_TIER_NAMES.has(t.name));
+  const flatSeeds = isFlatSeedCostTable(incomingTiers);
   const tiers = incomingTiers
     ? DEFAULT_GAME_CONFIG.tiers.map((tier) => {
         const match = incomingTiers.find((t) => t.tier === tier.tier);
@@ -177,7 +187,7 @@ export function mergeGameConfig(raw: unknown): GameConfig {
           const flatten = isLegacyTierEconomy(match);
           return {
             ...tier,
-            seedCost: flatten ? tier.seedCost : (match.seedCost ?? tier.seedCost),
+            seedCost: flatten || flatSeeds ? tier.seedCost : (match.seedCost ?? tier.seedCost),
             durationMinutes: flatten ? tier.durationMinutes : (match.durationMinutes ?? tier.durationMinutes),
             points: flatten ? tier.points : (match.points ?? tier.points),
             fertilizerReductionMinutes: match.fertilizerReductionMinutes ?? tier.fertilizerReductionMinutes,
@@ -192,7 +202,19 @@ export function mergeGameConfig(raw: unknown): GameConfig {
             fertilizerReductionMinutes: match.fertilizerReductionMinutes ?? tier.fertilizerReductionMinutes,
           };
         }
-        return { ...tier, ...match, kind: match.kind ?? tier.kind, stages: match.stages ?? tier.stages, faces: match.faces ?? tier.faces };
+        const merged = {
+          ...tier,
+          ...match,
+          kind: match.kind ?? tier.kind,
+          stages: match.stages ?? tier.stages,
+          faces: match.faces ?? tier.faces,
+        };
+        // Flat economy locked every crop to 1 seed; restore the tiered seed ladder
+        // while keeping whatever durationMinutes the live DB currently has (e.g. TEST=1).
+        if (flatSeeds) {
+          merged.seedCost = tier.seedCost;
+        }
+        return merged;
       })
     : DEFAULT_GAME_CONFIG.tiers;
 
