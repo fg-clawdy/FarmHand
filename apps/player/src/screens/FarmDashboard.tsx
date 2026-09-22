@@ -1,5 +1,5 @@
 import { type FarmPlayerCard, type GameConfig } from "@farmhand/shared";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type FamilyJob } from "../api";
 import AvatarPicker from "../components/AvatarPicker";
@@ -77,7 +77,7 @@ export default function FarmDashboard() {
     setPinPlayer({ id: player.id, name: player.name });
   }
 
-  async function handlePinSubmit(pin: string) {
+  const handlePinSubmit = useCallback(async (pin: string) => {
     if (!pinPlayer) return;
     const after = pinPlayer.after ?? "garden";
     const id = pinPlayer.id;
@@ -89,7 +89,9 @@ export default function FarmDashboard() {
       return;
     }
     navigate(`/garden/${id}`);
-  }
+  }, [pinPlayer, navigate, players]);
+
+  const handlePinCancel = useCallback(() => setPinPlayer(null), []);
 
   const { hostRef, sceneRef, ready } = useFarmPixi({
     onPlayer: (id) => {
@@ -140,9 +142,14 @@ export default function FarmDashboard() {
 
   useEffect(() => {
     void load();
+  }, []);
+
+  // Pause farm polling while PIN is open so digit taps aren't fighting Pixi/tree setState.
+  useEffect(() => {
+    if (pinPlayer) return;
     const t = setInterval(() => void load(), 8000);
     return () => clearInterval(t);
-  }, []);
+  }, [pinPlayer]);
 
   useEffect(() => {
     sceneRef.current?.setPlayers(players);
@@ -204,10 +211,8 @@ export default function FarmDashboard() {
       {pinPlayer && (
         <PinPad
           name={pinPlayer.name}
-          onCancel={() => setPinPlayer(null)}
-          onSubmit={async (pin) => {
-            await handlePinSubmit(pin);
-          }}
+          onCancel={handlePinCancel}
+          onSubmit={handlePinSubmit}
         />
       )}
       {toast && <div className="toast">{toast}</div>}
