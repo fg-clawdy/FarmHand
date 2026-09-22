@@ -723,7 +723,52 @@ button.who.profile-entry:active {
 .tier.disabled { opacity: 0.4; }
 .tier-art { width: 96px; height: 112px; margin: 0 auto; }
 .tier b { display: block; font-size: 15px; margin-bottom: 6px; }
-.picker-intro { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.picker-intro {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  color: #fff8e6;
+  font-weight: 800;
+  text-shadow:
+    0 0 6px rgba(42, 22, 8, 0.95),
+    0 1px 0 #3a2410,
+    0 2px 0 #2a1608,
+    0 -1px 0 rgba(42, 22, 8, 0.55);
+  -webkit-text-stroke: 0.6px rgba(42, 22, 8, 0.55);
+  paint-order: stroke fill;
+}
+.picker-intro .inline-art {
+  filter: drop-shadow(0 1px 0 #2a1608) drop-shadow(0 0 3px rgba(255, 248, 230, 0.7));
+}
+.tier-recommended {
+  border-color: #f0b429;
+  box-shadow:
+    0 6px 0 #5c3218,
+    inset 0 2px 0 #fff,
+    0 0 0 3px rgba(255, 229, 106, 0.55),
+    0 0 18px rgba(255, 210, 80, 0.55);
+  animation: tierRecommendPulse 2.4s ease-in-out infinite;
+}
+@keyframes tierRecommendPulse {
+  0%, 100% {
+    box-shadow:
+      0 6px 0 #5c3218,
+      inset 0 2px 0 #fff,
+      0 0 0 3px rgba(255, 229, 106, 0.4),
+      0 0 12px rgba(255, 210, 80, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 6px 0 #5c3218,
+      inset 0 2px 0 #fff,
+      0 0 0 4px rgba(255, 229, 106, 0.7),
+      0 0 22px rgba(255, 210, 80, 0.65);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tier-recommended { animation: none; }
+}
 
 /* PIN pad modal overlay */
 .pin-backdrop {
@@ -914,7 +959,8 @@ button.who.profile-entry:active {
   opacity: 0.72;
 }
 .garden-tool.selfie-tool {
-  width: 88px;
+  /* Match Water/Seeds unselected footprint so Chores isn't a smaller button. */
+  width: 108px;
   min-height: 112px;
 }
 .garden-tool.selfie-tool.done {
@@ -925,7 +971,7 @@ button.who.profile-entry:active {
   height: 72px;
   display: grid;
   place-items: center;
-  font-size: 40px;
+  font-size: 42px;
   line-height: 1;
 }
 .selfie-copy {
@@ -1402,3 +1448,91 @@ button.who.profile-entry:active {
   .store-btn { width: 28vw; }
   .tier-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Coloring-book harvest acorn meter (white page + green fill) */
+.harvest-acorn-stage {
+  position: absolute;
+  left: 50%;
+  top: 7.5rem;
+  transform: translateX(-50%);
+  z-index: 40;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.harvest-acorn {
+  width: min(44vw, 240px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  filter: drop-shadow(0 10px 18px rgba(40, 22, 8, 0.32));
+  will-change: transform, opacity;
+}
+.harvest-acorn-meter {
+  position: relative;
+  width: min(44vw, 240px);
+  aspect-ratio: 347 / 426;
+}
+.harvest-acorn-page,
+.harvest-acorn-fill,
+.harvest-acorn-ticks,
+.harvest-acorn-outline {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+.harvest-acorn-page {
+  z-index: 1;
+}
+.harvest-acorn-fill {
+  z-index: 2;
+  transition: clip-path 0.38s cubic-bezier(.2,.85,.25,1);
+}
+.harvest-acorn-ticks {
+  z-index: 3;
+}
+.harvest-acorn-outline {
+  z-index: 4;
+}
+.harvest-acorn-label {
+  margin-top: 0.15rem;
+  font-family: Fredoka, sans-serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: #fff6df;
+  -webkit-text-stroke: 3px #3a2410;
+  paint-order: stroke fill;
+  text-shadow: 0 2px 0 rgba(0,0,0,0.25);
+}
+.harvest-acorn.celebrate {
+  animation: acorn-pop 0.9s ease;
+}
+.harvest-acorn.celebrate .harvest-acorn-fill {
+  filter: brightness(1.12) saturate(1.2);
+  transition: filter 0.35s ease, clip-path 0.38s cubic-bezier(.2,.85,.25,1);
+}
+@keyframes acorn-pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.12) rotate(-3deg); }
+  55% { transform: scale(1.06) rotate(2deg); }
+  100% { transform: scale(1); }
+}
+.meter.seed-meter[data-acorn-flash="out"] .seed-count {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.meter.seed-meter[data-acorn-flash="gold"] .seed-count {
+  color: #e8b923;
+  text-shadow: 0 0 12px rgba(255, 210, 80, 0.9);
+  animation: seed-gold-in 0.35s ease;
+}
+@keyframes seed-gold-in {
+  from { opacity: 0; transform: scale(1.35); }
+  to { opacity: 1; transform: scale(1); }
+}
+
