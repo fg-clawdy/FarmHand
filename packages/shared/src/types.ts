@@ -99,6 +99,9 @@ export type FarmPlayerCard = {
   id: string;
   name: string;
   mascot: Mascot;
+  avatarKind?: string;
+  avatarPreset?: string | null;
+  avatarUrl?: string | null;
   seeds: number;
   provisionalSeeds: number;
   points: number;

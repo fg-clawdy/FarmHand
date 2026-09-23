@@ -1,0 +1,4 @@
+// Merge into model Player (APPLY.ps1 / patch_api.mjs):
+//   avatarKind         String   @default("mascot")
+//   avatarPreset       String?
+//   avatarSelfieFile   String?

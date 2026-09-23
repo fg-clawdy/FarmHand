@@ -20,6 +20,9 @@ export type GardenPlayer = {
   id: string;
   name: string;
   mascot: FarmPlayerCard["mascot"];
+  avatarKind?: string;
+  avatarPreset?: string | null;
+  avatarUrl?: string | null;
   seeds: number;
   provisionalSeeds: number;
   points: number;
@@ -54,6 +57,7 @@ export type PublicChore = {
   priority: string;
   requiresApproval: boolean;
   requiresSelfie: boolean;
+  allowsSkip?: boolean;
   includeInPath: boolean;
   assignmentMode: string;
   periodKey: string;
@@ -62,6 +66,8 @@ export type PublicChore = {
   claimed: boolean;
   claimedByOther: boolean;
   flyerUrl?: string;
+  /** Farm-wide HEAT 0–100 from ChoreHeat (optional). */
+  heatScore?: number;
 };
 
 export type FamilyJob = {
@@ -73,10 +79,34 @@ export type FamilyJob = {
   priority: string;
   assignmentMode: string;
   requiresSelfie: boolean;
+  allowsSkip?: boolean;
   rewardSeedCount?: number;
   rewardSeedKind?: "seed" | "super_seed";
   rewardLabel?: string;
   flyerUrl?: string;
+};
+
+
+export type ReviewPeriodKey = "day" | "week" | "season" | "all";
+
+export type ReviewKpis = {
+  label: string;
+  rangeLabel: string;
+  starsEarned: number;
+  harvests: number;
+  freeSeeds: number;
+  plantings: number;
+  waterings: number;
+  choresDone: number;
+  selfies: number;
+  badges: number;
+  daysPlayed: number;
+};
+
+export type PlayerReview = {
+  timezone: string;
+  seasonKey: string;
+  periods: Record<ReviewPeriodKey, ReviewKpis>;
 };
 
 export type HarvestReward = {
@@ -185,7 +215,7 @@ export type PlayerStore = StarWallet & {
 };
 
 export type KidProfile = {
-  player: { id: string; name: string; mascot: GardenPlayer["mascot"]; garden: string };
+  player: { id: string; name: string; mascot: GardenPlayer["mascot"]; garden: string; avatarKind?: string; avatarPreset?: string | null; avatarUrl?: string | null };
   wallet: StarWallet;
   pouch: { seeds: number; provisionalSeeds: number; fertilizer: number };
   selfies: Array<{ file: string; url: string }>;
@@ -228,6 +258,7 @@ export const api = {
     }),
   logout: () => request<{ ok: boolean }>("/api/session/logout", { method: "POST" }),
   garden: () => request<{ player: GardenPlayer; config: GameConfig }>("/api/garden"),
+  gardenReview: () => request<PlayerReview>("/api/garden/review"),
   plant: (slot: number, tier: number) =>
     request<{ player: GardenPlayer; unlocks?: AccoladeUnlock[] }>(`/api/plots/${slot}/plant`, {
       method: "POST",
@@ -269,6 +300,14 @@ export const api = {
         body: JSON.stringify(body ?? {}),
       },
     ),
+  skipChore: (id: string) =>
+    request<{
+      player: GardenPlayer;
+      claim: { id: string; status: string; slot: number | null };
+      shardsGranted: number;
+      chores?: PublicChore[];
+      toast?: string;
+    }>(`/api/chores/${id}/skip`, { method: "POST", body: "{}" }),
   prune: (slot: number) => request<{ player: GardenPlayer }>(`/api/plots/${slot}/prune`, { method: "POST" }),
   store: () => request<PlayerStore>("/api/store"),
   storeCatalog: () => request<{ catalog: StoreSku[] }>("/api/store/catalog"),
@@ -278,4 +317,17 @@ export const api = {
       { method: "POST", body: JSON.stringify({ skuId }) },
     ),
   profile: () => request<KidProfile>("/api/profile"),
+  setAvatar: (
+    body:
+      | { kind: "mascot" }
+      | { kind: "preset"; presetId: string }
+      | { kind: "selfie"; image: string },
+  ) =>
+    request<{ player: GardenPlayer }>("/api/avatar", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  avatarPresets: () =>
+    request<{ presets: Array<{ id: string; emoji: string; label: string }> }>("/api/avatar/presets"),
 };
+

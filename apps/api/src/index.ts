@@ -1,6 +1,7 @@
 import { prisma } from "./db.js";
 import { buildApp } from "./app.js";
 import { seedIfEmpty } from "./seed.js";
+import { startChoreHeatNightlySchedule } from "./choreHeat.js";
 
 async function waitForDb() {
   for (let i = 0; i < 40; i += 1) {
@@ -21,3 +22,4 @@ await waitForDb();
 await seedIfEmpty();
 const app = await buildApp();
 await app.listen({ port, host });
+startChoreHeatNightlySchedule(app.log);

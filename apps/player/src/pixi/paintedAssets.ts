@@ -215,6 +215,22 @@ export function cropCoverScale(kind: CropKind, stage: 1 | 2 | 3 | 4, coverPx: nu
 }
 
 export async function loadPaintedArt(): Promise<PaintedArt> {
+  const urls = [
+    PAINTED_ART.playfield,
+    PAINTED_ART.gardenZoom,
+    PAINTED_ART.smoke,
+    ...PAINTED_ART.cowWalk,
+    PAINTED_ART.cowEat,
+    PAINTED_ART.corkboard,
+    PAINTED_ART.wantedPoster,
+    ...CROP_KINDS.map((kind) => PAINTED_ART.crops[kind]),
+  ];
+  // Drop cached GPU textures so farm↔garden remounts get a fresh upload (mobile Firefox).
+  try {
+    await Assets.unload(urls);
+  } catch {
+    /* first load — nothing cached yet */
+  }
   const [playfield, gardenZoom, smoke, walkA, walkB, eat, corkboard, wantedPoster, ...cropSheets] = await Promise.all([
     Assets.load<Texture>(PAINTED_ART.playfield),
     Assets.load<Texture>(PAINTED_ART.gardenZoom),

@@ -1,0 +1,89 @@
+# FarmHand production stack for /home/sensei/farmhand/docker-compose.yml
+# Backup/restore: copy /home/sensei/farmhand (includes .env, nginx/, pgdata/, data/),
+# then: docker compose pull && docker compose up -d
+#
+# Edge nginx (TLS) should proxy to this host on HTTP_PORT (default 8080).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-farmhand}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-farmhand}
+    volumes:
+      - /home/sensei/farmhand/pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-farmhand} -d ${POSTGRES_DB:-farmhand}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  api:
+    image: ${FH_IMAGE_PREFIX:-ghcr.io/fg-clawdy/farmhand}-api:${FH_IMAGE_TAG:-latest}
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-farmhand}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-farmhand}?connect_timeout=15
+      PORT: 3000
+      HOST: 0.0.0.0
+      NODE_ENV: production
+      ADMIN_BOOTSTRAP_USER: ${ADMIN_BOOTSTRAP_USER:-admin}
+      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD}
+      SEED_DEMO_PLAYERS: ${SEED_DEMO_PLAYERS:-false}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      SELFIE_DROP_DIR: /data/selfies
+      WANTED_FLYER_DIR: /data/wanted-flyers
+      WANTED_TEMPLATE_PATH: /app/apps/api/assets/wanted_poster_template.png
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:farmhand@localhost}
+    volumes:
+      - /home/sensei/farmhand/data/selfies:/data/selfies
+      - /home/sensei/farmhand/data/wanted-flyers:/data/wanted-flyers
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    restart: unless-stopped
+
+  player:
+    image: ${FH_IMAGE_PREFIX:-ghcr.io/fg-clawdy/farmhand}-player:${FH_IMAGE_TAG:-latest}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  admin:
+    image: ${FH_IMAGE_PREFIX:-ghcr.io/fg-clawdy/farmhand}-admin:${FH_IMAGE_TAG:-latest}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  parent:
+    image: ${FH_IMAGE_PREFIX:-ghcr.io/fg-clawdy/farmhand}-parent:${FH_IMAGE_TAG:-latest}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - /home/sensei/farmhand/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+      - player
+      - admin
+      - parent
+    restart: unless-stopped

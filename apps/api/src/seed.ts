@@ -37,7 +37,10 @@ export async function seedIfEmpty() {
   }
 
   const playerCount = await prisma.player.count();
-  if (playerCount === 0) {
+  const seedDemoPlayers = !["0", "false", "no"].includes(
+    String(process.env.SEED_DEMO_PLAYERS ?? "true").toLowerCase(),
+  );
+  if (playerCount === 0 && seedDemoPlayers) {
     for (const kid of DEMO_KIDS) {
       const player = await prisma.player.create({
         data: {
@@ -55,6 +58,8 @@ export async function seedIfEmpty() {
       await recordOpeningBalance(prisma, player.id, config.startingPoints, "seed");
     }
     console.log("Seeded demo kids: Willow/1111, Finn/2222, Sage/3333");
+  } else if (playerCount === 0) {
+    console.log("Skipped demo kids (SEED_DEMO_PLAYERS=false)");
   } else {
     await syncAllPlayerPlots(config.plotCount);
   }

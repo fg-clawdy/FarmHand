@@ -8,6 +8,7 @@ import {
   type GameConfig,
 } from "@farmhand/shared";
 import { todayKey } from "./tz.js";
+import { avatarFieldsPublic } from "./avatar.js";
 
 function storedEconomyNeedsWrite(stored: Record<string, unknown>, merged: GameConfig): boolean {
   const storedTiers = Array.isArray(stored.tiers) ? (stored.tiers as Array<Record<string, unknown>>) : [];
@@ -173,6 +174,9 @@ export function publicPlayer(player: {
   id: string;
   name: string;
   mascot: string;
+  avatarKind?: string | null;
+  avatarPreset?: string | null;
+  avatarSelfieFile?: string | null;
   seeds: number;
   provisionalSeeds: number;
   points: number;
@@ -210,6 +214,7 @@ export function publicPlayer(player: {
     id: player.id,
     name: player.name,
     mascot: player.mascot,
+    ...avatarFieldsPublic(player),
     seeds: player.seeds,
     provisionalSeeds: player.provisionalSeeds,
     points: player.points,

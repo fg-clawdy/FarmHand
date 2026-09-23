@@ -20,6 +20,7 @@ import { chorePeriod } from "./tz.js";
 import { recordAccoladeEvent } from "./accolades.js";
 import { loadConfig } from "./game.js";
 import { withLockedClaim } from "./locks.js";
+import { bumpHeatOnClaim, loadHeatByChoreId } from "./choreHeat.js";
 
 export function httpError(message: string, statusCode = 400): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode });
@@ -72,6 +73,21 @@ export async function seedChoreCatalog() {
           sortOrder: index + 1,
         },
       });
+    } else {
+      // Keep parent edits for emoji/etc.; refresh schedule/assignment/skip from catalog.
+      await prisma.chore.update({
+        where: { slug: row.slug },
+        data: {
+          title: row.title,
+          recurrence: row.recurrence,
+          timeOfDay: row.timeOfDay,
+          includeInPath: row.includeInPath,
+          priority: row.priority,
+          isGlobal: row.isGlobal,
+          allowsSkip: row.allowsSkip,
+          assignmentMode,
+        },
+      });
     }
     await ensureWantedFlyer({
       slug: row.slug,
@@ -79,6 +95,22 @@ export async function seedChoreCatalog() {
       emoji: row.emoji,
       rewardLabel: "+1 SEED",
     });
+  }
+  // Deduped into dishes-1-6 — hide legacy empty-dishwasher if it was seeded.
+  await prisma.chore.updateMany({
+    where: { slug: "empty-dishwasher" },
+    data: { isActive: false },
+  });
+
+  // SYNC_ALLOWS_SKIP — align DB flags with catalog (idempotent)
+  {
+    const { CHORE_CATALOG: catalogRows } = await import("@farmhand/shared");
+    for (const row of catalogRows) {
+      await prisma.chore.updateMany({
+        where: { slug: row.slug },
+        data: { allowsSkip: row.allowsSkip },
+      });
+    }
   }
   const extras = await prisma.chore.findMany();
   for (const chore of extras) {
@@ -99,6 +131,7 @@ export function publicChore(
     now?: Date;
     claimedPeriodKeys: Set<string>;
     raceTakenKeys: Set<string>;
+    heatByChoreId?: Record<string, number>;
   },
 ) {
   const now = opts.now ?? new Date();
@@ -140,6 +173,7 @@ export function publicChore(
     claimed: alreadyClaimedByPlayer,
     claimedByOther: chore.assignmentMode === "RACE" && raceTaken && !alreadyClaimedByPlayer,
     flyerUrl: wantedFlyerPublicUrl(chore.slug),
+    heatScore: opts.heatByChoreId?.[chore.id] ?? 0,
   };
 }
 
@@ -155,8 +189,9 @@ export async function listPlayerChores(playerId: string, timezone: string, now =
   const raceSlots = await prisma.choreRaceSlot.findMany({ select: { choreId: true, periodKey: true } });
   const claimedPeriodKeys = new Set(claims.map((row) => `${row.choreId}:${row.periodKey}`));
   const raceTakenKeys = new Set(raceSlots.map((row) => `${row.choreId}:${row.periodKey}`));
+  const heatByChoreId = await loadHeatByChoreId();
   return chores
-    .map((chore) => publicChore(chore, { playerId, timezone, now, claimedPeriodKeys, raceTakenKeys }))
+    .map((chore) => publicChore(chore, { playerId, timezone, now, claimedPeriodKeys, raceTakenKeys, heatByChoreId }))
     .filter((chore) => chore.isActive)
     .sort(compareChoresForKid);
 }
@@ -170,6 +205,7 @@ export type FamilyOpenJob = {
   priority: ChorePriority;
   assignmentMode: Chore["assignmentMode"];
   requiresSelfie: boolean;
+  allowsSkip: boolean;
   sortOrder: number;
   rewardSeedCount: number;
   rewardSeedKind?: "seed" | "super_seed";
@@ -234,7 +270,7 @@ export async function claimChore(opts: {
   let lastErr: unknown;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      return await prisma.$transaction(
+      const result = await prisma.$transaction(
       async (tx) => {
         const chore = await tx.chore.findUnique({
           where: { id: opts.choreId },
@@ -279,7 +315,7 @@ export async function claimChore(opts: {
         }
 
         // Create the claim (no slot or plantTier yet — seed goes to pouch)
-        const jobSeedReward = resolveSeedReward(chore, config);
+        const jobSeedReward = resolveSeedReward(chore, opts.config);
         const claim = await tx.choreClaim.create({
           data: {
             choreId: chore.id,
@@ -319,6 +355,9 @@ export async function claimChore(opts: {
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 12_000 },
     );
+      // HEAT_CLAIM_BUMP — after successful commit (do not run inside serializable tx)
+      void bumpHeatOnClaim({ choreId: result.chore.id, playerId: result.playerId }).catch(() => undefined);
+      return result;
     } catch (err) {
       lastErr = err;
       if (isPrismaUnique(err)) {

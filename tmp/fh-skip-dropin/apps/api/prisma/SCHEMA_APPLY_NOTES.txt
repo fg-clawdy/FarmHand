@@ -1,0 +1,10 @@
+ChoreClaimStatus enum must include SKIPPED:
+
+enum ChoreClaimStatus {
+  PENDING
+  APPROVED
+  DENIED
+  SKIPPED
+}
+
+APPLY.ps1 / patch_api.mjs inserts SKIPPED if missing.

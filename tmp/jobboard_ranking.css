@@ -1,0 +1,21 @@
+
+/* JOB_BOARD_RIGHT_NOW_V1 */
+.job-grid-now {
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+}
+.job-more-toggle {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin: 4px 0 10px;
+  font: inherit;
+  font-weight: 800;
+  color: #2a1608;
+  background: linear-gradient(180deg, #fff8e6, #ead4a4);
+  box-shadow: 0 4px 0 #7a5a3a;
+  cursor: pointer;
+  text-align: center;
+}
+.job-more-toggle:active { transform: translateY(2px); }

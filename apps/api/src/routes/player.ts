@@ -18,6 +18,7 @@ import { recordAccoladeEvent, playerAccoladeLedger } from "../accolades.js";
 import { notifyChoreClaimPending, notifyStoreRedemptionPending } from "../push.js";
 import { listActiveCatalog, playerStore, requestStoreSku } from "../store.js";
 import { playerProfile } from "../profile.js";
+import { playerReview } from "../playerReview.js";
 import {
   decodeSelfiePayload,
   inspectJpeg,
@@ -30,6 +31,16 @@ import {
 import { appendStarEvent } from "../stars.js";
 import { todayKey } from "../tz.js";
 import { withLockedPlot, withLockedPlayer } from "../locks.js";
+import { recordChoreBoardEvent } from "../choreHeat.js";
+import { skipChore } from "../choreSkip.js";
+import { AVATAR_PRESETS } from "@farmhand/shared";
+import {
+  avatarSelfieFilePath,
+  decodeAndInspectAvatarImage,
+  isPlayerAvatarSelfieBasename,
+  validateAvatarBody,
+  writeAvatarSelfieJpeg,
+} from "../avatar.js";
 
 function pinError() {
   return { error: "That PIN didn't work. Try again." };
@@ -110,6 +121,12 @@ export async function playerRoutes(app: FastifyInstance) {
       include: { plots: { orderBy: { slot: "asc" } } },
     });
     return { player: publicPlayer(player, config, true), config };
+  });
+
+  app.get("/api/garden/review", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    return playerReview(session.playerId);
   });
 
   app.get("/api/accolades", async (request, reply) => {
@@ -483,6 +500,45 @@ export async function playerRoutes(app: FastifyInstance) {
     }
   });
 
+
+  // HEAT: fire-and-forget board events (open/dismiss/impression). Claim is recorded server-side.
+  app.post("/api/chores/board-events", async (request, reply) => {
+    const body = (request.body ?? {}) as {
+      eventType?: string;
+      source?: string;
+      choreId?: string | null;
+      suggestedSlot?: boolean | null;
+      meta?: unknown;
+    };
+    const allowedType = new Set(["BOARD_OPEN", "CLAIM", "DISMISS", "RIGHT_NOW_IMPRESSION"]);
+    const allowedSource = new Set(["GARDEN_JOB_BOARD", "FARM_CORKBOARD"]);
+    if (!body.eventType || !allowedType.has(body.eventType)) {
+      return reply.code(400).send({ error: "Invalid eventType." });
+    }
+    if (!body.source || !allowedSource.has(body.source)) {
+      return reply.code(400).send({ error: "Invalid source." });
+    }
+    // CLAIM is authoritative on the claim path — ignore client CLAIM to avoid double-count.
+    if (body.eventType === "CLAIM") {
+      return { ok: true, ignored: true };
+    }
+    const session = await getPlayerSession(request);
+    try {
+      await recordChoreBoardEvent({
+        eventType: body.eventType as "BOARD_OPEN" | "DISMISS" | "RIGHT_NOW_IMPRESSION",
+        source: body.source as "GARDEN_JOB_BOARD" | "FARM_CORKBOARD",
+        choreId: body.choreId ?? null,
+        playerId: session?.playerId ?? null,
+        suggestedSlot: body.suggestedSlot ?? null,
+        meta: (body.meta ?? undefined) as never,
+      });
+      return { ok: true };
+    } catch (err) {
+      request.log.warn({ err }, "board event record failed");
+      return { ok: false };
+    }
+  });
+
   app.get("/api/chores", async (request, reply) => {
     const session = await requirePlayer(request, reply);
     if (!session) return;
@@ -498,6 +554,32 @@ export async function playerRoutes(app: FastifyInstance) {
       chores,
       player: publicPlayer(player, config, true),
     };
+  });
+
+
+  app.post("/api/chores/:id/skip", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    const config = await loadConfig();
+    try {
+      const result = await skipChore({
+        playerId: session.playerId,
+        choreId: id,
+        timezone: config.timezone,
+      });
+      const chores = await listPlayerChores(session.playerId, config.timezone);
+      return {
+        player: publicPlayer(result.player, config, true),
+        claim: { id: result.claim.id, status: result.claim.status, slot: null },
+        shardsGranted: result.shardsGranted,
+        chores,
+        toast: `Not needed · +${result.shardsGranted} 🔶`,
+      };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
   });
 
   app.post("/api/chores/:id/claim", async (request, reply) => {
@@ -626,6 +708,67 @@ export async function playerRoutes(app: FastifyInstance) {
     const session = await requirePlayer(request, reply);
     if (!session) return;
     return playerProfile(session.playerId);
+  });
+
+  
+  app.get("/api/avatar/presets", async () => ({ presets: AVATAR_PRESETS }));
+
+  app.post("/api/avatar", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    try {
+      const body = validateAvatarBody(request.body);
+      let data;
+      if (body.kind === "mascot") {
+        data = {
+          avatarKind: "mascot",
+          avatarPreset: null,
+          avatarSelfieFile: null,
+        };
+      } else if (body.kind === "preset") {
+        data = {
+          avatarKind: "preset",
+          avatarPreset: body.presetId!,
+          avatarSelfieFile: null,
+        };
+      } else {
+        const buf = decodeAndInspectAvatarImage(body.image);
+        const saved = await writeAvatarSelfieJpeg({ buf, playerId: session.playerId });
+        data = {
+          avatarKind: "selfie",
+          avatarPreset: null,
+          avatarSelfieFile: saved.basename,
+        };
+      }
+      const player = await prisma.player.update({
+        where: { id: session.playerId },
+        data,
+        include: { plots: { orderBy: { slot: "asc" } } },
+      });
+      const config = await loadConfig();
+      return { player: publicPlayer(player, config, true) };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.get("/api/profile/avatar-selfie/:file", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    const file = decodeURIComponent((request.params as { file: string }).file);
+    if (!isPlayerAvatarSelfieBasename(session.playerId, file)) {
+      return reply.code(404).send({ error: "That photo isn't here." });
+    }
+    const full = avatarSelfieFilePath(file);
+    try {
+      await fsPromises.access(full, fsConstants.R_OK);
+    } catch {
+      return reply.code(404).send({ error: "That photo isn't here." });
+    }
+    reply.header("Content-Type", "image/jpeg");
+    reply.header("Cache-Control", "private, max-age=120");
+    return reply.send(createReadStream(full));
   });
 
   app.get("/api/profile/selfies/:file", async (request, reply) => {

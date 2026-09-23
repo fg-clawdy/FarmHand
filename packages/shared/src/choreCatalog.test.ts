@@ -3,16 +3,18 @@ import test from "node:test";
 import {
   assignmentModeForSeed,
   CHORE_CATALOG,
+  SKIP_SHARD_REWARD,
+  CHORE_CLAIM_STATUSES,
   compareClaimsForInbox,
   compareChoresForKid,
   compareChoresForParent,
 } from "./choreCatalog.js";
 import { choreClaimGate, choreOpenForFamily } from "./chores.js";
 
-test("seed catalog has 21 unique slugs", () => {
-  assert.equal(CHORE_CATALOG.length, 21);
+test("seed catalog has 26 unique slugs", () => {
+  assert.equal(CHORE_CATALOG.length, 26);
   const slugs = CHORE_CATALOG.map((row) => row.slug);
-  assert.equal(new Set(slugs).size, 21);
+  assert.equal(new Set(slugs).size, 26);
 });
 
 test("Set Out School Clothes is inactive; dog chores are CRITICAL races", () => {
@@ -35,6 +37,39 @@ test("Brush Your Hair is a photo chore, not a global selfie earn", () => {
   assert.equal(hair.requiresSelfie, true);
   assert.equal(hair.requiresApproval, true);
   assert.equal(hair.isGlobal, false);
+});
+
+
+test("after-school arrival chores are WEEKDAYS + AFTERNOON", () => {
+  for (const slug of ["hang-backpack", "shoes-on-rack", "water-bottle-backpack"]) {
+    const row = CHORE_CATALOG.find((r) => r.slug === slug);
+    assert.ok(row, slug);
+    assert.equal(row.recurrence, "WEEKDAYS");
+    assert.equal(row.timeOfDay, "AFTERNOON");
+    assert.equal(row.priority, "HIGH");
+    assert.equal(row.includeInPath, true);
+    assert.equal(row.isGlobal, true);
+    assert.equal(assignmentModeForSeed(row), "ALL");
+  }
+});
+
+test("may-need afternoon chores are DAILY + AFTERNOON per kid", () => {
+  const dishes = CHORE_CATALOG.find((r) => r.slug === "dishes-1-6");
+  const hw = CHORE_CATALOG.find((r) => r.slug === "do-homework");
+  const snack = CHORE_CATALOG.find((r) => r.slug === "clean-snack-mess");
+  assert.ok(dishes && hw && snack);
+  for (const row of [dishes, hw, snack]) {
+    assert.equal(row.recurrence, "DAILY");
+    assert.equal(row.timeOfDay, "AFTERNOON");
+    assert.equal(row.includeInPath, true);
+    assert.equal(row.allowsSkip, true);
+    assert.equal(row.isGlobal, true);
+    assert.equal(assignmentModeForSeed(row), "ALL");
+  }
+  assert.equal(dishes.title, "Dishes");
+  assert.equal(hw.priority, "HIGH");
+  assert.equal(snack.priority, "NORMAL");
+  assert.equal(CHORE_CATALOG.some((r) => r.slug === "empty-dishwasher"), false);
 });
 
 test("Walk the Dog and Easy Bedtime have short descriptions", () => {
@@ -180,4 +215,41 @@ test("family board lists SPECIFIC chores still open for someone", () => {
     true,
     "Sage has not claimed yet",
   );
+});
+
+test("honest skip reward is 1 shard; claim status includes SKIPPED", () => {
+  assert.equal(SKIP_SHARD_REWARD, 1);
+  assert.ok(CHORE_CLAIM_STATUSES.includes("SKIPPED"));
+});
+
+test("optional chores allow skip; must-do chores do not", () => {
+  const skipOk = [
+    "dishes-1-6",
+    "do-homework",
+    "clean-snack-mess",
+  ];
+  const skipNo = [
+    "feed-dog-am",
+    "feed-dog-pm",
+    "walk-the-dog",
+    "brush-teeth-am",
+    "brush-teeth-bedtime",
+    "make-your-bed",
+    "hang-backpack",
+    "shoes-on-rack",
+    "water-bottle-backpack",
+    "take-out-trash",
+    "clean-table",
+    "clean-shoe-room",
+  ];
+  for (const slug of skipOk) {
+    const row = CHORE_CATALOG.find((r) => r.slug === slug);
+    assert.ok(row, slug);
+    assert.equal(row.allowsSkip, true, slug);
+  }
+  for (const slug of skipNo) {
+    const row = CHORE_CATALOG.find((r) => r.slug === slug);
+    assert.ok(row, slug);
+    assert.equal(row.allowsSkip, false, slug);
+  }
 });

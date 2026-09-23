@@ -17,6 +17,7 @@ import { farmAccoladeLedgers } from "../accolades.js";
 import { grantEarnedStars } from "../store.js";
 import { appendStarEvent, playerWallet, publicWallet, recordOpeningBalance, starsHeldForPlayer } from "../stars.js";
 import { chicagoDayKeys, startOfDaysAgo, startOfToday, todayKey } from "../tz.js";
+import { recomputeAllChoreHeat } from "../choreHeat.js";
 import {
   balanceKnobs,
   cropMixFromPlots,
@@ -604,4 +605,12 @@ export async function adminRoutes(app: FastifyInstance) {
       })),
     };
   });
+
+  app.post("/api/admin/chores/heat/refresh", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const result = await recomputeAllChoreHeat();
+    return { ok: true, ...result };
+  });
+
 }

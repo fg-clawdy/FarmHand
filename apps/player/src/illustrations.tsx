@@ -1,5 +1,5 @@
 import { cropKindForTier, type CropKind, type Mascot, type PublicPlot } from "@farmhand/shared";
-import { useId, type ReactNode, type SVGProps } from "react";
+import {useId, type ReactNode, type SVGProps, memo} from "react";
 
 type ArtProps = SVGProps<SVGSVGElement> & { title?: string };
 
@@ -53,7 +53,7 @@ export function FarmArtDefs() {
   );
 }
 
-export function FarmTitle({ className = "farm-title" }: { className?: string }) {
+export const FarmTitle = memo(function FarmTitle({ className = "farm-title" }: { className?: string }) {
   const textProps = {
     x: 450,
     y: 118,
@@ -78,9 +78,9 @@ export function FarmTitle({ className = "farm-title" }: { className?: string }) 
       </text>
     </svg>
   );
-}
+});
 
-export function WoodSign({ label, className }: { label: string; className?: string }) {
+export const WoodSign = memo(function WoodSign({ label, className }: { label: string; className?: string }) {
   const p = useUid("sign");
   return (
     <svg className={`wood-sign ${className ?? ""}`} viewBox="0 0 340 78" role="img" aria-label={label}>
@@ -118,7 +118,7 @@ export function WoodSign({ label, className }: { label: string; className?: stri
       </text>
     </svg>
   );
-}
+});
 
 export function WateringCan({ className, title = "Watering can" }: ArtProps) {
   const p = useUid("can");
@@ -266,10 +266,9 @@ const CROP_SHEETS: Record<CropKind, string> = {
   corn: "/art/painted/plants/plant_corn_stages.png?v=3blossom",
   strawberry: "/art/painted/plants/plant_strawberry_stages.png?v=3blossom",
   cotton: "/art/painted/plants/plant_cotton_stages.png?v=3blossom",
-  /** Placeholders — art not yet painted. Reuse corn sheet. */
-  tomato: "/art/painted/plants/plant_corn_stages.png?v=3blossom",
-  pumpkin: "/art/painted/plants/plant_corn_stages.png?v=3blossom",
-  sunflower: "/art/painted/plants/plant_corn_stages.png?v=3blossom",
+  tomato: "/art/painted/plants/plant_tomato_stages.png?v=1",
+  pumpkin: "/art/painted/plants/plant_pumpkin_stages.png?v=1",
+  sunflower: "/art/painted/plants/plant_sunflower_stages.png?v=1",
 };
 
 export function plantKind(plot: Pick<PublicPlot, "state" | "tier" | "growthStage" | "ready">): PlantKind | null {

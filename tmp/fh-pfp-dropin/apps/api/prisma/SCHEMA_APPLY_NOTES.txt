@@ -1,0 +1,13 @@
+Player avatar fields (20260922210000_player_avatar):
+
+Add inside model Player (near mascot / selfieUnlockDate is fine):
+
+  avatarKind         String   @default("mascot")
+  avatarPreset       String?
+  avatarSelfieFile   String?
+
+avatarKind: "mascot" | "preset" | "selfie"
+avatarPreset: preset id when kind=preset (sun, seedling, star, rainbow, tractor, dog)
+avatarSelfieFile: basename under SELFIE_DROP_DIR/avatars/ when kind=selfie
+
+APPLY.ps1 / patch_api.mjs insert these if missing. Migration SQL is additive IF NOT EXISTS.

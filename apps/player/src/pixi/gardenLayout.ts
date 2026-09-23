@@ -134,8 +134,10 @@ export function glowingSlots(
   plots: readonly PublicPlot[],
   ctx: GardenToolContext,
 ) {
-  if (!tool) return [];
-  return plots.filter((plot) => plotAcceptsTool(tool, plot, ctx)).map((plot) => plot.slot);
+  // No tool selected: empty plantable plots always glow (tap plot to plant).
+  // Water tool still overrides to waterable growing plots only.
+  const effective: GardenTool = tool ?? "seed";
+  return plots.filter((plot) => plotAcceptsTool(effective, plot, ctx)).map((plot) => plot.slot);
 }
 
 /** Fertilizer tap removed — incomplete, future phase. */

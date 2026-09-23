@@ -20,14 +20,16 @@ async function sharedApp(): Promise<Application> {
   if (shared) return shared;
   boot ??= (async () => {
     const app = new Application();
+    // Avoid high-performance on mobile Firefox PWAs (clear-color / no textures).
     await app.init({
       background: 0x3d8a32,
       backgroundAlpha: 1,
-      antialias: true,
+      antialias: false,
       autoDensity: true,
       resolution: Math.min(window.devicePixelRatio || 1, 2),
-      powerPreference: "high-performance",
+      powerPreference: "low-power",
       preference: "webgl",
+      preferWebGLVersion: 1,
       width: 800,
       height: 600,
     });
@@ -50,7 +52,7 @@ async function sharedApp(): Promise<Application> {
   return boot;
 }
 
-function fit(app: Application, host: HTMLElement) {
+export function fitEngine(app: Application, host: HTMLElement) {
   const w = Math.max(1, host.clientWidth);
   const h = Math.max(1, host.clientHeight);
   app.renderer.resize(w, h);
@@ -64,10 +66,10 @@ export async function createEngine(host: HTMLElement): Promise<PixiEngine> {
     app.canvas.parentElement.removeChild(app.canvas);
   }
   if (app.canvas.parentElement !== host) host.appendChild(app.canvas);
-  fit(app, host);
-  const onResize = () => fit(app, host);
+  fitEngine(app, host);
+  const onResize = () => fitEngine(app, host);
   window.addEventListener("resize", onResize);
-  requestAnimationFrame(() => fit(app, host));
+  requestAnimationFrame(() => fitEngine(app, host));
 
   return {
     app,

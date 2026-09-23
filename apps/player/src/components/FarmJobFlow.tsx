@@ -104,6 +104,12 @@ export default function FarmJobFlow({
             setBusy(false);
           }
         }}
+        onSkip={async (chore) => {
+          const data = await api.skipChore(chore.id);
+          if (data.chores) setChores(data.chores);
+          setKid(data.player);
+          return data.player;
+        }}
         onNeedPhoto={(chore) => {
           setPhoto({ chore });
           setStep("photo");

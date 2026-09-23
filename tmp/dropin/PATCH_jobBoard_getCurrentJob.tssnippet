@@ -1,0 +1,6 @@
+
+// INSERT inside CorkboardHotspot class (near debugHit / setJobs) — additive only:
+  /** Chore currently shown on the Wanted flyer (Farm stake tap target). */
+  getCurrentJob(): WantedJob | null {
+    return this.jobs[this.index] ?? null;
+  }

@@ -1,8 +1,46 @@
 import { FarmTitle, WoodSign } from "../art";
-import { useEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import { createPortal } from "react-dom";
 
-export default function PinPad({
+/** Memoized so digit state updates never rebuild title/sign SVG (WoodSign uses useUid). */
+const TitleChrome = memo(function TitleChrome() {
+  return (
+    <div className="pin-title">
+      <FarmTitle />
+    </div>
+  );
+});
+
+const SignChrome = memo(function SignChrome({ name }: { name: string }) {
+  return <WoodSign className="pin-sign" label={name.toUpperCase()} />;
+});
+
+function syncDots(root: HTMLElement | null, len: number) {
+  if (!root) return;
+  const kids = root.children;
+  for (let i = 0; i < kids.length; i++) {
+    kids[i].classList.toggle("on", i < len);
+  }
+}
+
+function pressFlash(el: HTMLElement) {
+  el.classList.add("is-pressed");
+  window.setTimeout(() => el.classList.remove("is-pressed"), 100);
+  try {
+    navigator.vibrate?.(10);
+  } catch {
+    /* optional */
+  }
+}
+
+function PinPad({
   name,
   onSubmit,
   onCancel,
@@ -17,44 +55,66 @@ export default function PinPad({
   const [shaking, setShaking] = useState(false);
   const digitsRef = useRef("");
   const busyRef = useRef(false);
+  const dotsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (shaking) {
-      const t = window.setTimeout(() => setShaking(false), 650);
-      return () => window.clearTimeout(t);
-    }
+    if (!shaking) return;
+    const t = window.setTimeout(() => setShaking(false), 650);
+    return () => window.clearTimeout(t);
   }, [shaking]);
 
-  function push(d: string) {
-    if (busyRef.current) return;
-    const next = (digitsRef.current + d).slice(0, 4);
-    digitsRef.current = next;
-    flushSync(() => {
+  useEffect(() => {
+    syncDots(dotsRef.current, digits.length);
+  }, [digits]);
+
+  const push = useCallback(
+    (d: string, btn?: HTMLElement | null) => {
+      if (busyRef.current) return;
+      if (btn) pressFlash(btn);
+      const next = (digitsRef.current + d).slice(0, 4);
+      digitsRef.current = next;
+      // Paint dots immediately — do not wait for React/Pixi parent work.
+      syncDots(dotsRef.current, next.length);
       setDigits(next);
       setError("");
-    });
-    if (next.length === 4) {
-      setBusy(true);
-      busyRef.current = true;
-      onSubmit(next)
-        .catch((err) => {
-          setError(err instanceof Error ? err.message : "Wrong PIN");
-          setDigits("");
-          digitsRef.current = "";
-          setShaking(true);
-        })
-        .finally(() => {
-          setBusy(false);
-          busyRef.current = false;
-        });
-    }
-  }
+      if (next.length === 4) {
+        setBusy(true);
+        busyRef.current = true;
+        onSubmit(next)
+          .catch((err) => {
+            setError(err instanceof Error ? err.message : "Wrong PIN");
+            setDigits("");
+            digitsRef.current = "";
+            syncDots(dotsRef.current, 0);
+            setShaking(true);
+          })
+          .finally(() => {
+            setBusy(false);
+            busyRef.current = false;
+          });
+      }
+    },
+    [onSubmit],
+  );
 
-  return (
+  const backspace = useCallback((btn?: HTMLElement | null) => {
+    if (busyRef.current) return;
+    if (btn) pressFlash(btn);
+    const next = digitsRef.current.slice(0, -1);
+    digitsRef.current = next;
+    syncDots(dotsRef.current, next.length);
+    setDigits(next);
+  }, []);
+
+  const onDigitDown = (d: string) => (e: ReactPointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    push(d, e.currentTarget);
+  };
+
+  const node = (
     <div className="pin-backdrop" onClick={onCancel} role="presentation">
-      <div className="pin-title">
-        <FarmTitle />
-      </div>
+      <TitleChrome />
       <div
         className="pin-buffer"
         onPointerDown={(e) => e.stopPropagation()}
@@ -64,68 +124,69 @@ export default function PinPad({
           className={`pin-card ${busy ? "busy" : ""} ${shaking ? "pin-shake" : ""}`}
           role="dialog"
           aria-label="Enter PIN"
+          aria-busy={busy || undefined}
         >
-        <WoodSign className="pin-sign" label={name.toUpperCase()} />
-        <p className="sheet-lede">Enter your 4-digit PIN</p>
-        <div className="dots">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className={`dot ${digits.length > i ? "on" : ""}`} />
-          ))}
-        </div>
-        {error ? <div className="sheet-error pin-error">{error}</div> : null}
-        <div className="pad">
-          {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
+          <SignChrome name={name} />
+          <p className="sheet-lede">Enter your 4-digit PIN</p>
+          <div className="dots" ref={dotsRef} aria-live="polite" aria-atomic="true">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className={`dot ${digits.length > i ? "on" : ""}`} />
+            ))}
+          </div>
+          {error ? <div className="sheet-error pin-error">{error}</div> : null}
+          <div className="pad">
+            {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
+              <button
+                key={d}
+                type="button"
+                className="pad-num"
+                aria-label={`Digit ${d}`}
+                onPointerDown={onDigitDown(d)}
+              >
+                {d}
+              </button>
+            ))}
             <button
-              key={d}
               type="button"
-              className="pad-num"
+              className="pad-act"
+              aria-label="Cancel"
               onPointerDown={(e) => {
                 e.preventDefault();
-                push(d);
+                e.stopPropagation();
+                pressFlash(e.currentTarget);
+              }}
+              onClick={onCancel}
+            >
+              ✕
+            </button>
+            <button
+              type="button"
+              className="pad-num"
+              aria-label="Digit 0"
+              onPointerDown={onDigitDown("0")}
+            >
+              0
+            </button>
+            <button
+              type="button"
+              className="pad-act"
+              aria-label="Delete last digit"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                backspace(e.currentTarget);
               }}
             >
-              {d}
+              ⌫
             </button>
-          ))}
-          <button
-            type="button"
-            className="pad-act"
-            onPointerDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onClick={onCancel}
-          >
-            ✕
-          </button>
-          <button
-            type="button"
-            className="pad-num"
-            onPointerDown={(e) => {
-              e.preventDefault();
-              push("0");
-            }}
-          >
-            0
-          </button>
-          <button
-            type="button"
-            className="pad-act"
-            onPointerDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onClick={() => {
-              const next = digitsRef.current.slice(0, -1);
-              digitsRef.current = next;
-              setDigits(next);
-            }}
-          >
-            ⌫
-          </button>
+          </div>
         </div>
-      </div>
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return node;
+  return createPortal(node, document.body);
 }
+
+export default memo(PinPad);

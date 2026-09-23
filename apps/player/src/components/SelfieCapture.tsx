@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type AccoladeUnlock, type GardenPlayer, type HarvestReward } from "../api";
-import { assessSelfieCanvas } from "../selfieQuality";
+import { assessSelfieCanvas, faceInGuideOnCanvas } from "../selfieQuality";
 import Sheet from "./Sheet";
+
+const DEFAULT_COPY =
+  "Put your face in the circle. When you see 3, 2, 1 - smile! One selfie unlocks watering for today and gives +1 seed.";
 
 export default function SelfieCapture({
   onClose,
   onSuccess,
   title = "Today's selfie",
-  copy = "Put your face in the middle. One selfie unlocks watering for the rest of today and gives +1 seed.",
+  copy = DEFAULT_COPY,
   submit,
   buttonLabel = "Take selfie",
 }: {
@@ -20,9 +23,14 @@ export default function SelfieCapture({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const snapLock = useRef(false);
+  const countRef = useRef(0);
+  const goodStreakRef = useRef(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [hint, setHint] = useState("Put your face in the circle");
 
   useEffect(() => {
     let cancelled = false;
@@ -58,25 +66,37 @@ export default function SelfieCapture({
     };
   }, []);
 
-  async function snap() {
+  const frameToCanvas = useCallback((maxW = 480) => {
     const video = videoRef.current;
-    if (!video || busy) return;
+    if (!video || !video.videoWidth) return null;
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    const scale = w > maxW ? maxW / w : 1;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(w * scale));
+    canvas.height = Math.max(1, Math.round(h * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }, []);
+
+  const snap = useCallback(async () => {
+    if (snapLock.current) return;
+    const canvas = frameToCanvas(960);
+    if (!canvas) return;
+    snapLock.current = true;
     setBusy(true);
+    setCountdown(null);
+    countRef.current = 0;
+    goodStreakRef.current = 0;
     setError("");
+    setHint("Checking...");
     try {
-      const w = video.videoWidth || 960;
-      const h = video.videoHeight || 720;
-      const maxW = 960;
-      const scale = w > maxW ? maxW / w : 1;
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(w * scale);
-      canvas.height = Math.round(h * scale);
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("The camera hiccuped. Try again.");
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const quality = await assessSelfieCanvas(canvas);
       if (!quality.ok) {
         setError(quality.message);
+        setHint("Put your face in the circle");
         return;
       }
       const image = canvas.toDataURL("image/jpeg", 0.76);
@@ -93,22 +113,126 @@ export default function SelfieCapture({
       onSuccess(data.player, reward, data.unlocks);
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn't work. Try again.");
+      setHint("Put your face in the circle");
     } finally {
+      snapLock.current = false;
       setBusy(false);
     }
-  }
+  }, [frameToCanvas, onSuccess, submit]);
+
+  useEffect(() => {
+    if (!ready || busy) return;
+    let cancelled = false;
+    let tickTimer: number | undefined;
+    let countTimer: number | undefined;
+
+    const clearCountTimer = () => {
+      if (countTimer) window.clearTimeout(countTimer);
+      countTimer = undefined;
+    };
+
+    const resetCount = () => {
+      clearCountTimer();
+      countRef.current = 0;
+      goodStreakRef.current = 0;
+      setCountdown(null);
+      setHint("Put your face in the circle");
+    };
+
+    const startCount = () => {
+      clearCountTimer();
+      countRef.current = 3;
+      setCountdown(3);
+      setHint("Smile!");
+      setError("");
+
+      const step = () => {
+        if (cancelled || snapLock.current) return;
+        const canvas = frameToCanvas(320);
+        if (!canvas) {
+          resetCount();
+          return;
+        }
+        void faceInGuideOnCanvas(canvas).then((ok) => {
+          if (cancelled || snapLock.current) return;
+          if (!ok) {
+            resetCount();
+            return;
+          }
+          const next = countRef.current - 1;
+          if (next <= 0) {
+            setCountdown(null);
+            countRef.current = 0;
+            void snap();
+            return;
+          }
+          countRef.current = next;
+          setCountdown(next);
+          countTimer = window.setTimeout(step, 1000);
+        });
+      };
+      countTimer = window.setTimeout(step, 1000);
+    };
+
+    const scheduleTick = () => {
+      tickTimer = window.setTimeout(runTick, 350);
+    };
+
+    const runTick = () => {
+      if (cancelled || snapLock.current) return;
+      if (countRef.current > 0) {
+        scheduleTick();
+        return;
+      }
+      const canvas = frameToCanvas(320);
+      if (!canvas) {
+        scheduleTick();
+        return;
+      }
+      void faceInGuideOnCanvas(canvas).then((ok) => {
+        if (cancelled || snapLock.current || countRef.current > 0) {
+          scheduleTick();
+          return;
+        }
+        if (ok) {
+          goodStreakRef.current += 1;
+          setHint("Hold still...");
+          if (goodStreakRef.current >= 2) {
+            startCount();
+          }
+        } else {
+          goodStreakRef.current = 0;
+          setHint("Put your face in the circle");
+        }
+        scheduleTick();
+      });
+    };
+
+    scheduleTick();
+    return () => {
+      cancelled = true;
+      if (tickTimer) window.clearTimeout(tickTimer);
+      clearCountTimer();
+    };
+  }, [ready, busy, frameToCanvas, snap]);
 
   return (
     <Sheet title={title} onClose={onClose}>
       <p className="selfie-copy">{copy}</p>
-      <div className="selfie-frame">
+      <div className={`selfie-frame${countdown !== null ? " counting" : ""}`}>
         <video ref={videoRef} className="selfie-video" playsInline muted autoPlay />
         <div className="selfie-guide" aria-hidden="true" />
+        {countdown !== null && (
+          <div className="selfie-countdown" aria-live="assertive">
+            {countdown}
+          </div>
+        )}
       </div>
+      {!error && <p className="selfie-hint">{hint}</p>}
       {error && <p className="error">{error}</p>}
       <div className={`sheet-actions ${busy ? "busy" : ""}`}>
         <button className="btn primary" type="button" disabled={!ready || busy} onClick={() => void snap()}>
-          {busy ? "Checking…" : buttonLabel}
+          {busy ? "Checking..." : buttonLabel}
         </button>
         <button className="btn ghost" type="button" onClick={onClose}>
           Not now

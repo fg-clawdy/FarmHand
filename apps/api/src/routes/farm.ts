@@ -4,6 +4,7 @@ import { prisma } from "../db.js";
 import { listFamilyOpenChores } from "../chores.js";
 import { ensurePlots, loadConfig, selfieUnlockedOn, syncAllPlayerPlots } from "../game.js";
 import { getPlayerSession } from "../auth.js";
+import { avatarFieldsPublic } from "../avatar.js";
 
 export async function farmRoutes(app: FastifyInstance) {
   app.get("/api/farm", async (request) => {
@@ -24,6 +25,7 @@ export async function farmRoutes(app: FastifyInstance) {
           id: player.id,
           name: player.name,
           mascot: player.mascot,
+          ...avatarFieldsPublic(player),
           seeds: player.seeds,
           provisionalSeeds: player.provisionalSeeds,
           points: player.points,

@@ -27,8 +27,18 @@ export default function PlantPicker({
 }) {
   const totalSeeds = seeds + provisionalSeeds;
   const broke = !free && totalSeeds < cheapestSeedCost(config.tiers);
+  const affordableTiers = config.tiers.filter((tier) => free || totalSeeds >= tier.seedCost);
+  const recommendedTier =
+    affordableTiers.length === 0
+      ? null
+      : affordableTiers.reduce((best, tier) =>
+          tier.seedCost > best.seedCost || (tier.seedCost === best.seedCost && tier.tier > best.tier)
+            ? tier
+            : best,
+        ).tier;
+
   return (
-    <Sheet title={title} onClose={onClose}>
+    <Sheet title={title} className="plant-picker-sheet" onClose={onClose}>
       <p className="picker-intro">
         {broke
           ? "Your seed pouch is empty. Do a job on the Job Board to plant a waiting seed — jobs do not spend pouch seeds."
@@ -36,7 +46,7 @@ export default function PlantPicker({
               <>
                 You have <AcornArt className="inline-art" /> {totalSeeds} seeds
                 {provisionalSeeds > 0 && <span className="provisional-note"> ({provisionalSeeds} waiting approval)</span>}
-                . Bigger plants take longer and earn more stars.
+                . Bigger plants cost more seeds and earn more stars.
               </>
             ))}
       </p>
@@ -51,10 +61,11 @@ export default function PlantPicker({
         {config.tiers.map((tier) => {
           const affordable = free || totalSeeds >= tier.seedCost;
           const kind = tier.kind ?? cropKindForTier(tier.tier);
+          const recommended = affordable && tier.tier === recommendedTier;
           return (
             <button
               key={tier.tier}
-              className={`tier ${affordable ? "" : "disabled"}`}
+              className={`tier ${affordable ? "" : "disabled"}${recommended ? " tier-recommended" : ""}`}
               type="button"
               disabled={!affordable}
               onClick={() => onPick(tier.tier)}

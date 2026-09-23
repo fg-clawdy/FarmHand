@@ -130,7 +130,7 @@ test("glow eligibility: water only growing (not ready) plots with inventory", ()
     [],
     "per-plot lock wins over garden canWater",
   );
-  assert.deepEqual(glowingSlots(null, plots, can), []);
+  assert.deepEqual(glowingSlots(null, plots, can), [0], "default glow = plantable empty plots");
 });
 
 test("cheapest seed cost is the lowest tier", () => {

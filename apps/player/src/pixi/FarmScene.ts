@@ -14,6 +14,7 @@ import {
   cropStageFrame,
   type PaintedArt,
 } from "./paintedAssets";
+import { SignAvatarBadge, farmSignBadgeLocal } from "./signAvatar";
 import {
   PLAYABLE_PLOT_SLOTS,
   PLAYFIELD_TEXTURE,
@@ -44,18 +45,20 @@ export class FarmScene {
   private onPlayer: (id: string) => void;
   private onStore: () => void;
   private onJobBoard: () => void;
+  private onAvatar: (id: string) => void;
   private t = 0;
 
   constructor(
     engine: PixiEngine,
     atlas: Atlas,
     painted: PaintedArt,
-    handlers: { onPlayer: (id: string) => void; onStore: () => void; onJobBoard?: () => void },
+    handlers: { onPlayer: (id: string) => void; onStore: () => void; onJobBoard?: () => void; onAvatar?: (id: string) => void },
   ) {
     this.app = engine.app;
     this.onPlayer = handlers.onPlayer;
     this.onStore = handlers.onStore;
     this.onJobBoard = handlers.onJobBoard ?? (() => undefined);
+    this.onAvatar = handlers.onAvatar ?? (() => undefined);
 
     this.ground = new Sprite(painted.playfield);
     this.ground.anchor.set(0, 0);
@@ -84,7 +87,13 @@ export class FarmScene {
     this.playfield.addChild(this.jobBoard.root);
 
     for (let i = 0; i < 3; i++) {
-      const bed = new GardenHotspot(atlas, painted, PLAYFIELD_LAYOUT.gardens[i]!, (id) => this.onPlayer(id));
+      const bed = new GardenHotspot(
+        atlas,
+        painted,
+        PLAYFIELD_LAYOUT.gardens[i]!,
+        (id) => this.onPlayer(id),
+        (id) => this.onAvatar(id),
+      );
       bed.place(tw, th);
       this.beds.push(bed);
       this.playfield.addChild(bed.root);
@@ -142,9 +151,18 @@ export class FarmScene {
     this.jobBoard.setJobs(jobs, dwellSeconds);
   }
 
+  getCurrentWantedJob() {
+    return this.jobBoard.getCurrentJob();
+  }
+
   /** QA only (`/qa/farm?markers=1`). Default off — never drawn on the live farm. */
   setMoundMarkers(on: boolean) {
     this.beds.forEach((bed) => bed.setMoundMarkers(on));
+  }
+
+  /** Public so the hook can re-fit after canvas reparent. */
+  relayout() {
+    this.layout();
   }
 
   private layout() {
@@ -183,7 +201,7 @@ export class FarmScene {
       if (w.__farmhandJobBoard) delete w.__farmhandJobBoard;
     }
     this.root.removeFromParent();
-    this.root.destroy({ children: true });
+    this.root.destroy({ children: true, texture: false, textureSource: false });
   }
 
   debugJobBoard() {
@@ -264,6 +282,7 @@ class GardenHotspot {
   private nameText: Text;
   private seedsText: Text;
   private pointsText: Text;
+  private avatarBadge: SignAvatarBadge;
   private sparkles: SparkleField[] = [];
   private plants: Sprite[] = [];
   private markers: Graphics[] = [];
@@ -280,6 +299,7 @@ class GardenHotspot {
     painted: PaintedArt,
     spec: (typeof PLAYFIELD_LAYOUT.gardens)[number],
     onOpen: (id: string) => void,
+    onAvatar: (id: string) => void,
   ) {
     this.spec = spec;
     this.painted = painted;
@@ -287,6 +307,9 @@ class GardenHotspot {
     this.seedsText = gardenSignText(18, "600", 4, { alpha: 0.45, blur: 3, distance: 1 });
     this.pointsText = gardenSignText(18, "600", 4, { alpha: 0.45, blur: 3, distance: 1 });
     this.plaque.addChild(this.nameText, this.seedsText, this.pointsText);
+    this.avatarBadge = new SignAvatarBadge(() => {
+      if (this.playerId) onAvatar(this.playerId);
+    });
     for (let i = 0; i < PLAYABLE_PLOT_SLOTS; i++) {
       const spr = new Sprite();
       spr.anchor.set(0.5, 1);
@@ -304,6 +327,7 @@ class GardenHotspot {
       ...this.markers,
       ...this.sparkles.map((field) => field.root),
       this.plaque,
+      this.avatarBadge.root,
     );
     this.root.eventMode = "static";
     this.root.cursor = "pointer";
@@ -351,6 +375,12 @@ class GardenHotspot {
       line.style.fontSize = i === 0 ? fonts.name : fonts.stats;
     });
     this.fitSignLines();
+    // Circular PFP badge pinned on top-left of the existing sign (plank text unchanged).
+    const nameLocal = gardenSignPlankLocal(this.spec.signFace, 0, this.texW, this.texH);
+    const nameMaxW = GARDEN_SIGN_PLANKS[0]!.maxU * this.texW;
+    const scale = this.texH / PLAYFIELD_TEXTURE.height;
+    const badge = farmSignBadgeLocal(nameLocal, nameMaxW, 20 * scale);
+    this.avatarBadge.place(badge.x, badge.y, badge.radius);
   }
 
   private fitSignLines() {
@@ -387,6 +417,7 @@ class GardenHotspot {
 
   sync(player: FarmPlayerCard, accent: (typeof ACCENTS)[number]) {
     this.playerId = player.id;
+    this.avatarBadge.sync(player);
     this.nameText.text = gardenSignName(player.name);
     this.seedsText.text = gardenSignSeeds(player.seeds + player.provisionalSeeds);
     this.pointsText.text = gardenSignPoints(player.points);

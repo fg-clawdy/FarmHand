@@ -44,7 +44,11 @@ export function roundRect(
 export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = "anonymous";
+    // Only set CORS for cross-origin URLs. Same-origin + anonymous without
+    // ACAO headers can blank canvas-packed textures in Firefox.
+    if (/^https?:\/\//i.test(src) && !src.startsWith(location.origin)) {
+      img.crossOrigin = "anonymous";
+    }
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Failed to load ${src}`));
     img.src = src;

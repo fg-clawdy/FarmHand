@@ -1,0 +1,5 @@
+
+APPLY.ps1 will:
+1) Append enums + ChoreBoardEvent + ChoreHeat if missing
+2) Add to model Player: choreBoardEvents ChoreBoardEvent[] and choreHeats ChoreHeat[]
+3) Add to model Chore: boardEvents ChoreBoardEvent[] and heats ChoreHeat[]

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { buildAtlas } from "./atlas";
-import { createEngine, type PixiEngine } from "./engine";
+import { createEngine, fitEngine, type PixiEngine } from "./engine";
 import { FarmScene } from "./FarmScene";
 import { GardenScene } from "./GardenScene";
 import { loadPaintedArt } from "./paintedAssets";
@@ -13,15 +13,30 @@ function loadAtlas() {
   return atlasPromise;
 }
 
+/** Fresh GPU textures per mount — shared Texture cache goes blank after scene destroy/reparent on some mobile browsers. */
 function loadPainted() {
-  paintedPromise ??= loadPaintedArt();
+  paintedPromise = loadPaintedArt();
   return paintedPromise;
+}
+
+function afterLayout(eng: PixiEngine, layout: () => void) {
+  fitEngine(eng.app, eng.host);
+  layout();
+  requestAnimationFrame(() => {
+    fitEngine(eng.app, eng.host);
+    layout();
+    requestAnimationFrame(() => {
+      fitEngine(eng.app, eng.host);
+      layout();
+    });
+  });
 }
 
 export function useFarmPixi(handlers: {
   onPlayer: (id: string) => void;
   onStore: () => void;
   onJobBoard: () => void;
+  onAvatar?: (id: string) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<FarmScene | null>(null);
@@ -41,14 +56,11 @@ export function useFarmPixi(handlers: {
         return;
       }
       engine = eng;
-      if (dead) {
-        eng.destroy();
-        return;
-      }
       const scene = new FarmScene(eng, atlas, painted, {
         onPlayer: (id) => handlersRef.current.onPlayer(id),
         onStore: () => handlersRef.current.onStore(),
         onJobBoard: () => handlersRef.current.onJobBoard(),
+        onAvatar: (id) => handlersRef.current.onAvatar?.(id),
       });
       if (dead) {
         scene.destroy();
@@ -56,6 +68,7 @@ export function useFarmPixi(handlers: {
         return;
       }
       sceneRef.current = scene;
+      afterLayout(eng, () => scene.relayout());
       setReady((n) => n + 1);
     })();
     return () => {
@@ -69,12 +82,14 @@ export function useFarmPixi(handlers: {
   return { hostRef, sceneRef, ready };
 }
 
-export function useGardenPixi(onPlot: (slot: number) => void) {
+export function useGardenPixi(onPlot: (slot: number) => void, onAvatar?: () => void) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<GardenScene | null>(null);
   const [ready, setReady] = useState(0);
   const onPlotRef = useRef(onPlot);
   onPlotRef.current = onPlot;
+  const onAvatarRef = useRef(onAvatar);
+  onAvatarRef.current = onAvatar;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -88,17 +103,14 @@ export function useGardenPixi(onPlot: (slot: number) => void) {
         return;
       }
       engine = eng;
-      if (dead) {
-        eng.destroy();
-        return;
-      }
-      const scene = new GardenScene(eng, atlas, painted, (slot) => onPlotRef.current(slot));
+      const scene = new GardenScene(eng, atlas, painted, (slot) => onPlotRef.current(slot), () => onAvatarRef.current?.());
       if (dead) {
         scene.destroy();
         eng.destroy();
         return;
       }
       sceneRef.current = scene;
+      afterLayout(eng, () => scene.relayout());
       setReady((n) => n + 1);
     })();
     return () => {

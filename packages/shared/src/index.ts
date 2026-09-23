@@ -5,3 +5,6 @@ export * from "./choreCatalog.js";
 export * from "./chores.js";
 export * from "./accolades.js";
 export * from "./store.js";
+export * from "./choreSuggest.js";
+export * from "./choreSkip.js";
+export * from "./avatars.js";

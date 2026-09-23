@@ -1,0 +1,129 @@
+
+/* ---- Kid PFP / claim tiles / avatar picker (fh-pfp) ---- */
+.kid-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(180deg, #fffdf4, #f3d9a2);
+  box-shadow: 0 3px 0 #5c3218, 2px 4px 0 rgba(80, 40, 10, 0.15);
+  flex-shrink: 0;
+  border: 2px solid #2a1608;
+}
+.kid-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.kid-avatar--sm { width: 40px; height: 40px; }
+.kid-avatar--md { width: 56px; height: 56px; }
+.kid-avatar--lg { width: 72px; height: 72px; }
+.kid-avatar--xl { width: 96px; height: 96px; }
+.kid-avatar--emoji {
+  background: radial-gradient(circle at 35% 30%, #fffdf8, #f0d09a);
+}
+.kid-avatar-emoji {
+  font-size: 1.55em;
+  line-height: 1;
+  user-select: none;
+}
+.kid-avatar--sm .kid-avatar-emoji { font-size: 1.25em; }
+.kid-avatar--xl .kid-avatar-emoji { font-size: 2.1em; }
+.kid-avatar-mascot {
+  width: 86%;
+  height: 86%;
+  display: block;
+}
+
+.kid-claim-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 14px;
+  margin: 12px 0 8px;
+}
+.kid-claim-tile {
+  position: relative;
+  min-height: 168px;
+  border: 0;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #fffdf4, #f3d9a2);
+  box-shadow: 0 8px 0 #5c3218, 4px 12px 0 rgba(80, 40, 10, 0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 18px 12px 14px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.kid-claim-tile:active { transform: translateY(3px); }
+.kid-claim-tile:disabled { opacity: 0.65; }
+.kid-claim-name {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 2px 0 0;
+}
+.kid-claim-action {
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+.kid-claim-lock {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 16px;
+}
+
+.avatar-picker-current {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.avatar-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+.avatar-picker-tile {
+  min-height: 128px;
+  border: 0;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #fffdf4, #ead4a4);
+  box-shadow: 0 6px 0 #5c3218;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 8px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  color: inherit;
+}
+.avatar-picker-tile:active { transform: translateY(2px); }
+.avatar-picker-tile--selfie {
+  background: linear-gradient(180deg, #e8f6ff, #c9e4ff);
+}
+.profile-change-pic {
+  margin-top: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  font-size: 16px;
+  font-weight: 800;
+}
+.profile-identity .kid-avatar {
+  flex-shrink: 0;
+}
+.who.profile-entry .kid-avatar {
+  margin-right: 2px;
+}

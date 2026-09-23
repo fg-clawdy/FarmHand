@@ -1,0 +1,57 @@
+
+enum ChoreBoardEventType {
+  BOARD_OPEN
+  CLAIM
+  DISMISS
+  RIGHT_NOW_IMPRESSION
+}
+
+enum ChoreBoardTimeBucket {
+  MORNING
+  AFTERNOON
+  EVENING
+}
+
+enum ChoreBoardSource {
+  GARDEN_JOB_BOARD
+  FARM_CORKBOARD
+}
+
+/// Append-only Job Board / corkboard interaction events for HEAT learning.
+model ChoreBoardEvent {
+  id              String               @id @default(uuid())
+  createdAt       DateTime             @default(now())
+  familyTimezone  String?
+  playerId        String?
+  player          Player?              @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  choreId         String?
+  chore           Chore?               @relation(fields: [choreId], references: [id], onDelete: SetNull)
+  eventType       ChoreBoardEventType
+  timeOfDayBucket ChoreBoardTimeBucket
+  isWeekend       Boolean
+  source          ChoreBoardSource
+  suggestedSlot   Boolean?
+  meta            Json?
+
+  @@index([createdAt])
+  @@index([choreId, eventType, createdAt])
+  @@index([eventType, createdAt])
+}
+
+/// Farm-wide aggregated claim heat per chore (v1: one row per choreId, playerId null).
+/// heatScore is 0–100. See apps/api/src/choreHeat.ts for nightly + EMA formulas.
+model ChoreHeat {
+  id            String    @id @default(uuid())
+  choreId       String    @unique
+  chore         Chore     @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  playerId      String?
+  player        Player?   @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  heatScore     Float     @default(0)
+  claimCount7d  Int       @default(0)
+  claimCount30d Int       @default(0)
+  openCount7d   Int       @default(0)
+  lastClaimedAt DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  @@index([updatedAt])
+}

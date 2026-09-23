@@ -4,6 +4,7 @@ import { loadConfig } from "./game.js";
 import { listPlayerSelfies } from "./selfie.js";
 import { playerWallet, publicWallet } from "./stars.js";
 import { playerRewardHistory } from "./store.js";
+import { avatarFieldsPublic } from "./avatar.js";
 
 const ACTIVITY_ACTIONS = ["harvest", "store_approve", "store_redeem", "chore_approve"] as const;
 
@@ -35,6 +36,7 @@ export async function playerProfile(playerId: string) {
       id: player.id,
       name: player.name,
       mascot: player.mascot,
+      ...avatarFieldsPublic(player),
       garden: `${player.name}'s garden`,
     },
     wallet: publicWallet(wallet),

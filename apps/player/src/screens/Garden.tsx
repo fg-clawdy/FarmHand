@@ -2,10 +2,12 @@ import { PLOTS_PER_GARDEN, type GameConfig, type PublicPlot } from "@farmhand/sh
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, type AccoladeUnlock, type GardenPlayer, type HarvestReward, type PublicChore } from "../api";
-import { AcornArt, BackArrow, MascotArt, SceneShell, StarIcon } from "../art";
+import { AcornArt, BackArrow, SceneShell, StarIcon } from "../art";
 import HarvestCelebration from "../components/HarvestCelebration";
 import AccoladeCelebration from "../components/AccoladeCelebration";
 import AccoladePanel from "../components/AccoladePanel";
+import AvatarPicker from "../components/AvatarPicker";
+import KidAvatar from "../components/KidAvatar";
 import JobBoard, { NeedJobsNudge } from "../components/JobBoard";
 import PinPad from "../components/PinPad";
 import PlantPicker from "../components/PlantPicker";
@@ -25,6 +27,7 @@ import {
   type GardenTool,
 } from "../pixi/gardenLayout";
 import { useGardenPixi } from "../pixi/usePixi";
+import { useGardenIdleLock } from "../hooks/useGardenIdleLock";
 
 type Overlay =
   | { type: "picker"; slot: number }
@@ -35,11 +38,13 @@ type Overlay =
   | { type: "chore-photo"; chore: PublicChore }
   | { type: "badges" }
   | { type: "profile" }
+  | { type: "avatar-picker" }
   | null;
 
 export default function Garden() {
   const { playerId } = useParams();
   const navigate = useNavigate();
+  useGardenIdleLock(90_000);
   const [player, setPlayer] = useState<GardenPlayer | null>(null);
   const [config, setConfig] = useState<GameConfig | null>(null);
   const [fetchedAt, setFetchedAt] = useState(Date.now());
@@ -228,6 +233,7 @@ function GardenPlay({
   const [badgeQueue, setBadgeQueue] = useState<AccoladeUnlock[]>([]);
   const [jobToast, setJobToast] = useState(false);
   const [chores, setChores] = useState<PublicChore[]>([]);
+  const [choreTimezone, setChoreTimezone] = useState("America/Chicago");
 
   function celebrateWaitingSeed() {
     setJobToast(true);
@@ -250,6 +256,7 @@ function GardenPlay({
       .chores()
       .then((data) => {
         setChores(data.chores);
+        if (data.timezone) setChoreTimezone(data.timezone);
         applyGarden(data.player);
       })
       .catch(() => undefined);
@@ -301,12 +308,15 @@ function GardenPlay({
       return;
     }
     if (action === "sheet") setOverlay({ type: "plot", slot });
-  });
+  },
+    () => setOverlay({ type: "avatar-picker" }),
+  );
 
   useEffect(() => {
     sceneRef.current?.setPlots(plots);
     sceneRef.current?.setName(`${player.name}'s garden`);
-  }, [plots, player.name, ready, sceneRef]);
+    sceneRef.current?.setAvatar(player);
+  }, [plots, player, ready, sceneRef]);
 
   useEffect(() => {
     sceneRef.current?.setGlow(glow);
@@ -335,7 +345,15 @@ function GardenPlay({
           aria-label={`${player.name}'s profile`}
           onClick={() => setOverlay({ type: "profile" })}
         >
-          <MascotArt className="mascot-img" mascot={player.mascot} />
+          <KidAvatar
+            size="sm"
+            name={player.name}
+            mascot={player.mascot}
+            avatarKind={player.avatarKind}
+            avatarPreset={player.avatarPreset}
+            avatarUrl={player.avatarUrl}
+            decorative
+          />
           <span>{player.name}'s garden</span>
         </button>
         <div className="meters">
@@ -347,7 +365,7 @@ function GardenPlay({
             <AcornArt /> {player.seeds + player.provisionalSeeds}
             {gain && gain.seedsFromShards > 0 && <span className="meter-delta">+{gain.seedsFromShards}</span>}
           </div>
-          {/* Shard meter: fills toward 1 seed. Fertilizer removed — incomplete, future phase. */}
+          {/* Shard meter: fills toward 1 seed. Fertilizer removed -- incomplete, future phase. */}
           <div className={`meter shard-meter ${gain && gain.shardsEarned > 0 ? "bump" : ""}`}>
             <span className="shard-icon" aria-hidden="true">💎</span>
             <span className="shard-count">{player.seedShards}/{config.shardsPerSeed}</span>
@@ -448,12 +466,19 @@ function GardenPlay({
           chores={chores}
           busy={busy}
           onClose={() => setOverlay(null)}
+          timezone={choreTimezone}
           onClaim={async (chore) => {
             const data = await api.claimChore(chore.id);
             setOverlay(null);
             applyGarden(data.player);
             noteUnlocks(data.unlocks);
             celebrateWaitingSeed();
+            return data.player;
+          }}
+          onSkip={async (chore) => {
+            const data = await api.skipChore(chore.id);
+            if (data.chores) setChores(data.chores);
+            applyGarden(data.player);
             return data.player;
           }}
           onNeedPhoto={(chore) => setOverlay({ type: "chore-photo", chore })}
@@ -522,7 +547,22 @@ function GardenPlay({
       {gain && <HarvestCelebration reward={gain} config={config} />}
       {badgeQueue[0] && <AccoladeCelebration unlock={badgeQueue[0]} />}
       {overlay?.type === "badges" && <AccoladePanel onClose={() => setOverlay(null)} />}
-      {overlay?.type === "profile" && <ProfileSheet onClose={() => setOverlay(null)} />}
+      {overlay?.type === "profile" && (
+        <ProfileSheet
+          onClose={() => setOverlay(null)}
+          onPlayerUpdate={(next) => applyGarden(next)}
+        />
+      )}
+      {overlay?.type === "avatar-picker" && (
+        <AvatarPicker
+          player={player}
+          onClose={() => setOverlay(null)}
+          onDone={(next) => {
+            applyGarden(next);
+            setOverlay(null);
+          }}
+        />
+      )}
       {jobToast && (
         <div className="harvest-banner" role="status" aria-live="polite">
           <div className="harvest-banner-title">🌱 Waiting seed planted!</div>

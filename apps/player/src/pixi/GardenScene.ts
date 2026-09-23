@@ -19,6 +19,7 @@ import {
   type PaintedArt,
 } from "./paintedAssets";
 import { uvToLocal } from "./playfieldLayout";
+import { SignAvatarBadge, gardenZoomBadgeLocal } from "./signAvatar";
 
 /**
  * Zoomed garden: painted 3×3 mounds, crop sprites, tool glow. No animals, no extra props.
@@ -36,15 +37,19 @@ export class GardenScene {
   private t = 0;
   private app: Application;
   private onPlot: (slot: number) => void;
+  private onAvatar: () => void;
+  private avatarBadge: SignAvatarBadge;
 
   constructor(
     engine: PixiEngine,
     atlas: Atlas,
     painted: PaintedArt,
     onPlot: (slot: number) => void,
+    onAvatar?: () => void,
   ) {
     this.app = engine.app;
     this.onPlot = onPlot;
+    this.onAvatar = onAvatar ?? (() => undefined);
     this.fx = new FxLayer(atlas);
 
     this.ground = new Sprite(painted.gardenZoom);
@@ -73,6 +78,9 @@ export class GardenScene {
     this.nameText.position.set(sign.x, sign.y);
     this.nameText.zIndex = 2000;
     this.playfield.addChild(this.nameText);
+    this.avatarBadge = new SignAvatarBadge(() => this.onAvatar());
+    this.placeAvatarBadge(tw, th);
+    this.playfield.addChild(this.avatarBadge.root);
 
     for (let i = 0; i < PLOTS_PER_GARDEN; i++) {
       const node = new PlotNode(atlas, painted, i, (slot) => this.onPlot(slot));
@@ -102,6 +110,24 @@ export class GardenScene {
 
   setName(name: string) {
     this.nameText.text = name.trim() || "Garden";
+  }
+
+  setAvatar(player: {
+    id: string;
+    name: string;
+    mascot: import("@farmhand/shared").Mascot;
+    avatarKind?: string | null;
+    avatarPreset?: string | null;
+    avatarUrl?: string | null;
+  }) {
+    this.avatarBadge.sync(player);
+  }
+
+  private placeAvatarBadge(tw: number, th: number) {
+    const sign = uvToLocal(GARDEN_ZOOM_LAYOUT.sign, tw, th);
+    const radius = Math.max(22, 36 * (th / GARDEN_ZOOM_TEXTURE.height));
+    const badge = gardenZoomBadgeLocal(sign, radius);
+    this.avatarBadge.place(badge.x, badge.y, badge.radius);
   }
 
   setPlots(plots: PublicPlot[]) {
@@ -159,6 +185,10 @@ export class GardenScene {
     this.floaters.push({ text, life: 1.8, max: 1.8, vy: -62 });
   }
 
+  relayout() {
+    this.layout();
+  }
+
   private layout() {
     const w = this.app.screen.width;
     const h = this.app.screen.height;
@@ -213,7 +243,7 @@ export class GardenScene {
       if (w.__farmhandGardenCanvas) delete w.__farmhandGardenCanvas;
     }
     this.root.removeFromParent();
-    this.root.destroy({ children: true });
+    this.root.destroy({ children: true, texture: false, textureSource: false });
   }
 
   /** Live QA: one sprite per plot, frame rect, anchor, scale, world vs mound UV. */
