@@ -368,13 +368,6 @@ function GardenPlay({
     setShownSeeds(player.seeds + player.provisionalSeeds);
   }, [player.seeds, player.provisionalSeeds, acornPour]);
 
-  function onStarArrive(arrived: number, total: number) {
-    if (!pour) return;
-    const gained = pour.toPoints - pour.fromPoints;
-    const credited = total > 0 ? Math.round((gained * arrived) / total) : gained;
-    setShownPoints(pour.fromPoints + credited);
-    if (arrived >= total) setPointsShine(true);
-  }
 
   useEffect(() => {
     if (!pointsShine) return;

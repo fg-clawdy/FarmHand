@@ -858,8 +858,6 @@ class HarvestBasket {
   private pulseT = 0;
   private baseScale: number = GARDEN_BASKET_LAYOUT.emptyScale;
   private pouring = false;
-  private baskW = 260;
-  private baskH = 160;
   private origin = {
     x: GARDEN_ZOOM_TEXTURE.width * GARDEN_BASKET_LAYOUT.origin.u,
     y: GARDEN_ZOOM_TEXTURE.height * GARDEN_BASKET_LAYOUT.origin.v,
@@ -883,8 +881,6 @@ class HarvestBasket {
     const baskW = 260;
     const tex = painted.harvestBasket;
     const baskH = tex.width > 0 ? baskW * (tex.height / tex.width) : 160;
-    this.baskW = baskW;
-    this.baskH = baskH;
     this.bodyBack.width = baskW;
     this.bodyBack.height = baskH;
     this.bodyBack.alpha = 1;
@@ -973,8 +969,12 @@ class HarvestBasket {
     this.root.scale.set(this.baseScale);
   }
 
-  /** Gentle idle pulse while produce is waiting — stops when empty. */
+  /** Gentle idle pulse while produce is waiting — stops when empty or pouring. */
   update(dt: number) {
+    if (this.pouring) {
+      this.root.scale.set(this.baseScale);
+      return;
+    }
     const filled = this.visibleCount() > 0;
     if (!filled) {
       this.pulseT = 0;
@@ -982,9 +982,35 @@ class HarvestBasket {
       return;
     }
     this.pulseT += dt;
-    // Slow kid-friendly breathe (~1.6s cycle), ~4% scale swing.
     const pulse = 1 + Math.sin(this.pulseT * 3.9) * 0.04;
     this.root.scale.set(this.baseScale * pulse);
+  }
+
+  setPouring(on: boolean) {
+    this.pouring = on;
+    if (on) this.root.scale.set(this.baseScale);
+  }
+
+  attachStar(star: Text) {
+    star.zIndex = 1;
+    this.starLayer.addChild(star);
+  }
+
+  /** Reparent above the rim once the star clears the lip (same basket-local space). */
+  elevateStar(star: Text) {
+    if (star.parent === this.root) {
+      star.zIndex = 10;
+      return;
+    }
+    this.root.addChild(star);
+    star.zIndex = 10;
+  }
+
+  toBasketLocal(playX: number, playY: number) {
+    return {
+      x: (playX - this.origin.x) / this.baseScale,
+      y: (playY - this.origin.y) / this.baseScale,
+    };
   }
 
   private syncPointsBadge() {
