@@ -719,7 +719,7 @@ class HarvestBasket {
   private held: BasketView[] = [];
   private hidden = new Set<string>();
   private pulseT = 0;
-  private baseScale = GARDEN_BASKET_LAYOUT.emptyScale;
+  private baseScale: number = GARDEN_BASKET_LAYOUT.emptyScale;
   private origin = {
     x: GARDEN_ZOOM_TEXTURE.width * GARDEN_BASKET_LAYOUT.origin.u,
     y: GARDEN_ZOOM_TEXTURE.height * GARDEN_BASKET_LAYOUT.origin.v,
