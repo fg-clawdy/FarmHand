@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api, type AccoladeUnlock, type BasketItem, type GardenPlayer, type HarvestReward, type PublicChore } from "../api";
 import { AcornArt, BackArrow, SceneShell, StarIcon } from "../art";
 import HarvestCelebration from "../components/HarvestCelebration";
-import HarvestBasketSheet from "../components/HarvestBasketSheet";
+import HarvestBasketSheet, { MARKET_TRUCK_DRIVE_MS } from "../components/HarvestBasketSheet";
 import StarPour from "../components/StarPour";
 import AcornPour from "../components/AcornPour";
 import { kidSeedRewardCount } from "../kidSeedReward";
@@ -393,15 +393,23 @@ function GardenPlay({
     const basket = sceneRef.current?.basketLaunchLocal();
     const host = hostRef.current?.getBoundingClientRect();
     const fit = host ? gardenPlayfieldFit(host.width, host.height) : null;
+    // Origin is the painted tray interior (mouth), mapped through the garden camera.
     const from = basket && host && fit
       ? { x: host.left + fit.x + basket.x * fit.scale, y: host.top + fit.y + basket.y * fit.scale }
       : { x: window.innerWidth * 0.72, y: window.innerHeight * 0.78 };
     const to = meter
       ? { x: meter.left + meter.width / 2, y: meter.top + meter.height / 2 }
       : { x: window.innerWidth - 80, y: 36 };
+    const driveStarted = Date.now();
     void run(async () => {
       const data = await api.sellBasket();
+      // Sell pressed → truck drives off → THEN close sheet → THEN StarPour.
+      // If the API is slower than the drive, keep the sheet open until it returns.
+      const remain = Math.max(0, MARKET_TRUCK_DRIVE_MS - (Date.now() - driveStarted));
+      if (remain > 0) await new Promise<void>((resolve) => window.setTimeout(resolve, remain));
       setOverlay(null);
+      // Let the sheet unmount a frame before stars spawn from the world basket.
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       setPour({
         items: data.items.length ? data.items : items,
         from,

@@ -34,8 +34,9 @@ export default function StarPour({
     return Array.from({ length: count }, (_, i) => ({
       id: `star-${i}`,
       delay: starLaunchDelay(i, count),
-      dx: ((i % 7) - 3) * 10,
-      dy: -12 - (i % 4) * 6,
+      // Tight scatter inside the tray bowl (not floating above / in front of it).
+      dx: ((i % 7) - 3) * 6,
+      dy: ((i % 5) - 2) * 4,
     }));
   }, [count]);
   const [gone, setGone] = useState(false);

@@ -873,8 +873,9 @@ class HarvestBasket {
     };
   }
 
+  /** Interior of the shallow tray — star pour origin (not floating above the rim). */
   mouth() {
-    return this.scaledLocal(0, -8);
+    return this.scaledLocal(0, 18);
   }
 
   reserveSlot(itemId?: string, kind?: string) {

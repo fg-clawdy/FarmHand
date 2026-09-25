@@ -2085,8 +2085,9 @@ button.who.profile-entry:active {
   will-change: transform, opacity;
 }
 @keyframes starPour {
+  /* ~2x prior start size while leaving the basket; same end shrink into the meter. */
   0% {
-    transform: translate(0) scale(1.15);
+    transform: translate(0) scale(2.3);
     opacity: 1;
   }
   70% {
