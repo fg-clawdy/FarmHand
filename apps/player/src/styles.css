@@ -27,6 +27,11 @@ button, input { font: inherit; }
   position: absolute;
   inset: 0;
   z-index: 0;
+  /* Avoid 0x0 client box on first PWA paint (shared canvas locked at 1x1 green). */
+  min-width: 2px;
+  min-height: 2px;
+  width: 100%;
+  height: 100%;
 }
 .garden-hybrid .topbar {
   pointer-events: none;
@@ -483,7 +488,7 @@ button.who.profile-entry:active {
   border-radius: 999px;
   box-shadow: 0 3px 0 #c47a10;
 }
-.plot-time { position: relative; color: #fff6e4; font-weight: 800; text-shadow: 0 2px 0 #2b1a10; }
+.plot-time { position: relative; color: #3d2412; font-weight: 800; text-shadow: none; }
 
 .sheet-backdrop {
   position: fixed;
@@ -1898,4 +1903,632 @@ button.who.profile-entry:active {
 }
 .who.profile-entry .kid-avatar {
   margin-right: 2px;
+}
+
+/* Harvest basket sheet + star pour + garden mount error (WIP feature CSS) */
+.plant-picker-sheet h2,
+.basket-sheet h2,
+.seed-pouch-sheet h2 {
+  color: #fff8e6;
+  -webkit-text-stroke: 2.5px #2a1608;
+  paint-order: stroke fill;
+  text-shadow: 0 2px 0 #1a0e06, 0 0 8px rgba(42, 22, 8, 0.85);
+}
+.plant-picker-sheet .picker-intro,
+.basket-sheet .picker-intro,
+.seed-pouch-sheet .picker-intro {
+  color: #fff8e6;
+  font-weight: 800;
+  -webkit-text-stroke: 1.6px #2a1608;
+  paint-order: stroke fill;
+  text-shadow: 0 1px 0 #1a0e06, 0 2px 0 rgba(26, 14, 6, 0.9);
+}
+.basket-sheet .basket-worth {
+  font-size: clamp(1.05rem, 3.4vw, 1.35rem);
+  font-weight: 900;
+  margin: 4px 0 12px;
+  text-align: center;
+  justify-content: center;
+}
+.basket-error {
+  margin: 8px 0;
+  color: #7a1f12;
+  font-weight: 800;
+  text-align: center;
+}
+.basket-produce-grid {
+  margin: 8px 0 14px;
+}
+.basket-produce-card {
+  pointer-events: none;
+  cursor: default;
+  overflow: visible;
+  min-height: 200px;
+}
+.basket-produce-art-well {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 112px;
+  margin: 0 auto 6px;
+  padding: 8px 6px;
+  overflow: visible;
+  box-sizing: border-box;
+}
+.basket-produce-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 96px;
+  max-height: 104px;
+  object-fit: contain;
+  object-position: center;
+  image-rendering: auto;
+  pointer-events: none;
+  user-select: none;
+}
+.basket-produce-fallback {
+  display: block;
+  font-size: 48px;
+  line-height: 1;
+  margin: 0;
+  text-align: center;
+}
+.market-sell-cta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  width: 100%;
+  min-height: 88px;
+  margin-top: 6px;
+  padding: 10px 16px 10px 12px;
+  border: 0;
+  border-radius: 22px;
+  background: linear-gradient(#6dbe55, #3f8a3a);
+  color: #fff8e6;
+  font-weight: 800;
+  box-shadow: 0 6px 0 #2d5a28, inset 0 2px 0 rgba(255, 255, 255, 0.35);
+  text-align: left;
+  cursor: pointer;
+}
+.market-sell-cta:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 3px 0 #2d5a28, inset 0 2px 0 rgba(255, 255, 255, 0.25);
+}
+.market-sell-cta:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.market-sell-cta-art {
+  flex: 0 0 auto;
+  width: clamp(72px, 18vw, 110px);
+  height: auto;
+  max-height: 72px;
+  object-fit: contain;
+  object-position: center;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 2px 0 rgba(30, 60, 28, 0.45));
+}
+.market-sell-cta-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.market-sell-cta-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: clamp(1.15rem, 3.6vw, 1.45rem);
+  font-weight: 900;
+  line-height: 1.15;
+  color: #fff8e6;
+  -webkit-text-stroke: 1.4px #1e3a1c;
+  paint-order: stroke fill;
+  text-shadow: 0 1px 0 #143016;
+}
+.market-sell-cta-star {
+  width: 28px;
+  height: 28px;
+}
+.market-sell-cta-sub {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #e8ffd8;
+  text-shadow: 0 1px 0 rgba(20, 48, 22, 0.65);
+}
+.harvest-acorn-headline {
+  margin: 0 0 0.35rem;
+  font-family: Fredoka, "Trebuchet MS", sans-serif;
+  font-weight: 700;
+}
+.star-pour {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 80;
+}
+.star-pour-star {
+  position: absolute;
+  font-size: 34px;
+  line-height: 1;
+  color: #ffe56a;
+  text-shadow: 0 2px 0 #8a5a00, 0 0 12px #fff1a8;
+  animation: starPour var(--flight, 1.15s) ease-in-out forwards;
+  will-change: transform, opacity;
+}
+@keyframes starPour {
+  0% {
+    transform: translate(0) scale(1.15);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--pour-x), var(--pour-y)) scale(0.18);
+    opacity: 0.2;
+  }
+}
+.garden-load-error {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1.5rem;
+  text-align: center;
+  background: rgba(45, 90, 40, 0.92);
+  color: #fff6e4;
+}
+.garden-load-error-title {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+}
+.garden-load-error-reason {
+  margin: 0;
+  max-width: 22rem;
+  font-size: 0.95rem;
+  opacity: 0.95;
+}
+.garden-load-error-hint {
+  margin: 0.25rem 0 0.5rem;
+  max-width: 22rem;
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+.garden-load-error-back {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.65rem 1.25rem;
+  background: #f0b429;
+  color: #2a1a0d;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+
+/* Compact chore confirm sheet — Dishes mock layout for all chores */
+.sheet.sheet--chore-confirm {
+  width: min(440px, 94vw);
+  padding: 14px 16px 18px;
+  border-radius: 22px;
+}
+/* Title lives in the hero meta column; keep Sheet h2 for a11y only. */
+.sheet.sheet--chore-confirm > h2 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.chore-confirm-hero {
+  display: grid;
+  grid-template-columns: minmax(112px, 38%) 1fr;
+  gap: 12px 14px;
+  align-items: center;
+  margin: 0 0 12px;
+}
+.chore-confirm-art-frame {
+  aspect-ratio: 1;
+  border-radius: 18px;
+  padding: 8px;
+  background: #fff8e6;
+  border: 2px solid rgba(120, 72, 24, 0.16);
+  box-shadow:
+    0 4px 0 rgba(90, 50, 20, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+}
+.chore-confirm-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #f3e6c8;
+}
+.chore-confirm-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.chore-confirm-title {
+  margin: 0;
+  font-size: clamp(1.35rem, 4.5vw, 1.75rem);
+  line-height: 1.15;
+  font-weight: 800;
+  color: #2a1a0d;
+  text-shadow: none;
+}
+.chore-confirm-reward {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 0.55rem 0.85rem;
+  border-radius: 999px;
+  background: #fff8e6;
+  border: 1px solid rgba(120, 72, 24, 0.18);
+  color: #3d2412;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.2;
+  box-shadow: 0 3px 0 rgba(90, 50, 20, 0.1);
+}
+.chore-confirm-acorn {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+}
+.chore-confirm-instruction {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 14px;
+  background: #fff8e6;
+  border: 1px solid rgba(120, 72, 24, 0.16);
+  color: #3d2412;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-shadow: none;
+  box-shadow: 0 2px 0 rgba(90, 50, 20, 0.08);
+}
+.chore-confirm-toast {
+  margin: 0 0 8px;
+  padding: 0.45rem 0.7rem;
+  border-radius: 12px;
+  background: #fff8e6;
+  color: #3d2412;
+  font-weight: 800;
+}
+
+.sheet.sheet--chore-confirm .sheet-actions,
+.sheet-actions.sheet-actions--chore-confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  margin-top: 10px;
+  gap: 10px;
+}
+.sheet.sheet--chore-confirm .sheet-actions .btn.primary,
+.sheet-actions.sheet-actions--chore-confirm .btn.primary {
+  width: 100%;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+.btn.cream-secondary {
+  width: 100%;
+  background: #fff8e6;
+  color: #3d2412;
+  border: 1px solid rgba(120, 72, 24, 0.2);
+  box-shadow: 0 4px 0 rgba(90, 50, 20, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+.btn.cream-secondary:active {
+  box-shadow: 0 2px 0 rgba(90, 50, 20, 0.12);
+}
+.chore-confirm-back {
+  display: block;
+  width: 100%;
+  margin: 2px 0 0;
+  padding: 8px 4px;
+  border: 0;
+  background: transparent;
+  color: #5c3a1e;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  opacity: 0.85;
+  box-shadow: none;
+  min-height: 0;
+}
+.chore-confirm-back:hover,
+.chore-confirm-back:focus-visible {
+  opacity: 1;
+  color: #2a1a0d;
+}
+.chore-confirm-back:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.sheet.sheet--chore-confirm .kid-claim-grid {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+@media (max-width: 380px) {
+  .chore-confirm-hero {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+  .chore-confirm-art-frame {
+    width: min(160px, 55vw);
+  }
+  .chore-confirm-meta {
+    align-items: center;
+  }
+  .chore-confirm-reward {
+    align-self: center;
+  }
+}
+
+/* Acorn pour into seed meter (chore claim celebration) */
+.acorn-pour {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 80;
+}
+.acorn-pour-acorn {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  animation: acornPour var(--flight, 1.15s) ease-in-out forwards;
+  will-change: transform, opacity;
+  filter: drop-shadow(0 2px 0 rgba(90, 50, 20, 0.35));
+}
+.acorn-pour-icon {
+  width: 36px;
+  height: 36px;
+  display: block;
+}
+@keyframes acornPour {
+  0% {
+    transform: translate(0) scale(1.2);
+    opacity: 1;
+  }
+  18% {
+    transform: translate(calc(var(--pour-x) * 0.08), calc(var(--pour-y) * 0.05 - 18px)) scale(1.35);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--pour-x), var(--pour-y)) scale(0.2);
+    opacity: 0.15;
+  }
+}
+.meter.seed-meter.bump {
+  animation: seedMeterBump 0.42s ease;
+}
+@keyframes seedMeterBump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+
+
+/* Plant details + pending approval (PlotSheet mock v1) */
+.sheet-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+.sheet-heading-text {
+  min-width: 0;
+}
+
+.plot-sheet {
+  width: min(760px, 100%);
+}
+
+.plot-status-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  line-height: 1.2;
+  text-shadow: none;
+  box-shadow: 0 2px 0 rgba(43, 26, 16, 0.18);
+  white-space: nowrap;
+}
+.plot-status-pill--waiting {
+  background: linear-gradient(180deg, #c9a0ff, #8f5ad6);
+  color: #fff;
+}
+.plot-status-pill--growing {
+  background: linear-gradient(180deg, #8fd46a, #4f9a3a);
+  color: #fff;
+}
+.plot-status-pill--ready {
+  background: linear-gradient(180deg, #ffe56a, #f0b429);
+  color: #2b1a10;
+}
+.plot-status-pill--wilted {
+  background: linear-gradient(180deg, #cfc4b4, #9a8f80);
+  color: #2b1a10;
+}
+
+.plot-layout {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.92fr) minmax(220px, 1.35fr);
+  gap: 0.85rem 1rem;
+  align-items: start;
+  margin: 0.15rem 0 0.35rem;
+}
+
+.plot-hero {
+  text-align: center;
+  padding: 0.55rem 0.45rem 0.65rem;
+  border-radius: 18px;
+}
+.plot-hero .hero-art {
+  width: min(168px, 78%);
+  margin: 0 auto;
+}
+.plot-hero.greyed .hero-art {
+  filter: grayscale(1) brightness(0.85);
+}
+.plot-hero.awaiting-approval {
+  box-shadow:
+    inset 0 0 0 3px rgba(168, 110, 255, 0.72),
+    inset 0 0 18px rgba(181, 123, 255, 0.18);
+  background: rgba(255, 248, 230, 0.28);
+}
+
+/* High-contrast cream chip — dark text on cream (not white-on-wood). */
+.plot-status-chip {
+  margin: 0.55rem auto 0;
+  max-width: 16rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 12px;
+  background: #fff8e6;
+  border: 1px solid rgba(120, 72, 24, 0.18);
+  color: #3d2412;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-shadow: none;
+  box-shadow: 0 2px 0 rgba(90, 50, 20, 0.08);
+}
+
+/* ONE parchment panel: stats + (optional) approval section. */
+.plot-side {
+  margin: 0;
+  padding: 0.75rem 0.85rem 0.85rem;
+  border-radius: 16px;
+  background: rgba(255, 248, 230, 0.78);
+  border: 1px solid rgba(120, 72, 24, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.plot-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.85rem;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.plot-details dt {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8a5a2b;
+  margin: 0;
+  text-shadow: none;
+}
+.plot-details dd {
+  margin: 0.08rem 0 0;
+  font-weight: 700;
+  color: #3d2412;
+  font-size: 0.92rem;
+  text-shadow: none;
+}
+
+.plot-side-divider {
+  height: 1px;
+  margin: 0.7rem 0 0.65rem;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(120, 72, 24, 0.28) 12%,
+    rgba(120, 72, 24, 0.28) 88%,
+    transparent
+  );
+}
+
+.plot-approval h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.45rem;
+  font-size: 0.98rem;
+  color: #3d2412;
+  text-shadow: none;
+}
+.plot-approval-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: linear-gradient(180deg, #c9a0ff, #8f5ad6);
+  box-shadow: 0 0 0 3px rgba(181, 123, 255, 0.22);
+}
+.plot-approval ul {
+  list-style: none;
+  margin: 0 0 0.65rem;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.plot-approval li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.45rem;
+  align-items: center;
+  padding: 0.4rem 0.5rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(120, 72, 24, 0.08);
+}
+.plot-approval .pending-emoji { font-size: 1.15rem; }
+.plot-approval .pending-when { font-size: 0.72rem; color: #7a5a3a; }
+.plot-approval .hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+  color: #7a5a3a;
+  text-shadow: none;
+}
+.plot-approval .btn.remind {
+  width: 100%;
+  min-height: 52px;
+}
+
+/* Berry / magenta remind — not alarm-red stamp. */
+.btn.remind {
+  background: linear-gradient(180deg, #e85a9b, #b02868);
+  color: #fff;
+}
+
+@media (max-width: 560px) {
+  .plot-layout {
+    grid-template-columns: 1fr;
+  }
+  .plot-hero .hero-art {
+    width: min(150px, 46%);
+  }
 }

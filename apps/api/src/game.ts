@@ -4,11 +4,27 @@ import {
   DEFAULT_GAME_CONFIG,
   getTier,
   mergeGameConfig,
+  parentNotifyGate,
   serializePlot,
   type GameConfig,
 } from "@farmhand/shared";
 import { todayKey } from "./tz.js";
 import { avatarFieldsPublic } from "./avatar.js";
+
+function sameNumberArray(a: unknown, b: readonly number[]): boolean {
+  if (!Array.isArray(a) || a.length !== b.length) return false;
+  return a.every((v, i) => Number(v) === b[i]);
+}
+
+/** Old mistaken default mapped difficulty 1:1 to seeds (shoes/diff 2 → 2). PRD bands are [2,4,6,8,10]→[1,2,3,4,5]. */
+function storedBandsNeedRewrite(stored: Record<string, unknown>): boolean {
+  const badBounds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const badPayouts = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  return (
+    sameNumberArray(stored.seedRewardBandUpperBounds, badBounds) &&
+    sameNumberArray(stored.seedRewardBandPayouts, badPayouts)
+  );
+}
 
 function storedEconomyNeedsWrite(stored: Record<string, unknown>, merged: GameConfig): boolean {
   const storedTiers = Array.isArray(stored.tiers) ? (stored.tiers as Array<Record<string, unknown>>) : [];
@@ -30,10 +46,18 @@ export async function loadConfig(): Promise<GameConfig> {
   const needsPlot = Number(stored.plotCount) !== merged.plotCount;
   const needsGoals = typeof stored.balanceGoals !== "string";
   const needsEconomy = storedEconomyNeedsWrite(stored, merged);
-  if (needsPlot || needsGoals || needsEconomy) {
-    return saveConfig(merged);
+  const needsBands = storedBandsNeedRewrite(stored);
+  const next = needsBands
+    ? {
+        ...merged,
+        seedRewardBandUpperBounds: DEFAULT_GAME_CONFIG.seedRewardBandUpperBounds,
+        seedRewardBandPayouts: DEFAULT_GAME_CONFIG.seedRewardBandPayouts,
+      }
+    : merged;
+  if (needsPlot || needsGoals || needsEconomy || needsBands) {
+    return saveConfig(next);
   }
-  return merged;
+  return next;
 }
 
 export async function saveConfig(config: GameConfig) {
@@ -170,6 +194,47 @@ export async function syncAllPlayerPlots(plotCount: number) {
   }
 }
 
+
+export type PublicBasketItem = {
+  id: string;
+  kind: string;
+  name: string;
+  emoji: string;
+  points: number;
+};
+
+export type PublicBasket = {
+  items: PublicBasketItem[];
+  totalPoints: number;
+};
+
+/** Held produce only. Missing relation (older callers) is an empty basket, not a crash. */
+export function publicBasket(items: Array<{
+  id: string;
+  cropKind: string;
+  name: string;
+  emoji: string;
+  points: number;
+  createdAt?: Date;
+}>): PublicBasket {
+  const sorted = [...items].sort((a, b) => {
+    const at = a.createdAt?.getTime() ?? 0;
+    const bt = b.createdAt?.getTime() ?? 0;
+    return at - bt;
+  });
+  const publicItems = sorted.map((item) => ({
+    id: item.id,
+    kind: item.cropKind,
+    name: item.name,
+    emoji: item.emoji,
+    points: item.points,
+  }));
+  return {
+    items: publicItems,
+    totalPoints: publicItems.reduce((sum, item) => sum + item.points, 0),
+  };
+}
+
 export function publicPlayer(player: {
   id: string;
   name: string;
@@ -194,6 +259,7 @@ export function publicPlayer(player: {
   selfieSeedGrantDate?: string | null;
   pinHash: string | null;
   isActive: boolean;
+  lastParentNotifyAt?: Date | null;
   plots: Array<{
     slot: number;
     plantTier: number | null;
@@ -204,6 +270,23 @@ export function publicPlayer(player: {
     lastWateredAt?: Date | null;
     wateringsOnDate?: string | null;
     wateringsCount?: number;
+    claimLinks?: Array<{
+      seedsUsed: number;
+      claim: {
+        id: string;
+        status: string;
+        claimedAt: Date;
+        chore: { title: string; emoji: string };
+      };
+    }>;
+  }>;
+  basketItems?: Array<{
+    id: string;
+    cropKind: string;
+    name: string;
+    emoji: string;
+    points: number;
+    createdAt: Date;
   }>;
 }, config: GameConfig, unlocked = true, now = new Date()) {
   const water = wateringState(player, config, now);
@@ -237,19 +320,48 @@ export function publicPlayer(player: {
       seedGrantedToday: player.selfieSeedGrantDate === today,
     },
     water,
+    basket: publicBasket(player.basketItems ?? []),
+    notifyParent: parentNotifyGate(player.lastParentNotifyAt ?? null, now),
     plots: ensurePlots(player.plots, config.plotCount).map((plot) => {
       const serialized = serializePlot(plot, config, now);
       const pw = plotWateringState(plot, config, now);
-      const canWater = selfieOn && serialized.state === "growing" && !serialized.ready && pw.canWater;
+      // Pending-approval plants grow and may be watered; wilted/mature still blocked by existing rules.
+      const canWater =
+        selfieOn &&
+        (serialized.state === "growing" || serialized.state === "purgatory") &&
+        !serialized.ready &&
+        pw.canWater &&
+        serialized.state !== "wilted";
+      const pendingChores = (plot.claimLinks ?? [])
+        .filter((link) => link.claim.status === "PENDING")
+        .map((link) => ({
+          claimId: link.claim.id,
+          title: link.claim.chore.title,
+          emoji: link.claim.chore.emoji,
+          claimedAt: link.claim.claimedAt.toISOString(),
+          seedsUsed: link.seedsUsed,
+        }));
+      const awaitingApproval = pendingChores.length > 0;
+      const tier = plot.plantTier ? getTier(config, plot.plantTier) : null;
       return {
         ...serialized,
+        // Grey only wilted plants; pending uses purple aura via awaitingApproval.
+        greyed: serialized.state === "wilted",
         canWater,
         watersLeftToday: selfieOn ? pw.wateringsLeft : 0,
         waterCooldownRemainingMs: selfieOn ? pw.cooldownRemainingMs : 0,
+        awaitingApproval,
+        pendingChores,
+        seedCost: tier?.seedCost ?? null,
+        harvestPoints: tier?.points ?? null,
+        cropName: tier?.name ?? null,
+        lastWateredAt: plot.lastWateredAt ? plot.lastWateredAt.toISOString() : null,
       };
     }),
   };
 }
+
+
 
 export function ensurePlots<T extends { slot: number }>(plots: T[], plotCount: number): T[] {
   return Array.from({ length: plotCount }, (_, slot) => {

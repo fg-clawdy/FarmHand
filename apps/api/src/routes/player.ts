@@ -1,6 +1,16 @@
+import { randomUUID } from "node:crypto";
 import { createReadStream, constants as fsConstants, promises as fsPromises } from "node:fs";
 import type { FastifyInstance } from "fastify";
-import { getTier, plotIsEmpty, serializePlot } from "@farmhand/shared";
+import {
+  allocateProvisionalFromClaims,
+  getTier,
+  harvestBlockedWhilePending,
+  PARENT_NOTIFY_COOLDOWN_MS,
+  parentNotifyGate,
+  planSeedSpend,
+  plotIsEmpty,
+  serializePlot,
+} from "@farmhand/shared";
 import { prisma } from "../db.js";
 import {
   ADMIN_COOKIE,
@@ -15,7 +25,7 @@ import {
 import { claimChore, EMPTY_PLOT_DATA, listPlayerChores, prunePlot, releaseClaimIfNeeded } from "../chores.js";
 import { loadConfig, plotWateringState, publicPlayer, selfieUnlockedOn, syncPlayerPlots } from "../game.js";
 import { recordAccoladeEvent, playerAccoladeLedger } from "../accolades.js";
-import { notifyChoreClaimPending, notifyStoreRedemptionPending } from "../push.js";
+import { notifyApprovalsPending, notifyChoreClaimPending, notifyStoreRedemptionPending } from "../push.js";
 import { listActiveCatalog, playerStore, requestStoreSku } from "../store.js";
 import { playerProfile } from "../profile.js";
 import { playerReview } from "../playerReview.js";
@@ -68,7 +78,14 @@ export async function playerRoutes(app: FastifyInstance) {
     const body = (request.body ?? {}) as { pin?: string };
     const player = await prisma.player.findUnique({
       where: { id },
-      include: { plots: { orderBy: { slot: "asc" } } },
+      include: { plots: {
+              orderBy: { slot: "asc" },
+              include: {
+                claimLinks: {
+                  include: { claim: { include: { chore: true } } },
+                },
+              },
+            }, basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } } },
     });
     if (!player || !player.isActive) {
       return reply.code(404).send({ error: "That garden isn't on the farm right now." });
@@ -80,7 +97,14 @@ export async function playerRoutes(app: FastifyInstance) {
       await syncPlayerPlots(player.id, config.plotCount);
       const fresh = await prisma.player.findUniqueOrThrow({
         where: { id: player.id },
-        include: { plots: { orderBy: { slot: "asc" } } },
+        include: { plots: {
+              orderBy: { slot: "asc" },
+              include: {
+                claimLinks: {
+                  include: { claim: { include: { chore: true } } },
+                },
+              },
+            }, basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } } },
       });
       return { player: publicPlayer(fresh, config, true), config, skippedPin: true };
     }
@@ -106,7 +130,14 @@ export async function playerRoutes(app: FastifyInstance) {
     reply.clearCookie(ADMIN_COOKIE, { path: "/" });
     const fresh = await prisma.player.findUniqueOrThrow({
       where: { id: player.id },
-      include: { plots: { orderBy: { slot: "asc" } } },
+      include: { plots: {
+              orderBy: { slot: "asc" },
+              include: {
+                claimLinks: {
+                  include: { claim: { include: { chore: true } } },
+                },
+              },
+            }, basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } } },
     });
     return { player: publicPlayer(fresh, config, true), config, skippedPin: false, expiresAt };
   });
@@ -118,7 +149,14 @@ export async function playerRoutes(app: FastifyInstance) {
     await syncPlayerPlots(session.playerId, config.plotCount);
     const player = await prisma.player.findUniqueOrThrow({
       where: { id: session.playerId },
-      include: { plots: { orderBy: { slot: "asc" } } },
+      include: { plots: {
+              orderBy: { slot: "asc" },
+              include: {
+                claimLinks: {
+                  include: { claim: { include: { chore: true } } },
+                },
+              },
+            }, basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } } },
     });
     return { player: publicPlayer(player, config, true), config };
   });
@@ -174,7 +212,14 @@ export async function playerRoutes(app: FastifyInstance) {
             selfieSeedGrantDate: today,
             ...(plan.grantSeed ? { seeds: { increment: 1 } } : {}),
           },
-          include: { plots: { orderBy: { slot: "asc" } } },
+          include: { plots: {
+              orderBy: { slot: "asc" },
+              include: {
+                claimLinks: {
+                  include: { claim: { include: { chore: true } } },
+                },
+              },
+            }, basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } } },
         });
         await tx.activityLog.create({
           data: {
@@ -221,74 +266,75 @@ export async function playerRoutes(app: FastifyInstance) {
         if (!Number.isInteger(slot) || slot < 0 || slot >= config.plotCount) {
           throw Object.assign(new Error("No plot there."), { statusCode: 404 });
         }
-        const plot = await tx.plot.findFirst({
-          where: { playerId: session.playerId, slot },
-        }) ?? await tx.plot.create({ data: { playerId: session.playerId, slot } });
+        const plot =
+          (await tx.plot.findFirst({
+            where: { playerId: session.playerId, slot },
+          })) ?? (await tx.plot.create({ data: { playerId: session.playerId, slot } }));
         if (plot.plantTier) throw Object.assign(new Error("That plot already has a plant."), { statusCode: 400 });
         const plantTier = getTier(config, Number(tier));
-        const totalSeeds = lockedPlayer.seeds + lockedPlayer.provisionalSeeds;
-        if (totalSeeds < plantTier.seedCost) {
-          throw Object.assign(new Error("Not enough seeds for that plant."), { statusCode: 400 });
+
+        let spend: ReturnType<typeof planSeedSpend>;
+        try {
+          spend = planSeedSpend(lockedPlayer.seeds, lockedPlayer.provisionalSeeds, plantTier.seedCost);
+        } catch (err) {
+          throw Object.assign(new Error((err as Error).message), { statusCode: 400 });
         }
 
         let choreClaimId: string | null = null;
-        let phase: "growing" | "purgatory" = "growing";
+        const claimAllocations: Array<{ claimId: string; seedsUsed: number }> = [];
 
-        if (lockedPlayer.seeds >= plantTier.seedCost) {
-          // Use approved seeds — plant directly as growing
+        if (spend.confirmedUsed > 0) {
           await tx.player.update({
             where: { id: session.playerId },
-            data: { seeds: { decrement: plantTier.seedCost } },
+            data: { seeds: { decrement: spend.confirmedUsed } },
           });
-        } else {
-          // Not enough approved seeds — use a provisional seed
-          const approvedUsed = lockedPlayer.seeds;
-          const provisionalNeeded = plantTier.seedCost - approvedUsed;
-
-          // Consume all approved seeds first
-          if (approvedUsed > 0) {
-            await tx.player.update({
-              where: { id: session.playerId },
-              data: { seeds: { decrement: approvedUsed } },
-            });
-          }
-
-          // Find the oldest PENDING claim for this player without a linked plot
-          const pendingClaim = await tx.choreClaim.findFirst({
-            where: {
-              playerId: session.playerId,
-              status: "PENDING",
-              slot: null,
-            },
-            orderBy: { claimedAt: "asc" },
-          });
-
-          if (!pendingClaim) {
-            throw Object.assign(new Error("No pending chore claim for provisional seed."), { statusCode: 400 });
-          }
-
-          // Link the claim to this plot and set plant tier
-          await tx.choreClaim.update({
-            where: { id: pendingClaim.id },
-            data: { slot, plantTier: plantTier.tier },
-          });
-
-          // Consume provisional seeds
-          await tx.player.update({
-            where: { id: session.playerId },
-            data: { provisionalSeeds: { decrement: provisionalNeeded } },
-          });
-
-          choreClaimId = pendingClaim.id;
-          phase = "purgatory";
         }
 
+        if (spend.provisionalUsed > 0) {
+          const pendingClaims = await tx.choreClaim.findMany({
+            where: { playerId: session.playerId, status: "PENDING" },
+            orderBy: { claimedAt: "asc" },
+          });
+          const buckets = pendingClaims
+            .map((claim) => ({
+              id: claim.id,
+              seedsGranted: claim.seedsGranted ?? 1,
+              seedsPlanted: claim.seedsPlanted ?? 0,
+            }))
+            .filter((b) => b.seedsGranted - b.seedsPlanted > 0);
+
+          try {
+            claimAllocations.push(...allocateProvisionalFromClaims(buckets, spend.provisionalUsed));
+          } catch (err) {
+            throw Object.assign(new Error((err as Error).message), { statusCode: 400 });
+          }
+
+          await tx.player.update({
+            where: { id: session.playerId },
+            data: { provisionalSeeds: { decrement: spend.provisionalUsed } },
+          });
+
+          for (const alloc of claimAllocations) {
+            await tx.choreClaim.update({
+              where: { id: alloc.claimId },
+              data: {
+                seedsPlanted: { increment: alloc.seedsUsed },
+                slot,
+                plantTier: plantTier.tier,
+              },
+            });
+          }
+          choreClaimId = claimAllocations[0]?.claimId ?? null;
+        }
+
+        // Always grow immediately. Harvest stays gated while linked claims are PENDING.
+        const plantedAt = new Date();
         await tx.plot.update({
           where: { id: plot.id },
           data: {
             plantTier: plantTier.tier,
-            plantedAt: phase === "growing" ? new Date() : null,
-            phase,
+            plantedAt,
+            phase: "growing",
             choreClaimId,
             waterReductionMinutes: 0,
             fertilizerReductionMinutes: 0,
@@ -297,8 +343,31 @@ export async function playerRoutes(app: FastifyInstance) {
             wateringsCount: 0,
           },
         });
+
+        if (claimAllocations.length > 0) {
+          await tx.plotClaimLink.createMany({
+            data: claimAllocations.map((alloc) => ({
+              plotId: plot.id,
+              claimId: alloc.claimId,
+              seedsUsed: alloc.seedsUsed,
+            })),
+          });
+        }
+
         await tx.activityLog.create({
-          data: { playerId: session.playerId, action: "plant", details: { slot, tier: plantTier.tier, phase, choreClaimId } },
+          data: {
+            playerId: session.playerId,
+            action: "plant",
+            details: {
+              slot,
+              tier: plantTier.tier,
+              phase: "growing",
+              choreClaimId,
+              confirmedUsed: spend.confirmedUsed,
+              provisionalUsed: spend.provisionalUsed,
+              claimIds: claimAllocations.map((a) => a.claimId),
+            },
+          },
         });
         const unlocks = await recordAccoladeEvent(tx, {
           playerId: session.playerId,
@@ -307,7 +376,13 @@ export async function playerRoutes(app: FastifyInstance) {
         });
         const updated = await tx.player.findUniqueOrThrow({
           where: { id: session.playerId },
-          include: { plots: { orderBy: { slot: "asc" } } },
+          include: {
+            plots: {
+              orderBy: { slot: "asc" },
+              include: { claimLinks: { include: { claim: { include: { chore: true } } } } },
+            },
+            basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } },
+          },
         });
         return { player: updated, unlocks };
       });
@@ -318,7 +393,7 @@ export async function playerRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post("/api/plots/:slot/water", async (request, reply) => {
+app.post("/api/plots/:slot/water", async (request, reply) => {
     const session = await requirePlayer(request, reply);
     if (!session) return;
     const slot = Number((request.params as { slot: string }).slot);
@@ -333,9 +408,7 @@ export async function playerRoutes(app: FastifyInstance) {
           throw Object.assign(new Error("Nothing to water yet."), { statusCode: 400 });
         }
         const serialized = serializePlot(lockedPlot, config, now);
-        if (serialized.state === "purgatory") {
-          throw Object.assign(new Error("That plant is waiting for a grown-up."), { statusCode: 400 });
-        }
+        // Pending-approval plants may still be watered; only wilted is blocked here.
         if (serialized.state === "wilted") {
           throw Object.assign(new Error("Prune that wilted plant first."), { statusCode: 400 });
         }
@@ -389,7 +462,14 @@ export async function playerRoutes(app: FastifyInstance) {
         });
         const updated = await tx.player.findUniqueOrThrow({
           where: { id: session.playerId },
-          include: { plots: { orderBy: { slot: "asc" } } },
+          include: { plots: {
+              orderBy: { slot: "asc" },
+              include: {
+                claimLinks: {
+                  include: { claim: { include: { chore: true } } },
+                },
+              },
+            }, basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } } },
         });
         return { player: updated, unlocks };
       });
@@ -419,8 +499,14 @@ export async function playerRoutes(app: FastifyInstance) {
           throw Object.assign(new Error("Nothing to harvest."), { statusCode: 400 });
         }
         const serialized = serializePlot(lockedPlot, config);
-        if (serialized.state === "purgatory" || serialized.state === "wilted") {
+        if (serialized.state === "wilted") {
           throw Object.assign(new Error("That plant isn't ready to harvest."), { statusCode: 400 });
+        }
+        const pendingLinks = await tx.plotClaimLink.count({
+          where: { plotId: lockedPlot.id, claim: { status: "PENDING" } },
+        });
+        if (harvestBlockedWhilePending(pendingLinks)) {
+          throw Object.assign(new Error("That plant is waiting on a grown-up before harvest."), { statusCode: 400 });
         }
         if (!serialized.ready) {
           throw Object.assign(new Error("That plant is still growing."), { statusCode: 400 });
@@ -435,12 +521,22 @@ export async function playerRoutes(app: FastifyInstance) {
         const totalShards = currentShards + (tier.shardRefund ?? 0);
         const seedsFromShards = Math.floor(totalShards / config.shardsPerSeed);
         const remainingShards = totalShards % config.shardsPerSeed;
+        // Stars wait in the basket. Seeds and shards are not produce, so they pay now.
         await tx.player.update({
           where: { id: session.playerId },
           data: {
-            points: { increment: tier.points },
             seeds: { increment: seedsFromShards },
             seedShards: remainingShards,
+          },
+        });
+        const basketItem = await tx.basketItem.create({
+          data: {
+            playerId: session.playerId,
+            cropKind: tier.kind,
+            name: tier.name,
+            emoji: tier.emoji,
+            points: tier.points,
+            status: "held",
           },
         });
         await releaseClaimIfNeeded(tx, lockedPlot, "harvest");
@@ -448,7 +544,7 @@ export async function playerRoutes(app: FastifyInstance) {
           where: { id: lockedPlot.id },
           data: EMPTY_PLOT_DATA,
         });
-        const harvestLog = await tx.activityLog.create({
+        await tx.activityLog.create({
           data: {
             playerId: session.playerId,
             action: "harvest",
@@ -456,19 +552,12 @@ export async function playerRoutes(app: FastifyInstance) {
               slot,
               tier: tier.tier,
               points: tier.points,
+              basketItemId: basketItem.id,
               shardsEarned: tier.shardRefund ?? 0,
               seedsFromShards,
               remainingShards,
             },
           },
-        });
-        await appendStarEvent(tx, {
-          playerId: session.playerId,
-          kind: "EARN_HARVEST",
-          amount: tier.points,
-          idempotencyKey: `earn:harvest:${harvestLog.id}`,
-          source: "harvest",
-          meta: { slot, tier: tier.tier },
         });
         const unlocks = await recordAccoladeEvent(tx, {
           playerId: session.playerId,
@@ -477,7 +566,14 @@ export async function playerRoutes(app: FastifyInstance) {
         });
         const updated = await tx.player.findUniqueOrThrow({
           where: { id: session.playerId },
-          include: { plots: { orderBy: { slot: "asc" } } },
+          include: { plots: {
+              orderBy: { slot: "asc" },
+              include: {
+                claimLinks: {
+                  include: { claim: { include: { chore: true } } },
+                },
+              },
+            }, basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } } },
         });
         return {
           player: updated,
@@ -490,6 +586,7 @@ export async function playerRoutes(app: FastifyInstance) {
             emoji: tier.emoji,
             name: tier.name,
             kind: tier.kind,
+            basketItemId: basketItem.id,
           },
         };
       });
@@ -500,6 +597,108 @@ export async function playerRoutes(app: FastifyInstance) {
     }
   });
 
+
+  /**
+   * Convert every held basket item into stars. Idempotent: a retry after the
+   * rows are marked sold finds nothing held and pays nothing again.
+   */
+  app.post("/api/basket/sell", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    const config = await loadConfig();
+    try {
+      const result = await withLockedPlayer(session.playerId, async (tx) => {
+        const held = await tx.basketItem.findMany({
+          where: { playerId: session.playerId, status: "held" },
+          orderBy: { createdAt: "asc" },
+        });
+        if (held.length === 0) {
+          const player = await tx.player.findUniqueOrThrow({
+            where: { id: session.playerId },
+            include: {
+              plots: {
+              orderBy: { slot: "asc" },
+              include: {
+                claimLinks: {
+                  include: { claim: { include: { chore: true } } },
+                },
+              },
+            },
+              basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } },
+            },
+          });
+          return { player, soldPoints: 0, previousPoints: player.points, items: [] as typeof held };
+        }
+        const soldPoints = held.reduce((sum, item) => sum + item.points, 0);
+        const saleId = randomUUID();
+        const soldAt = new Date();
+        await tx.basketItem.updateMany({
+          where: { id: { in: held.map((item) => item.id) }, status: "held" },
+          data: { status: "sold", soldAt, saleId },
+        });
+        const playerBefore = await tx.player.findUniqueOrThrow({
+          where: { id: session.playerId },
+          select: { points: true },
+        });
+        await tx.player.update({
+          where: { id: session.playerId },
+          data: { points: { increment: soldPoints } },
+        });
+        await tx.activityLog.create({
+          data: {
+            playerId: session.playerId,
+            action: "basket_sell",
+            details: {
+              saleId,
+              soldPoints,
+              itemIds: held.map((item) => item.id),
+            },
+          },
+        });
+        await appendStarEvent(tx, {
+          playerId: session.playerId,
+          kind: "EARN_HARVEST",
+          amount: soldPoints,
+          idempotencyKey: `earn:basket:${saleId}`,
+          source: "basket",
+          meta: {
+            saleId,
+            items: held.map((item) => ({ id: item.id, kind: item.cropKind, points: item.points })),
+          },
+        });
+        const player = await tx.player.findUniqueOrThrow({
+          where: { id: session.playerId },
+          include: {
+            plots: {
+              orderBy: { slot: "asc" },
+              include: {
+                claimLinks: {
+                  include: { claim: { include: { chore: true } } },
+                },
+              },
+            },
+            basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } },
+          },
+        });
+        return { player, soldPoints, previousPoints: playerBefore.points, items: held };
+      });
+      return {
+        player: publicPlayer(result.player, config, true),
+        soldPoints: result.soldPoints,
+        previousPoints: result.previousPoints,
+        items: result.items.map((item) => ({
+          id: item.id,
+          kind: item.cropKind,
+          name: item.name,
+          emoji: item.emoji,
+          points: item.points,
+        })),
+      };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
 
   // HEAT: fire-and-forget board events (open/dismiss/impression). Claim is recorded server-side.
   app.post("/api/chores/board-events", async (request, reply) => {
@@ -546,7 +745,14 @@ export async function playerRoutes(app: FastifyInstance) {
     await syncPlayerPlots(session.playerId, config.plotCount);
     const player = await prisma.player.findUniqueOrThrow({
       where: { id: session.playerId },
-      include: { plots: { orderBy: { slot: "asc" } } },
+      include: { plots: {
+              orderBy: { slot: "asc" },
+              include: {
+                claimLinks: {
+                  include: { claim: { include: { chore: true } } },
+                },
+              },
+            }, basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } } },
     });
     const chores = await listPlayerChores(session.playerId, config.timezone);
     return {
@@ -625,13 +831,57 @@ export async function playerRoutes(app: FastifyInstance) {
       }).catch((err) => request.log.warn({ err }, "chore claim push failed"));
       const player = await prisma.player.findUniqueOrThrow({
         where: { id: session.playerId },
-        include: { plots: { orderBy: { slot: "asc" } } },
+        include: { plots: {
+              orderBy: { slot: "asc" },
+              include: {
+                claimLinks: {
+                  include: { claim: { include: { chore: true } } },
+                },
+              },
+            }, basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } } },
       });
       return {
         player: publicPlayer(player, config, true),
         claim: { id: result.claim.id, status: result.claim.status, slot: result.claim.slot },
         unlocks: result.unlocks ?? [],
+        seedsGranted: result.seedsGranted ?? 0,
       };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  
+  app.post("/api/player/notify-parent", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    const now = new Date();
+    try {
+      const player = await prisma.player.findUniqueOrThrow({ where: { id: session.playerId } });
+      const gate = parentNotifyGate(player.lastParentNotifyAt ?? null, now);
+      if (!gate.allowed) {
+        return reply.code(429).send({
+          error: "You already nudged a grown-up. Try again later.",
+          notifyParent: gate,
+        });
+      }
+      const pendingCount = await prisma.choreClaim.count({
+        where: { playerId: session.playerId, status: "PENDING" },
+      });
+      if (pendingCount <= 0) {
+        return reply.code(400).send({ error: "Nothing is waiting on a grown-up right now." });
+      }
+      await prisma.player.update({
+        where: { id: session.playerId },
+        data: { lastParentNotifyAt: now },
+      });
+      void notifyApprovalsPending({
+        playerName: player.name,
+        pendingCount,
+      }).catch((err) => request.log.warn({ err }, "parent notify push failed"));
+      const nextGate = parentNotifyGate(now, now);
+      return { ok: true, notifyParent: { allowed: false, retryAt: nextGate.retryAt, retryInMs: nextGate.retryInMs ?? PARENT_NOTIFY_COOLDOWN_MS } };
     } catch (err) {
       const e = err as Error & { statusCode?: number };
       return reply.code(e.statusCode ?? 400).send({ error: e.message });
@@ -743,7 +993,14 @@ export async function playerRoutes(app: FastifyInstance) {
       const player = await prisma.player.update({
         where: { id: session.playerId },
         data,
-        include: { plots: { orderBy: { slot: "asc" } } },
+        include: { plots: {
+              orderBy: { slot: "asc" },
+              include: {
+                claimLinks: {
+                  include: { claim: { include: { chore: true } } },
+                },
+              },
+            }, basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } } },
       });
       const config = await loadConfig();
       return { player: publicPlayer(player, config, true) };
@@ -788,4 +1045,62 @@ export async function playerRoutes(app: FastifyInstance) {
     reply.header("Cache-Control", "private, max-age=120");
     return reply.send(createReadStream(full));
   });
+
+  /**
+   * Lightweight player-app error reports. No secrets. Truncated. Soft rate limit.
+   * Auth optional so boot/mount failures still land in API logs.
+   */
+  app.post("/api/client-errors", async (request, reply) => {
+    const ip = request.ip || "unknown";
+    const now = Date.now();
+    const bucket = (globalThis as { __fhClientErr?: Map<string, number[]> }).__fhClientErr
+      ?? ((globalThis as { __fhClientErr?: Map<string, number[]> }).__fhClientErr = new Map());
+    const windowMs = 60_000;
+    const maxPerWindow = 20;
+    const hits = (bucket.get(ip) ?? []).filter((t: number) => now - t < windowMs);
+    if (hits.length >= maxPerWindow) {
+      return reply.code(429).send({ ok: false });
+    }
+    hits.push(now);
+    bucket.set(ip, hits);
+
+    const body = (request.body ?? {}) as {
+      level?: string;
+      tag?: string;
+      message?: string;
+      stack?: string;
+      context?: unknown;
+      href?: string;
+      userAgent?: string;
+      ts?: number;
+    };
+    const level = body.level === "warn" ? "warn" : "error";
+    const tag = String(body.tag ?? "client").slice(0, 80);
+    const message = String(body.message ?? "client error").slice(0, 500);
+    const stack = typeof body.stack === "string" ? body.stack.split("\n").slice(0, 12).join("\n").slice(0, 2500) : undefined;
+    const href = typeof body.href === "string" ? body.href.slice(0, 300) : undefined;
+    const userAgent = typeof body.userAgent === "string" ? body.userAgent.slice(0, 300) : undefined;
+    let context: unknown = undefined;
+    try {
+      context = body.context == null ? undefined : JSON.parse(JSON.stringify(body.context));
+    } catch {
+      context = undefined;
+    }
+    // No session DB lookup — keep this path cheap and rate-limit friendly.
+    request.log[level](
+      {
+        clientError: true,
+        tag,
+        message,
+        stack,
+        href,
+        userAgent,
+        context,
+        clientTs: typeof body.ts === "number" ? body.ts : undefined,
+      },
+      "player client error",
+    );
+    return { ok: true };
+  });
+
 }

@@ -45,8 +45,8 @@ export default function FarmJobFlow({
     return (
       <JobCoach
         title="Do a job"
-        copy="Do a job to plant a waiting seed. The corkboard shows chores still open for someone in the family. You'll pick who you are when you claim."
-        cta="Do a job to plant a waiting seed"
+        copy="Do a job to earn seeds for your bag. The corkboard shows chores still open for someone in the family. You'll pick who you are when you claim."
+        cta="Do a job for seeds"
         cancelLabel="Back to the farm"
         onClose={onClose}
         onContinue={() => setStep("family")}
@@ -58,7 +58,7 @@ export default function FarmJobFlow({
     return (
       <WhoseKidPicker
         title="Whose job?"
-        copy="Pick who is claiming this job. The waiting seed is planted in that kid's garden."
+        copy="Pick who is claiming this job. Seeds go into that kid's bag."
         players={players}
         onCancel={() => setStep("family")}
         onIdentified={() => void loadKidBoard()}

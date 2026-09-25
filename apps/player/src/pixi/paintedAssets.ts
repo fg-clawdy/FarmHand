@@ -117,6 +117,10 @@ export const PAINTED_ART = {
     pumpkin: "/art/painted/plants/plant_pumpkin_stages.png?v=1",
     sunflower: "/art/painted/plants/plant_sunflower_stages.png?v=1",
   },
+  /** Wide shallow painted harvest tray (body behind produce; no handle). */
+  harvestBasket: "/art/painted/garden/harvest_basket.png?v=3shallow",
+  /** Front rim/lip drawn over produce bottoms (same canvas / true alpha nesting). */
+  harvestBasketRim: "/art/painted/garden/harvest_basket_rim.png?v=3shallow",
 } as const;
 
 export type PaintedArt = {
@@ -128,6 +132,8 @@ export type PaintedArt = {
   corkboard: Texture;
   wantedPosterFrames: Texture[];
   crops: Record<CropKind, Texture[]>;
+  harvestBasket: Texture;
+  harvestBasketRim: Texture;
 };
 
 /** 2px inset so adjacent frames never share an edge pixel (stops filter bleed). */
@@ -188,6 +194,28 @@ export function cropStageFrame(crops: Record<CropKind, Texture[]>, kind: CropKin
   return crops[kind]?.[stage - 1] ?? Texture.EMPTY;
 }
 
+/**
+ * Ripe crop with the soil disc cut off. Basket produce should sit in the
+ * wicker, not arrive with its mound. Frame math matches `sliceSheet` insets.
+ */
+export function cropPickedFrame(crops: Record<CropKind, Texture[]>, kind: CropKind): Texture {
+  const full = cropStageFrame(crops, kind, 4);
+  if (full === Texture.EMPTY || !full.source) return full;
+  const disc = cropDisc(kind, 4);
+  const frame = full.frame;
+  if (!disc) return full;
+  const discTopInCell = disc.y - disc.d / 2;
+  const discTopInFrame = discTopInCell - SHEET_INSET;
+  // Keep a little stem, never the mud.
+  const height = Math.max(24, Math.round(discTopInFrame - 6));
+  const clipped = Math.min(height, frame.height - 4);
+  return new Texture({
+    source: full.source,
+    frame: new Rectangle(frame.x, frame.y, frame.width, clipped),
+    orig: new Rectangle(0, 0, frame.width, clipped),
+  });
+}
+
 export function cropDisc(kind: CropKind, stage: 1 | 2 | 3 | 4): Disc | undefined {
   return CROP_DISC_IN_CELL[kind]?.[stage - 1];
 }
@@ -224,24 +252,52 @@ export async function loadPaintedArt(): Promise<PaintedArt> {
     PAINTED_ART.corkboard,
     PAINTED_ART.wantedPoster,
     ...CROP_KINDS.map((kind) => PAINTED_ART.crops[kind]),
+    PAINTED_ART.harvestBasket,
+    PAINTED_ART.harvestBasketRim,
   ];
-  // Drop cached GPU textures so farm↔garden remounts get a fresh upload (mobile Firefox).
-  try {
-    await Assets.unload(urls);
-  } catch {
-    /* first load — nothing cached yet */
+  // Drop only URLs that are actually cached. Blind Assets.unload on misses
+  // logs "was not found in the Cache" and can leave half-dead GPU sources on
+  // the shared canvas during farm↔garden remounts (mobile Firefox).
+  for (const url of urls) {
+    try {
+      if (Assets.cache.has(url)) await Assets.unload(url);
+    } catch {
+      /* miss or already gone */
+    }
   }
-  const [playfield, gardenZoom, smoke, walkA, walkB, eat, corkboard, wantedPoster, ...cropSheets] = await Promise.all([
-    Assets.load<Texture>(PAINTED_ART.playfield),
-    Assets.load<Texture>(PAINTED_ART.gardenZoom),
-    Assets.load<Texture>(PAINTED_ART.smoke),
-    Assets.load<Texture>(PAINTED_ART.cowWalk[0]),
-    Assets.load<Texture>(PAINTED_ART.cowWalk[1]),
-    Assets.load<Texture>(PAINTED_ART.cowEat),
-    Assets.load<Texture>(PAINTED_ART.corkboard),
-    Assets.load<Texture>(PAINTED_ART.wantedPoster),
-    ...CROP_KINDS.map((kind) => Assets.load<Texture>(PAINTED_ART.crops[kind])),
-  ]);
+  const loaded = await Promise.all(
+    urls.map(async (url) => {
+      const tex = await Assets.load<Texture>(url);
+      if (!tex || tex === Texture.EMPTY || !tex.source) {
+        throw new Error(`Painted asset missing GPU source after load: ${url}`);
+      }
+      return tex;
+    }),
+  );
+  const [
+    playfield,
+    gardenZoom,
+    smoke,
+    walkA,
+    walkB,
+    eat,
+    corkboard,
+    wantedPoster,
+    ...rest
+  ] = loaded as [
+    Texture,
+    Texture,
+    Texture,
+    Texture,
+    Texture,
+    Texture,
+    Texture,
+    Texture,
+    ...Texture[],
+  ];
+  const cropSheets = rest.slice(0, CROP_KINDS.length);
+  const harvestBasket = rest[CROP_KINDS.length]!;
+  const harvestBasketRim = rest[CROP_KINDS.length + 1]!;
   const crops = {} as Record<CropKind, Texture[]>;
   CROP_KINDS.forEach((kind, i) => {
     crops[kind] = sliceSheet(cropSheets[i]!, CROP_STAGE_FRAMES);
@@ -255,5 +311,7 @@ export async function loadPaintedArt(): Promise<PaintedArt> {
     corkboard,
     wantedPosterFrames: sliceWantedPoster(wantedPoster),
     crops,
+    harvestBasket,
+    harvestBasketRim,
   };
 }

@@ -147,9 +147,9 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   /** How many shards = 1 full seed. Default 10. */
   shardsPerSeed: 10,
   /** Upper bound (inclusive) of each seed-reward band. */
-  seedRewardBandUpperBounds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  seedRewardBandUpperBounds: [2, 4, 6, 8, 10],
   /** Seeds rewarded for a chore whose difficulty falls into each band. */
-  seedRewardBandPayouts: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  seedRewardBandPayouts: [1, 2, 3, 4, 5],
 };
 
 const LEGACY_TIER_NAMES = new Set(["Prairie Daisy", "Kitchen Herbs", "Sunflower", "Homestead Oak"]);

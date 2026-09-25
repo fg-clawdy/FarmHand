@@ -292,3 +292,18 @@ export async function actorFromActionToken(token: string, kind: ApprovalKind, su
   if (row.subjectKind !== kind || row.subjectId !== subjectId) return null;
   return { adminId: row.adminId };
 }
+
+export async function notifyApprovalsPending(opts: {
+  playerName: string;
+  pendingCount: number;
+}): Promise<PushSendResult> {
+  const countLabel = opts.pendingCount === 1 ? "1 chore" : `${opts.pendingCount} chores`;
+  return notifyApprovalRequest({
+    kind: "chore_claim",
+    subjectId: "approvals-nudge",
+    title: `${opts.playerName} needs a grown-up`,
+    body: `Approvals pending (${countLabel}). Open Approvals to review.`,
+    url: "/parent/approvals",
+    critical: false,
+  });
+}

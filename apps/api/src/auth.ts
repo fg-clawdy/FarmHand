@@ -45,7 +45,7 @@ export async function getPlayerSession(request: FastifyRequest) {
   if (!token) return null;
   const session = await prisma.playerSession.findUnique({
     where: { tokenHash: hashToken(token) },
-    include: { player: { include: { plots: { orderBy: { slot: "asc" } } } } },
+    include: { player: { include: { plots: { orderBy: { slot: "asc" } }, basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } } } } },
   });
   if (!session || session.expiresAt < new Date()) return null;
   if (!session.player.isActive) return null;

@@ -1,7 +1,8 @@
-import { compareChoresForParent } from "@farmhand/shared";
+import { compareChoresForParent, DEFAULT_GAME_CONFIG, formatWantedSeedLabel, resolveSeedReward, type GameConfig } from "@farmhand/shared";
 import { Prisma, type Chore, type ChoreAssignment, type Player } from "@prisma/client";
 import { prisma } from "./db.js";
 import { httpError } from "./chores.js";
+import { loadConfig } from "./game.js";
 import {
   isGlobalForMode,
   parseParentChoreWrite,
@@ -18,7 +19,7 @@ type ChoreWithKids = Chore & {
   assignments: Array<ChoreAssignment & { player: Player }>;
 };
 
-export function serializeParentChore(chore: ChoreWithKids) {
+export function serializeParentChore(chore: ChoreWithKids, config = DEFAULT_GAME_CONFIG) {
   const assignments = chore.assignments.map((row) => ({
     playerId: row.playerId,
     name: row.player.name,
@@ -41,7 +42,9 @@ export function serializeParentChore(chore: ChoreWithKids) {
     isActive: chore.isActive,
     assignmentMode: chore.assignmentMode,
     sortOrder: chore.sortOrder,
-    seedGrant: 1,
+    difficulty: chore.difficulty,
+    seedReward: chore.seedReward,
+    seedGrant: resolveSeedReward(chore, config),
     flyerUrl: wantedFlyerPublicUrl(chore.slug),
     assignments,
     assignedPlayerIds: assignments.map((row) => row.playerId),
@@ -69,14 +72,20 @@ async function assertAssignedKids(ids: string[]) {
 }
 
 export async function listParentChores() {
-  const chores = await prisma.chore.findMany({ include: choreInclude });
-  return chores.sort(compareChoresForParent).map(serializeParentChore);
+  const [chores, config] = await Promise.all([
+    prisma.chore.findMany({ include: choreInclude }),
+    loadConfig(),
+  ]);
+  return chores.sort(compareChoresForParent).map((chore) => serializeParentChore(chore, config));
 }
 
 export async function getParentChore(id: string) {
-  const chore = await prisma.chore.findUnique({ where: { id }, include: choreInclude });
+  const [chore, config] = await Promise.all([
+    prisma.chore.findUnique({ where: { id }, include: choreInclude }),
+    loadConfig(),
+  ]);
   if (!chore) throw httpError("That chore isn't on the list.", 404);
-  return serializeParentChore(chore);
+  return serializeParentChore(chore, config);
 }
 
 export async function createParentChore(body: ParentChoreBody) {
@@ -86,6 +95,7 @@ export async function createParentChore(body: ParentChoreBody) {
   if (assignmentMode === "SPECIFIC") await assertAssignedKids(assignedPlayerIds);
   const maxOrder = await prisma.chore.aggregate({ _max: { sortOrder: true } });
   const slug = await uniqueSlug(slugifyTitle(parsed.title ?? "chore"));
+  const config = await loadConfig();
   const created = await prisma.$transaction(async (tx) => {
     const row = await tx.chore.create({
       data: {
@@ -118,9 +128,9 @@ export async function createParentChore(body: ParentChoreBody) {
     slug: created.slug,
     title: created.title,
     emoji: created.emoji,
-    rewardLabel: "+1 SEED",
+    rewardLabel: formatWantedSeedLabel(resolveSeedReward(created, config)),
   });
-  return serializeParentChore(created);
+  return serializeParentChore(created, config);
 }
 
 export async function updateParentChore(id: string, body: ParentChoreBody) {
@@ -153,6 +163,7 @@ export async function updateParentChore(id: string, body: ParentChoreBody) {
   data.assignmentMode = assignmentMode;
   data.isGlobal = isGlobalForMode(assignmentMode);
 
+  const config = await loadConfig();
   const updated = await prisma.$transaction(async (tx) => {
     await tx.chore.update({ where: { id }, data });
     if (parsed.assignmentMode !== undefined || parsed.assignedPlayerIds !== undefined) {
@@ -169,9 +180,9 @@ export async function updateParentChore(id: string, body: ParentChoreBody) {
     slug: updated.slug,
     title: updated.title,
     emoji: updated.emoji,
-    rewardLabel: "+1 SEED",
+    rewardLabel: formatWantedSeedLabel(resolveSeedReward(updated, config)),
   });
-  return serializeParentChore(updated);
+  return serializeParentChore(updated, config);
 }
 
 export async function listParentKids() {

@@ -17,6 +17,7 @@ Farm camera: ¾ painted landscape (barn left, market stall right, three fenced g
 | Live garden plaques | Pixi `Text` from `/api/farm` | — | Child **name** (primary) plus `seeds · pts` on each blank sign. Admin **Edit → Name** updates the same field; the farm polls every 8s. |
 | Garden close-up ground | Original painted 3×3 zoom | original | `/art/painted/garden/garden_zoom_3x3.jpg` — cover-fit. No animals. |
 | Garden tools (seeds bag, watering can, fertilizer flask) | Original painted PNG with real alpha | original | `/art/painted/garden/tool_*.png` — React toolbar; selected tool glows eligible mounds. |
+| Harvest basket (wide shallow tray, rim overlay) | Original generated painted prop | original | `/art/painted/garden/harvest_basket.png` + `harvest_basket_rim.png` - true alpha; Pixi body → produce → rim on garden zoom. |
 | Crop stages (corn, strawberry, cotton × seed/seedling/buds/ripe) | Original painted sheets | original | `/art/painted/plants/plant_*_stages.png` — Pixi on farm mounds + garden close-up. Names stay in UI text. |
 | Harvest sparkles | Original generated sheet | original | Sparkles on READY farm gardens |
 | HUD chips, watering can, fertilizer bottle | Same generated prop set | original | Slim edge HUD + React resource chrome |

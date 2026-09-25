@@ -1,9 +1,10 @@
-import { cropKindForTier, formatCountdown, PLOTS_PER_GARDEN, type PublicPlot } from "@farmhand/shared";
+import { cropKindForTier, formatCountdown, PLOTS_PER_GARDEN, type CropKind, type PublicPlot } from "@farmhand/shared";
 import { Container, Ellipse, Graphics, Sprite, Text, type Application } from "pixi.js";
 import type { Atlas } from "./atlas";
 import type { PixiEngine } from "./engine";
 import { FxLayer, SparkleField } from "./fx";
 import {
+  GARDEN_BASKET_LAYOUT,
   GARDEN_CROP_SEAT,
   GARDEN_ZOOM_LAYOUT,
   GARDEN_ZOOM_TEXTURE,
@@ -15,6 +16,7 @@ import {
   ZOOM_MOUND_COVER_PX,
   cropCoverScale,
   cropDiscAnchor,
+  cropPickedFrame,
   cropStageFrame,
   type PaintedArt,
 } from "./paintedAssets";
@@ -34,10 +36,13 @@ export class GardenScene {
   private fx: FxLayer;
   private slots: PlotNode[] = [];
   private floaters: { text: Text; life: number; max: number; vy: number }[] = [];
+  private picks: HarvestPick[] = [];
+  private basket: HarvestBasket;
   private t = 0;
   private app: Application;
   private onPlot: (slot: number) => void;
   private onAvatar: () => void;
+  private onBasket: () => void;
   private avatarBadge: SignAvatarBadge;
 
   constructor(
@@ -46,10 +51,12 @@ export class GardenScene {
     painted: PaintedArt,
     onPlot: (slot: number) => void,
     onAvatar?: () => void,
+    onBasket?: () => void,
   ) {
     this.app = engine.app;
     this.onPlot = onPlot;
     this.onAvatar = onAvatar ?? (() => undefined);
+    this.onBasket = onBasket ?? (() => undefined);
     this.fx = new FxLayer(atlas);
 
     this.ground = new Sprite(painted.gardenZoom);
@@ -92,6 +99,9 @@ export class GardenScene {
     }
     this.fx.root.zIndex = 5000;
     this.playfield.addChild(this.fx.root);
+
+    this.basket = new HarvestBasket(painted, () => this.onBasket());
+    this.playfield.addChild(this.basket.root);
 
     this.root.addChild(this.fill, this.playfield);
     this.app.stage.removeChildren();
@@ -155,23 +165,56 @@ export class GardenScene {
     const n = this.slots[slot];
     if (n) this.fx.burst(n.root.x, n.root.y - 20, "fert");
   }
-  fxHarvest(slot: number, reward?: { points: number; seedsFromShards: number }) {
+  fxHarvest(slot: number, reward?: { points: number; seedsFromShards: number; kind?: string; basketItemId?: string }) {
     const n = this.slots[slot];
     if (!n) return;
-    n.celebrateHarvest();
-    this.fx.burst(n.root.x, n.root.y - 24, "harvest");
-    this.fx.burst(n.root.x, n.root.y - 70, "harvest");
-    const bits: string[] = [];
-    if (reward && reward.points > 0) bits.push(`+${reward.points} ★`);
-    if (reward && reward.seedsFromShards > 0) {
-      bits.push(`+${reward.seedsFromShards} seed${reward.seedsFromShards === 1 ? "" : "s"}`);
+    const kind = (reward?.kind && isCropKind(reward.kind) ? reward.kind : n.cropKind()) ?? "corn";
+    n.beginPick();
+    const from = { x: n.root.x, y: n.root.y - 36 };
+    const pickTex = cropPickedFrame(n.paintedCrops(), kind);
+    if (!pickTex?.source) {
+      if (reward && reward.points > 0) this.floatPoints(from.x, from.y - 20, reward.points);
+      return;
     }
-    if (!bits.length) return;
+    const sprite = new Sprite(pickTex);
+    sprite.anchor.set(0.5, 1);
+    const plantScale = Math.max(0.18, n.cropScaleValue() * 0.92);
+    sprite.scale.set(plantScale);
+    sprite.position.set(from.x, from.y);
+    sprite.zIndex = 7000;
+    this.playfield.addChild(sprite);
+    const dest = this.basket.reserveSlot(reward?.basketItemId, kind);
+    this.picks.push({
+      sprite,
+      from,
+      hop: { x: from.x, y: from.y - 92 },
+      to: dest,
+      life: 0.86,
+      max: 0.86,
+      scale: plantScale,
+      kind,
+      itemId: reward?.basketItemId,
+    });
+    if (reward && reward.points > 0) this.floatPoints(from.x, from.y - 20, reward.points);
+  }
+
+  /** Draw held produce. Items still flying are reserved and not drawn twice. */
+  setBasket(items: BasketView[]) {
+    const flying = new Set(this.picks.map((p) => p.itemId).filter((id): id is string => !!id));
+    this.basket.sync(items, flying);
+  }
+
+  /** Screen position of the points meter is not in the playfield; stars launch from the basket. */
+  basketLaunchLocal() {
+    return this.basket.mouth();
+  }
+
+  private floatPoints(x: number, y: number, points: number) {
     const text = new Text({
-      text: bits.join("   "),
+      text: `+ ${points} points`,
       style: {
         fontFamily: "Fredoka, sans-serif",
-        fontSize: 42,
+        fontSize: 40,
         fill: 0xffe56a,
         fontWeight: "900",
         stroke: { color: 0x2a1608, width: 7 },
@@ -179,10 +222,10 @@ export class GardenScene {
       },
     });
     text.anchor.set(0.5, 1);
-    text.position.set(n.root.x, n.root.y - 40);
+    text.position.set(x, y);
     text.zIndex = 8000;
     this.playfield.addChild(text);
-    this.floaters.push({ text, life: 1.8, max: 1.8, vy: -62 });
+    this.floaters.push({ text, life: 1.6, max: 1.6, vy: -54 });
   }
 
   relayout() {
@@ -211,6 +254,7 @@ export class GardenScene {
       slot.root.zIndex = Math.round(p.y);
       slot.layout(1);
     });
+    this.basket.place(tw, th);
     const sign = uvToLocal(GARDEN_ZOOM_LAYOUT.sign, tw, th);
     this.nameText.position.set(sign.x, sign.y);
     this.nameText.style.fontSize = Math.max(32, 48);
@@ -220,6 +264,7 @@ export class GardenScene {
     this.t += dt;
     this.fx.update(dt);
     this.slots.forEach((s) => s.breathe(this.t, dt));
+    this.tickPicks(dt);
     for (let i = this.floaters.length - 1; i >= 0; i--) {
       const f = this.floaters[i]!;
       f.life -= dt;
@@ -229,6 +274,26 @@ export class GardenScene {
       if (f.life <= 0) {
         f.text.destroy();
         this.floaters.splice(i, 1);
+      }
+    }
+  }
+
+  private tickPicks(dt: number) {
+    for (let i = this.picks.length - 1; i >= 0; i--) {
+      const pick = this.picks[i]!;
+      pick.life -= dt;
+      const k = 1 - Math.max(0, pick.life / pick.max);
+      const pos = pickCurve(pick.from, pick.hop, pick.to, k);
+      pick.sprite.position.set(pos.x, pos.y);
+      pick.sprite.rotation = Math.sin(k * Math.PI) * 0.18;
+      const landed = 0.18;
+      const settle = pick.scale + (landed - pick.scale) * smooth(k);
+      pick.sprite.scale.set(settle);
+      pick.sprite.zIndex = 7000 + Math.round(pos.y);
+      if (k >= 1) {
+        pick.sprite.destroy();
+        this.picks.splice(i, 1);
+        this.basket.release(pick.itemId);
       }
     }
   }
@@ -300,6 +365,7 @@ class PlotNode {
   private shadow: Graphics;
   private marker: Graphics;
   private glow: Sprite;
+  private approvalAura = new Graphics();
   private sparkle: SparkleField;
   private label: Text;
   private toolGlow = false;
@@ -308,6 +374,7 @@ class PlotNode {
   private cropScale = 0.4;
   private texScale = 1;
   private celebrateT = -1;
+  private kind: CropKind | null = null;
 
   constructor(
     atlas: Atlas,
@@ -320,6 +387,13 @@ class PlotNode {
     this.glow.anchor.set(0.5);
     this.glow.blendMode = "add";
     this.glow.visible = false;
+    this.approvalAura.clear();
+    this.approvalAura.ellipse(0, 10, 58, 30);
+    this.approvalAura.fill({ color: 0xb57bff, alpha: 0.25 });
+    this.approvalAura.ellipse(0, 10, 42, 22);
+    this.approvalAura.fill({ color: 0xd8b4ff, alpha: 0.2 });
+    this.approvalAura.visible = false;
+
     this.sparkle = new SparkleField(atlas, 8);
     this.plant.anchor.set(0.5, 0.88);
     this.shadow = new Graphics();
@@ -338,11 +412,28 @@ class PlotNode {
       },
     });
     this.label.anchor.set(0.5, 0);
-    this.root.addChild(this.glow, this.shadow, this.sparkle.root, this.plant, this.label, this.marker);
+    this.root.addChild(this.glow, this.approvalAura, this.shadow, this.sparkle.root, this.plant, this.label, this.marker);
     this.root.eventMode = "static";
     this.root.cursor = "pointer";
     this.plant.mask = null;
-    this.root.on("pointerup", () => onOpen(this.slot));
+    // Require down+up on the same plot so a stray pointerup cannot open the picker.
+    let pressed = false;
+    this.root.on("pointerdown", (ev) => {
+      pressed = true;
+      ev.stopPropagation();
+    });
+    this.root.on("pointerup", (ev) => {
+      if (!pressed) return;
+      pressed = false;
+      ev.stopPropagation();
+      onOpen(this.slot);
+    });
+    this.root.on("pointerupoutside", () => {
+      pressed = false;
+    });
+    this.root.on("pointercancel", () => {
+      pressed = false;
+    });
   }
 
   layout(s: number) {
@@ -393,8 +484,10 @@ class PlotNode {
     this.ready = !!plot?.ready;
     this.glow.visible = this.toolGlow;
     if (this.celebrateT >= 0) {
-      this.sparkle.setActive(true);
+      this.sparkle.setActive(false);
       this.label.visible = false;
+      this.plant.visible = false;
+      this.shadow.visible = false;
       return;
     }
     this.sparkle.setActive(this.ready);
@@ -405,6 +498,7 @@ class PlotNode {
       return;
     }
     const kind = cropKindForTier(plot.tier);
+    this.kind = kind;
     this.plant.texture = cropStageFrame(this.painted.crops, kind, plot.growthStage);
     const pivot = cropDiscAnchor(kind, plot.growthStage);
     this.plant.anchor.set(pivot.x, pivot.y);
@@ -413,39 +507,46 @@ class PlotNode {
     this.plant.visible = true;
     this.shadow.visible = true;
     this.label.visible = true;
-    const greyed = plot.state === "purgatory" || plot.state === "wilted" || plot.greyed;
-    this.plant.tint = greyed ? 0x8a8a8a : 0xffffff;
-    this.plant.alpha = greyed ? 0.72 : 1;
-    if (plot.state === "purgatory") this.label.text = "WAITING";
-    else if (plot.state === "wilted") this.label.text = "WILTED";
-    else this.label.text = plot.ready ? "READY" : formatCountdown(plot.remainingMs);
+    const wilted = plot.state === "wilted" || plot.greyed;
+    const awaiting = Boolean(plot.awaitingApproval) || plot.state === "purgatory";
+    this.plant.tint = wilted ? 0x8a8a8a : awaiting ? 0xe8d7ff : 0xffffff;
+    this.plant.alpha = wilted ? 0.72 : 1;
+    this.approvalAura.visible = awaiting && !wilted;
+    if (wilted) this.label.text = "WILTED";
+    else if (awaiting && plot.ready) this.label.text = "WAITING";
+    else if (plot.ready) this.label.text = "READY";
+    else this.label.text = formatCountdown(plot.remainingMs);
     this.plant.mask = null;
   }
 
-  celebrateHarvest() {
-    this.celebrateT = 0;
+  beginPick() {
+    this.celebrateT = 0.01;
+    this.plant.visible = false;
     this.plant.alpha = 1;
-    this.plant.visible = true;
+    this.plant.rotation = 0;
+    this.shadow.visible = false;
     this.label.visible = false;
-    this.sparkle.setActive(true);
+    this.sparkle.setActive(false);
+  }
+
+  cropKind() {
+    return this.kind;
+  }
+
+  paintedCrops() {
+    return this.painted.crops;
+  }
+
+  cropScaleValue() {
+    return this.cropScale;
   }
 
   breathe(t: number, dt = 1 / 60) {
     if (this.celebrateT >= 0) {
       this.celebrateT += dt;
-      const k = Math.min(1, this.celebrateT / 0.55);
-      const pop = 1.08 + Math.sin(k * Math.PI) * 0.42;
-      this.plant.scale.set(this.cropScale * pop, this.cropScale * pop);
-      this.plant.alpha = 1 - k;
-      this.plant.rotation = Math.sin(k * Math.PI * 3) * 0.08;
-      if (k >= 1) {
-        this.celebrateT = -1;
-        this.plant.visible = false;
-        this.plant.alpha = 1;
-        this.plant.rotation = 0;
-        this.shadow.visible = false;
-      }
-      this.sparkle.update(t);
+      this.plant.visible = false;
+      this.shadow.visible = false;
+      if (this.celebrateT >= 1.2) this.celebrateT = -1;
       return;
     }
     if (this.plant.visible) {
@@ -479,5 +580,263 @@ class PlotNode {
       dy: world.y - mound.y,
       marker: this.showMarker,
     };
+  }
+}
+
+
+
+
+type BasketView = {
+  id: string;
+  kind: string;
+  name: string;
+  emoji: string;
+  points: number;
+};
+type HarvestPick = {
+  sprite: Sprite;
+  from: { x: number; y: number };
+  hop: { x: number; y: number };
+  to: { x: number; y: number };
+  life: number;
+  max: number;
+  scale: number;
+  kind: CropKind;
+  itemId?: string;
+};
+const BASKET_VISIBLE = 8;
+function smooth(k: number) {
+  const t = Math.min(1, Math.max(0, k));
+  return t * t * (3 - 2 * t);
+}
+function pickCurve(
+  from: { x: number; y: number },
+  hop: { x: number; y: number },
+  to: { x: number; y: number },
+  k: number,
+) {
+  const t = smooth(k);
+  const u = 1 - t;
+  return {
+    x: u * u * from.x + 2 * u * t * hop.x + t * t * to.x,
+    y: u * u * from.y + 2 * u * t * hop.y + t * t * to.y,
+  };
+}
+function isCropKind(kind: string): kind is CropKind {
+  return kind === "corn" || kind === "cotton" || kind === "strawberry" || kind === "tomato" || kind === "pumpkin" || kind === "sunflower";
+}
+/** How a crop sits in the basket: tall sticks up, low sits deep in the bowl. */
+function basketPose(kind: CropKind): "tall" | "mid" | "low" {
+  if (kind === "corn" || kind === "sunflower" || kind === "cotton") return "tall";
+  if (kind === "pumpkin") return "low";
+  return "mid"; // strawberry, tomato
+}
+
+/** Seat inside the rim. Front row is lower and slightly larger; kind shifts depth/scale. */
+function basketSeat(index: number, total: number, kind: CropKind = "corn") {
+  const n = Math.max(1, Math.min(total, BASKET_VISIBLE));
+  const i = Math.min(index, BASKET_VISIBLE - 1);
+  const cols = n <= 3 ? n : n <= 6 ? 3 : 4;
+  const col = i % cols;
+  const row = Math.floor(i / cols);
+  const rows = Math.ceil(n / cols);
+  const pose = basketPose(kind);
+  // Wide shallow tray — spread produce across the bowl; keep tall tops peeking over the rim.
+  const spread = pose === "tall" ? 36 : 44;
+  const x = (col - (cols - 1) / 2) * spread + ((row % 2) * 8 - 4);
+  // Anchor is bottom of sprite. Higher y = deeper in the tray (behind front rim).
+  // Tall crops sit a touch higher so corn/sunflower/cotton tops peek over the rim.
+  const yBase = pose === "tall" ? 8 : pose === "low" ? 32 : 20;
+  const y = yBase - row * (pose === "tall" ? 8 : 12) + (rows - 1) * 2;
+  const scaleBase = pose === "tall" ? 0.36 : pose === "low" ? 0.28 : 0.32;
+  const scale = scaleBase - row * 0.03;
+  const rot = ((i * 17) % 11 - 5) * 0.025;
+  // Back rows (higher row) draw behind; tall crops also prefer back so they tower over mid/low.
+  const z = row + (pose === "tall" ? 2 : pose === "low" ? 0 : 1);
+  return { x, y, scale, rot, z, pose };
+}
+
+class HarvestBasket {
+  readonly root = new Container();
+  private shadow = new Graphics();
+  private bodyBack: Sprite;
+  private rimFront: Sprite;
+  private produce = new Container();
+  /**
+   * Soft pocket mask for the wide shallow tray: clips buried bottoms into the weave,
+   * chimney stays tall so corn / sunflower / cotton tops peek over the rim.
+   * IMPORTANT: never destroy this Graphics — remasking after destroy nukes `_gpuData`.
+   */
+  private brim = new Graphics();
+  private count = new Text({
+    text: "",
+    style: {
+      fontFamily: "Fredoka, sans-serif",
+      fontSize: 22,
+      fill: 0xfff6df,
+      fontWeight: "800",
+      stroke: { color: 0x3d2412, width: 4 },
+    },
+  });
+  private held: BasketView[] = [];
+  private hidden = new Set<string>();
+  private origin = {
+    x: GARDEN_ZOOM_TEXTURE.width * GARDEN_BASKET_LAYOUT.origin.u,
+    y: GARDEN_ZOOM_TEXTURE.height * GARDEN_BASKET_LAYOUT.origin.v,
+  };
+  /** Empty basket on grass — slightly larger than the approved mock (0.82). */
+  private emptyScale = GARDEN_BASKET_LAYOUT.emptyScale;
+  /** Filled grows further in the same outside-fence pocket. */
+  private filledScale = GARDEN_BASKET_LAYOUT.filledScale;
+
+  constructor(private painted: PaintedArt, onOpen: () => void) {
+    this.root.sortableChildren = true;
+    this.root.eventMode = "static";
+    this.root.cursor = "pointer";
+    this.root.zIndex = 400;
+
+    this.shadow.zIndex = 0;
+    this.bodyBack = new Sprite(painted.harvestBasket);
+    // Rim-center on the wide shallow tray art (shared body/rim canvas; no handle).
+    this.bodyBack.anchor.set(0.5, 0.55);
+    // Preserve texture aspect — never force a square draw rect.
+    const baskW = 260;
+    const tex = painted.harvestBasket;
+    const baskH = tex.width > 0 ? baskW * (tex.height / tex.width) : 160;
+    this.bodyBack.width = baskW;
+    this.bodyBack.height = baskH;
+    this.bodyBack.alpha = 1;
+    this.bodyBack.zIndex = 1;
+
+    this.produce.sortableChildren = true;
+    this.produce.zIndex = 2;
+
+    this.rimFront = new Sprite(painted.harvestBasketRim);
+    this.rimFront.anchor.set(0.5, 0.55);
+    this.rimFront.width = baskW;
+    this.rimFront.height = baskH;
+    this.rimFront.alpha = 1;
+    this.rimFront.zIndex = 3;
+
+    this.count.anchor.set(0.5, 0);
+    this.count.position.set(0, 52);
+    this.count.zIndex = 4;
+
+    this.drawPocketMask();
+    // Soft pocket only — prefer seating so tops peek over the rim; keep brim Graphics alive.
+    this.produce.mask = this.brim;
+    this.produce.addChild(this.brim);
+    this.drawShadow();
+    this.root.addChild(this.shadow, this.bodyBack, this.produce, this.rimFront, this.count);
+    this.root.on("pointerup", (ev) => {
+      ev.stopPropagation();
+      onOpen();
+    });
+    this.root.hitArea = new Ellipse(0, 10, 130, 64);
+    this.applyFillScale();
+  }
+
+  private drawPocketMask() {
+    const g = this.brim;
+    g.clear();
+    // Wide shallow-tray chimney: clips buried bottoms into the weave, never haircuts tops.
+    g.moveTo(-130, -300);
+    g.lineTo(130, -300);
+    g.lineTo(148, 30);
+    g.quadraticCurveTo(0, 72, -148, 30);
+    g.closePath();
+    g.fill({ color: 0xffffff });
+  }
+
+  private drawShadow() {
+    const g = this.shadow;
+    g.clear();
+    g.ellipse(4, 48, 110, 20);
+    g.fill({ color: 0x1c1208, alpha: 0.28 });
+  }
+
+  place(tw: number, th: number) {
+    // Grass outside the fenced dirt, touching the lower-right fence corner.
+    // Stay clear of the centered bottom toolbar (Chores / Water / Seeds).
+    this.origin = {
+      x: tw * GARDEN_BASKET_LAYOUT.origin.u,
+      y: th * GARDEN_BASKET_LAYOUT.origin.v,
+    };
+    this.root.position.set(this.origin.x, this.origin.y);
+    this.root.zIndex = 6500;
+    this.applyFillScale();
+  }
+
+  private applyFillScale() {
+    const visible = this.held.filter((item) => !this.hidden.has(item.id)).length;
+    const s = visible > 0 ? this.filledScale : this.emptyScale;
+    this.root.scale.set(s);
+  }
+
+  private scaledLocal(lx: number, ly: number) {
+    return {
+      x: this.origin.x + lx * this.root.scale.x,
+      y: this.origin.y + ly * this.root.scale.y,
+    };
+  }
+
+  mouth() {
+    return this.scaledLocal(0, -8);
+  }
+
+  reserveSlot(itemId?: string, kind?: string) {
+    if (itemId) this.hidden.add(itemId);
+    const index = this.held.findIndex((item) => item.id === itemId);
+    const crop = (kind && isCropKind(kind) ? kind : undefined)
+      ?? (index >= 0 && isCropKind(this.held[index]!.kind) ? this.held[index]!.kind : "corn");
+    const seat = basketSeat(
+      index >= 0 ? index : this.held.length,
+      this.held.length + (index >= 0 ? 0 : 1),
+      crop,
+    );
+    return this.scaledLocal(seat.x, seat.y - 6);
+  }
+
+  release(itemId?: string) {
+    if (!itemId) return;
+    this.hidden.delete(itemId);
+    this.redraw();
+  }
+
+  sync(items: BasketView[], flying: Set<string>) {
+    this.held = items;
+    this.hidden = new Set(flying);
+    this.redraw();
+  }
+
+  private redraw() {
+    for (let i = this.produce.children.length - 1; i >= 0; i--) {
+      const child = this.produce.children[i]!;
+      if (child === this.brim) continue;
+      this.produce.removeChild(child);
+      child.destroy();
+    }
+    if (this.produce.mask !== this.brim) this.produce.mask = this.brim;
+    if (this.brim.parent !== this.produce) this.produce.addChild(this.brim);
+    this.drawPocketMask();
+    const shown = this.held.slice(0, BASKET_VISIBLE);
+    shown.forEach((item, index) => {
+      if (this.hidden.has(item.id)) return;
+      const kind = isCropKind(item.kind) ? item.kind : "corn";
+      const tex = cropPickedFrame(this.painted.crops, kind);
+      if (!tex?.source) return;
+      const sprite = new Sprite(tex);
+      sprite.anchor.set(0.5, 1);
+      const seat = basketSeat(index, shown.length, kind);
+      sprite.position.set(seat.x, seat.y);
+      sprite.scale.set(seat.scale);
+      sprite.rotation = seat.rot;
+      // Front of bowl (low z row) draws on top of buried pumpkins; tall back towers.
+      sprite.zIndex = 20 - seat.z;
+      this.produce.addChild(sprite);
+    });
+    const extra = Math.max(0, this.held.length - BASKET_VISIBLE);
+    this.count.text = extra > 0 ? `+${extra}` : "";
+    this.applyFillScale();
   }
 }

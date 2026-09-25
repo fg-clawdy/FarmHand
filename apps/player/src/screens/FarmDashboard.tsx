@@ -153,7 +153,7 @@ export default function FarmDashboard() {
   }, [jobs, config, ready, sceneRef]);
 
   function handleClaimed(name: string) {
-    setToast(`Waiting seed planted in ${name}'s garden.`);
+    setToast(`Seeds added to ${name}'s bag!`);
     window.setTimeout(() => setToast(""), 3200);
     void load();
   }

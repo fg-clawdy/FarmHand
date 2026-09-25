@@ -2,8 +2,8 @@ import Sheet from "./Sheet";
 
 export default function JobCoach({
   title = "Need a seed?",
-  copy = "Your seed pouch is empty. Do a job on the Job Board to plant a waiting seed — jobs do not spend pouch seeds.",
-  cta = "Do a job to plant a waiting seed",
+  copy = "Your seed pouch is empty. Do a job on the Job Board to earn seeds for your bag — jobs do not spend pouch seeds.",
+  cta = "Do a job for seeds",
   cancelLabel = "Back",
   onClose,
   onContinue,

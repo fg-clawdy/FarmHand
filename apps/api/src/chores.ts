@@ -6,6 +6,8 @@ import {
   compareChoresForKid,
   compareChoresForParent,
   compareClaimsForInbox,
+  DEFAULT_GAME_CONFIG,
+  formatWantedSeedLabel,
   JOB_BOARD_V1_REWARD_SEED_COUNT,
   recurrenceFreesOnHarvest,
   resolveSeedReward,
@@ -15,7 +17,7 @@ import {
 } from "@farmhand/shared";
 import { Prisma, type Chore, type PrismaClient } from "@prisma/client";
 import { prisma } from "./db.js";
-import { ensureWantedFlyer, wantedFlyerPublicUrl } from "./wantedFlyer.js";
+import { generateWantedFlyer, wantedFlyerPublicUrl } from "./wantedFlyer.js";
 import { chorePeriod } from "./tz.js";
 import { recordAccoladeEvent } from "./accolades.js";
 import { loadConfig } from "./game.js";
@@ -44,8 +46,17 @@ export const EMPTY_PLOT_DATA = {
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
+/** Band payout for a catalog row, using the live config when it is available. */
+export function catalogSeedCount(
+  row: { seedReward?: number | null; difficulty?: number | null },
+  config: GameConfig = DEFAULT_GAME_CONFIG,
+): number {
+  return resolveSeedReward(row, config);
+}
+
 export async function seedChoreCatalog() {
   const { CHORE_CATALOG } = await import("@farmhand/shared");
+  const config = await loadConfig().catch(() => DEFAULT_GAME_CONFIG);
   for (const [index, row] of CHORE_CATALOG.entries()) {
     const assignmentMode = assignmentModeForSeed(row);
     const existing = await prisma.chore.findUnique({ where: { slug: row.slug } });
@@ -74,7 +85,8 @@ export async function seedChoreCatalog() {
         },
       });
     } else {
-      // Keep parent edits for emoji/etc.; refresh schedule/assignment/skip from catalog.
+      // Keep parent edits for emoji/etc. Refresh schedule, and fill difficulty
+      // only when the row never got one — a parent seedReward override stays.
       await prisma.chore.update({
         where: { slug: row.slug },
         data: {
@@ -86,14 +98,21 @@ export async function seedChoreCatalog() {
           isGlobal: row.isGlobal,
           allowsSkip: row.allowsSkip,
           assignmentMode,
+          ...(existing.difficulty == null && row.difficulty != null ? { difficulty: row.difficulty } : {}),
         },
       });
     }
-    await ensureWantedFlyer({
+    const stored = existing
+      ? {
+          seedReward: existing.seedReward,
+          difficulty: existing.difficulty ?? row.difficulty,
+        }
+      : row;
+    await generateWantedFlyer({
       slug: row.slug,
       title: row.title,
       emoji: row.emoji,
-      rewardLabel: "+1 SEED",
+      rewardLabel: formatWantedSeedLabel(catalogSeedCount(stored, config)),
     });
   }
   // Deduped into dishes-1-6 — hide legacy empty-dishwasher if it was seeded.
@@ -102,23 +121,14 @@ export async function seedChoreCatalog() {
     data: { isActive: false },
   });
 
-  // SYNC_ALLOWS_SKIP — align DB flags with catalog (idempotent)
-  {
-    const { CHORE_CATALOG: catalogRows } = await import("@farmhand/shared");
-    for (const row of catalogRows) {
-      await prisma.chore.updateMany({
-        where: { slug: row.slug },
-        data: { allowsSkip: row.allowsSkip },
-      });
-    }
-  }
   const extras = await prisma.chore.findMany();
   for (const chore of extras) {
-    await ensureWantedFlyer({
+    if (CHORE_CATALOG.some((row) => row.slug === chore.slug)) continue;
+    await generateWantedFlyer({
       slug: chore.slug,
       title: chore.title,
       emoji: chore.emoji,
-      rewardLabel: "+1 SEED",
+      rewardLabel: formatWantedSeedLabel(resolveSeedReward(chore, config)),
     });
   }
 }
@@ -132,6 +142,7 @@ export function publicChore(
     claimedPeriodKeys: Set<string>;
     raceTakenKeys: Set<string>;
     heatByChoreId?: Record<string, number>;
+    config: GameConfig;
   },
 ) {
   const now = opts.now ?? new Date();
@@ -174,6 +185,8 @@ export function publicChore(
     claimedByOther: chore.assignmentMode === "RACE" && raceTaken && !alreadyClaimedByPlayer,
     flyerUrl: wantedFlyerPublicUrl(chore.slug),
     heatScore: opts.heatByChoreId?.[chore.id] ?? 0,
+    rewardSeedCount: resolveSeedReward(chore, opts.config),
+    rewardSeedKind: "seed" as const,
   };
 }
 
@@ -190,8 +203,9 @@ export async function listPlayerChores(playerId: string, timezone: string, now =
   const claimedPeriodKeys = new Set(claims.map((row) => `${row.choreId}:${row.periodKey}`));
   const raceTakenKeys = new Set(raceSlots.map((row) => `${row.choreId}:${row.periodKey}`));
   const heatByChoreId = await loadHeatByChoreId();
+  const config = await loadConfig();
   return chores
-    .map((chore) => publicChore(chore, { playerId, timezone, now, claimedPeriodKeys, raceTakenKeys, heatByChoreId }))
+    .map((chore) => publicChore(chore, { playerId, timezone, now, claimedPeriodKeys, raceTakenKeys, heatByChoreId, config }))
     .filter((chore) => chore.isActive)
     .sort(compareChoresForKid);
 }
@@ -248,6 +262,7 @@ export async function listFamilyOpenChores(timezone: string, now = new Date()): 
       priority: chore.priority,
       assignmentMode: chore.assignmentMode,
       requiresSelfie: chore.requiresSelfie,
+      allowsSkip: chore.allowsSkip,
       sortOrder: chore.sortOrder,
       rewardSeedCount: resolveSeedReward(chore, config),
       rewardSeedKind: "seed",
@@ -323,7 +338,8 @@ export async function claimChore(opts: {
             periodKey: period.key,
             status: "PENDING",
             proofJpegPath: opts.proofPath ?? null,
-            rewardSeedCount: jobSeedReward,
+            seedsGranted: Math.max(0, jobSeedReward),
+            seedsPlanted: 0,
           },
         });
 
@@ -351,7 +367,7 @@ export async function claimChore(opts: {
           });
         }
 
-        return { claim, chore, playerId: opts.playerId, unlocks };
+        return { claim, chore, playerId: opts.playerId, unlocks, seedsGranted: jobSeedReward };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 12_000 },
     );
@@ -382,34 +398,43 @@ export async function approveClaim(claimId: string, adminId: string, now = new D
       data: { status: "APPROVED", resolvedAt: now, resolvedByAdminId: adminId },
     });
 
-    // If claim has a linked plot (kid already planted the provisional seed),
-    // transition purgatory -> growing
-    const plot = await tx.plot.findFirst({
-      where: { choreClaimId: claimId },
+    const links = await tx.plotClaimLink.findMany({
+      where: { claimId },
+      include: { plot: { include: { claimLinks: { include: { claim: true } } } } },
     });
-    if (plot) {
-      await tx.plot.update({
-        where: { id: plot.id },
-        data: {
-          phase: "growing",
-          plantedAt: now,
-          plantTier: lockedClaim.plantTier ?? 1,
-          waterReductionMinutes: 0,
-          fertilizerReductionMinutes: 0,
-          lastWateredAt: null,
-          wateringsOnDate: null,
-          wateringsCount: 0,
-        },
-      });
-    } else {
-      // No plot yet — convert provisional seed to approved seed
+    const seedsGranted = Math.max(0, lockedClaim.seedsGranted ?? 1);
+    const seedsPlanted = Math.min(seedsGranted, Math.max(0, lockedClaim.seedsPlanted ?? 0));
+    const unplanted = Math.max(0, seedsGranted - seedsPlanted);
+
+    // Unplanted provisional seeds convert to confirmed pouch seeds.
+    if (unplanted > 0) {
       await tx.player.update({
         where: { id: lockedClaim.playerId },
         data: {
-          provisionalSeeds: { decrement: 1 },
-          seeds: { increment: 1 },
+          provisionalSeeds: { decrement: unplanted },
+          seeds: { increment: unplanted },
         },
       });
+    }
+
+    // Plants already growing keep their clock. Clear legacy purgatory phase once no PENDING links remain.
+    let plot = links[0]?.plot ?? await tx.plot.findFirst({ where: { choreClaimId: claimId } });
+    for (const link of links) {
+      const stillPending = link.plot.claimLinks.some(
+        (other) => other.claimId !== claimId && other.claim.status === "PENDING",
+      );
+      if (!stillPending && link.plot.phase === "purgatory") {
+        await tx.plot.update({
+          where: { id: link.plot.id },
+          data: {
+            phase: "growing",
+            plantedAt: link.plot.plantedAt ?? now,
+          },
+        });
+      }
+    }
+    if (!plot) {
+      plot = null;
     }
 
     await tx.activityLog.create({
@@ -443,9 +468,15 @@ export async function denyClaim(claimId: string, adminId: string) {
     // Re-read claim status AFTER lock — prevents concurrent approve/deny
     // from both acting on the same PENDING claim.
     if (lockedClaim.status !== "PENDING") throw httpError("A grown-up already handled that one.");
-    const plot = await tx.plot.findFirst({
-      where: { choreClaimId: claimId },
+    const links = await tx.plotClaimLink.findMany({
+      where: { claimId },
+      include: {
+        plot: {
+          include: { claimLinks: true },
+        },
+      },
     });
+    const legacyPlot = await tx.plot.findFirst({ where: { choreClaimId: claimId } });
     const originalKey = lockedClaim.periodKey;
     await tx.choreClaim.update({
       where: { id: claimId },
@@ -461,23 +492,71 @@ export async function denyClaim(claimId: string, adminId: string) {
     if (chore.assignmentMode === "RACE") {
       await tx.choreRaceSlot.deleteMany({ where: { choreId: lockedClaim.choreId, periodKey: originalKey } });
     }
-    if (plot) {
-      // Plant already placed — wilt it
-      await tx.plot.update({
-        where: { id: plot.id },
-        data: {
-          phase: "wilted",
-          plantedAt: null,
-          plantTier: lockedClaim.plantTier ?? 1,
-        },
+
+    const wiltedPlotIds = new Set<string>();
+    for (const link of links) wiltedPlotIds.add(link.plotId);
+    if (legacyPlot) wiltedPlotIds.add(legacyPlot.id);
+
+    if (wiltedPlotIds.size > 0) {
+      // Deny → wilt every plant funded by this claim (preserve prior semantics).
+      for (const plotId of wiltedPlotIds) {
+        const plotRow = links.find((l) => l.plotId === plotId)?.plot ?? legacyPlot;
+        await tx.plot.update({
+          where: { id: plotId },
+          data: {
+            phase: "wilted",
+            plantedAt: null,
+            plantTier: plotRow?.plantTier ?? lockedClaim.plantTier ?? 1,
+          },
+        });
+      }
+
+      // Restore other still-pending claims' planted units that were on wilted plots back to the pouch.
+      const siblingLinks = await tx.plotClaimLink.findMany({
+        where: { plotId: { in: [...wiltedPlotIds] }, claimId: { not: claimId } },
+        include: { claim: true },
       });
+      let restored = 0;
+      for (const sibling of siblingLinks) {
+        if (sibling.claim.status !== "PENDING") continue;
+        restored += sibling.seedsUsed;
+        await tx.choreClaim.update({
+          where: { id: sibling.claimId },
+          data: { seedsPlanted: { decrement: sibling.seedsUsed } },
+        });
+      }
+      await tx.plotClaimLink.deleteMany({ where: { plotId: { in: [...wiltedPlotIds] } } });
+      if (restored > 0) {
+        await tx.player.update({
+          where: { id: lockedClaim.playerId },
+          data: { provisionalSeeds: { increment: restored } },
+        });
+      }
+      // Denied claim's still-unplanted provisional units leave the pouch too.
+      {
+        const seedsGranted = Math.max(0, lockedClaim.seedsGranted ?? 1);
+        const seedsPlanted = Math.min(seedsGranted, Math.max(0, lockedClaim.seedsPlanted ?? 0));
+        const unplanted = Math.max(0, seedsGranted - seedsPlanted);
+        if (unplanted > 0) {
+          await tx.player.update({
+            where: { id: lockedClaim.playerId },
+            data: { provisionalSeeds: { decrement: unplanted } },
+          });
+        }
+      }
     } else {
-      // No plot yet — remove provisional seed from pouch
-      await tx.player.update({
-        where: { id: lockedClaim.playerId },
-        data: { provisionalSeeds: { decrement: 1 } },
-      });
+      // No plot yet — remove remaining unplanted provisional seeds from pouch
+      const seedsGranted = Math.max(0, lockedClaim.seedsGranted ?? 1);
+      const seedsPlanted = Math.min(seedsGranted, Math.max(0, lockedClaim.seedsPlanted ?? 0));
+      const unplanted = Math.max(0, seedsGranted - seedsPlanted);
+      if (unplanted > 0) {
+        await tx.player.update({
+          where: { id: lockedClaim.playerId },
+          data: { provisionalSeeds: { decrement: unplanted } },
+        });
+      }
     }
+    const plot = legacyPlot ?? links[0]?.plot ?? null;
     await tx.activityLog.create({
       data: {
         playerId: lockedClaim.playerId,
@@ -518,31 +597,48 @@ export async function prunePlot(playerId: string, slot: number, config: GameConf
     });
     return tx.player.findUniqueOrThrow({
       where: { id: playerId },
-      include: { plots: { orderBy: { slot: "asc" } } },
+      include: { plots: {
+              orderBy: { slot: "asc" },
+              include: {
+                claimLinks: {
+                  include: { claim: { include: { chore: true } } },
+                },
+              },
+            } },
     });
   });
 }
 
 export async function releaseClaimIfNeeded(
   tx: Tx,
-  plot: { choreClaimId: string | null },
+  plot: { id?: string; choreClaimId: string | null },
   event: "harvest",
 ) {
-  if (!plot.choreClaimId) return;
-  const claim = await tx.choreClaim.findUnique({
-    where: { id: plot.choreClaimId },
-    include: { chore: true },
-  });
-  if (!claim) return;
-  if (event === "harvest" && recurrenceFreesOnHarvest(claim.chore.recurrence)) {
-    const originalKey = claim.periodKey;
-    await tx.choreClaim.update({
-      where: { id: claim.id },
-      data: { periodKey: closedPeriodKey("DONE", claim.id) },
+  const claimIds = new Set<string>();
+  if (plot.choreClaimId) claimIds.add(plot.choreClaimId);
+  if (plot.id) {
+    const links = await tx.plotClaimLink.findMany({ where: { plotId: plot.id }, select: { claimId: true } });
+    for (const link of links) claimIds.add(link.claimId);
+  }
+  for (const claimId of claimIds) {
+    const claim = await tx.choreClaim.findUnique({
+      where: { id: claimId },
+      include: { chore: true },
     });
-    if (claim.chore.assignmentMode === "RACE") {
-      await tx.choreRaceSlot.deleteMany({ where: { choreId: claim.choreId, periodKey: originalKey } });
+    if (!claim) continue;
+    if (event === "harvest" && recurrenceFreesOnHarvest(claim.chore.recurrence)) {
+      const originalKey = claim.periodKey;
+      await tx.choreClaim.update({
+        where: { id: claim.id },
+        data: { periodKey: closedPeriodKey("DONE", claim.id) },
+      });
+      if (claim.chore.assignmentMode === "RACE") {
+        await tx.choreRaceSlot.deleteMany({ where: { choreId: claim.choreId, periodKey: originalKey } });
+      }
     }
+  }
+  if (plot.id) {
+    await tx.plotClaimLink.deleteMany({ where: { plotId: plot.id } });
   }
 }
 

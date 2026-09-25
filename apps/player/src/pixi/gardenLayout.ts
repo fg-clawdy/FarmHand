@@ -57,6 +57,17 @@ export const GARDEN_ZOOM_LAYOUT = {
   hit: { rx: 110, ry: 78 } as const,
 } as const;
 
+/**
+ * Harvest basket (wide shallow tray, no handle) on grass outside the zoomed fence (lower-right corner).
+ * Origin UV is texture-space; sprite anchor is rim-center (~0.5, 0.55) on the wide shallow tray.
+ * Empty scale is slightly larger than the approved mock (0.82); filled grows in-pocket.
+ */
+export const GARDEN_BASKET_LAYOUT = {
+  origin: { u: 0.91, v: 0.88 } satisfies Uv,
+  emptyScale: 0.94,
+  filledScale: 1.2,
+} as const;
+
 /** Garden zoom camera vs cover-fit. 0.85 pulls out so grass/fence margin stays relaxed. */
 export const GARDEN_CAMERA_ZOOM = 0.85;
 
@@ -122,9 +133,11 @@ export type GardenToolContext = {
 
 /** Plots that can accept the selected tool right now. Fertilizer removed — incomplete, future phase. */
 export function plotAcceptsTool(tool: GardenTool, plot: PublicPlot, ctx: GardenToolContext) {
-  if (plot.state === "purgatory" || plot.state === "wilted") return false;
+  if (plot.state === "wilted") return false;
   if (tool === "seed") return plot.state === "empty" && ctx.seeds >= ctx.cheapestSeed;
-  if (plot.state !== "growing" || plot.ready) return false;
+  // Pending-approval plants may still be watered while growing.
+  if (plot.ready) return false;
+  if (plot.state !== "growing" && plot.state !== "purgatory") return false;
   if (tool === "water") return plot.canWater ?? ctx.canWater;
   return false;
 }
@@ -154,7 +167,8 @@ export function gardenTapAction(
   ctx: GardenToolContext,
 ): GardenTap {
   if (plot.state === "wilted") return "prune";
-  if (plot.state === "purgatory") return "sheet";
+  if (plot.awaitingApproval && plot.ready) return "sheet";
+  if (plot.state === "purgatory" && !plot.plantedAt) return "sheet";
   if (plot.ready) return "harvest";
   if (plot.state === "empty" && outOfPouchSeeds(ctx) && (!tool || tool === "seed")) {
     return "jobs";

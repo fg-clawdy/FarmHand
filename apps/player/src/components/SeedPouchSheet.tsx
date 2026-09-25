@@ -48,7 +48,7 @@ export default function SeedPouchSheet({
           </p>
           {waiting > 0 && (
             <p className="muted">
-              {waiting} waiting for a grown-up to approve
+              {waiting} ready in your bag
             </p>
           )}
           <p className="muted">
@@ -65,7 +65,7 @@ export default function SeedPouchSheet({
             <strong>{ready}</strong> ready to harvest
           </p>
           {waitingPlots > 0 && (
-            <p className="muted">{waitingPlots} waiting-seed plot{waitingPlots === 1 ? "" : "s"}</p>
+            <p className="muted">{waitingPlots} seed plot{waitingPlots === 1 ? "" : "s"}</p>
           )}
         </div>
       </section>
@@ -89,7 +89,7 @@ export default function SeedPouchSheet({
       <div className="sheet-actions">
         {broke && onNeedJobs && (
           <button className="btn gold" type="button" onClick={onNeedJobs}>
-            Do a job for a waiting seed
+            Do a job for seeds
           </button>
         )}
         <button className="btn ghost" type="button" onClick={onClose}>

@@ -91,8 +91,26 @@ export type PublicPlot = {
   canWater?: boolean;
   watersLeftToday?: number;
   waterCooldownRemainingMs?: number;
-  /** True while waiting for parent review or after a deny (greyed plant). */
+  /** True after a deny (greyed plant). Pending approval uses awaitingApproval + purple aura instead. */
   greyed?: boolean;
+  /** True while any provisional seed on this plant still needs parent approval. */
+  awaitingApproval?: boolean;
+  /** Pending chore claims whose provisional seeds funded this plant. */
+  pendingChores?: Array<{
+    claimId: string;
+    title: string;
+    emoji: string;
+    claimedAt: string;
+    seedsUsed: number;
+  }>;
+  /** Crop seed cost from economy config. */
+  seedCost?: number | null;
+  /** Stars/points awarded when harvested/sold. */
+  harvestPoints?: number | null;
+  /** Crop display name. */
+  cropName?: string | null;
+  /** Last watered timestamp when known. */
+  lastWateredAt?: string | null;
 };
 
 export type FarmPlayerCard = {
@@ -104,6 +122,8 @@ export type FarmPlayerCard = {
   avatarUrl?: string | null;
   seeds: number;
   provisionalSeeds: number;
+  /** Kid→parent approvals nudge rate-limit status. */
+  notifyParent?: { allowed: boolean; retryAt: string | null; retryInMs: number };
   points: number;
   fertilizer: number;
   canWater: boolean;

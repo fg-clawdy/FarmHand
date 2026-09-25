@@ -38,8 +38,8 @@ function Shell({ onLogout }: { onLogout: () => void }) {
       <nav className="nav">
         <h1>FarmHand</h1>
         <p>Parent home</p>
-        <NavLink to="/" end>
-          Inbox
+        <NavLink to="/approvals" end>
+          Approvals
         </NavLink>
         <NavLink to="/chores">Chores</NavLink>
         <NavLink to="/kids">Kids</NavLink>
@@ -68,6 +68,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
       <div className="main">
         <Routes>
           <Route path="/" element={<InboxPage />} />
+          <Route path="/approvals" element={<InboxPage />} />
           <Route path="/chores" element={<ChoresPage />} />
           <Route path="/chores/:id" element={<ChoreEditPage />} />
           <Route path="/kids" element={<ActivityPage />} />

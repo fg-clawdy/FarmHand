@@ -8,3 +8,4 @@ export * from "./store.js";
 export * from "./choreSuggest.js";
 export * from "./choreSkip.js";
 export * from "./avatars.js";
+export * from "./seedSpend.js";

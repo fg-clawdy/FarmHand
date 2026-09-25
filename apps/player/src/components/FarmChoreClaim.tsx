@@ -1,14 +1,17 @@
 import type { FarmPlayerCard } from "@farmhand/shared";
 import { useState } from "react";
 import { api, type FamilyJob, type GardenPlayer, type PublicChore } from "../api";
+import ChoreConfirmHero from "./ChoreConfirmHero";
 import KidAvatar from "./KidAvatar";
 import PinPad from "./PinPad";
 import SelfieCapture from "./SelfieCapture";
 import Sheet from "./Sheet";
+import { kidSeedRewardLabel } from "../kidSeedReward";
 
 /**
  * Farm corkboard stake tap → claim the Wanted chore currently on the flyer.
  * Kid tiles with PFP (Option 1 claim UX). Claim/skip flows unchanged.
+ * Confirm sheet hero matches JobBoard (painted art + cream chips).
  */
 export default function FarmChoreClaim({
   job,
@@ -141,16 +144,11 @@ export default function FarmChoreClaim({
     );
   }
 
-  const reward =
-    job.rewardLabel ??
-    (job.rewardSeedCount != null ? `+${job.rewardSeedCount} waiting seed` : "+1 waiting seed");
+  const reward = job.rewardLabel ?? kidSeedRewardLabel(job.rewardSeedCount, job.rewardSeedKind);
 
   return (
-    <Sheet title={job.title} onClose={onClose}>
-      <p className="chore-copy">
-        {job.emoji} {job.description || "Do the chore, then plant a waiting seed."}
-      </p>
-      <p className="chore-label">{reward}</p>
+    <Sheet title={job.title} onClose={onClose} className="sheet--chore-confirm">
+      <ChoreConfirmHero slug={job.slug} title={job.title} rewardLabel={reward} />
       {error && <p className="error">{error}</p>}
       <div className={`kid-claim-grid ${busyId ? "busy" : ""}`}>
         {players.map((kid) => (
@@ -172,7 +170,7 @@ export default function FarmChoreClaim({
               decorative
             />
             <strong className="kid-claim-name">{kid.name}</strong>
-            <span className="kid-claim-action">Claims</span>
+            <span className="kid-claim-action">Confirm</span>
             {kid.hasPin && (
               <span className="kid-claim-lock" aria-hidden>
                 🔒
@@ -182,38 +180,39 @@ export default function FarmChoreClaim({
         ))}
       </div>
       {job.allowsSkip && (
-        <div className={`sheet-actions ${busyId ? "busy" : ""}`} style={{ flexDirection: "column", alignItems: "stretch" }}>
+        <div
+          className={`sheet-actions sheet-actions--chore-confirm ${busyId ? "busy" : ""}`}
+          data-testid="chore-skip-group"
+        >
           {players.map((kid) => (
             <button
               key={`skip-${kid.id}`}
-              className="btn ghost"
+              className="btn cream-secondary"
               type="button"
               disabled={busyId != null}
+              data-testid="chore-skip"
               onClick={() => void skipAs(kid).catch(() => undefined)}
             >
-              {kid.name}: Not needed · +1 🔶
+              {kid.name}: Not needed · +1 shard
             </button>
           ))}
         </div>
       )}
-      <div className="sheet-actions">
-        <button className="btn ghost" type="button" disabled={busyId != null} onClick={onClose}>
-          Close
-        </button>
-        {onFallbackBoard && (
-          <button
-            className="btn ghost"
-            type="button"
-            disabled={busyId != null}
-            onClick={() => {
-              onClose();
-              onFallbackBoard();
-            }}
-          >
-            Back to Board
-          </button>
-        )}
-      </div>
+      <button
+        className="chore-confirm-back"
+        type="button"
+        disabled={busyId != null}
+        onClick={() => {
+          if (onFallbackBoard) {
+            onClose();
+            onFallbackBoard();
+          } else {
+            onClose();
+          }
+        }}
+      >
+        Back to board
+      </button>
     </Sheet>
   );
 }

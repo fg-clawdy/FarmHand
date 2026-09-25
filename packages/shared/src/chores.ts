@@ -85,7 +85,10 @@ export function resolveSeedReward(
 
 export type JobBoardRewardKind = "seed" | "super_seed";
 
-/** v1: every job-board claim plants exactly 1 provisional seed. */
+/**
+ * Fallback only. Real payouts come from resolveSeedReward (difficulty bands
+ * or a per-chore seedReward). Do not treat this as "every chore pays 1".
+ */
 export const JOB_BOARD_V1_REWARD_SEED_COUNT = 1;
 
 export type JobBoardRewardFields = {
@@ -93,6 +96,27 @@ export type JobBoardRewardFields = {
   rewardSeedKind?: JobBoardRewardKind;
   rewardLabel?: string;
 };
+
+/** Short kid-facing chip: "+1 seed" / "+2 seeds". */
+export function formatSeedRewardChip(
+  count: number | null | undefined,
+  kind: JobBoardRewardKind = "seed",
+): string {
+  const n = Math.max(0, Math.round(Number(count) || 0));
+  const unit = kind === "super_seed" ? "super seed" : "seed";
+  if (n <= 1) return `+1 ${unit}`;
+  return `+${n} ${unit}s`;
+}
+
+/** Baked Wanted-poster ink: "+1 SEED" / "+2 SEEDS". */
+export function formatWantedSeedLabel(
+  count: number | null | undefined,
+  kind: JobBoardRewardKind = "seed",
+): string {
+  const n = Math.max(1, Math.round(Number(count) || 0) || JOB_BOARD_V1_REWARD_SEED_COUNT);
+  const unit = kind === "super_seed" ? "SUPER SEED" : "SEED";
+  return n === 1 ? `+1 ${unit}` : `+${n} ${unit}S`;
+}
 
 /** Farm poster / empty-board copy. Title stays off the flyer. */
 export function formatJobBoardReward(job: JobBoardRewardFields | null | undefined): string {

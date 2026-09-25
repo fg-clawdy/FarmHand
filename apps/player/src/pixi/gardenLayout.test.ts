@@ -8,6 +8,7 @@ import {
   gardenMoundUv,
   gardenMoundWorld,
   gardenPlayfieldFit,
+  GARDEN_BASKET_LAYOUT,
   GARDEN_CAMERA_ZOOM,
   GARDEN_CROP_SEAT,
   GARDEN_MOUND_PX,
@@ -278,13 +279,30 @@ test("empty plots with no pouch seeds send the kid to the Job Board", () => {
   assert.equal(gardenTapAction(growing, null, broke), "sheet");
 });
 
-test("purgatory and wilted plots ignore tools; wilted tap prunes", () => {
-  const waiting = plot(3, "purgatory");
+test("wilted plots ignore tools; pending-approval growing plots can be watered", () => {
+  const waitingLegacy = plot(3, "purgatory");
   const wilted = plot(4, "wilted");
+  const pendingGrowing = { ...plot(5, "growing"), awaitingApproval: true, canWater: true, ready: false };
+  const pendingReady = { ...plot(6, "growing"), awaitingApproval: true, ready: true, canWater: false };
   const ctx = { seeds: 10, canWater: true, cheapestSeed: 1 };
-  assert.equal(plotAcceptsTool("water", waiting, ctx), false);
-  assert.equal(plotAcceptsTool("seed", waiting, ctx), false);
-  assert.equal(gardenTapAction(waiting, "water", ctx), "sheet");
+  assert.equal(plotAcceptsTool("seed", waitingLegacy, ctx), false);
+  assert.equal(plotAcceptsTool("water", pendingGrowing, ctx), true);
+  assert.equal(gardenTapAction(pendingReady, null, ctx), "sheet");
   assert.equal(gardenTapAction(wilted, null, ctx), "prune");
   assert.equal(gardenTapAction(wilted, "seed", ctx), "prune");
+});
+
+test("harvest basket sits outside the fence on lower-right grass", () => {
+  const { origin, emptyScale, filledScale } = GARDEN_BASKET_LAYOUT;
+  // Outside fenced dirt / beyond bottom-right mound (slot 8 ~ 0.72, 0.70).
+  assert.ok(origin.u > 0.85 && origin.u < 0.98);
+  assert.ok(origin.v > 0.82 && origin.v < 0.96);
+  // Empty larger than the approved mock (0.82); filled grows further in-pocket.
+  assert.ok(emptyScale > 0.82);
+  assert.ok(filledScale > emptyScale);
+  // Empty footprint stays clear of mound 8 center.
+  const m8 = gardenMoundUv(8);
+  const dx = (origin.u - m8.u) * GARDEN_ZOOM_TEXTURE.width;
+  const dy = (origin.v - m8.v) * GARDEN_ZOOM_TEXTURE.height;
+  assert.ok(Math.hypot(dx, dy) > 180, `basket too close to mound 8: ${Math.hypot(dx, dy)}`);
 });

@@ -25,6 +25,7 @@ export type GardenPlayer = {
   avatarUrl?: string | null;
   seeds: number;
   provisionalSeeds: number;
+  notifyParent?: { allowed: boolean; retryAt: string | null; retryInMs: number };
   points: number;
   /** Shard fragments accumulated toward the next seed. */
   seedShards: number;
@@ -44,6 +45,21 @@ export type GardenPlayer = {
   selfie?: SelfieState;
   water: WaterState;
   plots: PublicPlot[];
+  /** Produce picked but not yet sold. Absent only on stale responses. */
+  basket?: HarvestBasket;
+};
+
+export type BasketItem = {
+  id: string;
+  kind: CropKind | string;
+  name: string;
+  emoji: string;
+  points: number;
+};
+
+export type HarvestBasket = {
+  items: BasketItem[];
+  totalPoints: number;
 };
 
 export type PublicChore = {
@@ -52,6 +68,8 @@ export type PublicChore = {
   title: string;
   emoji: string;
   description: string;
+  rewardSeedCount?: number;
+  rewardSeedKind?: "seed" | "super_seed";
   recurrence: string;
   timeOfDay: string;
   priority: string;
@@ -120,6 +138,8 @@ export type HarvestReward = {
   emoji: string;
   name: string;
   kind?: CropKind;
+  /** Saved basket row. The animation is a receipt for this id, not the wallet. */
+  basketItemId?: string;
 };
 
 export type AccoladeUnlock = {
@@ -246,6 +266,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return data;
 }
 
+/** Fire-and-forget client error report (logger also POSTs directly). */
+export function reportClientError(body: {
+  level?: "error" | "warn";
+  tag: string;
+  message: string;
+  stack?: string;
+  context?: Record<string, unknown>;
+}) {
+  return fetch("/api/client-errors", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...body, href: location.href, userAgent: navigator.userAgent, ts: Date.now() }),
+    keepalive: true,
+  }).catch(() => undefined);
+}
+
 export const api = {
   farm: () =>
     request<{ players: FarmPlayerCard[]; timezone: string; storeStatus: string; config: GameConfig }>("/api/farm"),
@@ -272,6 +309,13 @@ export const api = {
       `/api/plots/${slot}/harvest`,
       { method: "POST" },
     ),
+  sellBasket: () =>
+    request<{
+      player: GardenPlayer;
+      soldPoints: number;
+      previousPoints: number;
+      items: BasketItem[];
+    }>("/api/basket/sell", { method: "POST", body: "{}" }),
   claimIngredient: () =>
     request<{ player: GardenPlayer; claimed: { id: string; name: string; emoji: string } }>("/api/ingredients/claim", {
       method: "POST",
@@ -293,7 +337,7 @@ export const api = {
   chores: () =>
     request<{ chores: PublicChore[]; timezone: string; player: GardenPlayer }>("/api/chores"),
   claimChore: (id: string, body?: { image?: string }) =>
-    request<{ player: GardenPlayer; claim: { id: string; status: string; slot: number | null }; unlocks?: AccoladeUnlock[] }>(
+    request<{ player: GardenPlayer; claim: { id: string; status: string; slot: number | null }; unlocks?: AccoladeUnlock[]; seedsGranted?: number }>(
       `/api/chores/${id}/claim`,
       {
         method: "POST",
@@ -308,6 +352,11 @@ export const api = {
       chores?: PublicChore[];
       toast?: string;
     }>(`/api/chores/${id}/skip`, { method: "POST", body: "{}" }),
+  notifyParent: () =>
+    request<{ ok?: boolean; player?: GardenPlayer; notifyParent?: GardenPlayer["notifyParent"]; error?: string }>(
+      "/api/player/notify-parent",
+      { method: "POST" },
+    ),
   prune: (slot: number) => request<{ player: GardenPlayer }>(`/api/plots/${slot}/prune`, { method: "POST" }),
   store: () => request<PlayerStore>("/api/store"),
   storeCatalog: () => request<{ catalog: StoreSku[] }>("/api/store/catalog"),

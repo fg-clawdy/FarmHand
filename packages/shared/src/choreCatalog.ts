@@ -49,7 +49,8 @@ export function assignmentModeForSeed(chore: Pick<SeedChore, "isGlobal">): "ALL"
 }
 
 /**
- * Phase 2 seed catalog (27 rows). Every claim plants exactly 1 provisional seed.
+ * Phase 2 seed catalog (27 rows). Payout comes from difficulty bands
+ * (or a per-chore seedReward), not a flat 1 seed.
  * `estimatedMinutes` / `legacyPoints` are deferred metadata only.
  */
 export const CHORE_CATALOG: SeedChore[] = [

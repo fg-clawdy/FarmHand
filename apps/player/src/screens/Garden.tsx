@@ -1,9 +1,13 @@
 import { PLOTS_PER_GARDEN, type GameConfig, type PublicPlot } from "@farmhand/shared";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, type AccoladeUnlock, type GardenPlayer, type HarvestReward, type PublicChore } from "../api";
+import { api, type AccoladeUnlock, type BasketItem, type GardenPlayer, type HarvestReward, type PublicChore } from "../api";
 import { AcornArt, BackArrow, SceneShell, StarIcon } from "../art";
 import HarvestCelebration from "../components/HarvestCelebration";
+import HarvestBasketSheet from "../components/HarvestBasketSheet";
+import StarPour from "../components/StarPour";
+import AcornPour from "../components/AcornPour";
+import { kidSeedRewardCount } from "../kidSeedReward";
 import AccoladeCelebration from "../components/AccoladeCelebration";
 import AccoladePanel from "../components/AccoladePanel";
 import AvatarPicker from "../components/AvatarPicker";
@@ -17,6 +21,7 @@ import SelfieCapture from "../components/SelfieCapture";
 import {
   cheapestSeedCost,
   cropNameForPlot,
+  gardenPlayfieldFit,
   gardenTapAction,
   GARDEN_TOOL_ART,
   GARDEN_TOOL_ART_LOCKED,
@@ -26,6 +31,7 @@ import {
   outOfPouchSeeds,
   type GardenTool,
 } from "../pixi/gardenLayout";
+import { log } from "../logger";
 import { useGardenPixi } from "../pixi/usePixi";
 import { useGardenIdleLock } from "../hooks/useGardenIdleLock";
 
@@ -39,6 +45,7 @@ type Overlay =
   | { type: "badges" }
   | { type: "profile" }
   | { type: "avatar-picker" }
+  | { type: "basket" }
   | null;
 
 export default function Garden() {
@@ -192,7 +199,16 @@ export default function Garden() {
   );
 }
 
+type PourState = {
+  items: BasketItem[];
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  fromPoints: number;
+  toPoints: number;
+};
+
 function GardenPlay({
+
   player,
   config,
   plots,
@@ -230,14 +246,44 @@ function GardenPlay({
   const canWater = selfieUnlocked && player.water.canWater && cooldownRemainingMs === 0;
   const toolCtx = { seeds: player.seeds + player.provisionalSeeds, canWater, cheapestSeed };
   const [gain, setGain] = useState<HarvestReward | null>(null);
+  const [pour, setPour] = useState<PourState | null>(null);
+  const [shownPoints, setShownPoints] = useState(player.points);
+  const pointsMeterRef = useRef<HTMLDivElement>(null);
+  const [pointsShine, setPointsShine] = useState(false);
   const [badgeQueue, setBadgeQueue] = useState<AccoladeUnlock[]>([]);
-  const [jobToast, setJobToast] = useState(false);
+  const [acornPour, setAcornPour] = useState<null | {
+    seeds: number;
+    from: { x: number; y: number };
+    to: { x: number; y: number };
+    fromTotal: number;
+  }>(null);
+  const seedMeterRef = useRef<HTMLDivElement>(null);
+  const [shownSeeds, setShownSeeds] = useState(player.seeds + player.provisionalSeeds);
   const [chores, setChores] = useState<PublicChore[]>([]);
   const [choreTimezone, setChoreTimezone] = useState("America/Chicago");
 
-  function celebrateWaitingSeed() {
-    setJobToast(true);
-    window.setTimeout(() => setJobToast(false), 3200);
+  function celebrateClaimSeeds(seedsGranted: number, originEl?: Element | null) {
+    const count = kidSeedRewardCount(seedsGranted);
+    const fromTotal = Math.max(0, (player.seeds + player.provisionalSeeds) - count);
+    setShownSeeds(fromTotal);
+    const fromRect = (originEl as HTMLElement | null)?.getBoundingClientRect?.();
+    const toRect = seedMeterRef.current?.getBoundingClientRect();
+    const from = fromRect
+      ? { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 }
+      : { x: window.innerWidth / 2, y: window.innerHeight * 0.55 };
+    const to = toRect
+      ? { x: toRect.left + toRect.width / 2, y: toRect.top + toRect.height / 2 }
+      : { x: window.innerWidth - 72, y: 36 };
+    setAcornPour({ seeds: count, from, to, fromTotal });
+  }
+
+  function onAcornArrive(arrived: number, total: number) {
+    if (!acornPour) return;
+    setShownSeeds(acornPour.fromTotal + arrived);
+    if (arrived >= total) {
+      seedMeterRef.current?.classList.add("bump");
+      window.setTimeout(() => seedMeterRef.current?.classList.remove("bump"), 420);
+    }
   }
 
   function noteUnlocks(unlocks?: AccoladeUnlock[]) {
@@ -266,9 +312,9 @@ function GardenPlay({
     [tool, plots, player.seeds, player.provisionalSeeds, canWater, cheapestSeed, selfieUnlocked],
   );
 
-  const { hostRef, sceneRef, ready } = useGardenPixi((slot) => {
+  const { hostRef, sceneRef, ready, mountError } = useGardenPixi((slot) => {
     const plot = plots.find((p) => p.slot === slot);
-    if (!plot || busy) return;
+    if (!plot || busy || pour) return;
     const action = gardenTapAction(plot, tool, toolCtx);
     if (action === "harvest") {
       void run(async () => {
@@ -277,7 +323,7 @@ function GardenPlay({
         setGain(data.reward);
         noteUnlocks(data.unlocks);
         setOverlay(null);
-        window.setTimeout(() => setGain((cur) => (cur === data.reward ? null : cur)), 4200);
+        window.setTimeout(() => setGain((cur) => (cur === data.reward ? null : cur)), 1600);
         return data.player;
       });
       return;
@@ -310,12 +356,80 @@ function GardenPlay({
     if (action === "sheet") setOverlay({ type: "plot", slot });
   },
     () => setOverlay({ type: "avatar-picker" }),
+    () => {
+      if (!pour) setOverlay({ type: "basket" });
+    },
   );
 
   useEffect(() => {
-    sceneRef.current?.setPlots(plots);
-    sceneRef.current?.setName(`${player.name}'s garden`);
-    sceneRef.current?.setAvatar(player);
+    if (pour) return;
+    setShownPoints(player.points);
+  }, [player.points, pour]);
+
+  useEffect(() => {
+    if (acornPour) return;
+    setShownSeeds(player.seeds + player.provisionalSeeds);
+  }, [player.seeds, player.provisionalSeeds, acornPour]);
+
+  function onStarArrive(arrived: number, total: number) {
+    if (!pour) return;
+    const gained = pour.toPoints - pour.fromPoints;
+    const credited = total > 0 ? Math.round((gained * arrived) / total) : gained;
+    setShownPoints(pour.fromPoints + credited);
+    if (arrived >= total) setPointsShine(true);
+  }
+
+  useEffect(() => {
+    if (!pointsShine) return;
+    const t = window.setTimeout(() => setPointsShine(false), 2000);
+    return () => window.clearTimeout(t);
+  }, [pointsShine]);
+
+  function sellBasket() {
+    if (busy || pour) return;
+    const items = player.basket?.items ?? [];
+    if (!items.length) return;
+    const meter = pointsMeterRef.current?.getBoundingClientRect();
+    const basket = sceneRef.current?.basketLaunchLocal();
+    const host = hostRef.current?.getBoundingClientRect();
+    const fit = host ? gardenPlayfieldFit(host.width, host.height) : null;
+    const from = basket && host && fit
+      ? { x: host.left + fit.x + basket.x * fit.scale, y: host.top + fit.y + basket.y * fit.scale }
+      : { x: window.innerWidth * 0.72, y: window.innerHeight * 0.78 };
+    const to = meter
+      ? { x: meter.left + meter.width / 2, y: meter.top + meter.height / 2 }
+      : { x: window.innerWidth - 80, y: 36 };
+    void run(async () => {
+      const data = await api.sellBasket();
+      setOverlay(null);
+      setPour({
+        items: data.items.length ? data.items : items,
+        from,
+        to,
+        fromPoints: data.previousPoints,
+        toPoints: data.player.points,
+      });
+      return data.player;
+    });
+  }
+
+  useEffect(() => {
+    if (!sceneRef.current) return;
+    try {
+      sceneRef.current.setPlots(plots);
+      sceneRef.current.setName(`${player.name}'s garden`);
+      sceneRef.current.setAvatar(player);
+      sceneRef.current.setBasket(player.basket?.items ?? []);
+      log.debug("garden.sync", "plots/avatar/basket synced", {
+        plots: plots.length,
+        basket: player.basket?.items?.length ?? 0,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      log.error("garden.sync", message, {
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+    }
   }, [plots, player, ready, sceneRef]);
 
   useEffect(() => {
@@ -335,6 +449,16 @@ function GardenPlay({
   return (
     <div className="screen garden-hybrid">
       <div className="pixi-host" ref={hostRef} />
+      {mountError && (
+        <div className="garden-load-error" role="alert">
+          <p className="garden-load-error-title">Garden failed to load</p>
+          <p className="garden-load-error-reason">{mountError.message}</p>
+          <p className="garden-load-error-hint">Try going back to the farm, then open the garden again.</p>
+          <button type="button" className="garden-load-error-back" onClick={onBack}>
+            Back to farm
+          </button>
+        </div>
+      )}
       <div className="topbar">
         <button className="back" type="button" onClick={onBack} aria-label="Back to farm">
           <BackArrow />
@@ -357,12 +481,17 @@ function GardenPlay({
           <span>{player.name}'s garden</span>
         </button>
         <div className="meters">
-          <div className={`meter ${gain && gain.points > 0 ? "bump" : ""}`}>
-            <StarIcon /> {player.points}
-            {gain && gain.points > 0 && <span className="meter-delta">+{gain.points}</span>}
+          <div
+            className={`meter points-meter ${pointsShine ? "shine" : ""} ${pour ? "pouring" : ""}`}
+            ref={pointsMeterRef}
+          >
+            <StarIcon /> {shownPoints}
           </div>
-          <div className={`meter ${gain && gain.seedsFromShards > 0 ? "bump" : ""}`}>
-            <AcornArt /> {player.seeds + player.provisionalSeeds}
+          <div
+            className={`meter seed-meter ${gain && gain.seedsFromShards > 0 ? "bump" : ""}`}
+            ref={seedMeterRef}
+          >
+            <AcornArt /> {acornPour ? shownSeeds : player.seeds + player.provisionalSeeds}
             {gain && gain.seedsFromShards > 0 && <span className="meter-delta">+{gain.seedsFromShards}</span>}
           </div>
           {/* Shard meter: fills toward 1 seed. Fertilizer removed -- incomplete, future phase. */}
@@ -469,10 +598,11 @@ function GardenPlay({
           timezone={choreTimezone}
           onClaim={async (chore) => {
             const data = await api.claimChore(chore.id);
+            const granted = data.seedsGranted ?? chore.rewardSeedCount ?? 1;
             setOverlay(null);
             applyGarden(data.player);
             noteUnlocks(data.unlocks);
-            celebrateWaitingSeed();
+            celebrateClaimSeeds(granted);
             return data.player;
           }}
           onSkip={async (chore) => {
@@ -500,7 +630,8 @@ function GardenPlay({
             applyGarden(next);
             noteUnlocks(unlocks);
             setOverlay(null);
-            celebrateWaitingSeed();
+            const granted = overlay.chore.rewardSeedCount ?? 1;
+            celebrateClaimSeeds(granted);
           }}
         />
       )}
@@ -518,7 +649,7 @@ function GardenPlay({
           }}
         />
       )}
-      {overlay?.type === "plot" && selected && selected.state !== "empty" && !selected.ready && (
+      {overlay?.type === "plot" && selected && selected.state !== "empty" && (!selected.ready || selected.awaitingApproval) && (
         <PlotSheet
           plot={selected}
           cropName={cropNameForPlot(selected, config.tiers)}
@@ -542,9 +673,55 @@ function GardenPlay({
               return data.player;
             })
           }
+          onNotifyParent={() =>
+            void run(async () => {
+              const data = await api.notifyParent();
+              if (data.player) return data.player;
+              // rate-limited responses still return notifyParent on current player snapshot
+              return {
+                ...livePlayer!,
+                notifyParent: data.notifyParent ?? livePlayer!.notifyParent,
+              };
+            })
+          }
+          notifyBusy={busy}
         />
       )}
-      {gain && <HarvestCelebration reward={gain} config={config} />}
+      {gain && gain.points <= 0 && (gain.seedsFromShards > 0 || gain.shardsEarned > 0) && (
+        <HarvestCelebration reward={gain} config={config} />
+      )}
+      {overlay?.type === "basket" && !pour && (
+        <HarvestBasketSheet
+          items={player.basket?.items ?? []}
+          totalPoints={player.basket?.totalPoints ?? 0}
+          busy={busy}
+          error={error}
+          onClose={() => setOverlay(null)}
+          onSell={sellBasket}
+        />
+      )}
+      {acornPour && (
+        <AcornPour
+          seeds={acornPour.seeds}
+          from={acornPour.from}
+          to={acornPour.to}
+          onArrive={onAcornArrive}
+          onDone={() => {
+            setShownSeeds(player.seeds + player.provisionalSeeds);
+            setAcornPour(null);
+          }}
+        />
+      )}
+      {pour && (
+        <StarPour
+          points={Math.max(0, pour.toPoints - pour.fromPoints)}
+          items={pour.items}
+          from={pour.from}
+          to={pour.to}
+          onArrive={onStarArrive}
+          onDone={() => setPour(null)}
+        />
+      )}
       {badgeQueue[0] && <AccoladeCelebration unlock={badgeQueue[0]} />}
       {overlay?.type === "badges" && <AccoladePanel onClose={() => setOverlay(null)} />}
       {overlay?.type === "profile" && (
@@ -563,13 +740,7 @@ function GardenPlay({
           }}
         />
       )}
-      {jobToast && (
-        <div className="harvest-banner" role="status" aria-live="polite">
-          <div className="harvest-banner-title">🌱 Waiting seed planted!</div>
-          <p className="harvest-note">A grown-up will check it</p>
-        </div>
-      )}
-      {error && <div className="toast">{error}</div>}
+            {error && <div className="toast">{error}</div>}
       {tool === "water" && !selfieUnlocked && (
         <div className="toast">Take today's selfie to water.</div>
       )}

@@ -4,7 +4,7 @@ import Sheet from "./Sheet";
 export default function JobBoardHint({ onClose }: { onClose: () => void }) {
   return (
     <Sheet title="Job Board" onClose={onClose}>
-      <p className="sheet-lede">Do a job to plant a waiting seed.</p>
+      <p className="sheet-lede">Do a job to earn seeds for your bag.</p>
       <p className="sheet-status">
         Open jobs pin up on this corkboard. A grown-up will hook whose job it is — this board is just the farm hotspot.
       </p>

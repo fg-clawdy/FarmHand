@@ -2,15 +2,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { partitionEligibleChoresForNow } from "@farmhand/shared";
 import type { FamilyJob, GardenPlayer, PublicChore } from "../api";
 import { recordBoardEvent } from "../choreBoardEvents";
+import ChoreConfirmHero from "./ChoreConfirmHero";
 import JobCoach from "./JobCoach";
 import Sheet from "./Sheet";
+import { kidSeedRewardLabel } from "../kidSeedReward";
 
 export function NeedJobsNudge({ onClose, onOpenJobs }: { onClose: () => void; onOpenJobs: () => void }) {
   return (
     <JobCoach
       title="Need a seed?"
-      copy="Your seed pouch is empty. Do a job on the Job Board to plant a waiting seed — jobs do not spend pouch seeds."
-      cta="Do a job to plant a waiting seed"
+      copy="Your seed pouch is empty. Do a job on the Job Board to earn seeds for your bag — jobs do not spend pouch seeds."
+      cta="Do a job for seeds"
       cancelLabel="Back to garden"
       onClose={onClose}
       onContinue={onOpenJobs}
@@ -193,6 +195,7 @@ export default function JobBoard({
   }
 
   const moreCount = more.length + done.length;
+  const showSkip = Boolean(picked?.allowsSkip && picked.eligible && onSkip);
 
   return (
     <>
@@ -248,37 +251,39 @@ export default function JobBoard({
         </div>
       </div>
       {picked && (
-        <Sheet title={picked.title} onClose={() => setPicked(null)}>
-          <p className="chore-copy">
-            {picked.emoji} {picked.description || "Do the chore, then plant a waiting seed."}
-          </p>
-          <p className="chore-label">+1 seed to your pouch</p>
+        <Sheet title={picked.title} onClose={() => setPicked(null)} className="sheet--chore-confirm">
+          <ChoreConfirmHero
+            slug={picked.slug}
+            title={picked.title}
+            rewardLabel={kidSeedRewardLabel(picked.rewardSeedCount, picked.rewardSeedKind)}
+          />
           {error && <p className="error">{error}</p>}
           {toast && (
-            <p className="chore-label" role="status" aria-live="polite">
+            <p className="chore-confirm-toast" role="status" aria-live="polite">
               {toast}
             </p>
           )}
-          <div className={`sheet-actions ${busy ? "busy" : ""}`}>
+          <div className={`sheet-actions sheet-actions--chore-confirm ${busy ? "busy" : ""}`}>
             <button
               className="btn primary"
               type="button"
               disabled={busy}
               onClick={() => void claim(picked)}
             >
-              {picked.requiresSelfie ? "Take photo & plant" : "Claim job"}
+              {picked.requiresSelfie ? "Take photo & confirm" : "Confirm"}
             </button>
-            {picked.allowsSkip && picked.eligible && onSkip && (
+            {showSkip && (
               <button
-                className="btn ghost"
+                className="btn cream-secondary"
                 type="button"
                 disabled={busy}
+                data-testid="chore-skip"
                 onClick={() => void skip(picked)}
               >
                 Not needed · +1 shard
               </button>
             )}
-            <button className="btn ghost" type="button" onClick={() => setPicked(null)}>
+            <button className="chore-confirm-back" type="button" onClick={() => setPicked(null)}>
               Back to board
             </button>
           </div>
@@ -295,6 +300,8 @@ type JobCardChore = {
   priority: string;
   requiresSelfie?: boolean;
   reason?: string | null;
+  rewardSeedCount?: number;
+  rewardSeedKind?: "seed" | "super_seed";
 };
 
 function JobCard({
@@ -322,7 +329,7 @@ function JobCard({
       </span>
       <span className="job-card-emoji">{chore.emoji}</span>
       <b className="job-card-title">{chore.title}</b>
-      <span className="job-chip">+1 waiting seed</span>
+      <span className="job-chip">{kidSeedRewardLabel(chore.rewardSeedCount, chore.rewardSeedKind)}</span>
       {chore.requiresSelfie && <span className="job-photo">Needs a photo</span>}
       {muted && chore.reason && <small className="job-reason">{chore.reason}</small>}
     </button>

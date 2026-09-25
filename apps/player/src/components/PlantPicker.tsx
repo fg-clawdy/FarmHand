@@ -41,11 +41,11 @@ export default function PlantPicker({
     <Sheet title={title} className="plant-picker-sheet" onClose={onClose}>
       <p className="picker-intro">
         {broke
-          ? "Your seed pouch is empty. Do a job on the Job Board to plant a waiting seed — jobs do not spend pouch seeds."
+          ? "Your seed pouch is empty. Do a job on the Job Board to earn seeds for your bag — jobs do not spend pouch seeds."
           : (intro ?? (
               <>
                 You have <AcornArt className="inline-art" /> {totalSeeds} seeds
-                {provisionalSeeds > 0 && <span className="provisional-note"> ({provisionalSeeds} waiting approval)</span>}
+                {provisionalSeeds > 0 && <span className="provisional-note"> ({provisionalSeeds} in your bag)</span>}
                 . Bigger plants cost more seeds and earn more stars.
               </>
             ))}
@@ -53,7 +53,7 @@ export default function PlantPicker({
       {broke && onNeedJobs && (
         <div className="sheet-actions">
           <button className="btn gold" type="button" onClick={onNeedJobs}>
-            Do a job to plant a waiting seed
+            Do a job for seeds
           </button>
         </div>
       )}

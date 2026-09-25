@@ -70,7 +70,7 @@ describe("serializePlot", () => {
     assert.equal(plot.emoji, null);
   });
 
-  it("shows a greyed sprout in purgatory without starting the clock", () => {
+  it("shows a living sprout for legacy pending rows without a plantedAt clock", () => {
     const plot = serializePlot(
       {
         slot: 3,
@@ -83,12 +83,33 @@ describe("serializePlot", () => {
       DEFAULT_GAME_CONFIG,
     );
     assert.equal(plot.state, "purgatory");
-    assert.equal(plot.greyed, true);
+    assert.equal(plot.greyed, false);
     assert.equal(plot.ready, false);
     assert.equal(plot.plantedAt, null);
     assert.equal(plot.maturesAt, null);
     assert.equal(plot.growthStage, 1);
     assert.equal(plot.canWater, false);
+  });
+
+  it("grows on the normal schedule even when phase is still legacy purgatory", () => {
+    const plantedAt = new Date("2026-01-01T00:00:00.000Z");
+    const now = new Date("2026-01-01T12:00:00.000Z");
+    const plot = serializePlot(
+      {
+        slot: 3,
+        plantTier: 1,
+        plantedAt,
+        waterReductionMinutes: 0,
+        fertilizerReductionMinutes: 0,
+        phase: "purgatory",
+      },
+      DEFAULT_GAME_CONFIG,
+      now,
+    );
+    assert.equal(plot.state, "growing");
+    assert.equal(plot.greyed, false);
+    assert.equal(plot.ready, false);
+    assert.ok((plot.remainingMs ?? 0) > 0);
   });
 
   it("shows a wilted sprout after deny", () => {

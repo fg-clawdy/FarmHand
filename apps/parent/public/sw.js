@@ -1,5 +1,6 @@
 /* FarmHand Parent service worker — Web Push Approve | Deny for chores and store + clear-across-parents. */
 const INBOX = "/parent/";
+const APPROVALS = "/parent/approvals";
 const STORE = "/parent/store";
 
 self.addEventListener("install", (event) => {
@@ -90,7 +91,11 @@ async function actFromNotification(data, action) {
 }
 
 async function openParent(data) {
-  const dest = data?.kind === "store_redemption" || (data?.url || "").includes("/store") ? STORE : INBOX;
+  const dest = data?.kind === "store_redemption" || (data?.url || "").includes("/store")
+    ? STORE
+    : (data?.url || "").includes("/approvals")
+      ? APPROVALS
+      : INBOX;
   const url = new URL(data?.url || dest, self.location.origin).href;
   const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
   const existing = windows.find((client) => client.url.startsWith(new URL("/parent/", self.location.origin).href));

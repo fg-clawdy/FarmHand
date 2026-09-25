@@ -98,7 +98,12 @@ export function growthStage(
 export function serializePlot(plot: PlotInput, config: GameConfig, now = new Date()): PublicPlot {
   if (!plot.plantTier) return emptyPublicPlot(plot.slot);
   if (plot.phase === "wilted") return stagedSprout(plot, config, "wilted");
-  if (plot.phase === "purgatory" || !plot.plantedAt) return stagedSprout(plot, config, "purgatory");
+  // Legacy purgatory rows without a clock: show a living sprout (not harvestable) until migration backfills plantedAt.
+  // New pending plants always set plantedAt and grow on the normal schedule; harvest is gated separately.
+  if (!plot.plantedAt) {
+    const sprout = stagedSprout(plot, config, "purgatory");
+    return { ...sprout, greyed: false, canWater: false };
+  }
 
   const plantedAt = asDate(plot.plantedAt)!;
   const tier = getTier(config, plot.plantTier);
