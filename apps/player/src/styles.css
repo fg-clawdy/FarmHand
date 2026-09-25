@@ -1992,6 +1992,7 @@ button.who.profile-entry:active {
   box-shadow: 0 6px 0 #2d5a28, inset 0 2px 0 rgba(255, 255, 255, 0.35);
   text-align: left;
   cursor: pointer;
+  overflow: hidden;
 }
 .market-sell-cta:active:not(:disabled) {
   transform: translateY(3px);
@@ -2000,6 +2001,9 @@ button.who.profile-entry:active {
 .market-sell-cta:disabled {
   opacity: 0.55;
   cursor: default;
+}
+.market-sell-cta--driving:disabled {
+  opacity: 1;
 }
 .market-sell-cta-art {
   flex: 0 0 auto;
@@ -2011,6 +2015,31 @@ button.who.profile-entry:active {
   pointer-events: none;
   user-select: none;
   filter: drop-shadow(0 2px 0 rgba(30, 60, 28, 0.45));
+  /*
+   * Painted truck faces LEFT. CSS transforms apply right-to-left, so write
+   * translateX(...) scaleX(-1): flip first (face right), then translate in
+   * screen space. scaleX(-1) translateX(+X) would mirror travel back LEFT.
+   */
+  transform: translateX(0) scaleX(-1);
+  transform-origin: center center;
+}
+.market-sell-cta--driving .market-sell-cta-art {
+  /* Longer than the old left exit: truck starts on the left of the CTA and must cross the label. */
+  animation: marketTruckDrive 1.35s ease-in forwards;
+}
+@keyframes marketTruckDrive {
+  0% {
+    transform: translateX(0) scaleX(-1) rotate(0deg);
+    opacity: 1;
+  }
+  60% {
+    transform: translateX(160%) scaleX(-1) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(320%) scaleX(-1) rotate(4deg);
+    opacity: 0;
+  }
 }
 .market-sell-cta-label {
   display: flex;
@@ -2053,6 +2082,7 @@ button.who.profile-entry:active {
 }
 .star-pour-star {
   position: absolute;
+  z-index: 1;
   font-size: 34px;
   line-height: 1;
   color: #ffe56a;
@@ -2061,8 +2091,9 @@ button.who.profile-entry:active {
   will-change: transform, opacity;
 }
 @keyframes starPour {
+  /* ~2x prior start size while leaving the basket; same end shrink into the meter. */
   0% {
-    transform: translate(0) scale(1.15);
+    transform: translate(0) scale(2.3);
     opacity: 1;
   }
   70% {
