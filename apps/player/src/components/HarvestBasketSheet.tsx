@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { type CropKind } from "@farmhand/shared";
 import { StarIcon } from "../art";
 import type { BasketItem } from "../api";
@@ -85,6 +86,21 @@ export default function HarvestBasketSheet({
 }) {
   const lines = basketLines(items);
   const empty = lines.length === 0;
+  const [driving, setDriving] = useState(false);
+
+  // After a failed sell, bring the truck back so kids can try again.
+  useEffect(() => {
+    if (error) setDriving(false);
+  }, [error]);
+
+  function handleSell() {
+    if (busy || driving || empty) return;
+    setDriving(true);
+    onSell();
+  }
+
+  const selling = busy || driving;
+
   return (
     <Sheet title="Farmers Market" onClose={onClose} className="basket-sheet plant-picker-sheet">
       <p className="picker-intro basket-worth">
@@ -131,7 +147,12 @@ export default function HarvestBasketSheet({
       )}
       {error && <p className="basket-error">{error}</p>}
       {!empty && (
-        <button className="market-sell-cta" type="button" disabled={busy} onClick={onSell}>
+        <button
+          className={selling ? "market-sell-cta market-sell-cta--driving" : "market-sell-cta"}
+          type="button"
+          disabled={selling}
+          onClick={handleSell}
+        >
           <img
             className="market-sell-cta-art"
             src={TRUCK_ART}
@@ -141,7 +162,7 @@ export default function HarvestBasketSheet({
           />
           <span className="market-sell-cta-label">
             <span className="market-sell-cta-copy">
-              {busy ? (
+              {selling ? (
                 "Driving to market…"
               ) : (
                 <>

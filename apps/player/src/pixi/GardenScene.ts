@@ -264,6 +264,7 @@ export class GardenScene {
     this.t += dt;
     this.fx.update(dt);
     this.slots.forEach((s) => s.breathe(this.t, dt));
+    this.basket.update(dt);
     this.tickPicks(dt);
     for (let i = this.floaters.length - 1; i >= 0; i--) {
       const f = this.floaters[i]!;
@@ -632,6 +633,27 @@ function basketPose(kind: CropKind): "tall" | "mid" | "low" {
   return "mid"; // strawberry, tomato
 }
 
+/**
+ * Per-kind nest tuning. Short picked frames (pumpkin / berry / tomato) bury under the
+ * rim lip unless raised + scaled; cotton needs a mild lift so bolls read clearly.
+ */
+function basketNestBoost(kind: CropKind) {
+  switch (kind) {
+    case "pumpkin":
+      return { yLift: 24, scaleMul: 1.65, zBias: 0 };
+    case "strawberry":
+    case "tomato":
+      return { yLift: 18, scaleMul: 1.48, zBias: 0 };
+    case "cotton":
+      return { yLift: 10, scaleMul: 1.18, zBias: 0 };
+    case "sunflower":
+      return { yLift: 0, scaleMul: 1.0, zBias: 0 };
+    case "corn":
+    default:
+      return { yLift: 0, scaleMul: 1.0, zBias: 0 };
+  }
+}
+
 /** Seat inside the rim. Front row is lower and slightly larger; kind shifts depth/scale. */
 function basketSeat(index: number, total: number, kind: CropKind = "corn") {
   const n = Math.max(1, Math.min(total, BASKET_VISIBLE));
@@ -641,18 +663,21 @@ function basketSeat(index: number, total: number, kind: CropKind = "corn") {
   const row = Math.floor(i / cols);
   const rows = Math.ceil(n / cols);
   const pose = basketPose(kind);
+  const boost = basketNestBoost(kind);
   // Wide shallow tray — spread produce across the bowl; keep tall tops peeking over the rim.
-  const spread = pose === "tall" ? 36 : 44;
+  // Short crops get a bit more lateral room so they are not stacked under tall stems.
+  const spread = pose === "tall" ? 36 : pose === "low" ? 48 : 44;
   const x = (col - (cols - 1) / 2) * spread + ((row % 2) * 8 - 4);
   // Anchor is bottom of sprite. Higher y = deeper in the tray (behind front rim).
   // Tall crops sit a touch higher so corn/sunflower/cotton tops peek over the rim.
-  const yBase = pose === "tall" ? 8 : pose === "low" ? 32 : 20;
-  const y = yBase - row * (pose === "tall" ? 8 : 12) + (rows - 1) * 2;
-  const scaleBase = pose === "tall" ? 0.36 : pose === "low" ? 0.28 : 0.32;
-  const scale = scaleBase - row * 0.03;
+  // Short crops sit nearer the rim lip (lower y) so fruit is not fully hidden by the weave.
+  const yBase = pose === "tall" ? 8 : pose === "low" ? 22 : 14;
+  const y = yBase - boost.yLift - row * (pose === "tall" ? 8 : 10) + (rows - 1) * 2;
+  const scaleBase = pose === "tall" ? 0.36 : pose === "low" ? 0.34 : 0.36;
+  const scale = (scaleBase - row * 0.025) * boost.scaleMul;
   const rot = ((i * 17) % 11 - 5) * 0.025;
   // Back rows (higher row) draw behind; tall crops also prefer back so they tower over mid/low.
-  const z = row + (pose === "tall" ? 2 : pose === "low" ? 0 : 1);
+  const z = row + (pose === "tall" ? 2 : pose === "low" ? 0 : 1) + boost.zBias;
   return { x, y, scale, rot, z, pose };
 }
 
@@ -678,8 +703,23 @@ class HarvestBasket {
       stroke: { color: 0x3d2412, width: 4 },
     },
   });
+  /** Wood bubble over the tray showing total ★ waiting to sell (Farmers Market total). */
+  private pointsBadge = new Container();
+  private pointsBubble = new Graphics();
+  private pointsLabel = new Text({
+    text: "",
+    style: {
+      fontFamily: "Fredoka, sans-serif",
+      fontSize: 26,
+      fill: 0xfff6df,
+      fontWeight: "800",
+      stroke: { color: 0x3d2412, width: 4 },
+    },
+  });
   private held: BasketView[] = [];
   private hidden = new Set<string>();
+  private pulseT = 0;
+  private baseScale = GARDEN_BASKET_LAYOUT.emptyScale;
   private origin = {
     x: GARDEN_ZOOM_TEXTURE.width * GARDEN_BASKET_LAYOUT.origin.u,
     y: GARDEN_ZOOM_TEXTURE.height * GARDEN_BASKET_LAYOUT.origin.v,
@@ -722,12 +762,19 @@ class HarvestBasket {
     this.count.position.set(0, 52);
     this.count.zIndex = 4;
 
+    this.pointsBadge.zIndex = 5;
+    this.pointsBadge.visible = false;
+    this.pointsBadge.eventMode = "none";
+    this.pointsLabel.anchor.set(0.5, 0.5);
+    this.pointsBadge.addChild(this.pointsBubble, this.pointsLabel);
+    this.pointsBadge.position.set(0, -78);
+
     this.drawPocketMask();
     // Soft pocket only — prefer seating so tops peek over the rim; keep brim Graphics alive.
     this.produce.mask = this.brim;
     this.produce.addChild(this.brim);
     this.drawShadow();
-    this.root.addChild(this.shadow, this.bodyBack, this.produce, this.rimFront, this.count);
+    this.root.addChild(this.shadow, this.bodyBack, this.produce, this.rimFront, this.count, this.pointsBadge);
     this.root.on("pointerup", (ev) => {
       ev.stopPropagation();
       onOpen();
@@ -767,16 +814,62 @@ class HarvestBasket {
     this.applyFillScale();
   }
 
+  private visibleCount() {
+    return this.held.filter((item) => !this.hidden.has(item.id)).length;
+  }
+
+  private waitingPoints() {
+    return this.held.reduce((sum, item) => sum + (item.points || 0), 0);
+  }
+
   private applyFillScale() {
-    const visible = this.held.filter((item) => !this.hidden.has(item.id)).length;
-    const s = visible > 0 ? this.filledScale : this.emptyScale;
-    this.root.scale.set(s);
+    this.baseScale = this.visibleCount() > 0 ? this.filledScale : this.emptyScale;
+    this.root.scale.set(this.baseScale);
+  }
+
+  /** Gentle idle pulse while produce is waiting — stops when empty. */
+  update(dt: number) {
+    const filled = this.visibleCount() > 0;
+    if (!filled) {
+      this.pulseT = 0;
+      this.root.scale.set(this.baseScale);
+      return;
+    }
+    this.pulseT += dt;
+    // Slow kid-friendly breathe (~1.6s cycle), ~4% scale swing.
+    const pulse = 1 + Math.sin(this.pulseT * 3.9) * 0.04;
+    this.root.scale.set(this.baseScale * pulse);
+  }
+
+  private syncPointsBadge() {
+    const pts = this.waitingPoints();
+    const show = pts > 0 && this.visibleCount() > 0;
+    this.pointsBadge.visible = show;
+    if (!show) {
+      this.pointsLabel.text = "";
+      return;
+    }
+    this.pointsLabel.text = `\u2605 ${pts}`;
+    const padX = 18;
+    const padY = 10;
+    const tw = Math.max(48, this.pointsLabel.width);
+    const th = Math.max(26, this.pointsLabel.height);
+    const w = tw + padX * 2;
+    const h = th + padY * 2;
+    const g = this.pointsBubble;
+    g.clear();
+    g.roundRect(-w / 2, -h / 2, w, h, h / 2);
+    g.fill({ color: 0x6b3e1f });
+    g.stroke({ color: 0x3d2412, width: 3 });
+    g.roundRect(-w / 2 + 3, -h / 2 + 3, w - 6, h - 6, (h - 6) / 2);
+    g.stroke({ color: 0xc4a06a, width: 2, alpha: 0.85 });
   }
 
   private scaledLocal(lx: number, ly: number) {
+    // Use fill base scale (not the idle pulse) so harvest landings and star launches stay steady.
     return {
-      x: this.origin.x + lx * this.root.scale.x,
-      y: this.origin.y + ly * this.root.scale.y,
+      x: this.origin.x + lx * this.baseScale,
+      y: this.origin.y + ly * this.baseScale,
     };
   }
 
@@ -837,6 +930,7 @@ class HarvestBasket {
     });
     const extra = Math.max(0, this.held.length - BASKET_VISIBLE);
     this.count.text = extra > 0 ? `+${extra}` : "";
+    this.syncPointsBadge();
     this.applyFillScale();
   }
 }
