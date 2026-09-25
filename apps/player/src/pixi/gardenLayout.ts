@@ -1,0 +1,185 @@
+import { cropKindForTier, GARDEN_PLOT_COLS, PLOTS_PER_GARDEN, type PlantTier, type PublicPlot } from "@farmhand/shared";
+import { cameraFit } from "./draw";
+import type { Uv } from "./playfieldLayout";
+
+/** Zoomed garden painting (`garden_zoom_3x3.jpg`) is 1536×1024, same as the farm playfield. */
+export const GARDEN_ZOOM_TEXTURE = { width: 1536, height: 1024 } as const;
+
+/** Fertilizer ("fert") removed — incomplete, reserved for a future phase. */
+export type GardenTool = "water" | "seed";
+
+/** Water first so it's the most prominent action; seed second. */
+export const GARDEN_TOOLS: GardenTool[] = ["water", "seed"];
+
+export const GARDEN_TOOL_ART: Record<GardenTool, string> = {
+  water: "/art/painted/garden/tool_water.png",
+  seed: "/art/painted/garden/tool_seeds.png",
+};
+
+/** Locked water icon shown when the kid hasn't taken today's selfie yet. */
+export const GARDEN_TOOL_ART_LOCKED: Partial<Record<GardenTool, string>> = {
+  water: "/art/painted/garden/tool_water_locked.png",
+};
+
+export const GARDEN_TOOL_LABEL: Record<GardenTool, string> = {
+  water: "Water",
+  seed: "Seeds",
+};
+
+/**
+ * Clawdy-approved visual peaks on `garden_zoom_3x3.jpg` (1536×1024). Final.
+ *
+ * These are **playfield / texture pixels**, never screen pixels. UVs are
+ * `px / texture size`. Crops live on the same playfield container as the
+ * painting; `cameraFit` (resize, portrait/landscape, tablet) only scales that
+ * one transform tree, so dirt and plants cannot drift apart.
+ */
+export const GARDEN_MOUND_PX = [
+  { x: 474, y: 342 }, // 0  was 430, 317
+  { x: 768, y: 338 }, // 1  was 768, 317
+  { x: 1067, y: 339 }, // 2  was 1106, 317
+  { x: 472, y: 516 }, // 3  was 430, 541
+  { x: 768, y: 518 }, // 4  was 768, 541
+  { x: 1088, y: 517 }, // 5  was 1106, 541
+  { x: 454, y: 713 }, // 6  was 430, 760
+  { x: 771, y: 716 }, // 7  was 768, 760
+  { x: 1101, y: 712 }, // 8  was 1106, 760
+] as const;
+
+function moundUvFromPx(p: { x: number; y: number }): Uv {
+  return { u: p.x / GARDEN_ZOOM_TEXTURE.width, v: p.y / GARDEN_ZOOM_TEXTURE.height };
+}
+
+export const GARDEN_ZOOM_LAYOUT = {
+  sign: { u: 0.5, v: 0.145 } satisfies Uv,
+  mounds: GARDEN_MOUND_PX.map(moundUvFromPx),
+  /** Hit ellipse in texture pixels around each mound center. */
+  hit: { rx: 110, ry: 78 } as const,
+} as const;
+
+/**
+ * Harvest basket (wide shallow tray, no handle) on grass outside the zoomed fence (lower-right corner).
+ * Origin UV is texture-space; sprite anchor is rim-center (~0.5, 0.55) on the wide shallow tray.
+ * Empty scale is slightly larger than the approved mock (0.82); filled grows in-pocket.
+ */
+export const GARDEN_BASKET_LAYOUT = {
+  origin: { u: 0.91, v: 0.88 } satisfies Uv,
+  emptyScale: 0.94,
+  filledScale: 1.2,
+} as const;
+
+/** Garden zoom camera vs cover-fit. 0.85 pulls out so grass/fence margin stays relaxed. */
+export const GARDEN_CAMERA_ZOOM = 0.85;
+
+/**
+ * Extra playfield pixels on the sprite (not the mound UV). Stays `{0,0}` —
+ * not a placement fudge. Pivot is the soil-disc center on `GARDEN_MOUND_PX`.
+ */
+export const GARDEN_CROP_SEAT = { x: 0, y: 0 } as const;
+
+export function gardenMoundLocal(slot: number) {
+  const i = ((slot % PLOTS_PER_GARDEN) + PLOTS_PER_GARDEN) % PLOTS_PER_GARDEN;
+  return GARDEN_MOUND_PX[i]!;
+}
+
+export function gardenMoundUv(slot: number): Uv {
+  return moundUvFromPx(gardenMoundLocal(slot));
+}
+
+/** Shared playfield camera for the zoomed garden — dirt and crops inherit this. */
+export function gardenPlayfieldFit(viewW: number, viewH: number) {
+  return cameraFit(viewW, viewH, GARDEN_ZOOM_TEXTURE.width, GARDEN_ZOOM_TEXTURE.height, GARDEN_CAMERA_ZOOM);
+}
+
+/** Screen position of a mound after cameraFit. Local coords stay texture-space. */
+export function gardenMoundWorld(slot: number, viewW: number, viewH: number) {
+  const local = gardenMoundLocal(slot);
+  const fit = gardenPlayfieldFit(viewW, viewH);
+  return {
+    x: fit.x + local.x * fit.scale,
+    y: fit.y + local.y * fit.scale,
+    local,
+    fit,
+  };
+}
+
+export function cheapestSeedCost(tiers: readonly { seedCost: number }[]) {
+  const costs = tiers.map((t) => t.seedCost).filter((n) => Number.isFinite(n));
+  return costs.length ? Math.min(...costs) : 1;
+}
+
+const KIND_LABEL: Record<string, string> = {
+  corn: "Corn",
+  strawberry: "Strawberry",
+  cotton: "Cotton",
+};
+
+/** Crop name for the plot sheet — never a plot index. */
+export function cropNameForPlot(
+  plot: Pick<PublicPlot, "tier">,
+  tiers: readonly Pick<PlantTier, "tier" | "name">[],
+) {
+  const named = tiers.find((t) => t.tier === plot.tier)?.name?.trim();
+  if (named) return named;
+  return KIND_LABEL[cropKindForTier(plot.tier)] ?? "Plant";
+}
+
+/** Fertilizer removed — incomplete, future phase. */
+export type GardenToolContext = {
+  seeds: number;
+  canWater: boolean;
+  cheapestSeed: number;
+};
+
+/** Plots that can accept the selected tool right now. Fertilizer removed — incomplete, future phase. */
+export function plotAcceptsTool(tool: GardenTool, plot: PublicPlot, ctx: GardenToolContext) {
+  if (plot.state === "wilted") return false;
+  if (tool === "seed") return plot.state === "empty" && ctx.seeds >= ctx.cheapestSeed;
+  // Pending-approval plants may still be watered while growing.
+  if (plot.ready) return false;
+  if (plot.state !== "growing" && plot.state !== "purgatory") return false;
+  if (tool === "water") return plot.canWater ?? ctx.canWater;
+  return false;
+}
+
+export function glowingSlots(
+  tool: GardenTool | null,
+  plots: readonly PublicPlot[],
+  ctx: GardenToolContext,
+) {
+  // No tool selected: empty plantable plots always glow (tap plot to plant).
+  // Water tool still overrides to waterable growing plots only.
+  const effective: GardenTool = tool ?? "seed";
+  return plots.filter((plot) => plotAcceptsTool(effective, plot, ctx)).map((plot) => plot.slot);
+}
+
+/** Fertilizer tap removed — incomplete, future phase. */
+export type GardenTap = "harvest" | "picker" | "sheet" | "water" | "prune" | "jobs" | "noop";
+
+export function outOfPouchSeeds(ctx: GardenToolContext) {
+  return ctx.seeds < ctx.cheapestSeed;
+}
+
+/** What a garden-zoom tap should do. READY plots always harvest — no confirm sheet. Fertilizer removed, incomplete. */
+export function gardenTapAction(
+  plot: PublicPlot,
+  tool: GardenTool | null,
+  ctx: GardenToolContext,
+): GardenTap {
+  if (plot.state === "wilted") return "prune";
+  if (plot.awaitingApproval && plot.ready) return "sheet";
+  if (plot.state === "purgatory" && !plot.plantedAt) return "sheet";
+  if (plot.ready) return "harvest";
+  if (plot.state === "empty" && outOfPouchSeeds(ctx) && (!tool || tool === "seed")) {
+    return "jobs";
+  }
+  if (tool) {
+    if (!plotAcceptsTool(tool, plot, ctx)) return "noop";
+    if (tool === "seed") return "picker";
+    if (tool === "water") return "water";
+    return "noop";
+  }
+  return plot.state === "empty" ? "picker" : "sheet";
+}
+
+export { GARDEN_PLOT_COLS, PLOTS_PER_GARDEN };

@@ -1,0 +1,6 @@
+
+// INSERT on FarmScene class (near setWantedJobs / debugJobBoard) — additive only:
+  /** Wanted flyer chore currently displayed on the Farm Job Board stake. */
+  getCurrentWantedJob() {
+    return this.jobBoard.getCurrentJob();
+  }

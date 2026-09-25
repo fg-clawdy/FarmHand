@@ -1,0 +1,11 @@
+1. when in a garden and click the "Seeds" button from the bottom bar, the click on a plot and the plant selection comes up there are a few issues:  
+    1. corn, cotton and tomato all show as 1 seed, this should have been updated. I believe it was set to 1,2,4 respectively  
+    1. tomato plant is showing the corn image  
+    1. the text "You have n seeds. Bigger plants take longer and earn more stars" is black text on wood grain background making it difficult to read. also, all plants take 24 hour to mature regardless of size - they do earn more stars though.  
+    1. for little kids, it would be helpful to have the biggest plant they can afford slightly glowing and pulsing - not a significant pulse/glow but enough to capture their attention and guide them toward planting the 'biggest' plant possible
+
+1. when in a garden, the 3 icons at the bottom (chores, water, seeds) should all 3 be the same size when not selected
+
+1. the shards:  
+    1. icon is a diamond, that doesnt fit our theme nor does it do a good job of indicating what that represents
+    1. when a child harvests a plant, there should be a large acorn image in the middle, just below the notifications, which is empty when 0/10 shards and fills up 1/10th per shard earned. eg: child has 0 shards and harvests a plant distributing 4 shards: the empty acron fils up from 0/10 to 1/10 ti 2/10 to 3/10 to 4/10 in an animated and fun way. eg: child has 8 shards and harvests a plant distributing 6 shards: the acorn appears 8/10 full already, goes to 9/10, then to 10/10ths and at full has a fun celebratory animation and the seed should then appear to drop into their seed pouch icon in the top header and the number increase should be animated and visible, eg: if the child has 7 seeds the header seed icon shows a 7, the shard gets full acorn celebratory animation plays, and the acorn "sails" towards the seed icon in the header while getting smaller and goes "into" the seed header object. the 7 disappears over 0.2 seconds and a gold 8 shimmers into appearance and then fades to black. return to the shard animation where a new empty acorn emerges and goes to 1/10 to 2/10.

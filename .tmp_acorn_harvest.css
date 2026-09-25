@@ -1,0 +1,67 @@
+
+/* Harvest acorn fill — center below banners */
+.harvest-acorn-stage {
+  position: absolute;
+  left: 50%;
+  top: 7.5rem;
+  transform: translateX(-50%);
+  z-index: 40;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.harvest-acorn {
+  width: min(42vw, 220px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  filter: drop-shadow(0 10px 18px rgba(40, 22, 8, 0.35));
+  will-change: transform, opacity;
+}
+.harvest-acorn-sprite {
+  width: min(42vw, 220px);
+  aspect-ratio: 1;
+  background-repeat: no-repeat;
+  background-size: 1100% 100%;
+  background-position: 0% 0%;
+}
+.harvest-acorn-label {
+  margin-top: -0.35rem;
+  font-family: Fredoka, sans-serif;
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: #fff6df;
+  -webkit-text-stroke: 3px #3a2410;
+  paint-order: stroke fill;
+  text-shadow: 0 2px 0 rgba(0,0,0,0.25);
+}
+.harvest-acorn.celebrate {
+  animation: acorn-pop 0.85s ease;
+}
+.harvest-acorn.celebrate .harvest-acorn-sprite {
+  animation: acorn-glow 0.85s ease;
+}
+@keyframes acorn-pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.14) rotate(-4deg); }
+  55% { transform: scale(1.08) rotate(3deg); }
+  100% { transform: scale(1); }
+}
+@keyframes acorn-glow {
+  0%, 100% { filter: brightness(1); }
+  40% { filter: brightness(1.25) saturate(1.2); }
+}
+.garden-shell .meter.seed-meter[data-acorn-flash="out"] .seed-count {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.garden-shell .meter.seed-meter[data-acorn-flash="gold"] .seed-count {
+  color: #e8b923;
+  text-shadow: 0 0 12px rgba(255, 210, 80, 0.9);
+  animation: seed-gold-in 0.35s ease;
+}
+@keyframes seed-gold-in {
+  from { opacity: 0; transform: scale(1.35); }
+  to { opacity: 1; transform: scale(1); }
+}
