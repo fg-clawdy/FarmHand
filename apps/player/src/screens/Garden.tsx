@@ -5,7 +5,8 @@ import { api, type AccoladeUnlock, type BasketItem, type GardenPlayer, type Harv
 import { AcornArt, BackArrow, SceneShell, StarIcon } from "../art";
 import HarvestCelebration from "../components/HarvestCelebration";
 import HarvestBasketSheet, { MARKET_TRUCK_DRIVE_MS } from "../components/HarvestBasketSheet";
-import StarPour from "../components/StarPour";
+import StarPour, { type StarPourRim } from "../components/StarPour";
+import { PAINTED_ART } from "../pixi/paintedAssets";
 import AcornPour from "../components/AcornPour";
 import { kidSeedRewardCount } from "../kidSeedReward";
 import AccoladeCelebration from "../components/AccoladeCelebration";
@@ -205,6 +206,7 @@ type PourState = {
   to: { x: number; y: number };
   fromPoints: number;
   toPoints: number;
+  rim?: StarPourRim | null;
 };
 
 function GardenPlay({
@@ -391,15 +393,25 @@ function GardenPlay({
     if (!items.length) return;
     const meter = pointsMeterRef.current?.getBoundingClientRect();
     const basket = sceneRef.current?.basketLaunchLocal();
+    const rimLocal = sceneRef.current?.basketRimLocal();
     const host = hostRef.current?.getBoundingClientRect();
     const fit = host ? gardenPlayfieldFit(host.width, host.height) : null;
-    // Origin is the painted tray interior (mouth), mapped through the garden camera.
+    // Origin is deep in the painted tray bowl; rim overlay nests stars under the front lip.
     const from = basket && host && fit
       ? { x: host.left + fit.x + basket.x * fit.scale, y: host.top + fit.y + basket.y * fit.scale }
       : { x: window.innerWidth * 0.72, y: window.innerHeight * 0.78 };
     const to = meter
       ? { x: meter.left + meter.width / 2, y: meter.top + meter.height / 2 }
       : { x: window.innerWidth - 80, y: 36 };
+    const rim: StarPourRim | null = rimLocal && host && fit
+      ? {
+          src: PAINTED_ART.harvestBasketRim,
+          x: host.left + fit.x + rimLocal.x * fit.scale,
+          y: host.top + fit.y + rimLocal.y * fit.scale,
+          width: rimLocal.width * fit.scale,
+          height: rimLocal.height * fit.scale,
+        }
+      : null;
     const driveStarted = Date.now();
     void run(async () => {
       const data = await api.sellBasket();
@@ -414,6 +426,7 @@ function GardenPlay({
         items: data.items.length ? data.items : items,
         from,
         to,
+        rim,
         fromPoints: data.previousPoints,
         toPoints: data.player.points,
       });
@@ -726,6 +739,7 @@ function GardenPlay({
           items={pour.items}
           from={pour.from}
           to={pour.to}
+          rim={pour.rim}
           onArrive={onStarArrive}
           onDone={() => setPour(null)}
         />

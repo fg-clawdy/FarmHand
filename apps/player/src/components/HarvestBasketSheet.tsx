@@ -16,8 +16,8 @@ export type BasketLine = {
 /** Cache-bust after matting baked checkerboard to true alpha. */
 const MARKET_ART_V = "1";
 
-/** Must cover CSS marketTruckDrive (0.85s) so kids see the truck leave before the sheet closes. */
-export const MARKET_TRUCK_DRIVE_MS = 900;
+/** Must cover CSS marketTruckDrive (1.35s) so the sheet waits until the truck is fully off to the right. */
+export const MARKET_TRUCK_DRIVE_MS = 1450;
 
 const PRODUCE_ART: Record<string, string> = {
   corn: `/art/painted/market/produce_sweet_corn.png?v=${MARKET_ART_V}`,

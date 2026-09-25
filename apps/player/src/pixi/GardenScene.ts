@@ -209,6 +209,11 @@ export class GardenScene {
     return this.basket.mouth();
   }
 
+  /** Playfield-local rim layout so DOM StarPour can layer the front lip over spawning stars. */
+  basketRimLocal() {
+    return this.basket.rimLocal();
+  }
+
   private floatPoints(x: number, y: number, points: number) {
     const text = new Text({
       text: `+ ${points} points`,
@@ -720,6 +725,8 @@ class HarvestBasket {
   private hidden = new Set<string>();
   private pulseT = 0;
   private baseScale: number = GARDEN_BASKET_LAYOUT.emptyScale;
+  private baskW = 260;
+  private baskH = 160;
   private origin = {
     x: GARDEN_ZOOM_TEXTURE.width * GARDEN_BASKET_LAYOUT.origin.u,
     y: GARDEN_ZOOM_TEXTURE.height * GARDEN_BASKET_LAYOUT.origin.v,
@@ -743,6 +750,8 @@ class HarvestBasket {
     const baskW = 260;
     const tex = painted.harvestBasket;
     const baskH = tex.width > 0 ? baskW * (tex.height / tex.width) : 160;
+    this.baskW = baskW;
+    this.baskH = baskH;
     this.bodyBack.width = baskW;
     this.bodyBack.height = baskH;
     this.bodyBack.alpha = 1;
@@ -873,9 +882,23 @@ class HarvestBasket {
     };
   }
 
-  /** Interior of the shallow tray — star pour origin (not floating above the rim). */
+  /**
+   * Deep in the shallow tray bowl (positive Y toward the weave / under the front lip).
+   * DOM stars spawn here; a rim overlay is drawn on top so they read as nested.
+   */
   mouth() {
-    return this.scaledLocal(0, 18);
+    return this.scaledLocal(0, 28);
+  }
+
+  /** Unscaled draw size + origin, already multiplied by fill baseScale for playfield local. */
+  rimLocal() {
+    return {
+      x: this.origin.x,
+      y: this.origin.y,
+      width: this.baskW * this.baseScale,
+      height: this.baskH * this.baseScale,
+      anchorY: 0.55,
+    };
   }
 
   reserveSlot(itemId?: string, kind?: string) {

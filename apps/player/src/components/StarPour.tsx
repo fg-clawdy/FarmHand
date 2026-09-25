@@ -13,11 +13,21 @@ type Star = {
  * One star per point. They leave the basket and shrink into the points meter.
  * Launch pace is slow, faster through the middle, slow again for the last stars.
  */
+export type StarPourRim = {
+  src: string;
+  /** Screen-space rim-center (matches Pixi basket origin). */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 export default function StarPour({
   points,
   items,
   from,
   to,
+  rim,
   onArrive,
   onDone,
 }: {
@@ -26,6 +36,8 @@ export default function StarPour({
   items?: BasketItem[];
   from: { x: number; y: number };
   to: { x: number; y: number };
+  /** Front rim drawn ABOVE stars so they nest in the tray (DOM sits over Pixi). */
+  rim?: StarPourRim | null;
   onArrive?: (arrived: number, total: number) => void;
   onDone: () => void;
 }) {
@@ -34,9 +46,9 @@ export default function StarPour({
     return Array.from({ length: count }, (_, i) => ({
       id: `star-${i}`,
       delay: starLaunchDelay(i, count),
-      // Tight scatter inside the tray bowl (not floating above / in front of it).
-      dx: ((i % 7) - 3) * 6,
-      dy: ((i % 5) - 2) * 4,
+      // Tight scatter deep in the bowl; rim overlay covers the lower half.
+      dx: ((i % 7) - 3) * 5,
+      dy: 4 + (i % 4) * 3,
     }));
   }, [count]);
   const [gone, setGone] = useState(false);
@@ -82,6 +94,21 @@ export default function StarPour({
           ★
         </span>
       ))}
+      {rim && (
+        <img
+          className="star-pour-rim"
+          src={rim.src}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          style={{
+            left: rim.x,
+            top: rim.y,
+            width: rim.width,
+            height: rim.height,
+          }}
+        />
+      )}
     </div>
   );
 }

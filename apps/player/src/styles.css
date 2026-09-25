@@ -2015,24 +2015,29 @@ button.who.profile-entry:active {
   pointer-events: none;
   user-select: none;
   filter: drop-shadow(0 2px 0 rgba(30, 60, 28, 0.45));
-  /* Painted truck faces left; flip so it drives toward market (right). */
-  transform: scaleX(-1);
+  /*
+   * Painted truck faces LEFT. CSS transforms apply right-to-left, so write
+   * translateX(...) scaleX(-1): flip first (face right), then translate in
+   * screen space. scaleX(-1) translateX(+X) would mirror travel back LEFT.
+   */
+  transform: translateX(0) scaleX(-1);
   transform-origin: center center;
 }
 .market-sell-cta--driving .market-sell-cta-art {
-  animation: marketTruckDrive 0.85s ease-in forwards;
+  /* Longer than the old left exit: truck starts on the left of the CTA and must cross the label. */
+  animation: marketTruckDrive 1.35s ease-in forwards;
 }
 @keyframes marketTruckDrive {
   0% {
-    transform: scaleX(-1) translateX(0) rotate(0deg);
+    transform: translateX(0) scaleX(-1) rotate(0deg);
     opacity: 1;
   }
-  55% {
-    transform: scaleX(-1) translateX(55%) rotate(-2deg);
+  60% {
+    transform: translateX(160%) scaleX(-1) rotate(2deg);
     opacity: 1;
   }
   100% {
-    transform: scaleX(-1) translateX(160%) rotate(-4deg);
+    transform: translateX(320%) scaleX(-1) rotate(4deg);
     opacity: 0;
   }
 }
@@ -2077,12 +2082,24 @@ button.who.profile-entry:active {
 }
 .star-pour-star {
   position: absolute;
+  z-index: 1;
   font-size: 34px;
   line-height: 1;
   color: #ffe56a;
   text-shadow: 0 2px 0 #8a5a00, 0 0 12px #fff1a8;
   animation: starPour var(--flight, 1.15s) ease-in-out forwards;
   will-change: transform, opacity;
+}
+/* DOM rim over stars so they nest in the bowl (DOM overlays sit above the Pixi canvas). */
+.star-pour-rim {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  user-select: none;
+  object-fit: contain;
+  /* Match Pixi rim anchor (0.5, 0.55). */
+  transform: translate(-50%, -55%);
+  filter: drop-shadow(0 2px 0 rgba(28, 18, 8, 0.2));
 }
 @keyframes starPour {
   /* ~2x prior start size while leaving the basket; same end shrink into the meter. */
