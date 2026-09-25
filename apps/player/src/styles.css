@@ -2090,17 +2090,6 @@ button.who.profile-entry:active {
   animation: starPour var(--flight, 1.15s) ease-in-out forwards;
   will-change: transform, opacity;
 }
-/* DOM rim over stars so they nest in the bowl (DOM overlays sit above the Pixi canvas). */
-.star-pour-rim {
-  position: absolute;
-  z-index: 2;
-  pointer-events: none;
-  user-select: none;
-  object-fit: contain;
-  /* Match Pixi rim anchor (0.5, 0.55). */
-  transform: translate(-50%, -55%);
-  filter: drop-shadow(0 2px 0 rgba(28, 18, 8, 0.2));
-}
 @keyframes starPour {
   /* ~2x prior start size while leaving the basket; same end shrink into the meter. */
   0% {

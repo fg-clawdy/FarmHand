@@ -5,8 +5,6 @@ import { api, type AccoladeUnlock, type BasketItem, type GardenPlayer, type Harv
 import { AcornArt, BackArrow, SceneShell, StarIcon } from "../art";
 import HarvestCelebration from "../components/HarvestCelebration";
 import HarvestBasketSheet, { MARKET_TRUCK_DRIVE_MS } from "../components/HarvestBasketSheet";
-import StarPour, { type StarPourRim } from "../components/StarPour";
-import { PAINTED_ART } from "../pixi/paintedAssets";
 import AcornPour from "../components/AcornPour";
 import { kidSeedRewardCount } from "../kidSeedReward";
 import AccoladeCelebration from "../components/AccoladeCelebration";
@@ -202,11 +200,8 @@ export default function Garden() {
 
 type PourState = {
   items: BasketItem[];
-  from: { x: number; y: number };
-  to: { x: number; y: number };
   fromPoints: number;
   toPoints: number;
-  rim?: StarPourRim | null;
 };
 
 function GardenPlay({
@@ -392,43 +387,48 @@ function GardenPlay({
     const items = player.basket?.items ?? [];
     if (!items.length) return;
     const meter = pointsMeterRef.current?.getBoundingClientRect();
-    const basket = sceneRef.current?.basketLaunchLocal();
-    const rimLocal = sceneRef.current?.basketRimLocal();
     const host = hostRef.current?.getBoundingClientRect();
     const fit = host ? gardenPlayfieldFit(host.width, host.height) : null;
-    // Origin is deep in the painted tray bowl; rim overlay nests stars under the front lip.
-    const from = basket && host && fit
-      ? { x: host.left + fit.x + basket.x * fit.scale, y: host.top + fit.y + basket.y * fit.scale }
-      : { x: window.innerWidth * 0.72, y: window.innerHeight * 0.78 };
-    const to = meter
+    const toScreen = meter
       ? { x: meter.left + meter.width / 2, y: meter.top + meter.height / 2 }
       : { x: window.innerWidth - 80, y: 36 };
-    const rim: StarPourRim | null = rimLocal && host && fit
+    const toLocal = host && fit
       ? {
-          src: PAINTED_ART.harvestBasketRim,
-          x: host.left + fit.x + rimLocal.x * fit.scale,
-          y: host.top + fit.y + rimLocal.y * fit.scale,
-          width: rimLocal.width * fit.scale,
-          height: rimLocal.height * fit.scale,
+          x: (toScreen.x - host.left - fit.x) / fit.scale,
+          y: (toScreen.y - host.top - fit.y) / fit.scale,
         }
-      : null;
+      : { x: 1200, y: 80 };
     const driveStarted = Date.now();
     void run(async () => {
       const data = await api.sellBasket();
-      // Sell pressed → truck drives off → THEN close sheet → THEN StarPour.
-      // If the API is slower than the drive, keep the sheet open until it returns.
       const remain = Math.max(0, MARKET_TRUCK_DRIVE_MS - (Date.now() - driveStarted));
       if (remain > 0) await new Promise<void>((resolve) => window.setTimeout(resolve, remain));
       setOverlay(null);
-      // Let the sheet unmount a frame before stars spawn from the world basket.
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      const gained = Math.max(0, data.player.points - data.previousPoints);
       setPour({
         items: data.items.length ? data.items : items,
-        from,
-        to,
-        rim,
         fromPoints: data.previousPoints,
         toPoints: data.player.points,
+      });
+      setShownPoints(data.previousPoints);
+      sceneRef.current?.fxStarPour({
+        points: gained,
+        toLocal,
+        onArrive: (arrived, total) => {
+          const span = data.player.points - data.previousPoints;
+          const credited = total > 0 ? Math.round((arrived / total) * span) : span;
+          setShownPoints(data.previousPoints + credited);
+          if (arrived >= total) {
+            pointsMeterRef.current?.classList.add("bump");
+            window.setTimeout(() => pointsMeterRef.current?.classList.remove("bump"), 420);
+            setPointsShine(true);
+          }
+        },
+        onDone: () => {
+          setShownPoints(data.player.points);
+          setPour(null);
+        },
       });
       return data.player;
     });
@@ -733,17 +733,7 @@ function GardenPlay({
           }}
         />
       )}
-      {pour && (
-        <StarPour
-          points={Math.max(0, pour.toPoints - pour.fromPoints)}
-          items={pour.items}
-          from={pour.from}
-          to={pour.to}
-          rim={pour.rim}
-          onArrive={onStarArrive}
-          onDone={() => setPour(null)}
-        />
-      )}
+      {/* Sell stars are Pixi-native (nested under the basket rim). */}
       {badgeQueue[0] && <AccoladeCelebration unlock={badgeQueue[0]} />}
       {overlay?.type === "badges" && <AccoladePanel onClose={() => setOverlay(null)} />}
       {overlay?.type === "profile" && (
