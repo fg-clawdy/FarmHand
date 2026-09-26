@@ -136,14 +136,6 @@ export default function SelfieCapture({
       countTimer = undefined;
     };
 
-    const resetCount = () => {
-      clearCountTimer();
-      countRef.current = 0;
-      goodStreakRef.current = 0;
-      setCountdown(null);
-      setHint("Put your face in the circle");
-    };
-
     const startCount = () => {
       clearCountTimer();
       countRef.current = 3;
