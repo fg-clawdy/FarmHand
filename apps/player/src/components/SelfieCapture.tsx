@@ -120,6 +120,11 @@ export default function SelfieCapture({
     }
   }, [frameToCanvas, onSuccess, submit]);
 
+  // Keep a stable snap ref so the auto-count effect does not restart mid-countdown
+  // when parent re-renders with a new onSuccess identity (that stalled the UI at 3).
+  const snapRef = useRef(snap);
+  snapRef.current = snap;
+
   useEffect(() => {
     if (!ready || busy) return;
     let cancelled = false;
@@ -146,30 +151,21 @@ export default function SelfieCapture({
       setHint("Smile!");
       setError("");
 
+      // Once counting, finish 3→2→1→snap without re-gating on face each tick.
+      // Brief face-detect flaps were aborting the count and leaving it stuck at 3
+      // when the effect remounted with countRef still > 0.
       const step = () => {
         if (cancelled || snapLock.current) return;
-        const canvas = frameToCanvas(320);
-        if (!canvas) {
-          resetCount();
+        const next = countRef.current - 1;
+        if (next <= 0) {
+          setCountdown(null);
+          countRef.current = 0;
+          void snapRef.current();
           return;
         }
-        void faceInGuideOnCanvas(canvas).then((ok) => {
-          if (cancelled || snapLock.current) return;
-          if (!ok) {
-            resetCount();
-            return;
-          }
-          const next = countRef.current - 1;
-          if (next <= 0) {
-            setCountdown(null);
-            countRef.current = 0;
-            void snap();
-            return;
-          }
-          countRef.current = next;
-          setCountdown(next);
-          countTimer = window.setTimeout(step, 1000);
-        });
+        countRef.current = next;
+        setCountdown(next);
+        countTimer = window.setTimeout(step, 1000);
       };
       countTimer = window.setTimeout(step, 1000);
     };
@@ -213,8 +209,11 @@ export default function SelfieCapture({
       cancelled = true;
       if (tickTimer) window.clearTimeout(tickTimer);
       clearCountTimer();
+      // Reset so a remounted effect never inherits a stuck countdown (>0 with no timer).
+      countRef.current = 0;
+      goodStreakRef.current = 0;
     };
-  }, [ready, busy, frameToCanvas, snap]);
+  }, [ready, busy, frameToCanvas]);
 
   return (
     <Sheet title={title} onClose={onClose}>
