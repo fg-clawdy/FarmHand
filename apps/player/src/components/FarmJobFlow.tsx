@@ -79,7 +79,8 @@ export default function FarmJobFlow({
         }}
         onSuccess={(next) => {
           onClaimed(next.name);
-          onClose();
+          setPhoto(null);
+          void loadKidBoard();
         }}
       />
     );
@@ -98,7 +99,10 @@ export default function FarmJobFlow({
           try {
             const data = await api.claimChore(chore.id);
             onClaimed(data.player.name);
-            onClose();
+            // Keep the chore chart open for more claims; refresh list.
+            const board = await api.chores();
+            setKid(board.player);
+            setChores(board.chores);
             return data.player;
           } finally {
             setBusy(false);
