@@ -259,9 +259,18 @@ function GardenPlay({
   const [chores, setChores] = useState<PublicChore[]>([]);
   const [choreTimezone, setChoreTimezone] = useState("America/Chicago");
 
-  function celebrateClaimSeeds(seedsGranted: number, originEl?: Element | null) {
+  function celebrateClaimSeeds(
+    seedsGranted: number,
+    originEl?: Element | null,
+    /** Pre-grant pouch total. Pass explicitly — player state may already include the grant. */
+    balanceBeforeGrant?: number,
+  ) {
     const count = kidSeedRewardCount(seedsGranted);
-    const fromTotal = Math.max(0, (player.seeds + player.provisionalSeeds) - count);
+    // Never dip below the pre-grant balance (avoid optimistic/post-apply double-subtract).
+    const fromTotal =
+      balanceBeforeGrant != null
+        ? Math.max(0, balanceBeforeGrant)
+        : Math.max(0, shownSeeds);
     setShownSeeds(fromTotal);
     const fromRect = (originEl as HTMLElement | null)?.getBoundingClientRect?.();
     const toRect = seedMeterRef.current?.getBoundingClientRect();
@@ -611,12 +620,17 @@ function GardenPlay({
           onClose={() => setOverlay(null)}
           timezone={choreTimezone}
           onClaim={async (chore) => {
+            const before = player.seeds + player.provisionalSeeds;
             const data = await api.claimChore(chore.id);
             const granted = data.seedsGranted ?? chore.rewardSeedCount ?? 1;
-            setOverlay(null);
             applyGarden(data.player);
             noteUnlocks(data.unlocks);
-            celebrateClaimSeeds(granted);
+            // Stay on chore chart for more claims; only Close dismisses.
+            void api.chores().then((board) => {
+              setChores(board.chores);
+              if (board.timezone) setChoreTimezone(board.timezone);
+            });
+            celebrateClaimSeeds(granted, null, before);
             return data.player;
           }}
           onSkip={async (chore) => {
@@ -641,11 +655,16 @@ function GardenPlay({
             return { player: data.player, unlocks: data.unlocks };
           }}
           onSuccess={(next, _reward, unlocks) => {
+            const before = player.seeds + player.provisionalSeeds;
             applyGarden(next);
             noteUnlocks(unlocks);
-            setOverlay(null);
             const granted = overlay.chore.rewardSeedCount ?? 1;
-            celebrateClaimSeeds(granted);
+            setOverlay({ type: "chores" });
+            void api.chores().then((board) => {
+              setChores(board.chores);
+              if (board.timezone) setChoreTimezone(board.timezone);
+            });
+            celebrateClaimSeeds(granted, null, before);
           }}
         />
       )}

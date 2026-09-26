@@ -168,6 +168,8 @@ export default function JobBoard({
     }
     try {
       await onClaim(chore);
+      // Stay on the chart; only X/Close dismisses the board.
+      setPicked(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn't work.");
     }
