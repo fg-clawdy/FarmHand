@@ -14,6 +14,13 @@ import {
   cropStageFrame,
   type PaintedArt,
 } from "./paintedAssets";
+import {
+  approvalAuraOffsetY,
+  cropSinkPx,
+  drawContactShadow,
+  drawSoilNest,
+  drawWaitingAura,
+} from "./plantedCropVisual";
 import { SignAvatarBadge, farmSignBadgeLocal } from "./signAvatar";
 import {
   PLAYABLE_PLOT_SLOTS,
@@ -285,8 +292,11 @@ class GardenHotspot {
   private avatarBadge: SignAvatarBadge;
   private sparkles: SparkleField[] = [];
   private plants: Sprite[] = [];
+  private shadows: Graphics[] = [];
+  private nests: Graphics[] = [];
   private approvalAuras: Graphics[] = [];
   private markers: Graphics[] = [];
+  private stages: Array<1 | 2 | 3 | 4 | null> = [];
   private showMarkers = false;
   private cropScale = 0.16;
   private playerId = "";
@@ -316,10 +326,19 @@ class GardenHotspot {
       spr.anchor.set(0.5, 1);
       spr.visible = false;
       this.plants.push(spr);
+      this.stages.push(null);
+      const shadow = new Graphics();
+      shadow.visible = false;
+      shadow.eventMode = "none";
+      this.shadows.push(shadow);
+      const nest = new Graphics();
+      nest.visible = false;
+      nest.eventMode = "none";
+      this.nests.push(nest);
       const aura = new Graphics();
       aura.visible = false;
       aura.eventMode = "none";
-      this.drawFarmApprovalAura(aura);
+      drawWaitingAura(aura, FARM_MOUND_COVER_PX, 0.95);
       this.approvalAuras.push(aura);
       const mark = new Graphics();
       mark.visible = false;
@@ -327,10 +346,13 @@ class GardenHotspot {
       this.markers.push(mark);
       this.sparkles.push(new SparkleField(atlas, 6));
     }
+    // mound → aura → shadow → crop (sunk) → nest → markers/sparkles/UI
     this.root.addChild(
       this.hit,
       ...this.approvalAuras,
+      ...this.shadows,
       ...this.plants,
+      ...this.nests,
       ...this.markers,
       ...this.sparkles.map((field) => field.root),
       this.plaque,
@@ -358,9 +380,15 @@ class GardenHotspot {
     this.plants.forEach((spr, slot) => {
       const uv = moundUv(this.spec, slot);
       const p = uvToLocal(uv, texW, texH);
-      spr.position.set(p.x, p.y);
+      const stage = this.stages[slot];
+      const sink = stage ? cropSinkPx(stage, FARM_MOUND_COVER_PX) : 0;
+      const x = p.x;
+      const y = p.y + sink;
+      spr.position.set(x, y);
+      this.shadows[slot]!.position.set(x, y);
+      this.nests[slot]!.position.set(x, y);
       const aura = this.approvalAuras[slot]!;
-      aura.position.set(p.x, p.y);
+      aura.position.set(x, y + approvalAuraOffsetY(FARM_MOUND_COVER_PX));
       const mark = this.markers[slot]!;
       mark.position.set(p.x, p.y);
     });
@@ -446,18 +474,38 @@ class GardenHotspot {
       const plot = plots[slot];
       const stage = plot?.growthStage;
       const aura = this.approvalAuras[slot]!;
+      const shadow = this.shadows[slot]!;
+      const nest = this.nests[slot]!;
       if (!plot || plot.state === "empty" || !stage || !plot.tier) {
         spr.visible = false;
         aura.visible = false;
+        shadow.visible = false;
+        nest.visible = false;
+        this.stages[slot] = null;
         return;
       }
       const kind = cropKindForTier(plot.tier);
+      this.stages[slot] = stage;
       spr.texture = cropStageFrame(this.painted.crops, kind, stage);
       const pivot = cropDiscAnchor(kind, stage);
       spr.anchor.set(pivot.x, pivot.y);
       this.cropScale = cropCoverScale(kind, stage, FARM_MOUND_COVER_PX);
       spr.scale.set(this.cropScale);
+      const uv = moundUv(this.spec, slot);
+      const p = uvToLocal(uv, this.texW, this.texH);
+      const sink = cropSinkPx(stage, FARM_MOUND_COVER_PX);
+      const x = p.x;
+      const y = p.y + sink;
+      spr.position.set(x, y);
+      shadow.position.set(x, y);
+      nest.position.set(x, y);
+      aura.position.set(x, y + approvalAuraOffsetY(FARM_MOUND_COVER_PX));
+      drawContactShadow(shadow, FARM_MOUND_COVER_PX, stage);
+      drawSoilNest(nest, FARM_MOUND_COVER_PX, stage);
+      drawWaitingAura(aura, FARM_MOUND_COVER_PX, 0.95);
       spr.visible = true;
+      shadow.visible = true;
+      nest.visible = true;
       const wilted = plot.state === "wilted" || Boolean(plot.greyed);
       const awaiting = Boolean(plot.awaitingApproval) || plot.state === "purgatory";
       spr.tint = wilted ? 0x8a8a8a : awaiting ? 0xe8d7ff : 0xffffff;
@@ -478,16 +526,6 @@ class GardenHotspot {
       }
     });
     this.sparkles.forEach((field) => field.update(t));
-  }
-
-  private drawFarmApprovalAura(g: Graphics) {
-    g.clear();
-    g.ellipse(0, 6, 46, 26);
-    g.fill({ color: 0x9b5cff, alpha: 0.28 });
-    g.ellipse(0, 4, 34, 20);
-    g.fill({ color: 0xb57bff, alpha: 0.45 });
-    g.ellipse(0, 2, 22, 13);
-    g.fill({ color: 0xe8d7ff, alpha: 0.4 });
   }
 
   debugPlants(garden: number) {

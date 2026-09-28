@@ -21,6 +21,13 @@ import {
   cropStageFrame,
   type PaintedArt,
 } from "./paintedAssets";
+import {
+  approvalAuraOffsetY,
+  cropSinkPx,
+  drawContactShadow,
+  drawSoilNest,
+  drawWaitingAura,
+} from "./plantedCropVisual";
 import { uvToLocal } from "./playfieldLayout";
 import { SignAvatarBadge, gardenZoomBadgeLocal } from "./signAvatar";
 
@@ -468,6 +475,7 @@ class PlotNode {
   readonly slot: number;
   private plant = new Sprite();
   private shadow: Graphics;
+  private nest: Graphics;
   private marker: Graphics;
   private glow: Sprite;
   private approvalAura = new Graphics();
@@ -478,6 +486,9 @@ class PlotNode {
   private ready = false;
   private cropScale = 0.4;
   private texScale = 1;
+  private coverPx = ZOOM_MOUND_COVER_PX;
+  private sinkPx = 0;
+  private stage: 1 | 2 | 3 | 4 | null = null;
   private celebrateT = -1;
   private kind: CropKind | null = null;
 
@@ -492,13 +503,17 @@ class PlotNode {
     this.glow.anchor.set(0.5);
     this.glow.blendMode = "add";
     this.glow.visible = false;
-    this.redrawApprovalAura();
     this.approvalAura.visible = false;
+    this.approvalAura.eventMode = "none";
 
     this.sparkle = new SparkleField(atlas, 8);
     this.plant.anchor.set(0.5, 0.88);
     this.shadow = new Graphics();
     this.shadow.visible = false;
+    this.shadow.eventMode = "none";
+    this.nest = new Graphics();
+    this.nest.visible = false;
+    this.nest.eventMode = "none";
     this.marker = new Graphics();
     this.marker.visible = false;
     this.marker.eventMode = "none";
@@ -513,7 +528,17 @@ class PlotNode {
       },
     });
     this.label.anchor.set(0.5, 0);
-    this.root.addChild(this.glow, this.approvalAura, this.shadow, this.sparkle.root, this.plant, this.label, this.marker);
+    // mound → aura (behind) → shadow → crop (sunk) → nest on feet → UI
+    this.root.addChild(
+      this.glow,
+      this.approvalAura,
+      this.shadow,
+      this.plant,
+      this.nest,
+      this.sparkle.root,
+      this.label,
+      this.marker,
+    );
     this.root.eventMode = "static";
     this.root.cursor = "pointer";
     this.plant.mask = null;
@@ -540,19 +565,32 @@ class PlotNode {
   layout(s: number) {
     this.texScale = s;
     const { rx, ry } = GARDEN_ZOOM_LAYOUT.hit;
-    const cover = ZOOM_MOUND_COVER_PX * s;
-    this.plant.position.set(GARDEN_CROP_SEAT.x, GARDEN_CROP_SEAT.y);
-    this.shadow.clear();
-    this.shadow.ellipse(0, cover * 0.08, cover * 0.52, cover * 0.34);
-    this.shadow.fill({ color: 0x2a1608, alpha: 0.28 });
-    this.glow.position.set(0, -cover * 0.22);
+    this.coverPx = ZOOM_MOUND_COVER_PX * s;
+    if (this.stage) this.sinkPx = cropSinkPx(this.stage, this.coverPx);
+    this.applyPlantedSeat();
+    this.glow.position.set(0, -this.coverPx * 0.22);
     this.glow.scale.set(2.2 * s);
-    this.sparkle.root.position.set(0, -cover * 0.28);
+    this.sparkle.root.position.set(0, -this.coverPx * 0.28);
     this.sparkle.setArea(rx * s * 0.7, ry * s * 0.7);
-    this.label.position.set(0, cover * 0.34);
+    this.label.position.set(0, this.coverPx * 0.34 + this.sinkPx);
     this.label.style.fontSize = Math.max(14, 18 * s);
     this.root.hitArea = new Ellipse(0, 0, rx * s, ry * s);
     this.drawMoundMarker();
+  }
+
+  /** Seat plant/shadow/nest/aura on disc pivot, sunk into the mound. */
+  private applyPlantedSeat() {
+    const x = GARDEN_CROP_SEAT.x;
+    const y = GARDEN_CROP_SEAT.y + this.sinkPx;
+    this.plant.position.set(x, y);
+    this.shadow.position.set(x, y);
+    this.nest.position.set(x, y);
+    this.approvalAura.position.set(x, y + approvalAuraOffsetY(this.coverPx));
+    if (this.stage) {
+      drawContactShadow(this.shadow, this.coverPx, this.stage);
+      drawSoilNest(this.nest, this.coverPx, this.stage);
+      drawWaitingAura(this.approvalAura, this.coverPx);
+    }
   }
 
   setMoundMarker(on: boolean) {
@@ -575,20 +613,6 @@ class PlotNode {
     this.marker.stroke({ width: 3, color: 0xe10600 });
   }
 
-  private redrawApprovalAura() {
-    const g = this.approvalAura;
-    g.clear();
-    // Soft kid-friendly purple — readable from farm overview, not neon.
-    g.ellipse(0, 12, 92, 50);
-    g.fill({ color: 0x9b5cff, alpha: 0.22 });
-    g.ellipse(0, 10, 72, 40);
-    g.fill({ color: 0xb57bff, alpha: 0.4 });
-    g.ellipse(0, 8, 50, 28);
-    g.fill({ color: 0xd8b4ff, alpha: 0.36 });
-    g.ellipse(0, 6, 28, 16);
-    g.fill({ color: 0xf3e8ff, alpha: 0.32 });
-  }
-
   setToolGlow(on: boolean) {
     this.toolGlow = on;
     this.glow.visible = on;
@@ -603,25 +627,37 @@ class PlotNode {
       this.label.visible = false;
       this.plant.visible = false;
       this.shadow.visible = false;
+      this.nest.visible = false;
+      this.approvalAura.visible = false;
       return;
     }
     this.sparkle.setActive(this.ready);
     if (empty || !plot.growthStage || !plot.tier) {
       this.plant.visible = false;
       this.shadow.visible = false;
+      this.nest.visible = false;
       this.label.visible = false;
+      this.approvalAura.visible = false;
+      this.stage = null;
+      this.sinkPx = 0;
       return;
     }
     const kind = cropKindForTier(plot.tier);
     this.kind = kind;
+    this.stage = plot.growthStage;
+    this.coverPx = ZOOM_MOUND_COVER_PX * this.texScale;
+    this.sinkPx = cropSinkPx(this.stage, this.coverPx);
     this.plant.texture = cropStageFrame(this.painted.crops, kind, plot.growthStage);
     const pivot = cropDiscAnchor(kind, plot.growthStage);
     this.plant.anchor.set(pivot.x, pivot.y);
-    this.cropScale = cropCoverScale(kind, plot.growthStage, ZOOM_MOUND_COVER_PX * this.texScale);
+    this.cropScale = cropCoverScale(kind, plot.growthStage, this.coverPx);
     this.plant.scale.set(this.cropScale);
+    this.applyPlantedSeat();
     this.plant.visible = true;
     this.shadow.visible = true;
+    this.nest.visible = true;
     this.label.visible = true;
+    this.label.position.set(0, this.coverPx * 0.34 + this.sinkPx);
     const wilted = plot.state === "wilted" || plot.greyed;
     const awaiting = Boolean(plot.awaitingApproval) || plot.state === "purgatory";
     this.plant.tint = wilted ? 0x8a8a8a : awaiting ? 0xe8d7ff : 0xffffff;
@@ -640,6 +676,8 @@ class PlotNode {
     this.plant.alpha = 1;
     this.plant.rotation = 0;
     this.shadow.visible = false;
+    this.nest.visible = false;
+    this.approvalAura.visible = false;
     this.label.visible = false;
     this.sparkle.setActive(false);
   }
@@ -661,6 +699,7 @@ class PlotNode {
       this.celebrateT += dt;
       this.plant.visible = false;
       this.shadow.visible = false;
+      this.nest.visible = false;
       if (this.celebrateT >= 1.2) this.celebrateT = -1;
       return;
     }

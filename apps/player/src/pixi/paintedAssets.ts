@@ -77,9 +77,11 @@ export const FARM_MOUND_COVER_PX = Math.round(80 * PLANT_COVER_FACTOR);
 
 /** @deprecated plant-only leftover; disc cover is the live scale. */
 export const FARM_PLANT_HEIGHT_PX = FARM_MOUND_COVER_PX;
-export const FARM_PLANT_BURY_PX = 0;
+/** Nominal bury into mound (~14% of farm cover). Prefer cropSinkPx(stage, cover). */
+export const FARM_PLANT_BURY_PX = Math.round(FARM_MOUND_COVER_PX * 0.14);
 export const ZOOM_PLANT_HEIGHT_PX = ZOOM_MOUND_COVER_PX;
-export const ZOOM_PLANT_BURY_PX = 0;
+/** Nominal bury into mound (~14% of zoom cover). Prefer cropSinkPx(stage, cover). */
+export const ZOOM_PLANT_BURY_PX = Math.round(ZOOM_MOUND_COVER_PX * 0.14);
 /** @deprecated use CROP_SHEET_HEIGHT[kind] */
 export const CROP_FRAME_HEIGHT = CROP_SHEET_HEIGHT.corn;
 
