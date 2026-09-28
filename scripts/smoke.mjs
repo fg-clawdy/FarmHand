@@ -134,6 +134,24 @@ async function reqShouldFail(path, opts, status, label) {
   }
 }
 
+
+/** Production crop tiers grow at least 1 hour; anything shorter is a TEST smoke leftover. */
+const MIN_PRODUCTION_DURATION_MINUTES = 60;
+
+async function restoreDefaultConfig(cookie, label = "config restore") {
+  await req("/api/admin/config/reset", { method: "POST", cookie });
+  const resetConfig = await req("/api/admin/config", { cookie });
+  assertDifferentiatedEconomy(resetConfig.data.config, label);
+  for (const tier of resetConfig.data.config.tiers) {
+    if (tier.durationMinutes < MIN_PRODUCTION_DURATION_MINUTES) {
+      throw new Error(
+        `${label}: tier ${tier.tier} still has TEST durationMinutes=${tier.durationMinutes} (expected >= ${MIN_PRODUCTION_DURATION_MINUTES})`,
+      );
+    }
+  }
+  return resetConfig.data.config;
+}
+
 const health = await req("/api/health");
 if (health.data.status !== "ok") throw new Error("health failed");
 console.log("health ok");
@@ -145,7 +163,8 @@ const login = await req("/api/admin/login", {
 let adminCookie = login.cookie;
 console.log("admin login ok");
 
-await req("/api/admin/config/reset", { method: "POST", cookie: adminCookie });
+try {
+await restoreDefaultConfig(adminCookie, "smoke start reset");
 
 const players = await req("/api/admin/players", { cookie: adminCookie });
 const willow = players.data.players.find((p) => p.name === "Willow");
@@ -189,10 +208,13 @@ async function ensureEmptySlots(cookie, adminCookie, needed) {
   const saved = structuredClone(cfgRes.data.config);
   const fast = structuredClone(saved);
   fast.tiers = fast.tiers.map((t) => ({ ...t, durationMinutes: 0 }));
-  await req("/api/admin/config", { method: "PUT", body: { config: fast }, cookie: adminCookie });
-  garden = (await req("/api/garden", { cookie })).data.player;
-  await harvestOccupied(garden.plots, cookie);
-  await req("/api/admin/config", { method: "PUT", body: { config: saved }, cookie: adminCookie });
+  try {
+    await req("/api/admin/config", { method: "PUT", body: { config: fast }, cookie: adminCookie });
+    garden = (await req("/api/garden", { cookie })).data.player;
+    await harvestOccupied(garden.plots, cookie);
+  } finally {
+    await req("/api/admin/config", { method: "PUT", body: { config: saved }, cookie: adminCookie });
+  }
   return (await req("/api/garden", { cookie })).data.player;
 }
 
@@ -1061,8 +1083,19 @@ if (sageClaim.data.player.provisionalSeeds !== provBeforeSage + 1) {
 }
 console.log("full garden claim succeeds (provisional seed in pouch)");
 
-await req("/api/admin/config/reset", { method: "POST", cookie: adminCookie });
-const resetConfig = await req("/api/admin/config", { cookie: adminCookie });
-assertDifferentiatedEconomy(resetConfig.data.config, "config after reset");
-console.log("restored default tunables");
 console.log("SMOKE OK");
+} finally {
+  // Always restore defaults — even if a mid-smoke assertion failed — so family DB
+  // cannot keep TEST durationMinutes (0 / 1 / 120) or points from this script.
+  try {
+    await restoreDefaultConfig(adminCookie, "config after smoke");
+    console.log("restored default tunables");
+  } catch (restoreErr) {
+    console.error(
+      "FATAL: failed to restore default config — family DB may still have TEST durations/points:",
+      restoreErr,
+    );
+    process.exitCode = 1;
+    throw restoreErr;
+  }
+}
