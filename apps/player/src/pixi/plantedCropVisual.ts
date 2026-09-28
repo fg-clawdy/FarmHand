@@ -1,36 +1,50 @@
 import { Graphics } from "pixi.js";
+import type { CropKind } from "@farmhand/shared";
 
 /**
  * Planted-crop seating on painted mounds.
  *
  * Crop sheets are plant + soil disc as one unit; pivot is the disc center
- * (`cropDiscAnchor` / `CROP_DISC_IN_CELL`). These helpers sink that disc into
- * the mound, add a contact shadow under the sprite, and a soft dirt nest rim
- * over the disc edge so crops do not read as floating stickers.
+ * (`cropDiscAnchor` / `CROP_DISC_IN_CELL`). Trust the painted disc — slight
+ * nestle into the mound, soft contact shadow UNDER the disc (behind plant),
+ * and a thin opaque dirt lip at the stem feet only. Never veil fruit with a
+ * semi-transparent nest circle.
  *
- * Layer order (per mound): aura (behind) → shadow → crop (sunk) → nest (on feet).
- * Dedicated nest-rim PNGs can replace the Graphics nest later.
+ * Layer order (per mound): aura (WAITING only, behind) → shadow → crop → dirt lip.
  */
+
+/** Bushy fruit sits low on the disc — barely sink so berries/pumpkin stay bright. */
+const BUSHY_FRUIT: ReadonlySet<CropKind> = new Set(["strawberry", "pumpkin", "tomato"]);
+
+/** Tall thin crops can nestle a bit more without hiding the fruit/flower. */
+const TALL_THIN: ReadonlySet<CropKind> = new Set(["sunflower", "cotton", "corn"]);
 
 /** Fraction of on-screen disc cover to sink the disc center into the mound. */
 export const CROP_SINK_FRAC = {
-  /** Stage 1 seed pile — lighter bury. */
-  seed: 0.1,
-  /** Stages 2–3 growing. */
-  grow: 0.14,
-  /** Stage 4 ripe. */
-  ripe: 0.16,
+  bushy: { seed: 0.035, grow: 0.045, ripe: 0.05 },
+  tall: { seed: 0.07, grow: 0.1, ripe: 0.11 },
+  mid: { seed: 0.05, grow: 0.07, ripe: 0.08 },
 } as const;
 
-export function cropSinkFrac(stage: 1 | 2 | 3 | 4): number {
-  if (stage === 1) return CROP_SINK_FRAC.seed;
-  if (stage === 4) return CROP_SINK_FRAC.ripe;
-  return CROP_SINK_FRAC.grow;
+export type CropSilhouette = "bushy" | "tall" | "mid";
+
+export function cropSilhouette(kind?: CropKind | null): CropSilhouette {
+  if (!kind) return "mid";
+  if (BUSHY_FRUIT.has(kind)) return "bushy";
+  if (TALL_THIN.has(kind)) return "tall";
+  return "mid";
+}
+
+export function cropSinkFrac(stage: 1 | 2 | 3 | 4, kind?: CropKind | null): number {
+  const profile = CROP_SINK_FRAC[cropSilhouette(kind)];
+  if (stage === 1) return profile.seed;
+  if (stage === 4) return profile.ripe;
+  return profile.grow;
 }
 
 /** Positive Y pixels to add so the disc center sits into the painted mound. */
-export function cropSinkPx(stage: 1 | 2 | 3 | 4, coverPx: number): number {
-  return coverPx * cropSinkFrac(stage);
+export function cropSinkPx(stage: 1 | 2 | 3 | 4, coverPx: number, kind?: CropKind | null): number {
+  return coverPx * cropSinkFrac(stage, kind);
 }
 
 /** Aura sits up into the foliage, not ringing the disc/mound seam. */
@@ -38,44 +52,57 @@ export function approvalAuraOffsetY(coverPx: number): number {
   return -coverPx * 0.3;
 }
 
-/** Soft oval under the disc. Stronger for ripe plants; lighter for seed piles. */
+/** True only for pending-approval WAITING plots — never for plain READY harvestables. */
+export function shouldShowWaitingAura(awaitingApproval: boolean, wilted: boolean): boolean {
+  return awaitingApproval && !wilted;
+}
+
+/** Soft oval UNDER the disc (drawn behind the plant). Never over fruit pixels. */
 export function drawContactShadow(g: Graphics, coverPx: number, stage: 1 | 2 | 3 | 4): void {
   g.clear();
   const seed = stage === 1;
-  const outerA = seed ? 0.16 : 0.3;
-  const innerA = seed ? 0.22 : 0.42;
-  // Slightly below disc center so the oval reads as ground contact.
-  g.ellipse(0, coverPx * 0.05, coverPx * 0.56, coverPx * 0.3);
+  const outerA = seed ? 0.14 : 0.26;
+  const innerA = seed ? 0.18 : 0.34;
+  // Slightly below disc center so the oval reads as ground contact under the disc.
+  g.ellipse(0, coverPx * 0.06, coverPx * 0.5, coverPx * 0.22);
   g.fill({ color: 0x1a0e06, alpha: outerA });
-  g.ellipse(0, coverPx * 0.03, coverPx * 0.36, coverPx * 0.17);
+  g.ellipse(0, coverPx * 0.04, coverPx * 0.3, coverPx * 0.12);
   g.fill({ color: 0x2a1608, alpha: innerA });
 }
 
 /**
- * Soft umber/clod rim over the lower disc — slightly wider than cover.
- * Nest = dirt contact, not a glow. Drawn ABOVE the crop sprite feet.
+ * Thin opaque umber/clod crescent at the disc contact line.
+ * Covers stem feet / very bottom underside only — NEVER a veil over fruit.
+ * Prefer opaque dirt (near-1 alpha) rather than alpha-darkening plant pixels.
  */
-export function drawSoilNest(g: Graphics, coverPx: number, stage: 1 | 2 | 3 | 4): void {
+export function drawDirtLip(
+  g: Graphics,
+  coverPx: number,
+  stage: 1 | 2 | 3 | 4,
+  kind?: CropKind | null,
+): void {
   g.clear();
+  const bushy = cropSilhouette(kind) === "bushy";
   const seed = stage === 1;
-  const w = coverPx * (seed ? 0.54 : 0.58);
-  const h = coverPx * (seed ? 0.2 : 0.24);
-  const y = coverPx * 0.08;
-  // Outer soft dirt halo
-  g.ellipse(0, y + h * 0.2, w * 1.12, h * 1.1);
-  g.fill({ color: 0x3d2412, alpha: seed ? 0.22 : 0.32 });
-  // Main clod rim
+  // Very short in Y: contact line only. Bushy fruit gets an even thinner lip.
+  const w = coverPx * (bushy ? 0.42 : seed ? 0.46 : 0.48);
+  const h = coverPx * (bushy ? 0.038 : seed ? 0.045 : 0.05);
+  const y = coverPx * (bushy ? 0.015 : 0.02);
+  // Opaque dirt band (not a dark transparent veil)
   g.ellipse(0, y, w, h);
-  g.fill({ color: 0x6b4423, alpha: seed ? 0.3 : 0.42 });
-  // Lighter soil crest catching the disc edge
-  g.ellipse(0, y - h * 0.28, w * 0.78, h * 0.55);
-  g.fill({ color: 0x8a5a32, alpha: seed ? 0.2 : 0.28 });
-  // Small darker clod accents (no glow)
-  g.ellipse(-w * 0.35, y + h * 0.05, w * 0.18, h * 0.35);
-  g.fill({ color: 0x2e1a0c, alpha: 0.22 });
-  g.ellipse(w * 0.32, y + h * 0.08, w * 0.16, h * 0.3);
-  g.fill({ color: 0x2e1a0c, alpha: 0.18 });
+  g.fill({ color: 0x4a2e14, alpha: 0.98 });
+  // Slightly lighter crest catching the mound
+  g.ellipse(0, y - h * 0.4, w * 0.78, h * 0.55);
+  g.fill({ color: 0x6b4423, alpha: 0.95 });
+  // Tiny clod accents at the contact corners — stay below fruit
+  g.ellipse(-w * 0.38, y + h * 0.15, w * 0.12, h * 0.55);
+  g.fill({ color: 0x3a2210, alpha: 0.92 });
+  g.ellipse(w * 0.36, y + h * 0.18, w * 0.1, h * 0.5);
+  g.fill({ color: 0x3a2210, alpha: 0.88 });
 }
+
+/** @deprecated use drawDirtLip — kept so older call sites rename cleanly. */
+export const drawSoilNest = drawDirtLip;
 
 /** Purple waiting aura sized to cover; caller places it behind the plant sprite. */
 export function drawWaitingAura(g: Graphics, coverPx: number, scale = 1): void {

@@ -25,8 +25,9 @@ import {
   approvalAuraOffsetY,
   cropSinkPx,
   drawContactShadow,
-  drawSoilNest,
+  drawDirtLip,
   drawWaitingAura,
+  shouldShowWaitingAura,
 } from "./plantedCropVisual";
 import { uvToLocal } from "./playfieldLayout";
 import { SignAvatarBadge, gardenZoomBadgeLocal } from "./signAvatar";
@@ -528,7 +529,7 @@ class PlotNode {
       },
     });
     this.label.anchor.set(0.5, 0);
-    // mound → aura (behind) → shadow → crop (sunk) → nest on feet → UI
+    // mound → aura (WAITING only, behind) → shadow → crop → thin dirt lip → UI
     this.root.addChild(
       this.glow,
       this.approvalAura,
@@ -566,7 +567,7 @@ class PlotNode {
     this.texScale = s;
     const { rx, ry } = GARDEN_ZOOM_LAYOUT.hit;
     this.coverPx = ZOOM_MOUND_COVER_PX * s;
-    if (this.stage) this.sinkPx = cropSinkPx(this.stage, this.coverPx);
+    if (this.stage) this.sinkPx = cropSinkPx(this.stage, this.coverPx, this.kind);
     this.applyPlantedSeat();
     this.glow.position.set(0, -this.coverPx * 0.22);
     this.glow.scale.set(2.2 * s);
@@ -578,17 +579,18 @@ class PlotNode {
     this.drawMoundMarker();
   }
 
-  /** Seat plant/shadow/nest/aura on disc pivot, sunk into the mound. */
+  /** Seat plant/shadow/dirt-lip/aura on disc pivot, slight nestle into mound. */
   private applyPlantedSeat() {
     const x = GARDEN_CROP_SEAT.x;
     const y = GARDEN_CROP_SEAT.y + this.sinkPx;
     this.plant.position.set(x, y);
+    // Shadow under disc (behind plant). Dirt lip on stem feet only (above plant).
     this.shadow.position.set(x, y);
     this.nest.position.set(x, y);
     this.approvalAura.position.set(x, y + approvalAuraOffsetY(this.coverPx));
     if (this.stage) {
       drawContactShadow(this.shadow, this.coverPx, this.stage);
-      drawSoilNest(this.nest, this.coverPx, this.stage);
+      drawDirtLip(this.nest, this.coverPx, this.stage, this.kind);
       drawWaitingAura(this.approvalAura, this.coverPx);
     }
   }
@@ -646,7 +648,7 @@ class PlotNode {
     this.kind = kind;
     this.stage = plot.growthStage;
     this.coverPx = ZOOM_MOUND_COVER_PX * this.texScale;
-    this.sinkPx = cropSinkPx(this.stage, this.coverPx);
+    this.sinkPx = cropSinkPx(this.stage, this.coverPx, kind);
     this.plant.texture = cropStageFrame(this.painted.crops, kind, plot.growthStage);
     const pivot = cropDiscAnchor(kind, plot.growthStage);
     this.plant.anchor.set(pivot.x, pivot.y);
@@ -662,7 +664,8 @@ class PlotNode {
     const awaiting = Boolean(plot.awaitingApproval) || plot.state === "purgatory";
     this.plant.tint = wilted ? 0x8a8a8a : awaiting ? 0xe8d7ff : 0xffffff;
     this.plant.alpha = wilted ? 0.72 : 1;
-    this.approvalAura.visible = awaiting && !wilted;
+    // Purple aura only for WAITING / pending approval — never ring plain READY harvestables.
+    this.approvalAura.visible = shouldShowWaitingAura(awaiting, Boolean(wilted));
     if (wilted) this.label.text = "WILTED";
     else if (awaiting && plot.ready) this.label.text = "WAITING";
     else if (plot.ready) this.label.text = "READY";
