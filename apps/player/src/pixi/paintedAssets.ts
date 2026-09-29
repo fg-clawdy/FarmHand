@@ -256,11 +256,11 @@ export function cropPlantedFrame(
   kind: CropKind,
   stage: 1 | 2 | 3 | 4,
 ): Texture {
-  const key = `planted:${kind}:${stage}`;
+  const key = `planted:v2:${kind}:${stage}`;
   const hit = plantedFrameCache.get(key);
   if (hit) return hit;
   const hard = cropFoliageFrame(crops, kind, stage, 4, PLANTED_DISC_HIDE_FRAC);
-  const faded = softFadeTextureFoot(hard, 0.38);
+  const faded = softFadeTextureFoot(hard, 0.55);
   plantedFrameCache.set(key, faded);
   return faded;
 }
@@ -305,60 +305,61 @@ function cropBerryWindowFrame(
 }
 
 /**
- * Soft-alpha the bottom band and lerp RGB toward mound umber so the clip edge
- * dissolves into dirt instead of a hard green/red scissor bar.
+ * Canvas-only elliptical soft-alpha dissolve at the stem foot.
+ * Alpha → 0 so the mound shows through — never RGB umber veils / Graphics mattes.
  */
 function softFadeTextureFoot(tex: Texture, fadeFrac: number): Texture {
   if (tex === Texture.EMPTY || !tex.source) return tex;
   const frame = tex.frame;
-  const fadePx = Math.max(20, Math.round(frame.height * fadeFrac));
-  const solidH = Math.max(8, Math.round(frame.height - fadePx));
+  const w = Math.max(1, Math.round(frame.width));
+  const h = Math.max(1, Math.round(frame.height));
+  const fadePx = Math.max(24, Math.round(h * fadeFrac));
   if (typeof document === "undefined") return tex;
   const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(frame.width));
-  canvas.height = Math.max(1, Math.round(frame.height));
+  canvas.width = w;
+  canvas.height = h;
   const ctx = canvas.getContext("2d");
   if (!ctx) return tex;
   const image = (tex.source as { resource?: CanvasImageSource }).resource;
   if (!image) return tex;
   try {
-    ctx.drawImage(
-      image,
-      frame.x,
-      frame.y,
-      frame.width,
-      frame.height,
-      0,
-      0,
-      frame.width,
-      frame.height,
-    );
+    ctx.drawImage(image, frame.x, frame.y, frame.width, frame.height, 0, 0, w, h);
   } catch {
     return tex;
   }
-  // Mound-matched umber (painted zoom dirt), not the dark sheet cookie.
-  const MR = 0x8a;
-  const MG = 0x5a;
-  const MB = 0x32;
-  const img = ctx.getImageData(0, solidH, canvas.width, fadePx);
+  const img = ctx.getImageData(0, 0, w, h);
   const data = img.data;
-  for (let y = 0; y < fadePx; y++) {
-    const t = (y + 1) / (fadePx + 1); // 0 at top of fade → 1 at foot
-    const aMul = Math.pow(1 - t, 2.1); // dissolve faster near the foot
-    const umberMix = t * t; // ramp color into mound umber
-    for (let x = 0; x < canvas.width; x++) {
-      const i = (y * canvas.width + x) * 4;
+  const cx = (w - 1) * 0.5;
+  const rx = Math.max(1, w * 0.55);
+  const ry = Math.max(1, fadePx);
+  // Ellipse center sits fadePx above the bottom; lower hemisphere dissolves to alpha 0.
+  const cy = h - 1 - ry;
+  for (let y = 0; y < h; y++) {
+    const dy = (y - cy) / ry;
+    if (dy < 0) continue; // above fade ellipse
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
       const a = data[i + 3]!;
       if (a < 1) continue;
-      data[i] = Math.round(data[i]! * (1 - umberMix) + MR * umberMix);
-      data[i + 1] = Math.round(data[i + 1]! * (1 - umberMix) + MG * umberMix);
-      data[i + 2] = Math.round(data[i + 2]! * (1 - umberMix) + MB * umberMix);
+      const dx = (x - cx) / rx;
+      // Elliptical radius from fade center; smoothstep to transparent at the foot.
+      const r = Math.sqrt(dx * dx + dy * dy);
+      // Keep center of foliage; dissolve as we approach / pass the elliptical foot.
+      let t = (r - 0.12) / 0.88;
+      if (t <= 0) continue;
+      if (t > 1) t = 1;
+      // Smoothstep then ease — no hard scissor, no color tint.
+      const s = t * t * (3 - 2 * t);
+      let aMul = Math.pow(1 - s, 1.85);
+      // Guarantee the clipped bottom edge is fully gone (mound shows through).
+      if (dy >= 0.88) aMul = 0;
       data[i + 3] = Math.round(a * aMul);
     }
   }
-  ctx.putImageData(img, 0, solidH);
+  ctx.putImageData(img, 0, 0);
   return Texture.from(canvas);
 }
+
 
 export function cropDisc(kind: CropKind, stage: 1 | 2 | 3 | 4): Disc | undefined {
   return CROP_DISC_IN_CELL[kind]?.[stage - 1];

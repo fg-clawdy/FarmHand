@@ -18,7 +18,6 @@ import {
   cropSinkPx,
   drawContactShadow,
   drawDirtLip,
-  drawFootMatte,
   drawWaitingAura,
   shouldShowWaitingAura,
   plantedDiscTint,
@@ -514,16 +513,14 @@ class GardenHotspot {
       nest.position.set(x, y);
       aura.position.set(x, y + approvalAuraOffsetY(FARM_MOUND_COVER_PX));
       drawContactShadow(shadow, FARM_MOUND_COVER_PX, stage);
-      drawDirtLip(nest, FARM_MOUND_COVER_PX, stage, kind); // no-op clear of lip
-      drawFootMatte(nest, FARM_MOUND_COVER_PX, stage);
+      drawDirtLip(nest, FARM_MOUND_COVER_PX, stage, kind); // no-op clear
       drawWaitingAura(aura, FARM_MOUND_COVER_PX, 0.95);
-      // Soft umber fade handles the foot — hard Graphics mask scissors it.
+      // Canvas elliptical soft-alpha only — no Graphics matte / foot mask.
       spr.mask = null;
       this.plantMasks[slot]!.visible = false;
-      nest.visible = true;
       spr.visible = true;
       shadow.visible = true;
-      nest.visible = false; // dirt-lip Graphics disabled
+      nest.visible = false;
       const wilted = plot.state === "wilted" || Boolean(plot.greyed);
       const awaiting = Boolean(plot.awaitingApproval) || plot.state === "purgatory";
       spr.tint = plantedDiscTint(wilted, awaiting);

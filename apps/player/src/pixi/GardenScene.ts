@@ -27,7 +27,6 @@ import {
   cropSinkPx,
   drawContactShadow,
   drawDirtLip,
-  drawFootMatte,
   drawWaitingAura,
   shouldShowWaitingAura,
   plantedDiscTint,
@@ -593,14 +592,13 @@ class PlotNode {
     // Soft contact shadow under stem feet — no opaque dirt-lip cookie.
     this.shadow.position.set(x, y);
     this.nest.position.set(x, y);
-    this.nest.visible = Boolean(this.stage);
+    this.nest.visible = false;
     this.approvalAura.position.set(x, y + approvalAuraOffsetY(this.coverPx));
     if (this.stage) {
       drawContactShadow(this.shadow, this.coverPx, this.stage);
-      drawDirtLip(this.nest, this.coverPx, this.stage, this.kind); // no-op clear of lip
-      drawFootMatte(this.nest, this.coverPx, this.stage); // soft umber veil over feet
+      drawDirtLip(this.nest, this.coverPx, this.stage, this.kind); // no-op clear
       drawWaitingAura(this.approvalAura, this.coverPx);
-      // No Graphics foot mask — hard mask edges undo the soft umber fade.
+      // Canvas elliptical soft-alpha only — no Graphics matte / foot mask.
       this.plant.mask = null;
       this.plantMask.visible = false;
     }
@@ -671,7 +669,7 @@ class PlotNode {
     this.plant.visible = true;
     this.plantMask.visible = true;
     this.shadow.visible = true;
-    this.nest.visible = true; // soft foot matte (not dirt-lip cookie)
+    this.nest.visible = false;
     this.label.visible = true;
     this.label.position.set(0, this.coverPx * 0.34 + this.sinkPx);
     const wilted = plot.state === "wilted" || plot.greyed;
@@ -836,14 +834,15 @@ function basketNestBoost(kind: CropKind) {
       return { yLift: 8, scaleMul: 1.22, zBias: 0 };
     case "strawberry":
     case "tomato":
-      // Berry-window: bury deeper so leaf tips stay behind rimFront / pocket.
-      return { yLift: 2, scaleMul: 0.74, zBias: 0 };
+      // Lift so red fruit reads; pocket + rimFront keep tips off the weave.
+      return { yLift: 18, scaleMul: 0.86, zBias: 0 };
     case "cotton":
       return { yLift: 10, scaleMul: 1.18, zBias: 0 };
     case "sunflower":
       return { yLift: 0, scaleMul: 1.0, zBias: 0 };
     case "corn":
-      return { yLift: -4, scaleMul: 0.95, zBias: 1 };
+      // Seat further back / smaller so husk leaves don't ride the front weave.
+      return { yLift: -10, scaleMul: 0.82, zBias: 2 };
     default:
       return { yLift: 0, scaleMul: 1.0, zBias: 0 };
   }
@@ -862,12 +861,12 @@ function basketSeat(index: number, total: number, kind: CropKind = "corn") {
   // Wide shallow tray — spread produce across the bowl; keep tall tops peeking over the rim.
   // Short crops get a bit more lateral room so they are not stacked under tall stems.
   // Pumpkin (low) stays centered — wide spread was hanging fruit off the rim.
-  const spread = pose === "tall" ? 36 : pose === "low" ? 26 : 42;
+  const spread = pose === "tall" ? 30 : pose === "low" ? 28 : 42;
   const x = (col - (cols - 1) / 2) * spread + ((row % 2) * 4 - 2);
   // Anchor is bottom of sprite. Higher y = deeper in the tray (behind front rim).
-  const yBase = pose === "tall" ? 4 : pose === "low" ? 36 : 10;
-  const y = yBase - boost.yLift - row * (pose === "tall" ? 10 : 8) + (rows - 1) * 2;
-  const scaleBase = pose === "tall" ? 0.34 : pose === "low" ? 0.26 : 0.36;
+  const yBase = pose === "tall" ? 0 : pose === "low" ? 22 : 10;
+  const y = yBase - boost.yLift - row * (pose === "tall" ? 12 : 8) + (rows - 1) * 2;
+  const scaleBase = pose === "tall" ? 0.3 : pose === "low" ? 0.3 : 0.36;
   const scale = (scaleBase - row * 0.025) * boost.scaleMul;
   const rot = ((i * 17) % 11 - 5) * 0.025;
   // Back rows (higher row) draw behind; tall crops also prefer back so they tower over mid/low.
@@ -988,11 +987,11 @@ class HarvestBasket {
     g.clear();
     // Wide shallow-tray chimney: clips buried bottoms into the weave, never haircuts tops.
     // Bottom sits above the outer weave edge so berries can't poke under the basket.
-    // Pocket stays inside the bowl — floor above front weave so tips can't ride it.
-    g.moveTo(-88, -300);
-    g.lineTo(88, -300);
-    g.lineTo(94, -18);
-    g.quadraticCurveTo(0, 0, -94, -18);
+    // Inside-bowl pocket: floor clears front weave; chimney keeps berry tops.
+    g.moveTo(-92, -300);
+    g.lineTo(92, -300);
+    g.lineTo(100, -12);
+    g.quadraticCurveTo(0, 8, -100, -12);
     g.closePath();
     g.fill({ color: 0xffffff });
   }

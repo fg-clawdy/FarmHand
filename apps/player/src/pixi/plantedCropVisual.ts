@@ -5,9 +5,9 @@ import type { CropKind } from "@farmhand/shared";
  * Planted-crop seating on painted mounds.
  *
  * Crop stage sheets bake a speckled soil disc. Planted sprites use
- * `cropPlantedFrame` / `cropFoliageFrame` to clip that cookie off, pivot at
- * stem feet (anchor 0.5,1), and soft-sink into the mound. Soft mound-umber
- * contact shadow under the feet — never an opaque Graphics dirt-lip oval.
+ * `cropPlantedFrame` (disc clip + canvas elliptical soft-alpha foot) and pivot
+ * at stem feet (anchor 0.5,1). Soft low-alpha contact shadow behind the plant —
+ * never Graphics dirt-lip / foot-matte veils on the foliage.
  *
  * Layer order (per mound): aura (WAITING only, behind) → shadow → crop.
  * Nest Graphics may still exist at call sites but stays cleared + hidden.
@@ -17,11 +17,10 @@ const BUSHY_FRUIT: ReadonlySet<CropKind> = new Set(["strawberry", "pumpkin", "to
 const TALL_THIN: ReadonlySet<CropKind> = new Set(["sunflower", "cotton", "corn"]);
 
 export const CROP_SINK_FRAC = {
-  // Foliage-clipped frames pivot at stem feet — sink enough that the soft foot
-  // edge nests under the mound crown (no floating sticker / hard bar on top).
-  bushy: { seed: 0.1, grow: 0.13, ripe: 0.17 },
-  tall: { seed: 0.12, grow: 0.16, ripe: 0.2 },
-  mid: { seed: 0.11, grow: 0.14, ripe: 0.18 },
+  // Soft-alpha foot dissolves into mound — modest sink, no sticker float.
+  bushy: { seed: 0.08, grow: 0.11, ripe: 0.14 },
+  tall: { seed: 0.1, grow: 0.14, ripe: 0.17 },
+  mid: { seed: 0.09, grow: 0.12, ripe: 0.15 },
 } as const;
 
 export type CropSilhouette = "bushy" | "tall" | "mid";
@@ -61,53 +60,24 @@ export function plantedDiscTint(wilted: boolean, awaiting: boolean): number {
 
 export function drawContactShadow(g: Graphics, coverPx: number, stage: 1 | 2 | 3 | 4): void {
   g.clear();
-  // Soft low-alpha umber under stem feet only — must not read as a second dirt plate.
+  // Very soft low-alpha umber behind the plant only — grounds feet, not a dirt plate.
   const seed = stage === 1;
-  const haloA = seed ? 0.04 : 0.07;
-  const coreA = seed ? 0.06 : 0.1;
-  g.ellipse(0, coverPx * 0.02, coverPx * 0.32, coverPx * 0.11);
+  const haloA = seed ? 0.03 : 0.05;
+  const coreA = seed ? 0.04 : 0.07;
+  g.ellipse(0, coverPx * 0.02, coverPx * 0.28, coverPx * 0.09);
   g.fill({ color: 0x6b4423, alpha: haloA });
-  g.ellipse(0, coverPx * 0.01, coverPx * 0.18, coverPx * 0.06);
+  g.ellipse(0, coverPx * 0.01, coverPx * 0.16, coverPx * 0.05);
   g.fill({ color: 0x8a5a32, alpha: coreA });
 }
 
-
-/**
- * Elliptical foot mask for bottom-anchored foliage frames (anchor 0.5,1).
- * Local space: (0,0) = stem feet. Soft mound-shaped cutoff — no hard scissor bar.
- * Caller: plant.addChild(mask); plant.mask = mask;
- */
-export function drawPlantedFootMask(g: Graphics, frameW: number, frameH: number): void {
+/** @deprecated unused — hard Graphics masks scissors soft canvas fades. */
+export function drawPlantedFootMask(g: Graphics, _frameW: number, _frameH: number): void {
   g.clear();
-  const halfW = frameW * 0.58;
-  const top = -frameH * 1.2;
-  // Round the foot well above the hard clip so corners dissolve into the mound.
-  const footY = -frameH * 0.1;
-  g.moveTo(-halfW, top);
-  g.lineTo(halfW, top);
-  g.lineTo(halfW * 1.08, footY - frameH * 0.06);
-  g.quadraticCurveTo(0, footY + frameH * 0.16, -halfW * 1.08, footY - frameH * 0.06);
-  g.closePath();
-  g.fill({ color: 0xffffff });
 }
 
-/**
- * Soft mound-umber veil over stem feet (drawn above the plant). Blends residual
- * clip edge into the mound — low alpha, flat, never an opaque speckled cookie.
- */
-export function drawFootMatte(g: Graphics, coverPx: number, stage: 1 | 2 | 3 | 4): void {
+/** @deprecated removed — flat umber veils painted a tan band on leaves. */
+export function drawFootMatte(g: Graphics, _coverPx: number, _stage: 1 | 2 | 3 | 4): void {
   g.clear();
-  const seed = stage === 1;
-  const haloA = seed ? 0.1 : 0.15;
-  const midA = seed ? 0.12 : 0.2;
-  const tipA = seed ? 0.08 : 0.12;
-  // Flat soft band across the clip — not a round dirt plate.
-  g.ellipse(0, -coverPx * 0.02, coverPx * 0.44, coverPx * 0.11);
-  g.fill({ color: 0x7a5230, alpha: haloA });
-  g.ellipse(0, -coverPx * 0.045, coverPx * 0.3, coverPx * 0.08);
-  g.fill({ color: 0x8a5a32, alpha: midA });
-  g.ellipse(0, -coverPx * 0.065, coverPx * 0.16, coverPx * 0.045);
-  g.fill({ color: 0x9a6a3a, alpha: tipA });
 }
 
 export function drawDirtLip(
