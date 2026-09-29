@@ -19,9 +19,9 @@ const TALL_THIN: ReadonlySet<CropKind> = new Set(["sunflower", "cotton", "corn"]
 export const CROP_SINK_FRAC = {
   // Foliage-clipped frames pivot at stem feet — sink enough that the soft foot
   // edge nests under the mound crown (no floating sticker / hard bar on top).
-  bushy: { seed: 0.08, grow: 0.11, ripe: 0.14 },
-  tall: { seed: 0.1, grow: 0.14, ripe: 0.17 },
-  mid: { seed: 0.09, grow: 0.12, ripe: 0.15 },
+  bushy: { seed: 0.1, grow: 0.13, ripe: 0.17 },
+  tall: { seed: 0.12, grow: 0.16, ripe: 0.2 },
+  mid: { seed: 0.11, grow: 0.14, ripe: 0.18 },
 } as const;
 
 export type CropSilhouette = "bushy" | "tall" | "mid";
@@ -79,16 +79,35 @@ export function drawContactShadow(g: Graphics, coverPx: number, stage: 1 | 2 | 3
  */
 export function drawPlantedFootMask(g: Graphics, frameW: number, frameH: number): void {
   g.clear();
-  const halfW = frameW * 0.55;
-  const top = -frameH * 1.15;
-  // Keep the very bottom tips; round the cut so it follows the mound crown.
-  const footY = -frameH * 0.015;
+  const halfW = frameW * 0.58;
+  const top = -frameH * 1.2;
+  // Round the foot well above the hard clip so corners dissolve into the mound.
+  const footY = -frameH * 0.1;
   g.moveTo(-halfW, top);
   g.lineTo(halfW, top);
-  g.lineTo(halfW * 1.06, footY - frameH * 0.05);
-  g.quadraticCurveTo(0, footY + frameH * 0.1, -halfW * 1.06, footY - frameH * 0.05);
+  g.lineTo(halfW * 1.08, footY - frameH * 0.06);
+  g.quadraticCurveTo(0, footY + frameH * 0.16, -halfW * 1.08, footY - frameH * 0.06);
   g.closePath();
   g.fill({ color: 0xffffff });
+}
+
+/**
+ * Soft mound-umber veil over stem feet (drawn above the plant). Blends residual
+ * clip edge into the mound — low alpha, flat, never an opaque speckled cookie.
+ */
+export function drawFootMatte(g: Graphics, coverPx: number, stage: 1 | 2 | 3 | 4): void {
+  g.clear();
+  const seed = stage === 1;
+  const haloA = seed ? 0.08 : 0.12;
+  const midA = seed ? 0.1 : 0.16;
+  const tipA = seed ? 0.06 : 0.1;
+  // Flat soft band across the clip — not a round dirt plate.
+  g.ellipse(0, -coverPx * 0.03, coverPx * 0.4, coverPx * 0.1);
+  g.fill({ color: 0x7a5230, alpha: haloA });
+  g.ellipse(0, -coverPx * 0.05, coverPx * 0.26, coverPx * 0.07);
+  g.fill({ color: 0x8a5a32, alpha: midA });
+  g.ellipse(0, -coverPx * 0.07, coverPx * 0.14, coverPx * 0.04);
+  g.fill({ color: 0x9a6a3a, alpha: tipA });
 }
 
 export function drawDirtLip(

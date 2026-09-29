@@ -27,6 +27,7 @@ import {
   cropSinkPx,
   drawContactShadow,
   drawDirtLip,
+  drawFootMatte,
   drawWaitingAura,
   shouldShowWaitingAura,
   plantedDiscTint,
@@ -593,11 +594,12 @@ class PlotNode {
     // Soft contact shadow under stem feet — no opaque dirt-lip cookie.
     this.shadow.position.set(x, y);
     this.nest.position.set(x, y);
-    this.nest.visible = false;
+    this.nest.visible = Boolean(this.stage);
     this.approvalAura.position.set(x, y + approvalAuraOffsetY(this.coverPx));
     if (this.stage) {
       drawContactShadow(this.shadow, this.coverPx, this.stage);
-      drawDirtLip(this.nest, this.coverPx, this.stage, this.kind); // no-op clear
+      drawDirtLip(this.nest, this.coverPx, this.stage, this.kind); // no-op clear of lip
+      drawFootMatte(this.nest, this.coverPx, this.stage); // soft umber veil over feet
       drawWaitingAura(this.approvalAura, this.coverPx);
       const fw = this.plant.texture.orig.width;
       const fh = this.plant.texture.orig.height;
@@ -672,7 +674,7 @@ class PlotNode {
     this.plant.visible = true;
     this.plantMask.visible = true;
     this.shadow.visible = true;
-    this.nest.visible = false; // dirt-lip Graphics disabled
+    this.nest.visible = true; // soft foot matte (not dirt-lip cookie)
     this.label.visible = true;
     this.label.position.set(0, this.coverPx * 0.34 + this.sinkPx);
     const wilted = plot.state === "wilted" || plot.greyed;
@@ -837,9 +839,8 @@ function basketNestBoost(kind: CropKind) {
       return { yLift: 8, scaleMul: 1.22, zBias: 0 };
     case "strawberry":
     case "tomato":
-      // Berry-window frames — lift so fruit peeks over the lip; scale keeps
-      // bottoms inside the pocket (no poke through front weave).
-      return { yLift: 16, scaleMul: 0.88, zBias: 0 };
+      // Berry-window: bury deeper so leaf tips stay behind rimFront / pocket.
+      return { yLift: 6, scaleMul: 0.8, zBias: 0 };
     case "cotton":
       return { yLift: 10, scaleMul: 1.18, zBias: 0 };
     case "sunflower":
@@ -863,12 +864,12 @@ function basketSeat(index: number, total: number, kind: CropKind = "corn") {
   // Wide shallow tray — spread produce across the bowl; keep tall tops peeking over the rim.
   // Short crops get a bit more lateral room so they are not stacked under tall stems.
   // Pumpkin (low) stays centered — wide spread was hanging fruit off the rim.
-  const spread = pose === "tall" ? 36 : pose === "low" ? 34 : 42;
-  const x = (col - (cols - 1) / 2) * spread + ((row % 2) * 6 - 3);
+  const spread = pose === "tall" ? 36 : pose === "low" ? 26 : 42;
+  const x = (col - (cols - 1) / 2) * spread + ((row % 2) * 4 - 2);
   // Anchor is bottom of sprite. Higher y = deeper in the tray (behind front rim).
-  const yBase = pose === "tall" ? 8 : pose === "low" ? 24 : 10;
+  const yBase = pose === "tall" ? 8 : pose === "low" ? 32 : 10;
   const y = yBase - boost.yLift - row * (pose === "tall" ? 8 : 10) + (rows - 1) * 2;
-  const scaleBase = pose === "tall" ? 0.36 : pose === "low" ? 0.32 : 0.36;
+  const scaleBase = pose === "tall" ? 0.36 : pose === "low" ? 0.28 : 0.36;
   const scale = (scaleBase - row * 0.025) * boost.scaleMul;
   const rot = ((i * 17) % 11 - 5) * 0.025;
   // Back rows (higher row) draw behind; tall crops also prefer back so they tower over mid/low.
@@ -989,10 +990,11 @@ class HarvestBasket {
     g.clear();
     // Wide shallow-tray chimney: clips buried bottoms into the weave, never haircuts tops.
     // Bottom sits above the outer weave edge so berries can't poke under the basket.
-    g.moveTo(-110, -300);
-    g.lineTo(110, -300);
-    g.lineTo(118, -2);
-    g.quadraticCurveTo(0, 22, -118, -2);
+    // Tighter left/right + higher floor so leaf tips can't ride the front weave.
+    g.moveTo(-96, -300);
+    g.lineTo(96, -300);
+    g.lineTo(102, -10);
+    g.quadraticCurveTo(0, 10, -102, -10);
     g.closePath();
     g.fill({ color: 0xffffff });
   }

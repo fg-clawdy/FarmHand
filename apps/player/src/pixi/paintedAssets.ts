@@ -260,7 +260,7 @@ export function cropPlantedFrame(
   const hit = plantedFrameCache.get(key);
   if (hit) return hit;
   const hard = cropFoliageFrame(crops, kind, stage, 4, PLANTED_DISC_HIDE_FRAC);
-  const faded = softFadeTextureFoot(hard, 0.18);
+  const faded = softFadeTextureFoot(hard, 0.32);
   plantedFrameCache.set(key, faded);
   return faded;
 }
@@ -304,11 +304,14 @@ function cropBerryWindowFrame(
   });
 }
 
-/** Soft-alpha the bottom band of a texture so stem feet blend into the mound. */
+/**
+ * Soft-alpha the bottom band and lerp RGB toward mound umber so the clip edge
+ * dissolves into dirt instead of a hard green/red scissor bar.
+ */
 function softFadeTextureFoot(tex: Texture, fadeFrac: number): Texture {
   if (tex === Texture.EMPTY || !tex.source) return tex;
   const frame = tex.frame;
-  const fadePx = Math.max(12, Math.round(frame.height * fadeFrac));
+  const fadePx = Math.max(20, Math.round(frame.height * fadeFrac));
   const solidH = Math.max(8, Math.round(frame.height - fadePx));
   if (typeof document === "undefined") return tex;
   const canvas = document.createElement("canvas");
@@ -333,13 +336,24 @@ function softFadeTextureFoot(tex: Texture, fadeFrac: number): Texture {
   } catch {
     return tex;
   }
+  // Mound-matched umber (painted zoom dirt), not the dark sheet cookie.
+  const MR = 0x8a;
+  const MG = 0x5a;
+  const MB = 0x32;
   const img = ctx.getImageData(0, solidH, canvas.width, fadePx);
   const data = img.data;
   for (let y = 0; y < fadePx; y++) {
-    const aMul = 1 - (y + 1) / (fadePx + 1);
+    const t = (y + 1) / (fadePx + 1); // 0 at top of fade → 1 at foot
+    const aMul = Math.pow(1 - t, 1.75); // dissolve faster near the foot
+    const umberMix = t * t; // ramp color into mound umber
     for (let x = 0; x < canvas.width; x++) {
-      const i = (y * canvas.width + x) * 4 + 3;
-      data[i] = Math.round(data[i]! * aMul);
+      const i = (y * canvas.width + x) * 4;
+      const a = data[i + 3]!;
+      if (a < 1) continue;
+      data[i] = Math.round(data[i]! * (1 - umberMix) + MR * umberMix);
+      data[i + 1] = Math.round(data[i + 1]! * (1 - umberMix) + MG * umberMix);
+      data[i + 2] = Math.round(data[i + 2]! * (1 - umberMix) + MB * umberMix);
+      data[i + 3] = Math.round(a * aMul);
     }
   }
   ctx.putImageData(img, 0, solidH);

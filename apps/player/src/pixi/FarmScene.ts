@@ -18,6 +18,7 @@ import {
   cropSinkPx,
   drawContactShadow,
   drawDirtLip,
+  drawFootMatte,
   drawWaitingAura,
   shouldShowWaitingAura,
   plantedDiscTint,
@@ -514,13 +515,15 @@ class GardenHotspot {
       nest.position.set(x, y);
       aura.position.set(x, y + approvalAuraOffsetY(FARM_MOUND_COVER_PX));
       drawContactShadow(shadow, FARM_MOUND_COVER_PX, stage);
-      drawDirtLip(nest, FARM_MOUND_COVER_PX, stage, kind); // no-op clear
+      drawDirtLip(nest, FARM_MOUND_COVER_PX, stage, kind); // no-op clear of lip
+      drawFootMatte(nest, FARM_MOUND_COVER_PX, stage);
       drawWaitingAura(aura, FARM_MOUND_COVER_PX, 0.95);
       const plantMask = this.plantMasks[slot]!;
       drawPlantedFootMask(plantMask, spr.texture.orig.width, spr.texture.orig.height);
       if (plantMask.parent !== spr) spr.addChild(plantMask);
       spr.mask = plantMask;
       plantMask.visible = true;
+      nest.visible = true;
       spr.visible = true;
       shadow.visible = true;
       nest.visible = false; // dirt-lip Graphics disabled
