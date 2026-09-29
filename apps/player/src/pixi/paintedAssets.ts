@@ -198,15 +198,24 @@ export function cropStageFrame(crops: Record<CropKind, Texture[]>, kind: CropKin
 
 /**
  * Measured CROP_DISC_IN_CELL diameters include fringe past the dark cookie.
- * Hide radius 0.40 cuts the speckled soil plate while keeping low fruit.
+ * Planted uses a steeper hide so the speckled plate is gone; picked keeps more
+ * low fruit for the basket (cookie tip is buried behind the rim / brim mask).
  */
 export const DISC_HIDE_RADIUS_FRAC = 0.4;
+/** Planted mound: cut deeper into the measured disc so no cookie fringe remains. */
+export const PLANTED_DISC_HIDE_FRAC = 0.5;
+/** Basket picked art: keep hanging berries; only shave the lower cookie. */
+export const PICKED_DISC_HIDE_FRAC = 0.28;
 
-/** Y in full cell space of the dark soil-cookie top (not the generous disc fringe). */
-export function cropDiscHideTopInCell(kind: CropKind, stage: 1 | 2 | 3 | 4): number | null {
+/** Y in full cell space of the soil-cookie hide line for the given frac. */
+export function cropDiscHideTopInCell(
+  kind: CropKind,
+  stage: 1 | 2 | 3 | 4,
+  hideFrac: number = DISC_HIDE_RADIUS_FRAC,
+): number | null {
   const disc = cropDisc(kind, stage);
   if (!disc) return null;
-  return disc.y - disc.d * DISC_HIDE_RADIUS_FRAC;
+  return disc.y - disc.d * hideFrac;
 }
 
 /**
@@ -218,10 +227,11 @@ export function cropFoliageFrame(
   kind: CropKind,
   stage: 1 | 2 | 3 | 4,
   stemPad = 4,
+  hideFrac: number = DISC_HIDE_RADIUS_FRAC,
 ): Texture {
   const full = cropStageFrame(crops, kind, stage);
   if (full === Texture.EMPTY || !full.source) return full;
-  const hideTop = cropDiscHideTopInCell(kind, stage);
+  const hideTop = cropDiscHideTopInCell(kind, stage, hideFrac);
   const frame = full.frame;
   if (hideTop == null) return full;
   const hideTopInFrame = hideTop - SHEET_INSET;
@@ -235,53 +245,67 @@ export function cropFoliageFrame(
   });
 }
 
+const plantedFrameCache = new Map<string, Texture>();
+
 /**
- * Planted mound crop: hide the baked soil cookie with a soft alpha fade into
- * the mound (no hard scissor bar, no Graphics dirt-lip oval).
+ * Planted mound crop: clip the baked soil cookie, then soft-fade the stem foot
+ * so the hard scissor bar blends into the mound (no Graphics dirt-lip oval).
  */
 export function cropPlantedFrame(
   crops: Record<CropKind, Texture[]>,
   kind: CropKind,
   stage: 1 | 2 | 3 | 4,
 ): Texture {
-  const full = cropStageFrame(crops, kind, stage);
-  if (full === Texture.EMPTY || !full.source) return full;
-  const hideTop = cropDiscHideTopInCell(kind, stage);
-  if (hideTop == null) return full;
-  const frame = full.frame;
-  const hideTopInFrame = hideTop - SHEET_INSET;
-  // Soft fade band just above the cookie so stem feet blend into the mound.
-  const fadePx = Math.max(18, Math.round((cropDisc(kind, stage)?.d ?? 280) * 0.08));
-  const solidH = Math.max(16, Math.round(hideTopInFrame - fadePx));
-  const totalH = Math.min(frame.height, solidH + fadePx);
-  if (typeof document === "undefined") {
-    // SSR / node tests — hard clip fallback.
-    return cropFoliageFrame(crops, kind, stage, fadePx);
-  }
+  const key = `planted:${kind}:${stage}`;
+  const hit = plantedFrameCache.get(key);
+  if (hit) return hit;
+  const hard = cropFoliageFrame(crops, kind, stage, 4, PLANTED_DISC_HIDE_FRAC);
+  const faded = softFadeTextureFoot(hard, 0.14);
+  plantedFrameCache.set(key, faded);
+  return faded;
+}
+
+const pickedFrameCache = new Map<string, Texture>();
+
+/** Ripe crop for the basket — keep hanging fruit; shave only the lower cookie. */
+export function cropPickedFrame(crops: Record<CropKind, Texture[]>, kind: CropKind): Texture {
+  const key = `picked:${kind}`;
+  const hit = pickedFrameCache.get(key);
+  if (hit) return hit;
+  const tex = cropFoliageFrame(crops, kind, 4, 2, PICKED_DISC_HIDE_FRAC);
+  pickedFrameCache.set(key, tex);
+  return tex;
+}
+
+/** Soft-alpha the bottom band of a texture so stem feet blend into the mound. */
+function softFadeTextureFoot(tex: Texture, fadeFrac: number): Texture {
+  if (tex === Texture.EMPTY || !tex.source) return tex;
+  const frame = tex.frame;
+  const fadePx = Math.max(12, Math.round(frame.height * fadeFrac));
+  const solidH = Math.max(8, Math.round(frame.height - fadePx));
+  if (typeof document === "undefined") return tex;
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(frame.width));
-  canvas.height = Math.max(1, totalH);
+  canvas.height = Math.max(1, Math.round(frame.height));
   const ctx = canvas.getContext("2d");
-  if (!ctx) return cropFoliageFrame(crops, kind, stage, fadePx);
-  // Pixi v8 ImageSource keeps the HTMLImageElement / ImageBitmap on `.resource`.
-  const image = (full.source as { resource?: CanvasImageSource }).resource;
-  if (!image) return cropFoliageFrame(crops, kind, stage, fadePx);
+  if (!ctx) return tex;
+  const image = (tex.source as { resource?: CanvasImageSource }).resource;
+  if (!image) return tex;
   try {
     ctx.drawImage(
       image,
       frame.x,
       frame.y,
       frame.width,
-      totalH,
+      frame.height,
       0,
       0,
       frame.width,
-      totalH,
+      frame.height,
     );
   } catch {
-    return cropFoliageFrame(crops, kind, stage, fadePx);
+    return tex;
   }
-  // Fade the bottom band to transparent — kills leftover cookie pixels + hard edge.
   const img = ctx.getImageData(0, solidH, canvas.width, fadePx);
   const data = img.data;
   for (let y = 0; y < fadePx; y++) {
@@ -292,16 +316,7 @@ export function cropPlantedFrame(
     }
   }
   ctx.putImageData(img, 0, solidH);
-  // Fully clear anything that would have been cookie below the fade.
   return Texture.from(canvas);
-}
-
-/**
- * Ripe crop with the soil disc cut off. Basket produce should sit in the
- * wicker, not arrive with its mound.
- */
-export function cropPickedFrame(crops: Record<CropKind, Texture[]>, kind: CropKind): Texture {
-  return cropFoliageFrame(crops, kind, 4, 4);
 }
 
 export function cropDisc(kind: CropKind, stage: 1 | 2 | 3 | 4): Disc | undefined {

@@ -19,6 +19,7 @@ import {
   cropDiscAnchor,
   cropPickedFrame,
   cropStageFrame,
+  cropPlantedFrame,
   type PaintedArt,
 } from "./paintedAssets";
 import {
@@ -29,7 +30,6 @@ import {
   drawWaitingAura,
   shouldShowWaitingAura,
   plantedDiscTint,
-  drawPlantedFoliageMask,
 } from "./plantedCropVisual";
 import { uvToLocal } from "./playfieldLayout";
 import { SignAvatarBadge, gardenZoomBadgeLocal } from "./signAvatar";
@@ -479,7 +479,6 @@ class PlotNode {
   private plant = new Sprite();
   private shadow: Graphics;
   private nest: Graphics;
-  private plantMask: Graphics;
   private marker: Graphics;
   private glow: Sprite;
   private approvalAura = new Graphics();
@@ -518,8 +517,6 @@ class PlotNode {
     this.nest = new Graphics();
     this.nest.visible = false;
     this.nest.eventMode = "none";
-    this.plantMask = new Graphics();
-    this.plantMask.eventMode = "none";
     this.marker = new Graphics();
     this.marker.visible = false;
     this.marker.eventMode = "none";
@@ -584,7 +581,7 @@ class PlotNode {
     this.drawMoundMarker();
   }
 
-  /** Seat plant/shadow/aura on disc pivot; foliage mask hides baked soil cookie. */
+  /** Seat plant/shadow/aura; foliage-clipped frame hides baked soil cookie. */
   private applyPlantedSeat() {
     const x = GARDEN_CROP_SEAT.x;
     const y = GARDEN_CROP_SEAT.y + this.sinkPx;
@@ -598,12 +595,7 @@ class PlotNode {
       drawContactShadow(this.shadow, this.coverPx, this.stage);
       drawDirtLip(this.nest, this.coverPx, this.stage, this.kind); // no-op clear
       drawWaitingAura(this.approvalAura, this.coverPx);
-      drawPlantedFoliageMask(this.plantMask, this.coverPx);
-      // Sibling mask in plot space (same seat as plant). Avoids Pixi self-child mask bugs.
-      this.plantMask.position.set(x, y);
-      this.plantMask.scale.set(1);
-      this.plantMask.visible = true;
-      this.plant.mask = this.plantMask;
+      this.plant.mask = null;
     }
   }
 
@@ -649,7 +641,6 @@ class PlotNode {
     if (empty || !plot.growthStage || !plot.tier) {
       this.plant.visible = false;
       this.plant.mask = null;
-      this.plantMask.visible = false;
       this.shadow.visible = false;
       this.nest.visible = false;
       this.label.visible = false;
@@ -663,10 +654,9 @@ class PlotNode {
     this.stage = plot.growthStage;
     this.coverPx = ZOOM_MOUND_COVER_PX * this.texScale;
     this.sinkPx = cropSinkPx(this.stage, this.coverPx, kind);
-    // Full stage frame + disc pivot; foliage mask hides the baked soil cookie.
-    this.plant.texture = cropStageFrame(this.painted.crops, kind, plot.growthStage);
-    const pivot = cropDiscAnchor(kind, plot.growthStage);
-    this.plant.anchor.set(pivot.x, pivot.y);
+    // Foliage-only frame clips the baked soil-disc cookie; pivot at stem feet.
+    this.plant.texture = cropPlantedFrame(this.painted.crops, kind, plot.growthStage);
+    this.plant.anchor.set(0.5, 1);
     this.cropScale = cropCoverScale(kind, plot.growthStage, this.coverPx);
     this.plant.scale.set(this.cropScale);
     this.applyPlantedSeat();
@@ -685,7 +675,6 @@ class PlotNode {
     else if (awaiting && plot.ready) this.label.text = "WAITING";
     else if (plot.ready) this.label.text = "READY";
     else this.label.text = formatCountdown(plot.remainingMs);
-    // Foliage mask is applied in applyPlantedSeat — do not clear it here.
   }
 
   beginPick() {
@@ -838,9 +827,9 @@ function basketNestBoost(kind: CropKind) {
       return { yLift: 8, scaleMul: 1.22, zBias: 0 };
     case "strawberry":
     case "tomato":
-      // Leaf-heavy picked frames — high behind front rim; small so bottoms stay
-      // inside the pocket (no poke through front weave).
-      return { yLift: 26, scaleMul: 0.92, zBias: 0 };
+      // Milder picked frames keep fruit; nest deep behind rimFront, small so
+      // bottoms stay inside the pocket (no poke through front weave).
+      return { yLift: 10, scaleMul: 0.78, zBias: 0 };
     case "cotton":
       return { yLift: 10, scaleMul: 1.18, zBias: 0 };
     case "sunflower":
@@ -867,9 +856,9 @@ function basketSeat(index: number, total: number, kind: CropKind = "corn") {
   const spread = pose === "tall" ? 36 : pose === "low" ? 34 : 42;
   const x = (col - (cols - 1) / 2) * spread + ((row % 2) * 6 - 3);
   // Anchor is bottom of sprite. Higher y = deeper in the tray (behind front rim).
-  const yBase = pose === "tall" ? 8 : pose === "low" ? 20 : 10;
+  const yBase = pose === "tall" ? 8 : pose === "low" ? 28 : 10;
   const y = yBase - boost.yLift - row * (pose === "tall" ? 8 : 10) + (rows - 1) * 2;
-  const scaleBase = pose === "tall" ? 0.36 : pose === "low" ? 0.34 : 0.36;
+  const scaleBase = pose === "tall" ? 0.36 : pose === "low" ? 0.3 : 0.36;
   const scale = (scaleBase - row * 0.025) * boost.scaleMul;
   const rot = ((i * 17) % 11 - 5) * 0.025;
   // Back rows (higher row) draw behind; tall crops also prefer back so they tower over mid/low.
@@ -990,10 +979,10 @@ class HarvestBasket {
     g.clear();
     // Wide shallow-tray chimney: clips buried bottoms into the weave, never haircuts tops.
     // Bottom sits above the outer weave edge so berries can't poke under the basket.
-    g.moveTo(-120, -300);
-    g.lineTo(120, -300);
-    g.lineTo(128, 8);
-    g.quadraticCurveTo(0, 36, -128, 8);
+    g.moveTo(-110, -300);
+    g.lineTo(110, -300);
+    g.lineTo(118, -2);
+    g.quadraticCurveTo(0, 22, -118, -2);
     g.closePath();
     g.fill({ color: 0xffffff });
   }
