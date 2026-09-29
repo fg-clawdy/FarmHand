@@ -28,6 +28,7 @@ import {
   drawDirtLip,
   drawWaitingAura,
   shouldShowWaitingAura,
+  plantedDiscTint,
 } from "./plantedCropVisual";
 import { uvToLocal } from "./playfieldLayout";
 import { SignAvatarBadge, gardenZoomBadgeLocal } from "./signAvatar";
@@ -663,7 +664,7 @@ class PlotNode {
     this.label.position.set(0, this.coverPx * 0.34 + this.sinkPx);
     const wilted = plot.state === "wilted" || plot.greyed;
     const awaiting = Boolean(plot.awaitingApproval) || plot.state === "purgatory";
-    this.plant.tint = wilted ? 0x8a8a8a : awaiting ? 0xe8d7ff : 0xffffff;
+    this.plant.tint = plantedDiscTint(Boolean(wilted), awaiting);
     this.plant.alpha = wilted ? 0.72 : 1;
     // Purple aura only for WAITING / pending approval — never ring plain READY harvestables.
     this.approvalAura.visible = shouldShowWaitingAura(awaiting, Boolean(wilted));
@@ -823,9 +824,9 @@ function basketNestBoost(kind: CropKind) {
       return { yLift: 8, scaleMul: 1.22, zBias: 0 };
     case "strawberry":
     case "tomato":
-      // Short picked frames — sit deeper behind front woven rim (higher y = deeper).
-      // Prior yLift 30 floated them on the lip; mild sink + modest scale nests in bowl.
-      return { yLift: -8, scaleMul: 1.28, zBias: 0 };
+      // Short picked frames — tuck behind front woven rim inside the bowl.
+      // Between lip-float (30) and under-weave (-8): slight sink past rim lip.
+      return { yLift: -3, scaleMul: 1.22, zBias: 0 };
     case "cotton":
       return { yLift: 10, scaleMul: 1.18, zBias: 0 };
     case "sunflower":

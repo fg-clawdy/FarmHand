@@ -21,6 +21,7 @@ import {
   drawDirtLip,
   drawWaitingAura,
   shouldShowWaitingAura,
+  plantedDiscTint,
 } from "./plantedCropVisual";
 import { SignAvatarBadge, farmSignBadgeLocal } from "./signAvatar";
 import {
@@ -513,7 +514,7 @@ class GardenHotspot {
       nest.visible = false; // dirt-lip Graphics disabled
       const wilted = plot.state === "wilted" || Boolean(plot.greyed);
       const awaiting = Boolean(plot.awaitingApproval) || plot.state === "purgatory";
-      spr.tint = wilted ? 0x8a8a8a : awaiting ? 0xe8d7ff : 0xffffff;
+      spr.tint = plantedDiscTint(wilted, awaiting);
       // Purple aura only for WAITING / pending approval — never ring plain READY.
       aura.visible = shouldShowWaitingAura(awaiting, wilted);
     });

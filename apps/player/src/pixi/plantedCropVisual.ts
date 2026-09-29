@@ -25,7 +25,7 @@ const TALL_THIN: ReadonlySet<CropKind> = new Set(["sunflower", "cotton", "corn"]
  * Modest — soft seat without burying ripe fruit.
  */
 export const CROP_SINK_FRAC = {
-  bushy: { seed: 0.045, grow: 0.055, ripe: 0.065 },
+  bushy: { seed: 0.055, grow: 0.07, ripe: 0.09 },
   tall: { seed: 0.085, grow: 0.12, ripe: 0.135 },
   mid: { seed: 0.06, grow: 0.085, ripe: 0.1 },
 } as const;
@@ -62,6 +62,17 @@ export function shouldShowWaitingAura(awaitingApproval: boolean, wilted: boolean
 }
 
 /**
+ * Soft warm tint for painted sheet discs so darker soil plates read closer to lit
+ * mound dirt (not a second Graphics cookie). Wilted/waiting keep their own tints.
+ */
+export function plantedDiscTint(wilted: boolean, awaiting: boolean): number {
+  if (wilted) return 0x8a8a8a;
+  if (awaiting) return 0xe8d7ff;
+  // Warm mound-leaning multiply — softens chocolate-chip disc vs lit soil.
+  return 0xe6c49a;
+}
+
+/**
  * Soft oval UNDER the disc (drawn behind the plant). Mound-matched umber,
  * soft edges, low alpha — grounds the disc without a second dark dirt plate.
  * Never over fruit pixels.
@@ -70,14 +81,15 @@ export function drawContactShadow(g: Graphics, coverPx: number, stage: 1 | 2 | 3
   g.clear();
   const seed = stage === 1;
   // Low-alpha mound umbers — soft falloff, no near-black cookie oval.
-  const haloA = seed ? 0.05 : 0.09;
-  const midA = seed ? 0.08 : 0.14;
-  const coreA = seed ? 0.1 : 0.18;
-  g.ellipse(0, coverPx * 0.07, coverPx * 0.56, coverPx * 0.24);
+  const haloA = seed ? 0.06 : 0.11;
+  const midA = seed ? 0.1 : 0.16;
+  const coreA = seed ? 0.12 : 0.2;
+  // Wider soft falloff so painted disc edge blends into lit mound without a second plate.
+  g.ellipse(0, coverPx * 0.08, coverPx * 0.64, coverPx * 0.28);
   g.fill({ color: 0x6b4423, alpha: haloA });
-  g.ellipse(0, coverPx * 0.05, coverPx * 0.4, coverPx * 0.16);
+  g.ellipse(0, coverPx * 0.055, coverPx * 0.46, coverPx * 0.18);
   g.fill({ color: 0x7a5230, alpha: midA });
-  g.ellipse(0, coverPx * 0.035, coverPx * 0.24, coverPx * 0.09);
+  g.ellipse(0, coverPx * 0.04, coverPx * 0.28, coverPx * 0.1);
   g.fill({ color: 0x8a5a32, alpha: coreA });
 }
 
