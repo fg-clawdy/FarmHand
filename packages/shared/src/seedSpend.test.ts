@@ -75,3 +75,47 @@ describe("parentNotifyGate", () => {
     assert.equal(parentNotifyGate(last, now).allowed, true);
   });
 });
+
+describe("planSeedSpend integrity", () => {
+  it("rejects non-finite or negative balances and costs", () => {
+    assert.throws(() => planSeedSpend(-1, 0, 1), /Invalid confirmed/);
+    assert.throws(() => planSeedSpend(0, -1, 1), /Invalid provisional/);
+    assert.throws(() => planSeedSpend(1, 1, -1), /Invalid seed cost/);
+    assert.throws(() => planSeedSpend(1, 1, Number.NaN), /Invalid seed cost/);
+  });
+
+  it("never spends more than the requested cost or available total", () => {
+    const plan = planSeedSpend(2, 5, 4);
+    assert.equal(plan.confirmedUsed + plan.provisionalUsed, 4);
+    assert.ok(plan.confirmedUsed <= 2);
+    assert.ok(plan.provisionalUsed <= 5);
+    assert.throws(() => planSeedSpend(2, 5, 8), /Not enough seeds/);
+  });
+
+  it("zero-cost plan spends nothing", () => {
+    assert.deepEqual(planSeedSpend(3, 4, 0), { confirmedUsed: 0, provisionalUsed: 0 });
+  });
+});
+
+describe("allocateProvisionalFromClaims integrity", () => {
+  it("never allocates more than available or requested", () => {
+    const links = allocateProvisionalFromClaims(
+      [
+        { id: "a", seedsGranted: 3, seedsPlanted: 1 },
+        { id: "b", seedsGranted: 2, seedsPlanted: 0 },
+      ],
+      3,
+    );
+    const used = links.reduce((n, row) => n + row.seedsUsed, 0);
+    assert.equal(used, 3);
+    assert.ok(links.every((row) => row.seedsUsed > 0));
+    assert.throws(
+      () =>
+        allocateProvisionalFromClaims(
+          [{ id: "a", seedsGranted: 2, seedsPlanted: 2 }],
+          1,
+        ),
+      /No pending chore claim/,
+    );
+  });
+});
