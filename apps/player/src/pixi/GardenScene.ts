@@ -19,6 +19,7 @@ import {
   cropDiscAnchor,
   cropPickedFrame,
   cropStageFrame,
+  cropPlantedFrame,
   type PaintedArt,
 } from "./paintedAssets";
 import {
@@ -651,9 +652,9 @@ class PlotNode {
     this.stage = plot.growthStage;
     this.coverPx = ZOOM_MOUND_COVER_PX * this.texScale;
     this.sinkPx = cropSinkPx(this.stage, this.coverPx, kind);
-    this.plant.texture = cropStageFrame(this.painted.crops, kind, plot.growthStage);
-    const pivot = cropDiscAnchor(kind, plot.growthStage);
-    this.plant.anchor.set(pivot.x, pivot.y);
+    // Foliage-only frame hides the baked soil-disc cookie; pivot at stem feet.
+    this.plant.texture = cropPlantedFrame(this.painted.crops, kind, plot.growthStage);
+    this.plant.anchor.set(0.5, 1);
     this.cropScale = cropCoverScale(kind, plot.growthStage, this.coverPx);
     this.plant.scale.set(this.cropScale);
     this.applyPlantedSeat();
@@ -824,9 +825,9 @@ function basketNestBoost(kind: CropKind) {
       return { yLift: 8, scaleMul: 1.22, zBias: 0 };
     case "strawberry":
     case "tomato":
-      // Short picked frames — tuck behind front woven rim inside the bowl.
-      // Between lip-float (30) and under-weave (-8): slight sink past rim lip.
-      return { yLift: -3, scaleMul: 1.22, zBias: 0 };
+      // Short foliage frames — nest behind front rim; keep bottoms inside mask.
+      // yLift -3 clipped under weave; 30 floated on lip. Modest lift + scale.
+      return { yLift: 10, scaleMul: 1.15, zBias: 0 };
     case "cotton":
       return { yLift: 10, scaleMul: 1.18, zBias: 0 };
     case "sunflower":
@@ -975,10 +976,11 @@ class HarvestBasket {
     const g = this.brim;
     g.clear();
     // Wide shallow-tray chimney: clips buried bottoms into the weave, never haircuts tops.
+    // Bottom sits above the outer weave edge so berries can't poke under the basket.
     g.moveTo(-130, -300);
     g.lineTo(130, -300);
-    g.lineTo(148, 30);
-    g.quadraticCurveTo(0, 72, -148, 30);
+    g.lineTo(140, 18);
+    g.quadraticCurveTo(0, 48, -140, 18);
     g.closePath();
     g.fill({ color: 0xffffff });
   }

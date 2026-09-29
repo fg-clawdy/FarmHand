@@ -10,8 +10,7 @@ import { CorkboardHotspot, type WantedJob } from "./jobBoard";
 import {
   FARM_MOUND_COVER_PX,
   cropCoverScale,
-  cropDiscAnchor,
-  cropStageFrame,
+  cropPlantedFrame,
   type PaintedArt,
 } from "./paintedAssets";
 import {
@@ -492,9 +491,9 @@ class GardenHotspot {
       const kind = cropKindForTier(plot.tier);
       this.stages[slot] = stage;
       this.kinds[slot] = kind;
-      spr.texture = cropStageFrame(this.painted.crops, kind, stage);
-      const pivot = cropDiscAnchor(kind, stage);
-      spr.anchor.set(pivot.x, pivot.y);
+      // Foliage-only frame hides the baked soil-disc cookie; pivot at stem feet.
+      spr.texture = cropPlantedFrame(this.painted.crops, kind, stage);
+      spr.anchor.set(0.5, 1);
       this.cropScale = cropCoverScale(kind, stage, FARM_MOUND_COVER_PX);
       spr.scale.set(this.cropScale);
       const uv = moundUv(this.spec, slot);

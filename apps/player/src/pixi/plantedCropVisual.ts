@@ -4,30 +4,29 @@ import type { CropKind } from "@farmhand/shared";
 /**
  * Planted-crop seating on painted mounds.
  *
- * Crop sheets are plant + soil disc as one unit; pivot is the disc center
- * (`cropDiscAnchor` / `CROP_DISC_IN_CELL`). Trust the painted disc — nestle
- * into the mound with a soft mound-umber contact shadow UNDER the disc only.
- * Do NOT draw an opaque speckled dirt-lip / nest oval (reads as chocolate-chip
- * cookie plate under the sticker). Soft sink is OK; never veil fruit.
+ * Crop stage sheets bake a speckled soil disc under the plant. Planted sprites
+ * use `cropPlantedFrame` to clip that cookie off so foliage+stem roots into the
+ * mound. Pivot is stem feet (anchor 0.5,1). Soft mound-umber contact shadow
+ * under the feet only — never an opaque Graphics dirt-lip oval.
  *
  * Layer order (per mound): aura (WAITING only, behind) → shadow → crop.
  * Nest Graphics may still exist at call sites but stays cleared + hidden.
  */
 
-/** Bushy fruit sits low on the disc — modest sink so berries/pumpkin stay bright. */
+/** Bushy fruit sits low — modest sink so berries/pumpkin stay bright. */
 const BUSHY_FRUIT: ReadonlySet<CropKind> = new Set(["strawberry", "pumpkin", "tomato"]);
 
 /** Tall thin crops can nestle a bit more without hiding the fruit/flower. */
 const TALL_THIN: ReadonlySet<CropKind> = new Set(["sunflower", "cotton", "corn"]);
 
 /**
- * Fraction of on-screen disc cover to sink the disc center into the mound.
+ * Fraction of on-screen disc cover to sink stem feet into the mound.
  * Modest — soft seat without burying ripe fruit.
  */
 export const CROP_SINK_FRAC = {
-  bushy: { seed: 0.055, grow: 0.07, ripe: 0.09 },
-  tall: { seed: 0.085, grow: 0.12, ripe: 0.135 },
-  mid: { seed: 0.06, grow: 0.085, ripe: 0.1 },
+  bushy: { seed: 0.04, grow: 0.05, ripe: 0.06 },
+  tall: { seed: 0.06, grow: 0.08, ripe: 0.1 },
+  mid: { seed: 0.05, grow: 0.065, ripe: 0.08 },
 } as const;
 
 export type CropSilhouette = "bushy" | "tall" | "mid";
@@ -46,14 +45,14 @@ export function cropSinkFrac(stage: 1 | 2 | 3 | 4, kind?: CropKind | null): numb
   return profile.grow;
 }
 
-/** Positive Y pixels to add so the disc center sits into the painted mound. */
+/** Positive Y pixels so stem feet sit into the painted mound. */
 export function cropSinkPx(stage: 1 | 2 | 3 | 4, coverPx: number, kind?: CropKind | null): number {
   return coverPx * cropSinkFrac(stage, kind);
 }
 
-/** Aura sits up into the foliage, not ringing the disc/mound seam. */
+/** Aura sits up into the foliage, not ringing the mound seam. */
 export function approvalAuraOffsetY(coverPx: number): number {
-  return -coverPx * 0.3;
+  return -coverPx * 0.45;
 }
 
 /** True only for pending-approval WAITING plots — never for plain READY harvestables. */
@@ -62,41 +61,36 @@ export function shouldShowWaitingAura(awaitingApproval: boolean, wilted: boolean
 }
 
 /**
- * Soft warm tint for painted sheet discs so darker soil plates read closer to lit
- * mound dirt (not a second Graphics cookie). Wilted/waiting keep their own tints.
+ * Plant tint. Healthy stays white — baked disc is clipped off, so warm disc
+ * multiply is no longer needed. Wilted/waiting keep their cues.
  */
 export function plantedDiscTint(wilted: boolean, awaiting: boolean): number {
   if (wilted) return 0x8a8a8a;
   if (awaiting) return 0xe8d7ff;
-  // Warm mound-leaning multiply — softens chocolate-chip disc vs lit soil.
-  return 0xe6c49a;
+  return 0xffffff;
 }
 
 /**
- * Soft oval UNDER the disc (drawn behind the plant). Mound-matched umber,
- * soft edges, low alpha — grounds the disc without a second dark dirt plate.
- * Never over fruit pixels.
+ * Soft oval under stem feet (drawn behind the plant). Mound-matched umber,
+ * soft edges, low alpha — grounds the plant without a second dark dirt plate.
  */
 export function drawContactShadow(g: Graphics, coverPx: number, stage: 1 | 2 | 3 | 4): void {
   g.clear();
   const seed = stage === 1;
-  // Low-alpha mound umbers — soft falloff, no near-black cookie oval.
   const haloA = seed ? 0.06 : 0.11;
   const midA = seed ? 0.1 : 0.16;
   const coreA = seed ? 0.12 : 0.2;
-  // Wider soft falloff so painted disc edge blends into lit mound without a second plate.
-  g.ellipse(0, coverPx * 0.08, coverPx * 0.64, coverPx * 0.28);
+  g.ellipse(0, coverPx * 0.04, coverPx * 0.5, coverPx * 0.2);
   g.fill({ color: 0x6b4423, alpha: haloA });
-  g.ellipse(0, coverPx * 0.055, coverPx * 0.46, coverPx * 0.18);
+  g.ellipse(0, coverPx * 0.025, coverPx * 0.34, coverPx * 0.12);
   g.fill({ color: 0x7a5230, alpha: midA });
-  g.ellipse(0, coverPx * 0.04, coverPx * 0.28, coverPx * 0.1);
+  g.ellipse(0, coverPx * 0.015, coverPx * 0.2, coverPx * 0.07);
   g.fill({ color: 0x8a5a32, alpha: coreA });
 }
 
 /**
  * Dirt-lip / nest oval DISABLED — opaque speckled Graphics ovals read as a
- * chocolate-chip cookie plate under planted stickers. Call sites may still
- * invoke this; it clears the Graphics and draws nothing.
+ * chocolate-chip cookie plate. Call sites may still invoke; clears only.
  */
 export function drawDirtLip(
   g: Graphics,

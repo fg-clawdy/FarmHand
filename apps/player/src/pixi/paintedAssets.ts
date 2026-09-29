@@ -197,25 +197,59 @@ export function cropStageFrame(crops: Record<CropKind, Texture[]>, kind: CropKin
 }
 
 /**
- * Ripe crop with the soil disc cut off. Basket produce should sit in the
- * wicker, not arrive with its mound. Frame math matches `sliceSheet` insets.
+ * Measured CROP_DISC_IN_CELL diameters include fringe past the dark cookie.
+ * Hide radius 0.40 cuts the speckled soil plate while keeping low fruit.
  */
-export function cropPickedFrame(crops: Record<CropKind, Texture[]>, kind: CropKind): Texture {
-  const full = cropStageFrame(crops, kind, 4);
+export const DISC_HIDE_RADIUS_FRAC = 0.4;
+
+/** Y in full cell space of the dark soil-cookie top (not the generous disc fringe). */
+export function cropDiscHideTopInCell(kind: CropKind, stage: 1 | 2 | 3 | 4): number | null {
+  const disc = cropDisc(kind, stage);
+  if (!disc) return null;
+  return disc.y - disc.d * DISC_HIDE_RADIUS_FRAC;
+}
+
+/**
+ * Clip the baked soil disc off a stage cell. Stem pad keeps a few pixels of
+ * stem feet; never the speckled cookie. Frame math matches `sliceSheet` insets.
+ */
+export function cropFoliageFrame(
+  crops: Record<CropKind, Texture[]>,
+  kind: CropKind,
+  stage: 1 | 2 | 3 | 4,
+  stemPad = 4,
+): Texture {
+  const full = cropStageFrame(crops, kind, stage);
   if (full === Texture.EMPTY || !full.source) return full;
-  const disc = cropDisc(kind, 4);
+  const hideTop = cropDiscHideTopInCell(kind, stage);
   const frame = full.frame;
-  if (!disc) return full;
-  const discTopInCell = disc.y - disc.d / 2;
-  const discTopInFrame = discTopInCell - SHEET_INSET;
-  // Keep a little stem, never the mud.
-  const height = Math.max(24, Math.round(discTopInFrame - 6));
+  if (hideTop == null) return full;
+  const hideTopInFrame = hideTop - SHEET_INSET;
+  // Keep a little stem, never the mud cookie.
+  const height = Math.max(24, Math.round(hideTopInFrame - stemPad));
   const clipped = Math.min(height, frame.height - 4);
   return new Texture({
     source: full.source,
     frame: new Rectangle(frame.x, frame.y, frame.width, clipped),
     orig: new Rectangle(0, 0, frame.width, clipped),
   });
+}
+
+/** Planted mound crop: foliage + stem only — disc hidden so roots read into the mound. */
+export function cropPlantedFrame(
+  crops: Record<CropKind, Texture[]>,
+  kind: CropKind,
+  stage: 1 | 2 | 3 | 4,
+): Texture {
+  return cropFoliageFrame(crops, kind, stage, 2);
+}
+
+/**
+ * Ripe crop with the soil disc cut off. Basket produce should sit in the
+ * wicker, not arrive with its mound.
+ */
+export function cropPickedFrame(crops: Record<CropKind, Texture[]>, kind: CropKind): Texture {
+  return cropFoliageFrame(crops, kind, 4, 4);
 }
 
 export function cropDisc(kind: CropKind, stage: 1 | 2 | 3 | 4): Disc | undefined {
