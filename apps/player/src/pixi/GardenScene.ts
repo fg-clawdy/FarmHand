@@ -599,11 +599,10 @@ class PlotNode {
       drawDirtLip(this.nest, this.coverPx, this.stage, this.kind); // no-op clear
       drawWaitingAura(this.approvalAura, this.coverPx);
       drawPlantedFoliageMask(this.plantMask, this.coverPx);
-      // Mask is a child of the plant (disc-local). Counter-scale so coverPx
-      // units map to texture space under the plant's cropScale.
-      this.plantMask.position.set(0, 0);
-      this.plantMask.scale.set(1 / Math.max(this.cropScale, 0.001));
-      if (this.plantMask.parent !== this.plant) this.plant.addChild(this.plantMask);
+      // Sibling mask in plot space (same seat as plant). Avoids Pixi self-child mask bugs.
+      this.plantMask.position.set(x, y);
+      this.plantMask.scale.set(1);
+      this.plantMask.visible = true;
       this.plant.mask = this.plantMask;
     }
   }
@@ -650,6 +649,7 @@ class PlotNode {
     if (empty || !plot.growthStage || !plot.tier) {
       this.plant.visible = false;
       this.plant.mask = null;
+      this.plantMask.visible = false;
       this.shadow.visible = false;
       this.nest.visible = false;
       this.label.visible = false;

@@ -361,6 +361,7 @@ class GardenHotspot {
       ...this.approvalAuras,
       ...this.shadows,
       ...this.plants,
+      ...this.plantMasks,
       ...this.nests,
       ...this.markers,
       ...this.sparkles.map((field) => field.root),
@@ -488,6 +489,7 @@ class GardenHotspot {
       if (!plot || plot.state === "empty" || !stage || !plot.tier) {
         spr.visible = false;
         spr.mask = null;
+        this.plantMasks[slot]!.visible = false;
         aura.visible = false;
         shadow.visible = false;
         nest.visible = false;
@@ -518,9 +520,9 @@ class GardenHotspot {
       drawWaitingAura(aura, FARM_MOUND_COVER_PX, 0.95);
       const plantMask = this.plantMasks[slot]!;
       drawPlantedFoliageMask(plantMask, FARM_MOUND_COVER_PX);
-      plantMask.position.set(0, 0);
-      plantMask.scale.set(1 / Math.max(this.cropScale, 0.001));
-      if (plantMask.parent !== spr) spr.addChild(plantMask);
+      plantMask.position.set(x, y);
+      plantMask.scale.set(1);
+      plantMask.visible = true;
       spr.mask = plantMask;
       spr.visible = true;
       shadow.visible = true;
