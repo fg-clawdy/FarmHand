@@ -60,13 +60,13 @@ export function plantedDiscTint(wilted: boolean, awaiting: boolean): number {
 
 export function drawContactShadow(g: Graphics, coverPx: number, stage: 1 | 2 | 3 | 4): void {
   g.clear();
-  // Very soft low-alpha umber behind the plant only — grounds feet, not a dirt plate.
+  // Sit BELOW the translucent soft-alpha foot so umber never shows through leaves.
   const seed = stage === 1;
-  const haloA = seed ? 0.03 : 0.05;
-  const coreA = seed ? 0.04 : 0.07;
-  g.ellipse(0, coverPx * 0.02, coverPx * 0.28, coverPx * 0.09);
+  const haloA = seed ? 0.025 : 0.04;
+  const coreA = seed ? 0.03 : 0.055;
+  g.ellipse(0, coverPx * 0.08, coverPx * 0.26, coverPx * 0.08);
   g.fill({ color: 0x6b4423, alpha: haloA });
-  g.ellipse(0, coverPx * 0.01, coverPx * 0.16, coverPx * 0.05);
+  g.ellipse(0, coverPx * 0.1, coverPx * 0.14, coverPx * 0.045);
   g.fill({ color: 0x8a5a32, alpha: coreA });
 }
 

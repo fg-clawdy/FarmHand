@@ -835,14 +835,14 @@ function basketNestBoost(kind: CropKind) {
     case "strawberry":
     case "tomato":
       // Lift so red fruit reads; pocket + rimFront keep tips off the weave.
-      return { yLift: 18, scaleMul: 0.86, zBias: 0 };
+      return { yLift: 14, scaleMul: 0.82, zBias: 0 };
     case "cotton":
       return { yLift: 10, scaleMul: 1.18, zBias: 0 };
     case "sunflower":
       return { yLift: 0, scaleMul: 1.0, zBias: 0 };
     case "corn":
       // Seat further back / smaller so husk leaves don't ride the front weave.
-      return { yLift: -10, scaleMul: 0.82, zBias: 2 };
+      return { yLift: -14, scaleMul: 0.78, zBias: 3 };
     default:
       return { yLift: 0, scaleMul: 1.0, zBias: 0 };
   }
@@ -864,9 +864,9 @@ function basketSeat(index: number, total: number, kind: CropKind = "corn") {
   const spread = pose === "tall" ? 30 : pose === "low" ? 28 : 42;
   const x = (col - (cols - 1) / 2) * spread + ((row % 2) * 4 - 2);
   // Anchor is bottom of sprite. Higher y = deeper in the tray (behind front rim).
-  const yBase = pose === "tall" ? 0 : pose === "low" ? 22 : 10;
-  const y = yBase - boost.yLift - row * (pose === "tall" ? 12 : 8) + (rows - 1) * 2;
-  const scaleBase = pose === "tall" ? 0.3 : pose === "low" ? 0.3 : 0.36;
+  const yBase = pose === "tall" ? -2 : pose === "low" ? 24 : 10;
+  const y = yBase - boost.yLift - row * (pose === "tall" ? 14 : 8) + (rows - 1) * 2;
+  const scaleBase = pose === "tall" ? 0.28 : pose === "low" ? 0.3 : 0.36;
   const scale = (scaleBase - row * 0.025) * boost.scaleMul;
   const rot = ((i * 17) % 11 - 5) * 0.025;
   // Back rows (higher row) draw behind; tall crops also prefer back so they tower over mid/low.
@@ -988,10 +988,10 @@ class HarvestBasket {
     // Wide shallow-tray chimney: clips buried bottoms into the weave, never haircuts tops.
     // Bottom sits above the outer weave edge so berries can't poke under the basket.
     // Inside-bowl pocket: floor clears front weave; chimney keeps berry tops.
-    g.moveTo(-92, -300);
-    g.lineTo(92, -300);
-    g.lineTo(100, -12);
-    g.quadraticCurveTo(0, 8, -100, -12);
+    g.moveTo(-90, -300);
+    g.lineTo(90, -300);
+    g.lineTo(96, -14);
+    g.quadraticCurveTo(0, 4, -96, -14);
     g.closePath();
     g.fill({ color: 0xffffff });
   }

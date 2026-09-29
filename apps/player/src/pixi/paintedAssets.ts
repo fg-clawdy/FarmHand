@@ -256,11 +256,11 @@ export function cropPlantedFrame(
   kind: CropKind,
   stage: 1 | 2 | 3 | 4,
 ): Texture {
-  const key = `planted:v2:${kind}:${stage}`;
+  const key = `planted:v3:${kind}:${stage}`;
   const hit = plantedFrameCache.get(key);
   if (hit) return hit;
   const hard = cropFoliageFrame(crops, kind, stage, 4, PLANTED_DISC_HIDE_FRAC);
-  const faded = softFadeTextureFoot(hard, 0.55);
+  const faded = softFadeTextureFoot(hard, 0.48);
   plantedFrameCache.set(key, faded);
   return faded;
 }
@@ -345,14 +345,14 @@ function softFadeTextureFoot(tex: Texture, fadeFrac: number): Texture {
       // Elliptical radius from fade center; smoothstep to transparent at the foot.
       const r = Math.sqrt(dx * dx + dy * dy);
       // Keep center of foliage; dissolve as we approach / pass the elliptical foot.
-      let t = (r - 0.12) / 0.88;
+      let t = (r - 0.22) / 0.78;
       if (t <= 0) continue;
       if (t > 1) t = 1;
       // Smoothstep then ease — no hard scissor, no color tint.
       const s = t * t * (3 - 2 * t);
-      let aMul = Math.pow(1 - s, 1.85);
+      let aMul = Math.pow(1 - s, 2.0);
       // Guarantee the clipped bottom edge is fully gone (mound shows through).
-      if (dy >= 0.88) aMul = 0;
+      if (dy >= 0.82) aMul = 0;
       data[i + 3] = Math.round(a * aMul);
     }
   }
