@@ -203,7 +203,7 @@ export function cropStageFrame(crops: Record<CropKind, Texture[]>, kind: CropKin
  */
 export const DISC_HIDE_RADIUS_FRAC = 0.4;
 /** Planted mound: cut deeper into the measured disc so no cookie fringe remains. */
-export const PLANTED_DISC_HIDE_FRAC = 0.48;
+export const PLANTED_DISC_HIDE_FRAC = 0.58;
 /** Basket picked art: keep hanging berries; only shave the lower cookie. */
 export const PICKED_DISC_HIDE_FRAC = 0.25;
 
@@ -260,7 +260,7 @@ export function cropPlantedFrame(
   const hit = plantedFrameCache.get(key);
   if (hit) return hit;
   const hard = cropFoliageFrame(crops, kind, stage, 4, PLANTED_DISC_HIDE_FRAC);
-  const faded = softFadeTextureFoot(hard, 0.22);
+  const faded = softFadeTextureFoot(hard, 0.18);
   plantedFrameCache.set(key, faded);
   return faded;
 }
