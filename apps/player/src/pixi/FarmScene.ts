@@ -10,8 +10,7 @@ import { CorkboardHotspot, type WantedJob } from "./jobBoard";
 import {
   FARM_MOUND_COVER_PX,
   cropCoverScale,
-  cropDiscAnchor,
-  cropStageFrame,
+  cropPlantedFrame,
   type PaintedArt,
 } from "./paintedAssets";
 import {
@@ -21,6 +20,7 @@ import {
   drawDirtLip,
   drawWaitingAura,
   shouldShowWaitingAura,
+  plantedDiscTint,
 } from "./plantedCropVisual";
 import { SignAvatarBadge, farmSignBadgeLocal } from "./signAvatar";
 import {
@@ -295,6 +295,7 @@ class GardenHotspot {
   private plants: Sprite[] = [];
   private shadows: Graphics[] = [];
   private nests: Graphics[] = [];
+  private plantMasks: Graphics[] = [];
   private approvalAuras: Graphics[] = [];
   private markers: Graphics[] = [];
   private stages: Array<1 | 2 | 3 | 4 | null> = [];
@@ -338,6 +339,9 @@ class GardenHotspot {
       nest.visible = false;
       nest.eventMode = "none";
       this.nests.push(nest);
+      const plantMask = new Graphics();
+      plantMask.eventMode = "none";
+      this.plantMasks.push(plantMask);
       const aura = new Graphics();
       aura.visible = false;
       aura.eventMode = "none";
@@ -349,12 +353,13 @@ class GardenHotspot {
       this.markers.push(mark);
       this.sparkles.push(new SparkleField(atlas, 6));
     }
-    // mound → aura (WAITING only) → shadow → crop → thin dirt lip → markers/sparkles/UI
+    // mound → aura (WAITING only) → soft shadow → crop (nest Graphics kept hidden) → markers/sparkles/UI
     this.root.addChild(
       this.hit,
       ...this.approvalAuras,
       ...this.shadows,
       ...this.plants,
+      ...this.plantMasks,
       ...this.nests,
       ...this.markers,
       ...this.sparkles.map((field) => field.root),
@@ -481,6 +486,8 @@ class GardenHotspot {
       const nest = this.nests[slot]!;
       if (!plot || plot.state === "empty" || !stage || !plot.tier) {
         spr.visible = false;
+        spr.mask = null;
+        this.plantMasks[slot]!.visible = false;
         aura.visible = false;
         shadow.visible = false;
         nest.visible = false;
@@ -491,9 +498,9 @@ class GardenHotspot {
       const kind = cropKindForTier(plot.tier);
       this.stages[slot] = stage;
       this.kinds[slot] = kind;
-      spr.texture = cropStageFrame(this.painted.crops, kind, stage);
-      const pivot = cropDiscAnchor(kind, stage);
-      spr.anchor.set(pivot.x, pivot.y);
+      // Foliage-only frame clips the baked soil-disc cookie; pivot at stem feet.
+      spr.texture = cropPlantedFrame(this.painted.crops, kind, stage);
+      spr.anchor.set(0.5, 1);
       this.cropScale = cropCoverScale(kind, stage, FARM_MOUND_COVER_PX);
       spr.scale.set(this.cropScale);
       const uv = moundUv(this.spec, slot);
@@ -506,14 +513,17 @@ class GardenHotspot {
       nest.position.set(x, y);
       aura.position.set(x, y + approvalAuraOffsetY(FARM_MOUND_COVER_PX));
       drawContactShadow(shadow, FARM_MOUND_COVER_PX, stage);
-      drawDirtLip(nest, FARM_MOUND_COVER_PX, stage, kind);
+      drawDirtLip(nest, FARM_MOUND_COVER_PX, stage, kind); // no-op clear
       drawWaitingAura(aura, FARM_MOUND_COVER_PX, 0.95);
+      // Canvas elliptical soft-alpha only — no Graphics matte / foot mask.
+      spr.mask = null;
+      this.plantMasks[slot]!.visible = false;
       spr.visible = true;
       shadow.visible = true;
-      nest.visible = true;
+      nest.visible = false;
       const wilted = plot.state === "wilted" || Boolean(plot.greyed);
       const awaiting = Boolean(plot.awaitingApproval) || plot.state === "purgatory";
-      spr.tint = wilted ? 0x8a8a8a : awaiting ? 0xe8d7ff : 0xffffff;
+      spr.tint = plantedDiscTint(wilted, awaiting);
       // Purple aura only for WAITING / pending approval — never ring plain READY.
       aura.visible = shouldShowWaitingAura(awaiting, wilted);
     });

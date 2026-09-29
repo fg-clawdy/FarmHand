@@ -197,19 +197,46 @@ export function cropStageFrame(crops: Record<CropKind, Texture[]>, kind: CropKin
 }
 
 /**
- * Ripe crop with the soil disc cut off. Basket produce should sit in the
- * wicker, not arrive with its mound. Frame math matches `sliceSheet` insets.
+ * Measured CROP_DISC_IN_CELL diameters include fringe past the dark cookie.
+ * Planted uses a steeper hide so the speckled plate is gone; picked keeps more
+ * low fruit for the basket (cookie tip is buried behind the rim / brim mask).
  */
-export function cropPickedFrame(crops: Record<CropKind, Texture[]>, kind: CropKind): Texture {
-  const full = cropStageFrame(crops, kind, 4);
+export const DISC_HIDE_RADIUS_FRAC = 0.4;
+/** Planted mound: cut deeper into the measured disc so no cookie fringe remains. */
+export const PLANTED_DISC_HIDE_FRAC = 0.58;
+/** Basket picked art: keep hanging berries; only shave the lower cookie. */
+export const PICKED_DISC_HIDE_FRAC = 0.25;
+
+/** Y in full cell space of the soil-cookie hide line for the given frac. */
+export function cropDiscHideTopInCell(
+  kind: CropKind,
+  stage: 1 | 2 | 3 | 4,
+  hideFrac: number = DISC_HIDE_RADIUS_FRAC,
+): number | null {
+  const disc = cropDisc(kind, stage);
+  if (!disc) return null;
+  return disc.y - disc.d * hideFrac;
+}
+
+/**
+ * Hard-rect clip of the baked soil disc. Stem pad keeps a few pixels of stem;
+ * never the speckled cookie. Frame math matches `sliceSheet` insets.
+ */
+export function cropFoliageFrame(
+  crops: Record<CropKind, Texture[]>,
+  kind: CropKind,
+  stage: 1 | 2 | 3 | 4,
+  stemPad = 4,
+  hideFrac: number = DISC_HIDE_RADIUS_FRAC,
+): Texture {
+  const full = cropStageFrame(crops, kind, stage);
   if (full === Texture.EMPTY || !full.source) return full;
-  const disc = cropDisc(kind, 4);
+  const hideTop = cropDiscHideTopInCell(kind, stage, hideFrac);
   const frame = full.frame;
-  if (!disc) return full;
-  const discTopInCell = disc.y - disc.d / 2;
-  const discTopInFrame = discTopInCell - SHEET_INSET;
-  // Keep a little stem, never the mud.
-  const height = Math.max(24, Math.round(discTopInFrame - 6));
+  if (hideTop == null) return full;
+  const hideTopInFrame = hideTop - SHEET_INSET;
+  // Keep a little stem, never the mud cookie.
+  const height = Math.max(24, Math.round(hideTopInFrame - stemPad));
   const clipped = Math.min(height, frame.height - 4);
   return new Texture({
     source: full.source,
@@ -217,6 +244,122 @@ export function cropPickedFrame(crops: Record<CropKind, Texture[]>, kind: CropKi
     orig: new Rectangle(0, 0, frame.width, clipped),
   });
 }
+
+const plantedFrameCache = new Map<string, Texture>();
+
+/**
+ * Planted mound crop: clip the baked soil cookie, then soft-fade the stem foot
+ * so the hard scissor bar blends into the mound (no Graphics dirt-lip oval).
+ */
+export function cropPlantedFrame(
+  crops: Record<CropKind, Texture[]>,
+  kind: CropKind,
+  stage: 1 | 2 | 3 | 4,
+): Texture {
+  const key = `planted:v3:${kind}:${stage}`;
+  const hit = plantedFrameCache.get(key);
+  if (hit) return hit;
+  const hard = cropFoliageFrame(crops, kind, stage, 4, PLANTED_DISC_HIDE_FRAC);
+  const faded = softFadeTextureFoot(hard, 0.48);
+  plantedFrameCache.set(key, faded);
+  return faded;
+}
+
+const pickedFrameCache = new Map<string, Texture>();
+
+/** Ripe crop for the basket — keep hanging fruit; shave only the lower cookie. */
+export function cropPickedFrame(crops: Record<CropKind, Texture[]>, kind: CropKind): Texture {
+  const key = `picked:${kind}`;
+  const hit = pickedFrameCache.get(key);
+  if (hit) return hit;
+  // Strawberry/tomato: berry window — drop the leafy canopy so the bowl reads as fruit.
+  const tex =
+    kind === "strawberry" || kind === "tomato"
+      ? cropBerryWindowFrame(crops, kind)
+      : cropFoliageFrame(crops, kind, 4, 2, PICKED_DISC_HIDE_FRAC);
+  pickedFrameCache.set(key, tex);
+  return tex;
+}
+
+/** Lower-plant window for bushy fruit — berries dominate, leaves mostly cropped off. */
+function cropBerryWindowFrame(
+  crops: Record<CropKind, Texture[]>,
+  kind: CropKind,
+): Texture {
+  const full = cropStageFrame(crops, kind, 4);
+  if (full === Texture.EMPTY || !full.source) return full;
+  const hideTop = cropDiscHideTopInCell(kind, 4, PICKED_DISC_HIDE_FRAC);
+  if (hideTop == null) return cropFoliageFrame(crops, kind, 4, 2, PICKED_DISC_HIDE_FRAC);
+  const frame = full.frame;
+  const hideTopInFrame = hideTop - SHEET_INSET;
+  const bottom = Math.max(24, Math.round(hideTopInFrame - 2));
+  // Keep ~42% of the cell above the cookie — fruit belt, not the leafy crown.
+  const windowH = Math.max(64, Math.round((CROP_SHEET_HEIGHT[kind] - SHEET_INSET * 2) * 0.42));
+  const top = Math.max(0, bottom - windowH);
+  const height = Math.min(bottom - top, frame.height - top);
+  return new Texture({
+    source: full.source,
+    frame: new Rectangle(frame.x, frame.y + top, frame.width, height),
+    orig: new Rectangle(0, 0, frame.width, height),
+  });
+}
+
+/**
+ * Canvas-only elliptical soft-alpha dissolve at the stem foot.
+ * Alpha → 0 so the mound shows through — never RGB umber veils / Graphics mattes.
+ */
+function softFadeTextureFoot(tex: Texture, fadeFrac: number): Texture {
+  if (tex === Texture.EMPTY || !tex.source) return tex;
+  const frame = tex.frame;
+  const w = Math.max(1, Math.round(frame.width));
+  const h = Math.max(1, Math.round(frame.height));
+  const fadePx = Math.max(24, Math.round(h * fadeFrac));
+  if (typeof document === "undefined") return tex;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return tex;
+  const image = (tex.source as { resource?: CanvasImageSource }).resource;
+  if (!image) return tex;
+  try {
+    ctx.drawImage(image, frame.x, frame.y, frame.width, frame.height, 0, 0, w, h);
+  } catch {
+    return tex;
+  }
+  const img = ctx.getImageData(0, 0, w, h);
+  const data = img.data;
+  const cx = (w - 1) * 0.5;
+  const rx = Math.max(1, w * 0.55);
+  const ry = Math.max(1, fadePx);
+  // Ellipse center sits fadePx above the bottom; lower hemisphere dissolves to alpha 0.
+  const cy = h - 1 - ry;
+  for (let y = 0; y < h; y++) {
+    const dy = (y - cy) / ry;
+    if (dy < 0) continue; // above fade ellipse
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const a = data[i + 3]!;
+      if (a < 1) continue;
+      const dx = (x - cx) / rx;
+      // Elliptical radius from fade center; smoothstep to transparent at the foot.
+      const r = Math.sqrt(dx * dx + dy * dy);
+      // Keep center of foliage; dissolve as we approach / pass the elliptical foot.
+      let t = (r - 0.22) / 0.78;
+      if (t <= 0) continue;
+      if (t > 1) t = 1;
+      // Smoothstep then ease — no hard scissor, no color tint.
+      const s = t * t * (3 - 2 * t);
+      let aMul = Math.pow(1 - s, 2.0);
+      // Guarantee the clipped bottom edge is fully gone (mound shows through).
+      if (dy >= 0.82) aMul = 0;
+      data[i + 3] = Math.round(a * aMul);
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return Texture.from(canvas);
+}
+
 
 export function cropDisc(kind: CropKind, stage: 1 | 2 | 3 | 4): Disc | undefined {
   return CROP_DISC_IN_CELL[kind]?.[stage - 1];

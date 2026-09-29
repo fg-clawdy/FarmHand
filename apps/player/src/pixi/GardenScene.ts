@@ -19,6 +19,7 @@ import {
   cropDiscAnchor,
   cropPickedFrame,
   cropStageFrame,
+  cropPlantedFrame,
   type PaintedArt,
 } from "./paintedAssets";
 import {
@@ -28,6 +29,7 @@ import {
   drawDirtLip,
   drawWaitingAura,
   shouldShowWaitingAura,
+  plantedDiscTint,
 } from "./plantedCropVisual";
 import { uvToLocal } from "./playfieldLayout";
 import { SignAvatarBadge, gardenZoomBadgeLocal } from "./signAvatar";
@@ -477,6 +479,7 @@ class PlotNode {
   private plant = new Sprite();
   private shadow: Graphics;
   private nest: Graphics;
+  private plantMask: Graphics;
   private marker: Graphics;
   private glow: Sprite;
   private approvalAura = new Graphics();
@@ -515,6 +518,8 @@ class PlotNode {
     this.nest = new Graphics();
     this.nest.visible = false;
     this.nest.eventMode = "none";
+    this.plantMask = new Graphics();
+    this.plantMask.eventMode = "none";
     this.marker = new Graphics();
     this.marker.visible = false;
     this.marker.eventMode = "none";
@@ -529,7 +534,7 @@ class PlotNode {
       },
     });
     this.label.anchor.set(0.5, 0);
-    // mound → aura (WAITING only, behind) → shadow → crop → thin dirt lip → UI
+    // mound → aura (WAITING only, behind) → soft shadow → crop (nest Graphics kept hidden)
     this.root.addChild(
       this.glow,
       this.approvalAura,
@@ -579,19 +584,23 @@ class PlotNode {
     this.drawMoundMarker();
   }
 
-  /** Seat plant/shadow/dirt-lip/aura on disc pivot, slight nestle into mound. */
+  /** Seat plant/shadow/aura; foliage-clipped frame hides baked soil cookie. */
   private applyPlantedSeat() {
     const x = GARDEN_CROP_SEAT.x;
     const y = GARDEN_CROP_SEAT.y + this.sinkPx;
     this.plant.position.set(x, y);
-    // Shadow under disc (behind plant). Dirt lip on stem feet only (above plant).
+    // Soft contact shadow under stem feet — no opaque dirt-lip cookie.
     this.shadow.position.set(x, y);
     this.nest.position.set(x, y);
+    this.nest.visible = false;
     this.approvalAura.position.set(x, y + approvalAuraOffsetY(this.coverPx));
     if (this.stage) {
       drawContactShadow(this.shadow, this.coverPx, this.stage);
-      drawDirtLip(this.nest, this.coverPx, this.stage, this.kind);
+      drawDirtLip(this.nest, this.coverPx, this.stage, this.kind); // no-op clear
       drawWaitingAura(this.approvalAura, this.coverPx);
+      // Canvas elliptical soft-alpha only — no Graphics matte / foot mask.
+      this.plant.mask = null;
+      this.plantMask.visible = false;
     }
   }
 
@@ -636,6 +645,8 @@ class PlotNode {
     this.sparkle.setActive(this.ready);
     if (empty || !plot.growthStage || !plot.tier) {
       this.plant.visible = false;
+      this.plant.mask = null;
+      this.plantMask.visible = false;
       this.shadow.visible = false;
       this.nest.visible = false;
       this.label.visible = false;
@@ -649,20 +660,21 @@ class PlotNode {
     this.stage = plot.growthStage;
     this.coverPx = ZOOM_MOUND_COVER_PX * this.texScale;
     this.sinkPx = cropSinkPx(this.stage, this.coverPx, kind);
-    this.plant.texture = cropStageFrame(this.painted.crops, kind, plot.growthStage);
-    const pivot = cropDiscAnchor(kind, plot.growthStage);
-    this.plant.anchor.set(pivot.x, pivot.y);
+    // Foliage-only frame clips the baked soil-disc cookie; pivot at stem feet.
+    this.plant.texture = cropPlantedFrame(this.painted.crops, kind, plot.growthStage);
+    this.plant.anchor.set(0.5, 1);
     this.cropScale = cropCoverScale(kind, plot.growthStage, this.coverPx);
     this.plant.scale.set(this.cropScale);
     this.applyPlantedSeat();
     this.plant.visible = true;
+    this.plantMask.visible = true;
     this.shadow.visible = true;
-    this.nest.visible = true;
+    this.nest.visible = false;
     this.label.visible = true;
     this.label.position.set(0, this.coverPx * 0.34 + this.sinkPx);
     const wilted = plot.state === "wilted" || plot.greyed;
     const awaiting = Boolean(plot.awaitingApproval) || plot.state === "purgatory";
-    this.plant.tint = wilted ? 0x8a8a8a : awaiting ? 0xe8d7ff : 0xffffff;
+    this.plant.tint = plantedDiscTint(Boolean(wilted), awaiting);
     this.plant.alpha = wilted ? 0.72 : 1;
     // Purple aura only for WAITING / pending approval — never ring plain READY harvestables.
     this.approvalAura.visible = shouldShowWaitingAura(awaiting, Boolean(wilted));
@@ -670,12 +682,12 @@ class PlotNode {
     else if (awaiting && plot.ready) this.label.text = "WAITING";
     else if (plot.ready) this.label.text = "READY";
     else this.label.text = formatCountdown(plot.remainingMs);
-    this.plant.mask = null;
   }
 
   beginPick() {
     this.celebrateT = 0.01;
     this.plant.visible = false;
+    this.plant.mask = null;
     this.plant.alpha = 1;
     this.plant.rotation = 0;
     this.shadow.visible = false;
@@ -806,8 +818,9 @@ function isCropKind(kind: string): kind is CropKind {
 /** How a crop sits in the basket: tall sticks up, low sits deep in the bowl. */
 function basketPose(kind: CropKind): "tall" | "mid" | "low" {
   if (kind === "corn" || kind === "sunflower" || kind === "cotton") return "tall";
-  if (kind === "pumpkin") return "low";
-  return "mid"; // strawberry, tomato
+  // Pumpkin + short berry/tomato frames nest deep in the shallow tray bowl.
+  if (kind === "pumpkin" || kind === "strawberry" || kind === "tomato") return "low";
+  return "mid";
 }
 
 /**
@@ -821,13 +834,15 @@ function basketNestBoost(kind: CropKind) {
       return { yLift: 8, scaleMul: 1.22, zBias: 0 };
     case "strawberry":
     case "tomato":
-      // Short picked frames — lift further so they read clearly.
-      return { yLift: 30, scaleMul: 1.62, zBias: 0 };
+      // Lift so red fruit reads; pocket + rimFront keep tips off the weave.
+      return { yLift: 14, scaleMul: 0.82, zBias: 0 };
     case "cotton":
       return { yLift: 10, scaleMul: 1.18, zBias: 0 };
     case "sunflower":
       return { yLift: 0, scaleMul: 1.0, zBias: 0 };
     case "corn":
+      // Seat further back / smaller so husk leaves don't ride the front weave.
+      return { yLift: -14, scaleMul: 0.78, zBias: 3 };
     default:
       return { yLift: 0, scaleMul: 1.0, zBias: 0 };
   }
@@ -846,12 +861,12 @@ function basketSeat(index: number, total: number, kind: CropKind = "corn") {
   // Wide shallow tray — spread produce across the bowl; keep tall tops peeking over the rim.
   // Short crops get a bit more lateral room so they are not stacked under tall stems.
   // Pumpkin (low) stays centered — wide spread was hanging fruit off the rim.
-  const spread = pose === "tall" ? 36 : pose === "low" ? 34 : 42;
-  const x = (col - (cols - 1) / 2) * spread + ((row % 2) * 6 - 3);
+  const spread = pose === "tall" ? 30 : pose === "low" ? 28 : 42;
+  const x = (col - (cols - 1) / 2) * spread + ((row % 2) * 4 - 2);
   // Anchor is bottom of sprite. Higher y = deeper in the tray (behind front rim).
-  const yBase = pose === "tall" ? 8 : pose === "low" ? 20 : 10;
-  const y = yBase - boost.yLift - row * (pose === "tall" ? 8 : 10) + (rows - 1) * 2;
-  const scaleBase = pose === "tall" ? 0.36 : pose === "low" ? 0.34 : 0.36;
+  const yBase = pose === "tall" ? -2 : pose === "low" ? 24 : 10;
+  const y = yBase - boost.yLift - row * (pose === "tall" ? 14 : 8) + (rows - 1) * 2;
+  const scaleBase = pose === "tall" ? 0.28 : pose === "low" ? 0.3 : 0.36;
   const scale = (scaleBase - row * 0.025) * boost.scaleMul;
   const rot = ((i * 17) % 11 - 5) * 0.025;
   // Back rows (higher row) draw behind; tall crops also prefer back so they tower over mid/low.
@@ -971,10 +986,12 @@ class HarvestBasket {
     const g = this.brim;
     g.clear();
     // Wide shallow-tray chimney: clips buried bottoms into the weave, never haircuts tops.
-    g.moveTo(-130, -300);
-    g.lineTo(130, -300);
-    g.lineTo(148, 30);
-    g.quadraticCurveTo(0, 72, -148, 30);
+    // Bottom sits above the outer weave edge so berries can't poke under the basket.
+    // Inside-bowl pocket: floor clears front weave; chimney keeps berry tops.
+    g.moveTo(-90, -300);
+    g.lineTo(90, -300);
+    g.lineTo(96, -14);
+    g.quadraticCurveTo(0, 4, -96, -14);
     g.closePath();
     g.fill({ color: 0xffffff });
   }
