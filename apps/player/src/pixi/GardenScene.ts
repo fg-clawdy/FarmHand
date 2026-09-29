@@ -30,6 +30,7 @@ import {
   drawWaitingAura,
   shouldShowWaitingAura,
   plantedDiscTint,
+  drawPlantedFootMask,
 } from "./plantedCropVisual";
 import { uvToLocal } from "./playfieldLayout";
 import { SignAvatarBadge, gardenZoomBadgeLocal } from "./signAvatar";
@@ -479,6 +480,7 @@ class PlotNode {
   private plant = new Sprite();
   private shadow: Graphics;
   private nest: Graphics;
+  private plantMask: Graphics;
   private marker: Graphics;
   private glow: Sprite;
   private approvalAura = new Graphics();
@@ -517,6 +519,8 @@ class PlotNode {
     this.nest = new Graphics();
     this.nest.visible = false;
     this.nest.eventMode = "none";
+    this.plantMask = new Graphics();
+    this.plantMask.eventMode = "none";
     this.marker = new Graphics();
     this.marker.visible = false;
     this.marker.eventMode = "none";
@@ -595,7 +599,11 @@ class PlotNode {
       drawContactShadow(this.shadow, this.coverPx, this.stage);
       drawDirtLip(this.nest, this.coverPx, this.stage, this.kind); // no-op clear
       drawWaitingAura(this.approvalAura, this.coverPx);
-      this.plant.mask = null;
+      const fw = this.plant.texture.orig.width;
+      const fh = this.plant.texture.orig.height;
+      drawPlantedFootMask(this.plantMask, fw, fh);
+      if (this.plantMask.parent !== this.plant) this.plant.addChild(this.plantMask);
+      this.plant.mask = this.plantMask;
     }
   }
 
@@ -641,6 +649,7 @@ class PlotNode {
     if (empty || !plot.growthStage || !plot.tier) {
       this.plant.visible = false;
       this.plant.mask = null;
+      this.plantMask.visible = false;
       this.shadow.visible = false;
       this.nest.visible = false;
       this.label.visible = false;
@@ -661,6 +670,7 @@ class PlotNode {
     this.plant.scale.set(this.cropScale);
     this.applyPlantedSeat();
     this.plant.visible = true;
+    this.plantMask.visible = true;
     this.shadow.visible = true;
     this.nest.visible = false; // dirt-lip Graphics disabled
     this.label.visible = true;

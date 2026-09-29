@@ -71,6 +71,26 @@ export function drawContactShadow(g: Graphics, coverPx: number, stage: 1 | 2 | 3
   g.fill({ color: 0x8a5a32, alpha: coreA });
 }
 
+
+/**
+ * Elliptical foot mask for bottom-anchored foliage frames (anchor 0.5,1).
+ * Local space: (0,0) = stem feet. Soft mound-shaped cutoff — no hard scissor bar.
+ * Caller: plant.addChild(mask); plant.mask = mask;
+ */
+export function drawPlantedFootMask(g: Graphics, frameW: number, frameH: number): void {
+  g.clear();
+  const halfW = frameW * 0.55;
+  const top = -frameH * 1.15;
+  // Keep the very bottom tips; round the cut so it follows the mound crown.
+  const footY = -frameH * 0.015;
+  g.moveTo(-halfW, top);
+  g.lineTo(halfW, top);
+  g.lineTo(halfW * 1.06, footY - frameH * 0.05);
+  g.quadraticCurveTo(0, footY + frameH * 0.1, -halfW * 1.06, footY - frameH * 0.05);
+  g.closePath();
+  g.fill({ color: 0xffffff });
+}
+
 export function drawDirtLip(
   g: Graphics,
   _coverPx: number,

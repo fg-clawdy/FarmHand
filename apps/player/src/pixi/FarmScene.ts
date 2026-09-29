@@ -21,6 +21,7 @@ import {
   drawWaitingAura,
   shouldShowWaitingAura,
   plantedDiscTint,
+  drawPlantedFootMask,
 } from "./plantedCropVisual";
 import { SignAvatarBadge, farmSignBadgeLocal } from "./signAvatar";
 import {
@@ -295,6 +296,7 @@ class GardenHotspot {
   private plants: Sprite[] = [];
   private shadows: Graphics[] = [];
   private nests: Graphics[] = [];
+  private plantMasks: Graphics[] = [];
   private approvalAuras: Graphics[] = [];
   private markers: Graphics[] = [];
   private stages: Array<1 | 2 | 3 | 4 | null> = [];
@@ -338,6 +340,9 @@ class GardenHotspot {
       nest.visible = false;
       nest.eventMode = "none";
       this.nests.push(nest);
+      const plantMask = new Graphics();
+      plantMask.eventMode = "none";
+      this.plantMasks.push(plantMask);
       const aura = new Graphics();
       aura.visible = false;
       aura.eventMode = "none";
@@ -355,6 +360,7 @@ class GardenHotspot {
       ...this.approvalAuras,
       ...this.shadows,
       ...this.plants,
+      ...this.plantMasks,
       ...this.nests,
       ...this.markers,
       ...this.sparkles.map((field) => field.root),
@@ -482,6 +488,7 @@ class GardenHotspot {
       if (!plot || plot.state === "empty" || !stage || !plot.tier) {
         spr.visible = false;
         spr.mask = null;
+        this.plantMasks[slot]!.visible = false;
         aura.visible = false;
         shadow.visible = false;
         nest.visible = false;
@@ -509,7 +516,11 @@ class GardenHotspot {
       drawContactShadow(shadow, FARM_MOUND_COVER_PX, stage);
       drawDirtLip(nest, FARM_MOUND_COVER_PX, stage, kind); // no-op clear
       drawWaitingAura(aura, FARM_MOUND_COVER_PX, 0.95);
-      spr.mask = null;
+      const plantMask = this.plantMasks[slot]!;
+      drawPlantedFootMask(plantMask, spr.texture.orig.width, spr.texture.orig.height);
+      if (plantMask.parent !== spr) spr.addChild(plantMask);
+      spr.mask = plantMask;
+      plantMask.visible = true;
       spr.visible = true;
       shadow.visible = true;
       nest.visible = false; // dirt-lip Graphics disabled
