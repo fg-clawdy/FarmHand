@@ -349,7 +349,7 @@ class GardenHotspot {
       this.markers.push(mark);
       this.sparkles.push(new SparkleField(atlas, 6));
     }
-    // mound → aura (WAITING only) → shadow → crop → thin dirt lip → markers/sparkles/UI
+    // mound → aura (WAITING only) → soft shadow → crop (nest Graphics kept hidden) → markers/sparkles/UI
     this.root.addChild(
       this.hit,
       ...this.approvalAuras,
@@ -506,11 +506,11 @@ class GardenHotspot {
       nest.position.set(x, y);
       aura.position.set(x, y + approvalAuraOffsetY(FARM_MOUND_COVER_PX));
       drawContactShadow(shadow, FARM_MOUND_COVER_PX, stage);
-      drawDirtLip(nest, FARM_MOUND_COVER_PX, stage, kind);
+      drawDirtLip(nest, FARM_MOUND_COVER_PX, stage, kind); // no-op clear
       drawWaitingAura(aura, FARM_MOUND_COVER_PX, 0.95);
       spr.visible = true;
       shadow.visible = true;
-      nest.visible = true;
+      nest.visible = false; // dirt-lip Graphics disabled
       const wilted = plot.state === "wilted" || Boolean(plot.greyed);
       const awaiting = Boolean(plot.awaitingApproval) || plot.state === "purgatory";
       spr.tint = wilted ? 0x8a8a8a : awaiting ? 0xe8d7ff : 0xffffff;

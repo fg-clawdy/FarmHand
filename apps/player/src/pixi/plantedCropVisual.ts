@@ -6,11 +6,12 @@ import type { CropKind } from "@farmhand/shared";
  *
  * Crop sheets are plant + soil disc as one unit; pivot is the disc center
  * (`cropDiscAnchor` / `CROP_DISC_IN_CELL`). Trust the painted disc — nestle
- * into the mound, soft contact shadow UNDER the disc (behind plant), and an
- * opaque dirt lip + contact-only disc-edge camo at the stem feet. Never veil
- * fruit with a semi-transparent nest circle.
+ * into the mound with a soft mound-umber contact shadow UNDER the disc only.
+ * Do NOT draw an opaque speckled dirt-lip / nest oval (reads as chocolate-chip
+ * cookie plate under the sticker). Soft sink is OK; never veil fruit.
  *
- * Layer order (per mound): aura (WAITING only, behind) → shadow → crop → dirt lip.
+ * Layer order (per mound): aura (WAITING only, behind) → shadow → crop.
+ * Nest Graphics may still exist at call sites but stays cleared + hidden.
  */
 
 /** Bushy fruit sits low on the disc — modest sink so berries/pumpkin stay bright. */
@@ -21,7 +22,7 @@ const TALL_THIN: ReadonlySet<CropKind> = new Set(["sunflower", "cotton", "corn"]
 
 /**
  * Fraction of on-screen disc cover to sink the disc center into the mound.
- * Modest bump vs sticker pass so painted discs read seated in lit mound dirt.
+ * Modest — soft seat without burying ripe fruit.
  */
 export const CROP_SINK_FRAC = {
   bushy: { seed: 0.045, grow: 0.055, ripe: 0.065 },
@@ -60,64 +61,38 @@ export function shouldShowWaitingAura(awaitingApproval: boolean, wilted: boolean
   return awaitingApproval && !wilted;
 }
 
-/** Soft oval UNDER the disc (drawn behind the plant). Never over fruit pixels. */
+/**
+ * Soft oval UNDER the disc (drawn behind the plant). Mound-matched umber,
+ * soft edges, low alpha — grounds the disc without a second dark dirt plate.
+ * Never over fruit pixels.
+ */
 export function drawContactShadow(g: Graphics, coverPx: number, stage: 1 | 2 | 3 | 4): void {
   g.clear();
   const seed = stage === 1;
-  // Wider, softer falloff — grounds the darker painted disc against lit mound dirt.
-  const haloA = seed ? 0.1 : 0.18;
-  const outerA = seed ? 0.18 : 0.32;
-  const innerA = seed ? 0.24 : 0.42;
-  g.ellipse(0, coverPx * 0.08, coverPx * 0.62, coverPx * 0.28);
-  g.fill({ color: 0x1a0e06, alpha: haloA });
-  g.ellipse(0, coverPx * 0.06, coverPx * 0.48, coverPx * 0.2);
-  g.fill({ color: 0x1a0e06, alpha: outerA });
-  g.ellipse(0, coverPx * 0.04, coverPx * 0.3, coverPx * 0.12);
-  g.fill({ color: 0x2a1608, alpha: innerA });
+  // Low-alpha mound umbers — soft falloff, no near-black cookie oval.
+  const haloA = seed ? 0.05 : 0.09;
+  const midA = seed ? 0.08 : 0.14;
+  const coreA = seed ? 0.1 : 0.18;
+  g.ellipse(0, coverPx * 0.07, coverPx * 0.56, coverPx * 0.24);
+  g.fill({ color: 0x6b4423, alpha: haloA });
+  g.ellipse(0, coverPx * 0.05, coverPx * 0.4, coverPx * 0.16);
+  g.fill({ color: 0x7a5230, alpha: midA });
+  g.ellipse(0, coverPx * 0.035, coverPx * 0.24, coverPx * 0.09);
+  g.fill({ color: 0x8a5a32, alpha: coreA });
 }
 
 /**
- * Opaque umber lip + contact-line disc-edge camo.
- * Covers hard painted-disc rim / stem feet only — NEVER a veil over fruit.
- * Prefer opaque dirt (near-1 alpha) rather than alpha-darkening plant pixels.
+ * Dirt-lip / nest oval DISABLED — opaque speckled Graphics ovals read as a
+ * chocolate-chip cookie plate under planted stickers. Call sites may still
+ * invoke this; it clears the Graphics and draws nothing.
  */
 export function drawDirtLip(
   g: Graphics,
-  coverPx: number,
-  stage: 1 | 2 | 3 | 4,
-  kind?: CropKind | null,
+  _coverPx: number,
+  _stage: 1 | 2 | 3 | 4,
+  _kind?: CropKind | null,
 ): void {
   g.clear();
-  const bushy = cropSilhouette(kind) === "bushy";
-  const seed = stage === 1;
-  // Wider + thicker than the sticker pass so the sharp disc rim disappears at contact.
-  const w = coverPx * (bushy ? 0.58 : seed ? 0.62 : 0.66);
-  const h = coverPx * (bushy ? 0.062 : seed ? 0.072 : 0.082);
-  const y = coverPx * (bushy ? 0.022 : 0.03);
-
-  // Contact-only disc-edge camo: mound-lit umbers along the bottom rim (opaque, short in Y).
-  g.ellipse(0, y + h * 0.35, w * 1.05, h * 1.15);
-  g.fill({ color: 0x7a5230, alpha: 0.96 });
-  g.ellipse(0, y + h * 0.15, w * 0.95, h * 0.85);
-  g.fill({ color: 0x6b4423, alpha: 0.98 });
-
-  // Main opaque dirt band at the stem feet
-  g.ellipse(0, y, w, h);
-  g.fill({ color: 0x5c3a1c, alpha: 0.99 });
-  // Lighter crest catching the mound light
-  g.ellipse(0, y - h * 0.45, w * 0.82, h * 0.55);
-  g.fill({ color: 0x8a5a32, alpha: 0.96 });
-  // Soft warm highlight strip — blends painted disc into lit mound
-  g.ellipse(0, y - h * 0.7, w * 0.55, h * 0.32);
-  g.fill({ color: 0x9a6840, alpha: 0.9 });
-
-  // Clod accents at the contact corners — stay below fruit
-  g.ellipse(-w * 0.4, y + h * 0.2, w * 0.14, h * 0.6);
-  g.fill({ color: 0x3d2410, alpha: 0.94 });
-  g.ellipse(w * 0.38, y + h * 0.22, w * 0.12, h * 0.55);
-  g.fill({ color: 0x3d2410, alpha: 0.9 });
-  g.ellipse(-w * 0.12, y + h * 0.35, w * 0.1, h * 0.4);
-  g.fill({ color: 0x4a2e14, alpha: 0.88 });
 }
 
 /** @deprecated use drawDirtLip — kept so older call sites rename cleanly. */

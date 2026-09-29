@@ -529,7 +529,7 @@ class PlotNode {
       },
     });
     this.label.anchor.set(0.5, 0);
-    // mound → aura (WAITING only, behind) → shadow → crop → thin dirt lip → UI
+    // mound → aura (WAITING only, behind) → soft shadow → crop (nest Graphics kept hidden)
     this.root.addChild(
       this.glow,
       this.approvalAura,
@@ -579,18 +579,19 @@ class PlotNode {
     this.drawMoundMarker();
   }
 
-  /** Seat plant/shadow/dirt-lip/aura on disc pivot, slight nestle into mound. */
+  /** Seat plant/shadow/aura on disc pivot, slight nestle into mound. Nest stays hidden. */
   private applyPlantedSeat() {
     const x = GARDEN_CROP_SEAT.x;
     const y = GARDEN_CROP_SEAT.y + this.sinkPx;
     this.plant.position.set(x, y);
-    // Shadow under disc (behind plant). Dirt lip on stem feet only (above plant).
+    // Soft contact shadow under disc only — no opaque dirt-lip cookie.
     this.shadow.position.set(x, y);
     this.nest.position.set(x, y);
+    this.nest.visible = false;
     this.approvalAura.position.set(x, y + approvalAuraOffsetY(this.coverPx));
     if (this.stage) {
       drawContactShadow(this.shadow, this.coverPx, this.stage);
-      drawDirtLip(this.nest, this.coverPx, this.stage, this.kind);
+      drawDirtLip(this.nest, this.coverPx, this.stage, this.kind); // no-op clear
       drawWaitingAura(this.approvalAura, this.coverPx);
     }
   }
@@ -657,7 +658,7 @@ class PlotNode {
     this.applyPlantedSeat();
     this.plant.visible = true;
     this.shadow.visible = true;
-    this.nest.visible = true;
+    this.nest.visible = false; // dirt-lip Graphics disabled
     this.label.visible = true;
     this.label.position.set(0, this.coverPx * 0.34 + this.sinkPx);
     const wilted = plot.state === "wilted" || plot.greyed;
@@ -806,8 +807,9 @@ function isCropKind(kind: string): kind is CropKind {
 /** How a crop sits in the basket: tall sticks up, low sits deep in the bowl. */
 function basketPose(kind: CropKind): "tall" | "mid" | "low" {
   if (kind === "corn" || kind === "sunflower" || kind === "cotton") return "tall";
-  if (kind === "pumpkin") return "low";
-  return "mid"; // strawberry, tomato
+  // Pumpkin + short berry/tomato frames nest deep in the shallow tray bowl.
+  if (kind === "pumpkin" || kind === "strawberry" || kind === "tomato") return "low";
+  return "mid";
 }
 
 /**
@@ -821,8 +823,9 @@ function basketNestBoost(kind: CropKind) {
       return { yLift: 8, scaleMul: 1.22, zBias: 0 };
     case "strawberry":
     case "tomato":
-      // Short picked frames — lift further so they read clearly.
-      return { yLift: 30, scaleMul: 1.62, zBias: 0 };
+      // Short picked frames — sit deeper behind front woven rim (higher y = deeper).
+      // Prior yLift 30 floated them on the lip; mild sink + modest scale nests in bowl.
+      return { yLift: -8, scaleMul: 1.28, zBias: 0 };
     case "cotton":
       return { yLift: 10, scaleMul: 1.18, zBias: 0 };
     case "sunflower":
