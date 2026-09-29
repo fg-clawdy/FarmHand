@@ -2,6 +2,18 @@ export type SelfieQuality = { ok: true } | { ok: false; message: string };
 
 type DetectedFace = { boundingBox: { x: number; y: number; width: number; height: number } };
 
+/** Slightly lenient so kids a bit farther from the tablet still pass. */
+export const FACE_CENTER_X_TOL = 0.36;
+export const FACE_CENTER_Y_TOL = 0.40;
+/** Min face height as a fraction of frame — loose floor, rejects noise only. */
+export const MIN_FACE_HEIGHT_FRAC = 0.05;
+/** Live preview luma variance floor (was 50). */
+export const LIVE_VARIANCE_MIN = 35;
+/** Final snap luma variance floor (was 80). */
+export const SNAP_VARIANCE_MIN = 55;
+/** Fallback center-vs-mean contrast when FaceDetector is missing. */
+export const CENTER_CONTRAST_MIN = 5;
+
 function lumaStats(data: Uint8ClampedArray) {
   let sum = 0;
   let sumSq = 0;
@@ -46,10 +58,18 @@ async function detectFaces(canvas: HTMLCanvasElement): Promise<DetectedFace[] | 
   }
 }
 
-function faceCentered(box: DetectedFace["boundingBox"], width: number, height: number) {
+/** Pure face-in-guide check (exported for unit tests). */
+export function faceBoxInGuide(
+  box: { x: number; y: number; width: number; height: number },
+  width: number,
+  height: number,
+): boolean {
+  if (width <= 0 || height <= 0) return false;
+  const faceFrac = box.height / height;
+  if (faceFrac < MIN_FACE_HEIGHT_FRAC) return false;
   const cx = (box.x + box.width / 2) / width;
   const cy = (box.y + box.height / 2) / height;
-  return Math.abs(cx - 0.5) <= 0.28 && Math.abs(cy - 0.5) <= 0.32;
+  return Math.abs(cx - 0.5) <= FACE_CENTER_X_TOL && Math.abs(cy - 0.5) <= FACE_CENTER_Y_TOL;
 }
 
 /** Live preview: is a face (or center subject) in the oval guide? */
@@ -60,16 +80,16 @@ export async function faceInGuideOnCanvas(canvas: HTMLCanvasElement): Promise<bo
   if (width < 64 || height < 64) return false;
   const data = ctx.getImageData(0, 0, width, height).data;
   const { mean, variance } = lumaStats(data);
-  if (mean < 28 || mean > 248 || variance < 50) return false;
+  if (mean < 28 || mean > 248 || variance < LIVE_VARIANCE_MIN) return false;
 
   const faces = await detectFaces(canvas);
   if (faces) {
     if (!faces.length) return false;
-    return faceCentered(faces[0]!.boundingBox, width, height);
+    return faceBoxInGuide(faces[0]!.boundingBox, width, height);
   }
 
   const center = centerContrast(data, width, height);
-  return Math.abs(center - mean) >= 8;
+  return Math.abs(center - mean) >= CENTER_CONTRAST_MIN;
 }
 
 export async function assessSelfieCanvas(canvas: HTMLCanvasElement): Promise<SelfieQuality> {
@@ -83,21 +103,21 @@ export async function assessSelfieCanvas(canvas: HTMLCanvasElement): Promise<Sel
   const { mean, variance } = lumaStats(data);
   if (mean < 28) return { ok: false, message: "Too dark - find a brighter spot." };
   if (mean > 248) return { ok: false, message: "Too bright - turn away from the light." };
-  if (variance < 80) return { ok: false, message: "Hold still - that one was blurry." };
+  if (variance < SNAP_VARIANCE_MIN) return { ok: false, message: "Hold still - that one was blurry." };
 
   const faces = await detectFaces(canvas);
   if (faces) {
     if (!faces.length) {
       return { ok: false, message: "We couldn't see your face. Put it in the middle and try again." };
     }
-    if (!faceCentered(faces[0]!.boundingBox, width, height)) {
+    if (!faceBoxInGuide(faces[0]!.boundingBox, width, height)) {
       return { ok: false, message: "Move your face to the middle of the picture." };
     }
     return { ok: true };
   }
 
   const center = centerContrast(data, width, height);
-  if (Math.abs(center - mean) < 8) {
+  if (Math.abs(center - mean) < CENTER_CONTRAST_MIN) {
     return { ok: false, message: "We couldn't see your face. Put it in the middle and try again." };
   }
   return { ok: true };

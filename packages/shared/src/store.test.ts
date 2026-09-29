@@ -90,3 +90,29 @@ test("admin adjustments are not gameplay-earned", () => {
   assert.equal(wallet.currentStars, 800);
   assert.equal(wallet.availableStars, 800);
 });
+
+test("cannot redeem when short even by one star against catalog prices", () => {
+  for (const sku of STARTER_STORE_CATALOG) {
+    assert.equal(canAfford(sku.starCost, 0, sku.starCost), true);
+    assert.equal(canAfford(sku.starCost - 1, 0, sku.starCost), false);
+    assert.equal(canAfford(sku.starCost, 1, sku.starCost), false);
+  }
+});
+
+test("zero or negative star costs are never affordable", () => {
+  assert.equal(canAfford(1000, 0, 0), false);
+  assert.equal(canAfford(1000, 0, -200), false);
+});
+
+test("wallet current stars never go negative from over-spend lines", () => {
+  const wallet = walletFromLedger(
+    [
+      { kind: "EARN_HARVEST", amount: 100 },
+      { kind: "SPEND_REWARD", amount: 500 },
+    ],
+    0,
+  );
+  assert.equal(wallet.currentStars, 0);
+  assert.equal(wallet.availableStars, 0);
+  assert.equal(wallet.lifetimeSpent, 500);
+});
