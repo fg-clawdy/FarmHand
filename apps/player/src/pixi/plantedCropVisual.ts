@@ -98,13 +98,14 @@ export function drawContactShadow(g: Graphics, coverPx: number, stage: 1 | 2 | 3
 export function drawPlantedFoliageMask(g: Graphics, coverPx: number): void {
   g.clear();
   const top = -coverPx * 2.4;
-  const foot = -coverPx * 0.02; // just above disc center — cookie sits below
-  const halfW = coverPx * 0.72;
-  // Chimney up through foliage, rounded foot that tracks the mound.
+  // Cookie top ≈ discCenter - 0.4*discDiameter. Hide everything at/below that.
+  const foot = -coverPx * 0.42;
+  const halfW = coverPx * 0.78;
+  // Chimney up through foliage; rounded foot sits on the mound, not the cookie.
   g.moveTo(-halfW, top);
   g.lineTo(halfW, top);
-  g.lineTo(halfW * 1.05, foot - coverPx * 0.08);
-  g.quadraticCurveTo(0, foot + coverPx * 0.1, -halfW * 1.05, foot - coverPx * 0.08);
+  g.lineTo(halfW * 1.02, foot - coverPx * 0.04);
+  g.quadraticCurveTo(0, foot + coverPx * 0.06, -halfW * 1.02, foot - coverPx * 0.04);
   g.closePath();
   g.fill({ color: 0xffffff });
 }
