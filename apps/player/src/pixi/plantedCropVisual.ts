@@ -19,9 +19,9 @@ const TALL_THIN: ReadonlySet<CropKind> = new Set(["sunflower", "cotton", "corn"]
 export const CROP_SINK_FRAC = {
   // Foliage-clipped frames pivot at stem feet — sink enough that the soft foot
   // edge nests under the mound crown (no floating sticker / hard bar on top).
-  bushy: { seed: 0.1, grow: 0.14, ripe: 0.18 },
-  tall: { seed: 0.12, grow: 0.16, ripe: 0.2 },
-  mid: { seed: 0.11, grow: 0.15, ripe: 0.19 },
+  bushy: { seed: 0.08, grow: 0.11, ripe: 0.14 },
+  tall: { seed: 0.1, grow: 0.14, ripe: 0.17 },
+  mid: { seed: 0.09, grow: 0.12, ripe: 0.15 },
 } as const;
 
 export type CropSilhouette = "bushy" | "tall" | "mid";
@@ -61,15 +61,13 @@ export function plantedDiscTint(wilted: boolean, awaiting: boolean): number {
 
 export function drawContactShadow(g: Graphics, coverPx: number, stage: 1 | 2 | 3 | 4): void {
   g.clear();
+  // Soft low-alpha umber under stem feet only — must not read as a second dirt plate.
   const seed = stage === 1;
-  const haloA = seed ? 0.06 : 0.11;
-  const midA = seed ? 0.1 : 0.16;
-  const coreA = seed ? 0.12 : 0.2;
-  g.ellipse(0, coverPx * 0.04, coverPx * 0.5, coverPx * 0.2);
+  const haloA = seed ? 0.04 : 0.07;
+  const coreA = seed ? 0.06 : 0.1;
+  g.ellipse(0, coverPx * 0.02, coverPx * 0.32, coverPx * 0.11);
   g.fill({ color: 0x6b4423, alpha: haloA });
-  g.ellipse(0, coverPx * 0.025, coverPx * 0.34, coverPx * 0.12);
-  g.fill({ color: 0x7a5230, alpha: midA });
-  g.ellipse(0, coverPx * 0.015, coverPx * 0.2, coverPx * 0.07);
+  g.ellipse(0, coverPx * 0.01, coverPx * 0.18, coverPx * 0.06);
   g.fill({ color: 0x8a5a32, alpha: coreA });
 }
 

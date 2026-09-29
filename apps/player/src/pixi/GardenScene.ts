@@ -827,9 +827,9 @@ function basketNestBoost(kind: CropKind) {
       return { yLift: 8, scaleMul: 1.22, zBias: 0 };
     case "strawberry":
     case "tomato":
-      // Milder picked frames keep fruit; nest deep behind rimFront, small so
-      // bottoms stay inside the pocket (no poke through front weave).
-      return { yLift: 10, scaleMul: 0.78, zBias: 0 };
+      // Berry-window frames — lift so fruit peeks over the lip; scale keeps
+      // bottoms inside the pocket (no poke through front weave).
+      return { yLift: 16, scaleMul: 0.88, zBias: 0 };
     case "cotton":
       return { yLift: 10, scaleMul: 1.18, zBias: 0 };
     case "sunflower":
@@ -856,9 +856,9 @@ function basketSeat(index: number, total: number, kind: CropKind = "corn") {
   const spread = pose === "tall" ? 36 : pose === "low" ? 34 : 42;
   const x = (col - (cols - 1) / 2) * spread + ((row % 2) * 6 - 3);
   // Anchor is bottom of sprite. Higher y = deeper in the tray (behind front rim).
-  const yBase = pose === "tall" ? 8 : pose === "low" ? 28 : 10;
+  const yBase = pose === "tall" ? 8 : pose === "low" ? 24 : 10;
   const y = yBase - boost.yLift - row * (pose === "tall" ? 8 : 10) + (rows - 1) * 2;
-  const scaleBase = pose === "tall" ? 0.36 : pose === "low" ? 0.3 : 0.36;
+  const scaleBase = pose === "tall" ? 0.36 : pose === "low" ? 0.32 : 0.36;
   const scale = (scaleBase - row * 0.025) * boost.scaleMul;
   const rot = ((i * 17) % 11 - 5) * 0.025;
   // Back rows (higher row) draw behind; tall crops also prefer back so they tower over mid/low.

@@ -203,9 +203,9 @@ export function cropStageFrame(crops: Record<CropKind, Texture[]>, kind: CropKin
  */
 export const DISC_HIDE_RADIUS_FRAC = 0.4;
 /** Planted mound: cut deeper into the measured disc so no cookie fringe remains. */
-export const PLANTED_DISC_HIDE_FRAC = 0.5;
+export const PLANTED_DISC_HIDE_FRAC = 0.48;
 /** Basket picked art: keep hanging berries; only shave the lower cookie. */
-export const PICKED_DISC_HIDE_FRAC = 0.28;
+export const PICKED_DISC_HIDE_FRAC = 0.25;
 
 /** Y in full cell space of the soil-cookie hide line for the given frac. */
 export function cropDiscHideTopInCell(
@@ -260,7 +260,7 @@ export function cropPlantedFrame(
   const hit = plantedFrameCache.get(key);
   if (hit) return hit;
   const hard = cropFoliageFrame(crops, kind, stage, 4, PLANTED_DISC_HIDE_FRAC);
-  const faded = softFadeTextureFoot(hard, 0.14);
+  const faded = softFadeTextureFoot(hard, 0.22);
   plantedFrameCache.set(key, faded);
   return faded;
 }
@@ -272,9 +272,36 @@ export function cropPickedFrame(crops: Record<CropKind, Texture[]>, kind: CropKi
   const key = `picked:${kind}`;
   const hit = pickedFrameCache.get(key);
   if (hit) return hit;
-  const tex = cropFoliageFrame(crops, kind, 4, 2, PICKED_DISC_HIDE_FRAC);
+  // Strawberry/tomato: berry window — drop the leafy canopy so the bowl reads as fruit.
+  const tex =
+    kind === "strawberry" || kind === "tomato"
+      ? cropBerryWindowFrame(crops, kind)
+      : cropFoliageFrame(crops, kind, 4, 2, PICKED_DISC_HIDE_FRAC);
   pickedFrameCache.set(key, tex);
   return tex;
+}
+
+/** Lower-plant window for bushy fruit — berries dominate, leaves mostly cropped off. */
+function cropBerryWindowFrame(
+  crops: Record<CropKind, Texture[]>,
+  kind: CropKind,
+): Texture {
+  const full = cropStageFrame(crops, kind, 4);
+  if (full === Texture.EMPTY || !full.source) return full;
+  const hideTop = cropDiscHideTopInCell(kind, 4, PICKED_DISC_HIDE_FRAC);
+  if (hideTop == null) return cropFoliageFrame(crops, kind, 4, 2, PICKED_DISC_HIDE_FRAC);
+  const frame = full.frame;
+  const hideTopInFrame = hideTop - SHEET_INSET;
+  const bottom = Math.max(24, Math.round(hideTopInFrame - 2));
+  // Keep ~42% of the cell above the cookie — fruit belt, not the leafy crown.
+  const windowH = Math.max(64, Math.round((CROP_SHEET_HEIGHT[kind] - SHEET_INSET * 2) * 0.42));
+  const top = Math.max(0, bottom - windowH);
+  const height = Math.min(bottom - top, frame.height - top);
+  return new Texture({
+    source: full.source,
+    frame: new Rectangle(frame.x, frame.y + top, frame.width, height),
+    orig: new Rectangle(0, 0, frame.width, height),
+  });
 }
 
 /** Soft-alpha the bottom band of a texture so stem feet blend into the mound. */
