@@ -19,7 +19,6 @@ import {
   cropDiscAnchor,
   cropPickedFrame,
   cropStageFrame,
-  cropPlantedFrame,
   type PaintedArt,
 } from "./paintedAssets";
 import {
@@ -30,6 +29,7 @@ import {
   drawWaitingAura,
   shouldShowWaitingAura,
   plantedDiscTint,
+  drawPlantedFoliageMask,
 } from "./plantedCropVisual";
 import { uvToLocal } from "./playfieldLayout";
 import { SignAvatarBadge, gardenZoomBadgeLocal } from "./signAvatar";
@@ -479,6 +479,7 @@ class PlotNode {
   private plant = new Sprite();
   private shadow: Graphics;
   private nest: Graphics;
+  private plantMask: Graphics;
   private marker: Graphics;
   private glow: Sprite;
   private approvalAura = new Graphics();
@@ -517,6 +518,8 @@ class PlotNode {
     this.nest = new Graphics();
     this.nest.visible = false;
     this.nest.eventMode = "none";
+    this.plantMask = new Graphics();
+    this.plantMask.eventMode = "none";
     this.marker = new Graphics();
     this.marker.visible = false;
     this.marker.eventMode = "none";
@@ -581,12 +584,12 @@ class PlotNode {
     this.drawMoundMarker();
   }
 
-  /** Seat plant/shadow/aura on disc pivot, slight nestle into mound. Nest stays hidden. */
+  /** Seat plant/shadow/aura on disc pivot; foliage mask hides baked soil cookie. */
   private applyPlantedSeat() {
     const x = GARDEN_CROP_SEAT.x;
     const y = GARDEN_CROP_SEAT.y + this.sinkPx;
     this.plant.position.set(x, y);
-    // Soft contact shadow under disc only — no opaque dirt-lip cookie.
+    // Soft contact shadow under stem feet — no opaque dirt-lip cookie.
     this.shadow.position.set(x, y);
     this.nest.position.set(x, y);
     this.nest.visible = false;
@@ -595,6 +598,13 @@ class PlotNode {
       drawContactShadow(this.shadow, this.coverPx, this.stage);
       drawDirtLip(this.nest, this.coverPx, this.stage, this.kind); // no-op clear
       drawWaitingAura(this.approvalAura, this.coverPx);
+      drawPlantedFoliageMask(this.plantMask, this.coverPx);
+      // Mask is a child of the plant (disc-local). Counter-scale so coverPx
+      // units map to texture space under the plant's cropScale.
+      this.plantMask.position.set(0, 0);
+      this.plantMask.scale.set(1 / Math.max(this.cropScale, 0.001));
+      if (this.plantMask.parent !== this.plant) this.plant.addChild(this.plantMask);
+      this.plant.mask = this.plantMask;
     }
   }
 
@@ -639,6 +649,7 @@ class PlotNode {
     this.sparkle.setActive(this.ready);
     if (empty || !plot.growthStage || !plot.tier) {
       this.plant.visible = false;
+      this.plant.mask = null;
       this.shadow.visible = false;
       this.nest.visible = false;
       this.label.visible = false;
@@ -652,9 +663,10 @@ class PlotNode {
     this.stage = plot.growthStage;
     this.coverPx = ZOOM_MOUND_COVER_PX * this.texScale;
     this.sinkPx = cropSinkPx(this.stage, this.coverPx, kind);
-    // Foliage-only frame hides the baked soil-disc cookie; pivot at stem feet.
-    this.plant.texture = cropPlantedFrame(this.painted.crops, kind, plot.growthStage);
-    this.plant.anchor.set(0.5, 1);
+    // Full stage frame + disc pivot; foliage mask hides the baked soil cookie.
+    this.plant.texture = cropStageFrame(this.painted.crops, kind, plot.growthStage);
+    const pivot = cropDiscAnchor(kind, plot.growthStage);
+    this.plant.anchor.set(pivot.x, pivot.y);
     this.cropScale = cropCoverScale(kind, plot.growthStage, this.coverPx);
     this.plant.scale.set(this.cropScale);
     this.applyPlantedSeat();
@@ -673,12 +685,13 @@ class PlotNode {
     else if (awaiting && plot.ready) this.label.text = "WAITING";
     else if (plot.ready) this.label.text = "READY";
     else this.label.text = formatCountdown(plot.remainingMs);
-    this.plant.mask = null;
+    // Foliage mask is applied in applyPlantedSeat — do not clear it here.
   }
 
   beginPick() {
     this.celebrateT = 0.01;
     this.plant.visible = false;
+    this.plant.mask = null;
     this.plant.alpha = 1;
     this.plant.rotation = 0;
     this.shadow.visible = false;

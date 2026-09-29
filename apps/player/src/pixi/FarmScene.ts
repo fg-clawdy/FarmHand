@@ -10,7 +10,8 @@ import { CorkboardHotspot, type WantedJob } from "./jobBoard";
 import {
   FARM_MOUND_COVER_PX,
   cropCoverScale,
-  cropPlantedFrame,
+  cropStageFrame,
+  cropDiscAnchor,
   type PaintedArt,
 } from "./paintedAssets";
 import {
@@ -21,6 +22,7 @@ import {
   drawWaitingAura,
   shouldShowWaitingAura,
   plantedDiscTint,
+  drawPlantedFoliageMask,
 } from "./plantedCropVisual";
 import { SignAvatarBadge, farmSignBadgeLocal } from "./signAvatar";
 import {
@@ -295,6 +297,7 @@ class GardenHotspot {
   private plants: Sprite[] = [];
   private shadows: Graphics[] = [];
   private nests: Graphics[] = [];
+  private plantMasks: Graphics[] = [];
   private approvalAuras: Graphics[] = [];
   private markers: Graphics[] = [];
   private stages: Array<1 | 2 | 3 | 4 | null> = [];
@@ -338,6 +341,9 @@ class GardenHotspot {
       nest.visible = false;
       nest.eventMode = "none";
       this.nests.push(nest);
+      const plantMask = new Graphics();
+      plantMask.eventMode = "none";
+      this.plantMasks.push(plantMask);
       const aura = new Graphics();
       aura.visible = false;
       aura.eventMode = "none";
@@ -481,6 +487,7 @@ class GardenHotspot {
       const nest = this.nests[slot]!;
       if (!plot || plot.state === "empty" || !stage || !plot.tier) {
         spr.visible = false;
+        spr.mask = null;
         aura.visible = false;
         shadow.visible = false;
         nest.visible = false;
@@ -491,9 +498,10 @@ class GardenHotspot {
       const kind = cropKindForTier(plot.tier);
       this.stages[slot] = stage;
       this.kinds[slot] = kind;
-      // Foliage-only frame hides the baked soil-disc cookie; pivot at stem feet.
-      spr.texture = cropPlantedFrame(this.painted.crops, kind, stage);
-      spr.anchor.set(0.5, 1);
+      // Full stage frame + disc pivot; foliage mask hides the baked soil cookie.
+      spr.texture = cropStageFrame(this.painted.crops, kind, stage);
+      const pivot = cropDiscAnchor(kind, stage);
+      spr.anchor.set(pivot.x, pivot.y);
       this.cropScale = cropCoverScale(kind, stage, FARM_MOUND_COVER_PX);
       spr.scale.set(this.cropScale);
       const uv = moundUv(this.spec, slot);
@@ -508,6 +516,12 @@ class GardenHotspot {
       drawContactShadow(shadow, FARM_MOUND_COVER_PX, stage);
       drawDirtLip(nest, FARM_MOUND_COVER_PX, stage, kind); // no-op clear
       drawWaitingAura(aura, FARM_MOUND_COVER_PX, 0.95);
+      const plantMask = this.plantMasks[slot]!;
+      drawPlantedFoliageMask(plantMask, FARM_MOUND_COVER_PX);
+      plantMask.position.set(0, 0);
+      plantMask.scale.set(1 / Math.max(this.cropScale, 0.001));
+      if (plantMask.parent !== spr) spr.addChild(plantMask);
+      spr.mask = plantMask;
       spr.visible = true;
       shadow.visible = true;
       nest.visible = false; // dirt-lip Graphics disabled

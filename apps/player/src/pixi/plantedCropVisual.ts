@@ -5,9 +5,9 @@ import type { CropKind } from "@farmhand/shared";
  * Planted-crop seating on painted mounds.
  *
  * Crop stage sheets bake a speckled soil disc under the plant. Planted sprites
- * use `cropPlantedFrame` to clip that cookie off so foliage+stem roots into the
- * mound. Pivot is stem feet (anchor 0.5,1). Soft mound-umber contact shadow
- * under the feet only — never an opaque Graphics dirt-lip oval.
+ * keep the full stage frame (disc pivot) but apply `drawPlantedFoliageMask` so
+ * the cookie is clipped off and foliage+stem roots into the mound. Soft
+ * mound-umber contact shadow under the feet — never an opaque dirt-lip oval.
  *
  * Layer order (per mound): aura (WAITING only, behind) → shadow → crop.
  * Nest Graphics may still exist at call sites but stays cleared + hidden.
@@ -86,6 +86,27 @@ export function drawContactShadow(g: Graphics, coverPx: number, stage: 1 | 2 | 3
   g.fill({ color: 0x7a5230, alpha: midA });
   g.ellipse(0, coverPx * 0.015, coverPx * 0.2, coverPx * 0.07);
   g.fill({ color: 0x8a5a32, alpha: coreA });
+}
+
+/**
+ * Mask for a disc-anchored planted sprite: reveal foliage+stem, hide the baked
+ * soil cookie below the stem feet. Bottom edge is a wide shallow ellipse so the
+ * cut follows the mound instead of a hard scissor bar.
+ *
+ * Local space assumes plant.anchor = cropDiscAnchor (disc center at 0,0).
+ */
+export function drawPlantedFoliageMask(g: Graphics, coverPx: number): void {
+  g.clear();
+  const top = -coverPx * 2.4;
+  const foot = -coverPx * 0.02; // just above disc center — cookie sits below
+  const halfW = coverPx * 0.72;
+  // Chimney up through foliage, rounded foot that tracks the mound.
+  g.moveTo(-halfW, top);
+  g.lineTo(halfW, top);
+  g.lineTo(halfW * 1.05, foot - coverPx * 0.08);
+  g.quadraticCurveTo(0, foot + coverPx * 0.1, -halfW * 1.05, foot - coverPx * 0.08);
+  g.closePath();
+  g.fill({ color: 0xffffff });
 }
 
 /**
