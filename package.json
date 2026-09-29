@@ -13,7 +13,7 @@
     "dev:admin": "npm run dev -w @farmhand/admin",
     "dev:parent": "npm run dev -w @farmhand/parent",
     "build": "npm run build -w @farmhand/shared && npm run build -w @farmhand/api && npm run build -w @farmhand/player && npm run build -w @farmhand/admin && npm run build -w @farmhand/parent",
-    "test": "npm run test -w @farmhand/shared && npm run test -w @farmhand/api && npm run test -w @farmhand/player",
+    "test": "npm run test -w @farmhand/shared && npm run test -w @farmhand/api && npm run test -w @farmhand/player && node --test scripts/smoke-restore.test.mjs",
     "postinstall": "npm run prisma:generate -w @farmhand/api"
   },
   "engines": {

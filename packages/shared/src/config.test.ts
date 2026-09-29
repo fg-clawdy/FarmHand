@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   DEFAULT_GAME_CONFIG,
+  FLAT_TIER_DURATION_MINUTES,
   mergeGameConfig,
 } from "./config.js";
 import { cropKindForTier, PLOTS_PER_GARDEN } from "./types.js";
@@ -106,6 +107,18 @@ describe("v2 differentiated tier economy", () => {
     assert.equal(merged.tiers[0]?.durationMinutes, 90);
     assert.equal(merged.tiers[0]?.points, 10);
     assert.equal(merged.tiers[4]?.points, 18);
+  });
+
+
+  it("ships production durations, not TEST 1-minute smoke leftovers", () => {
+    assert.equal(FLAT_TIER_DURATION_MINUTES, 24 * 60);
+    for (const tier of DEFAULT_GAME_CONFIG.tiers) {
+      assert.ok(
+        tier.durationMinutes >= 60,
+        `tier ${tier.tier} durationMinutes=${tier.durationMinutes} looks like a TEST knob`,
+      );
+      assert.notEqual(tier.durationMinutes, 1, `tier ${tier.tier} must not ship TEST durationMinutes: 1`);
+    }
   });
 
   it("defaults Wanted poster dwell to 18s and clamps 5–120", () => {
