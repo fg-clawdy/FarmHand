@@ -825,9 +825,9 @@ function basketNestBoost(kind: CropKind) {
       return { yLift: 8, scaleMul: 1.22, zBias: 0 };
     case "strawberry":
     case "tomato":
-      // Short foliage frames — nest behind front rim; keep bottoms inside mask.
-      // yLift -3 clipped under weave; 30 floated on lip. Modest lift + scale.
-      return { yLift: 10, scaleMul: 1.15, zBias: 0 };
+      // Leaf-heavy picked frames — sit higher behind front rim, smaller so they
+      // stay inside the pocket mask (no poke under the weave).
+      return { yLift: 18, scaleMul: 1.05, zBias: 0 };
     case "cotton":
       return { yLift: 10, scaleMul: 1.18, zBias: 0 };
     case "sunflower":
@@ -977,10 +977,10 @@ class HarvestBasket {
     g.clear();
     // Wide shallow-tray chimney: clips buried bottoms into the weave, never haircuts tops.
     // Bottom sits above the outer weave edge so berries can't poke under the basket.
-    g.moveTo(-130, -300);
-    g.lineTo(130, -300);
-    g.lineTo(140, 18);
-    g.quadraticCurveTo(0, 48, -140, 18);
+    g.moveTo(-120, -300);
+    g.lineTo(120, -300);
+    g.lineTo(128, 8);
+    g.quadraticCurveTo(0, 36, -128, 8);
     g.closePath();
     g.fill({ color: 0xffffff });
   }

@@ -210,8 +210,8 @@ export function cropDiscHideTopInCell(kind: CropKind, stage: 1 | 2 | 3 | 4): num
 }
 
 /**
- * Clip the baked soil disc off a stage cell. Stem pad keeps a few pixels of
- * stem feet; never the speckled cookie. Frame math matches `sliceSheet` insets.
+ * Hard-rect clip of the baked soil disc. Stem pad keeps a few pixels of stem;
+ * never the speckled cookie. Frame math matches `sliceSheet` insets.
  */
 export function cropFoliageFrame(
   crops: Record<CropKind, Texture[]>,
@@ -235,13 +235,65 @@ export function cropFoliageFrame(
   });
 }
 
-/** Planted mound crop: foliage + stem only — disc hidden so roots read into the mound. */
+/**
+ * Planted mound crop: hide the baked soil cookie with a soft alpha fade into
+ * the mound (no hard scissor bar, no Graphics dirt-lip oval).
+ */
 export function cropPlantedFrame(
   crops: Record<CropKind, Texture[]>,
   kind: CropKind,
   stage: 1 | 2 | 3 | 4,
 ): Texture {
-  return cropFoliageFrame(crops, kind, stage, 2);
+  const full = cropStageFrame(crops, kind, stage);
+  if (full === Texture.EMPTY || !full.source) return full;
+  const hideTop = cropDiscHideTopInCell(kind, stage);
+  if (hideTop == null) return full;
+  const frame = full.frame;
+  const hideTopInFrame = hideTop - SHEET_INSET;
+  // Soft fade band just above the cookie so stem feet blend into the mound.
+  const fadePx = Math.max(18, Math.round((cropDisc(kind, stage)?.d ?? 280) * 0.08));
+  const solidH = Math.max(16, Math.round(hideTopInFrame - fadePx));
+  const totalH = Math.min(frame.height, solidH + fadePx);
+  if (typeof document === "undefined") {
+    // SSR / node tests — hard clip fallback.
+    return cropFoliageFrame(crops, kind, stage, fadePx);
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(frame.width));
+  canvas.height = Math.max(1, totalH);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return cropFoliageFrame(crops, kind, stage, fadePx);
+  // Pixi v8 ImageSource keeps the HTMLImageElement / ImageBitmap on `.resource`.
+  const image = (full.source as { resource?: CanvasImageSource }).resource;
+  if (!image) return cropFoliageFrame(crops, kind, stage, fadePx);
+  try {
+    ctx.drawImage(
+      image,
+      frame.x,
+      frame.y,
+      frame.width,
+      totalH,
+      0,
+      0,
+      frame.width,
+      totalH,
+    );
+  } catch {
+    return cropFoliageFrame(crops, kind, stage, fadePx);
+  }
+  // Fade the bottom band to transparent — kills leftover cookie pixels + hard edge.
+  const img = ctx.getImageData(0, solidH, canvas.width, fadePx);
+  const data = img.data;
+  for (let y = 0; y < fadePx; y++) {
+    const aMul = 1 - (y + 1) / (fadePx + 1);
+    for (let x = 0; x < canvas.width; x++) {
+      const i = (y * canvas.width + x) * 4 + 3;
+      data[i] = Math.round(data[i]! * aMul);
+    }
+  }
+  ctx.putImageData(img, 0, solidH);
+  // Fully clear anything that would have been cookie below the fade.
+  return Texture.from(canvas);
 }
 
 /**
