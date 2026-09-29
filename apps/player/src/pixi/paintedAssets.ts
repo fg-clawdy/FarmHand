@@ -260,7 +260,7 @@ export function cropPlantedFrame(
   const hit = plantedFrameCache.get(key);
   if (hit) return hit;
   const hard = cropFoliageFrame(crops, kind, stage, 4, PLANTED_DISC_HIDE_FRAC);
-  const faded = softFadeTextureFoot(hard, 0.32);
+  const faded = softFadeTextureFoot(hard, 0.38);
   plantedFrameCache.set(key, faded);
   return faded;
 }
@@ -344,7 +344,7 @@ function softFadeTextureFoot(tex: Texture, fadeFrac: number): Texture {
   const data = img.data;
   for (let y = 0; y < fadePx; y++) {
     const t = (y + 1) / (fadePx + 1); // 0 at top of fade → 1 at foot
-    const aMul = Math.pow(1 - t, 1.75); // dissolve faster near the foot
+    const aMul = Math.pow(1 - t, 2.1); // dissolve faster near the foot
     const umberMix = t * t; // ramp color into mound umber
     for (let x = 0; x < canvas.width; x++) {
       const i = (y * canvas.width + x) * 4;

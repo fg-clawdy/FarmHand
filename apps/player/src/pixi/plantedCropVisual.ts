@@ -98,15 +98,15 @@ export function drawPlantedFootMask(g: Graphics, frameW: number, frameH: number)
 export function drawFootMatte(g: Graphics, coverPx: number, stage: 1 | 2 | 3 | 4): void {
   g.clear();
   const seed = stage === 1;
-  const haloA = seed ? 0.08 : 0.12;
-  const midA = seed ? 0.1 : 0.16;
-  const tipA = seed ? 0.06 : 0.1;
+  const haloA = seed ? 0.1 : 0.15;
+  const midA = seed ? 0.12 : 0.2;
+  const tipA = seed ? 0.08 : 0.12;
   // Flat soft band across the clip — not a round dirt plate.
-  g.ellipse(0, -coverPx * 0.03, coverPx * 0.4, coverPx * 0.1);
+  g.ellipse(0, -coverPx * 0.02, coverPx * 0.44, coverPx * 0.11);
   g.fill({ color: 0x7a5230, alpha: haloA });
-  g.ellipse(0, -coverPx * 0.05, coverPx * 0.26, coverPx * 0.07);
+  g.ellipse(0, -coverPx * 0.045, coverPx * 0.3, coverPx * 0.08);
   g.fill({ color: 0x8a5a32, alpha: midA });
-  g.ellipse(0, -coverPx * 0.07, coverPx * 0.14, coverPx * 0.04);
+  g.ellipse(0, -coverPx * 0.065, coverPx * 0.16, coverPx * 0.045);
   g.fill({ color: 0x9a6a3a, alpha: tipA });
 }
 

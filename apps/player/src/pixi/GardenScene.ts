@@ -31,7 +31,6 @@ import {
   drawWaitingAura,
   shouldShowWaitingAura,
   plantedDiscTint,
-  drawPlantedFootMask,
 } from "./plantedCropVisual";
 import { uvToLocal } from "./playfieldLayout";
 import { SignAvatarBadge, gardenZoomBadgeLocal } from "./signAvatar";
@@ -601,11 +600,9 @@ class PlotNode {
       drawDirtLip(this.nest, this.coverPx, this.stage, this.kind); // no-op clear of lip
       drawFootMatte(this.nest, this.coverPx, this.stage); // soft umber veil over feet
       drawWaitingAura(this.approvalAura, this.coverPx);
-      const fw = this.plant.texture.orig.width;
-      const fh = this.plant.texture.orig.height;
-      drawPlantedFootMask(this.plantMask, fw, fh);
-      if (this.plantMask.parent !== this.plant) this.plant.addChild(this.plantMask);
-      this.plant.mask = this.plantMask;
+      // No Graphics foot mask — hard mask edges undo the soft umber fade.
+      this.plant.mask = null;
+      this.plantMask.visible = false;
     }
   }
 
@@ -840,12 +837,13 @@ function basketNestBoost(kind: CropKind) {
     case "strawberry":
     case "tomato":
       // Berry-window: bury deeper so leaf tips stay behind rimFront / pocket.
-      return { yLift: 6, scaleMul: 0.8, zBias: 0 };
+      return { yLift: 2, scaleMul: 0.74, zBias: 0 };
     case "cotton":
       return { yLift: 10, scaleMul: 1.18, zBias: 0 };
     case "sunflower":
       return { yLift: 0, scaleMul: 1.0, zBias: 0 };
     case "corn":
+      return { yLift: -4, scaleMul: 0.95, zBias: 1 };
     default:
       return { yLift: 0, scaleMul: 1.0, zBias: 0 };
   }
@@ -867,9 +865,9 @@ function basketSeat(index: number, total: number, kind: CropKind = "corn") {
   const spread = pose === "tall" ? 36 : pose === "low" ? 26 : 42;
   const x = (col - (cols - 1) / 2) * spread + ((row % 2) * 4 - 2);
   // Anchor is bottom of sprite. Higher y = deeper in the tray (behind front rim).
-  const yBase = pose === "tall" ? 8 : pose === "low" ? 32 : 10;
-  const y = yBase - boost.yLift - row * (pose === "tall" ? 8 : 10) + (rows - 1) * 2;
-  const scaleBase = pose === "tall" ? 0.36 : pose === "low" ? 0.28 : 0.36;
+  const yBase = pose === "tall" ? 4 : pose === "low" ? 36 : 10;
+  const y = yBase - boost.yLift - row * (pose === "tall" ? 10 : 8) + (rows - 1) * 2;
+  const scaleBase = pose === "tall" ? 0.34 : pose === "low" ? 0.26 : 0.36;
   const scale = (scaleBase - row * 0.025) * boost.scaleMul;
   const rot = ((i * 17) % 11 - 5) * 0.025;
   // Back rows (higher row) draw behind; tall crops also prefer back so they tower over mid/low.
@@ -990,11 +988,11 @@ class HarvestBasket {
     g.clear();
     // Wide shallow-tray chimney: clips buried bottoms into the weave, never haircuts tops.
     // Bottom sits above the outer weave edge so berries can't poke under the basket.
-    // Tighter left/right + higher floor so leaf tips can't ride the front weave.
-    g.moveTo(-96, -300);
-    g.lineTo(96, -300);
-    g.lineTo(102, -10);
-    g.quadraticCurveTo(0, 10, -102, -10);
+    // Pocket stays inside the bowl — floor above front weave so tips can't ride it.
+    g.moveTo(-88, -300);
+    g.lineTo(88, -300);
+    g.lineTo(94, -18);
+    g.quadraticCurveTo(0, 0, -94, -18);
     g.closePath();
     g.fill({ color: 0xffffff });
   }

@@ -22,7 +22,6 @@ import {
   drawWaitingAura,
   shouldShowWaitingAura,
   plantedDiscTint,
-  drawPlantedFootMask,
 } from "./plantedCropVisual";
 import { SignAvatarBadge, farmSignBadgeLocal } from "./signAvatar";
 import {
@@ -518,11 +517,9 @@ class GardenHotspot {
       drawDirtLip(nest, FARM_MOUND_COVER_PX, stage, kind); // no-op clear of lip
       drawFootMatte(nest, FARM_MOUND_COVER_PX, stage);
       drawWaitingAura(aura, FARM_MOUND_COVER_PX, 0.95);
-      const plantMask = this.plantMasks[slot]!;
-      drawPlantedFootMask(plantMask, spr.texture.orig.width, spr.texture.orig.height);
-      if (plantMask.parent !== spr) spr.addChild(plantMask);
-      spr.mask = plantMask;
-      plantMask.visible = true;
+      // Soft umber fade handles the foot — hard Graphics mask scissors it.
+      spr.mask = null;
+      this.plantMasks[slot]!.visible = false;
       nest.visible = true;
       spr.visible = true;
       shadow.visible = true;
