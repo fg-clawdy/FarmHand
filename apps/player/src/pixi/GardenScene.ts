@@ -838,9 +838,9 @@ function basketNestBoost(kind: CropKind) {
       return { yLift: 8, scaleMul: 1.22, zBias: 0 };
     case "strawberry":
     case "tomato":
-      // Leaf-heavy picked frames — sit higher behind front rim, smaller so they
-      // stay inside the pocket mask (no poke under the weave).
-      return { yLift: 18, scaleMul: 1.05, zBias: 0 };
+      // Leaf-heavy picked frames — high behind front rim; small so bottoms stay
+      // inside the pocket (no poke through front weave).
+      return { yLift: 26, scaleMul: 0.92, zBias: 0 };
     case "cotton":
       return { yLift: 10, scaleMul: 1.18, zBias: 0 };
     case "sunflower":

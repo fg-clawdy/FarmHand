@@ -23,6 +23,9 @@ const TALL_THIN: ReadonlySet<CropKind> = new Set(["sunflower", "cotton", "corn"]
  * Fraction of on-screen disc cover to sink stem feet into the mound.
  * Modest — soft seat without burying ripe fruit.
  */
+/** Mask foot as fraction of cover; also added into cropSinkPx so cutoff sits in mound. */
+export const PLANTED_MASK_FOOT_FRAC = 0.42;
+
 export const CROP_SINK_FRAC = {
   bushy: { seed: 0.04, grow: 0.05, ripe: 0.06 },
   tall: { seed: 0.06, grow: 0.08, ripe: 0.1 },
@@ -45,9 +48,12 @@ export function cropSinkFrac(stage: 1 | 2 | 3 | 4, kind?: CropKind | null): numb
   return profile.grow;
 }
 
-/** Positive Y pixels so stem feet sit into the painted mound. */
+/**
+ * Positive Y so the foliage-mask foot (stem cutoff) sits in the painted mound.
+ * Includes PLANTED_MASK_FOOT_FRAC so the hard mask edge is buried in mound dirt.
+ */
 export function cropSinkPx(stage: 1 | 2 | 3 | 4, coverPx: number, kind?: CropKind | null): number {
-  return coverPx * cropSinkFrac(stage, kind);
+  return coverPx * (cropSinkFrac(stage, kind) + PLANTED_MASK_FOOT_FRAC);
 }
 
 /** Aura sits up into the foliage, not ringing the mound seam. */
@@ -99,7 +105,7 @@ export function drawPlantedFoliageMask(g: Graphics, coverPx: number): void {
   g.clear();
   const top = -coverPx * 2.4;
   // Cookie top ≈ discCenter - 0.4*discDiameter. Hide everything at/below that.
-  const foot = -coverPx * 0.42;
+  const foot = -coverPx * PLANTED_MASK_FOOT_FRAC;
   const halfW = coverPx * 0.78;
   // Chimney up through foliage; rounded foot sits on the mound, not the cookie.
   g.moveTo(-halfW, top);
