@@ -48,22 +48,22 @@ export const CROP_DISC_IN_CELL: Record<CropKind, readonly Disc[]> = {
   ],
   /** Placeholders — art not yet painted. Reuse corn disc measurements. */
   tomato: [
-    { x: 240, y: 763, d: 316 },
-    { x: 236, y: 768, d: 312 },
-    { x: 239, y: 766, d: 300 },
-    { x: 223, y: 766, d: 311 },
+    { x: 234, y: 690, d: 320 },
+    { x: 226, y: 710, d: 318 },
+    { x: 230, y: 705, d: 318 },
+    { x: 223, y: 700, d: 316 },
   ],
   pumpkin: [
-    { x: 240, y: 763, d: 316 },
-    { x: 236, y: 768, d: 312 },
-    { x: 239, y: 766, d: 300 },
-    { x: 223, y: 766, d: 311 },
+    { x: 233, y: 690, d: 320 },
+    { x: 233, y: 720, d: 300 },
+    { x: 235, y: 710, d: 310 },
+    { x: 231, y: 720, d: 300 },
   ],
   sunflower: [
-    { x: 240, y: 763, d: 316 },
-    { x: 236, y: 768, d: 312 },
-    { x: 239, y: 766, d: 300 },
-    { x: 223, y: 766, d: 311 },
+    { x: 221, y: 680, d: 320 },
+    { x: 218, y: 700, d: 310 },
+    { x: 223, y: 690, d: 310 },
+    { x: 228, y: 700, d: 300 },
   ],
 };
 
@@ -202,10 +202,36 @@ export function cropStageFrame(crops: Record<CropKind, Texture[]>, kind: CropKin
  * low fruit for the basket (cookie tip is buried behind the rim / brim mask).
  */
 export const DISC_HIDE_RADIUS_FRAC = 0.4;
-/** Planted mound: cut deeper into the measured disc so no cookie fringe remains. */
-export const PLANTED_DISC_HIDE_FRAC = 0.58;
+/** Planted mound: hide most of the cookie without eating the low fruit belt. */
+export const PLANTED_DISC_HIDE_FRAC = 0.22;
+/** Bushy ripe fruit sits near the disc — hide less so pumpkins/berries survive. */
+export const PLANTED_DISC_HIDE_BY_SILHOUETTE = {
+  // Bushy fruit overlaps the baked cookie — barely hard-clip; soil-aware fade removes mud.
+  bushy: 0.08,
+  tall: 0.40,
+  mid: 0.22,
+} as const;
+export const PLANTED_FOOT_FADE_BY_SILHOUETTE = {
+  // Fracs of planted frame height. Bushy frames end just under fruit — fade the thin cookie fringe.
+  bushy: 0.16,
+  tall: 0.18,
+  mid: 0.20,
+} as const;
 /** Basket picked art: keep hanging berries; only shave the lower cookie. */
 export const PICKED_DISC_HIDE_FRAC = 0.25;
+
+/**
+ * Absolute hideTop (full-cell Y) for bushy planted frames. Fruit paints over the
+ * baked cookie, so disc-frac hide bisects pumpkins/berries; full-cell frames
+ * float the art up a whole garden row. Clip just under measured fruit bottoms.
+ */
+export const BUSHY_PLANTED_HIDE_TOP: Partial<Record<CropKind, readonly number[]>> = {
+  // stage 1..4 — keep fruit, leave a thin cookie fringe for soil-aware fade
+  pumpkin: [720, 760, 780, 800],
+  strawberry: [360, 380, 390, 385],
+  tomato: [720, 760, 780, 790],
+};
+
 
 /** Y in full cell space of the soil-cookie hide line for the given frac. */
 export function cropDiscHideTopInCell(
@@ -251,16 +277,54 @@ const plantedFrameCache = new Map<string, Texture>();
  * Planted mound crop: clip the baked soil cookie, then soft-fade the stem foot
  * so the hard scissor bar blends into the mound (no Graphics dirt-lip oval).
  */
+const BUSHY_PLANTED: ReadonlySet<CropKind> = new Set(["strawberry", "pumpkin", "tomato"]);
+const TALL_PLANTED: ReadonlySet<CropKind> = new Set(["sunflower", "cotton", "corn"]);
+
+function plantedSilhouette(kind: CropKind): "bushy" | "tall" | "mid" {
+  if (BUSHY_PLANTED.has(kind)) return "bushy";
+  if (TALL_PLANTED.has(kind)) return "tall";
+  return "mid";
+}
+
+function cropBushyPlantedBase(
+  crops: Record<CropKind, Texture[]>,
+  kind: CropKind,
+  stage: 1 | 2 | 3 | 4,
+): Texture {
+  const full = cropStageFrame(crops, kind, stage);
+  if (full === Texture.EMPTY || !full.source) return full;
+  const tops = BUSHY_PLANTED_HIDE_TOP[kind];
+  const hideTop = tops?.[stage - 1];
+  if (hideTop == null) {
+    return cropFoliageFrame(crops, kind, stage, 4, PLANTED_DISC_HIDE_BY_SILHOUETTE.bushy);
+  }
+  const frame = full.frame;
+  const hideTopInFrame = hideTop - SHEET_INSET;
+  const height = Math.max(24, Math.min(Math.round(hideTopInFrame), frame.height - 4));
+  return new Texture({
+    source: full.source,
+    frame: new Rectangle(frame.x, frame.y, frame.width, height),
+    orig: new Rectangle(0, 0, frame.width, height),
+  });
+}
+
 export function cropPlantedFrame(
   crops: Record<CropKind, Texture[]>,
   kind: CropKind,
   stage: 1 | 2 | 3 | 4,
 ): Texture {
-  const key = `planted:v3:${kind}:${stage}`;
+  const sil = plantedSilhouette(kind);
+  const hideFrac = PLANTED_DISC_HIDE_BY_SILHOUETTE[sil];
+  const fadeFrac = PLANTED_FOOT_FADE_BY_SILHOUETTE[sil];
+  const soilAware = sil === "bushy" || sil === "mid";
+  const key = `planted:v11:${kind}:${stage}:${sil}:${fadeFrac}:${soilAware ? "soil" : "all"}`;
   const hit = plantedFrameCache.get(key);
   if (hit) return hit;
-  const hard = cropFoliageFrame(crops, kind, stage, 4, PLANTED_DISC_HIDE_FRAC);
-  const faded = softFadeTextureFoot(hard, 0.48);
+  const hard =
+    sil === "bushy"
+      ? cropBushyPlantedBase(crops, kind, stage)
+      : cropFoliageFrame(crops, kind, stage, 4, hideFrac);
+  const faded = softFadeTextureFoot(hard, fadeFrac, soilAware);
   plantedFrameCache.set(key, faded);
   return faded;
 }
@@ -308,7 +372,23 @@ function cropBerryWindowFrame(
  * Canvas-only elliptical soft-alpha dissolve at the stem foot.
  * Alpha → 0 so the mound shows through — never RGB umber veils / Graphics mattes.
  */
-function softFadeTextureFoot(tex: Texture, fadeFrac: number): Texture {
+/** True for baked soil-cookie browns; false for fruit/foliage (keep them). */
+function isBakedSoilPixel(r: number, g: number, b: number): boolean {
+  // Preserve saturated fruit / leaves / cotton / corn gold.
+  if (r > 170 && g > 90 && b < 100 && r - g > 35) return false; // pumpkin orange
+  if (r > 140 && g < 100 && b < 100 && r > g + 40) return false; // berry/tomato red
+  if (g > r + 12 && g > 70) return false; // leaf green
+  if (r > 200 && g > 200 && b > 180) return false; // cotton white
+  if (r > 180 && g > 140 && b < 80) return false; // corn gold
+  // Cookie umbers — include purple-tinted strawberry mound fringe.
+  if (r < 35 || r > 175) return false;
+  if (g < 18 || g > 130) return false;
+  if (b > 120) return false;
+  if (g > r + 8) return false;
+  return r >= g - 5;
+}
+
+function softFadeTextureFoot(tex: Texture, fadeFrac: number, soilAware = false): Texture {
   if (tex === Texture.EMPTY || !tex.source) return tex;
   const frame = tex.frame;
   const w = Math.max(1, Math.round(frame.width));
@@ -341,18 +421,24 @@ function softFadeTextureFoot(tex: Texture, fadeFrac: number): Texture {
       const i = (y * w + x) * 4;
       const a = data[i + 3]!;
       if (a < 1) continue;
+      const rC = data[i]!;
+      const gC = data[i + 1]!;
+      const bC = data[i + 2]!;
       const dx = (x - cx) / rx;
-      // Elliptical radius from fade center; smoothstep to transparent at the foot.
       const r = Math.sqrt(dx * dx + dy * dy);
-      // Keep center of foliage; dissolve as we approach / pass the elliptical foot.
-      let t = (r - 0.22) / 0.78;
-      if (t <= 0) continue;
-      if (t > 1) t = 1;
-      // Smoothstep then ease — no hard scissor, no color tint.
-      const s = t * t * (3 - 2 * t);
-      let aMul = Math.pow(1 - s, 2.0);
-      // Guarantee the clipped bottom edge is fully gone (mound shows through).
-      if (dy >= 0.82) aMul = 0;
+      let tFade = (r - 0.18) / 0.82;
+      if (tFade <= 0) continue;
+      if (tFade > 1) tFade = 1;
+      const s = tFade * tFade * (3 - 2 * tFade);
+      let aMul = Math.pow(1 - s, 2.2);
+      // Absolute bottom strip of the cell is always cleared (cookie fringe / sheet pad).
+      if (dy >= 0.78) aMul = 0;
+      // Soil-aware: fruit/foliage keep most alpha; only mud takes the full dissolve.
+      if (soilAware && !isBakedSoilPixel(rC, gC, bC)) {
+        // Slight soften at extreme foot so hard sheet edge doesn't flash, but keep fruit.
+        if (dy < 0.92) continue;
+        aMul = Math.max(aMul, 0.65);
+      }
       data[i + 3] = Math.round(a * aMul);
     }
   }
