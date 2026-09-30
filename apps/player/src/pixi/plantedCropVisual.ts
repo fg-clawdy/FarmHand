@@ -6,7 +6,9 @@ import type { CropKind } from "@farmhand/shared";
  *
  * Crop stage sheets bake a speckled soil disc. Planted sprites use
  * `cropPlantedFrame` (disc clip + canvas elliptical soft-alpha foot) and pivot
- * at stem feet (anchor 0.5,1). Soft low-alpha contact shadow behind the plant —
+ * at a per-kind foot anchor (not hard 0.5,1). Soft fade lifts the opaque foot
+ * above the texture bottom, so anchors sit slightly above y=1 and modest
+ * positive sink nests the contact into the mound. Soft contact shadow only —
  * never Graphics dirt-lip / foot-matte veils on the foliage.
  *
  * Layer order (per mound): aura (WAITING only, behind) → shadow → crop.
@@ -16,12 +18,50 @@ import type { CropKind } from "@farmhand/shared";
 const BUSHY_FRUIT: ReadonlySet<CropKind> = new Set(["strawberry", "pumpkin", "tomato"]);
 const TALL_THIN: ReadonlySet<CropKind> = new Set(["sunflower", "cotton", "corn"]);
 
+/**
+ * Per-kind foot pivot on the foliage-clipped planted frame.
+ * Soft-alpha fade means opaque stem/fruit contact sits above texture bottom;
+ * y < 1 places that contact on the mound UV with the faded fringe buried.
+ */
+export const PLANTED_FOOT_ANCHOR: Record<CropKind, { x: number; y: number }> = {
+  // Opaque foot ≈ 0.98–1.0 of clipped frame. Bushy fruit needs a hair more hang so the
+  // round bottom overlaps the mound peak (thin stems read seated sooner).
+  strawberry: { x: 0.5, y: 0.90 },
+  pumpkin: { x: 0.5, y: 0.92 },
+  tomato: { x: 0.5, y: 0.96 },
+  cotton: { x: 0.5, y: 0.98 },
+  corn: { x: 0.5, y: 0.98 },
+  sunflower: { x: 0.5, y: 0.98 },
+};
+
+const DEFAULT_FOOT_ANCHOR = { x: 0.5, y: 1 } as const;
+
+export function plantedFootAnchor(kind?: CropKind | null): { x: number; y: number } {
+  if (!kind) return { x: DEFAULT_FOOT_ANCHOR.x, y: DEFAULT_FOOT_ANCHOR.y };
+  return PLANTED_FOOT_ANCHOR[kind] ?? { x: DEFAULT_FOOT_ANCHOR.x, y: DEFAULT_FOOT_ANCHOR.y };
+}
+
+/** Positive Y buries stem feet into the painted mound (screen Y down). */
 export const CROP_SINK_FRAC = {
-  // Negative sink lifts bushy fruit above the mound; tall stays lightly nested.
-  bushy: { seed: -0.02, grow: -0.05, ripe: -0.08 },
-  tall: { seed: 0.04, grow: 0.05, ripe: 0.06 },
-  mid: { seed: 0.0, grow: -0.01, ripe: -0.02 },
+  // Positive bury once foot anchors sit on the opaque contact.
+  // Undoes the #12 negative lift that floated bushy ripe after fruit-aware clips.
+  bushy: { seed: 0.03, grow: 0.05, ripe: 0.07 },
+  tall: { seed: 0.05, grow: 0.06, ripe: 0.08 },
+  mid: { seed: 0.03, grow: 0.04, ripe: 0.06 },
 } as const;
+
+/** Optional per-kind sink overrides (frac of coverPx). Prefer anchors; keep these small. */
+export const CROP_SINK_FRAC_BY_KIND: Partial<
+  Record<CropKind, { seed: number; grow: number; ripe: number }>
+> = {
+  // Extra ripe bury for round fruit so the curve kisses/overlaps the mound peak.
+  strawberry: { seed: 0.05, grow: 0.10, ripe: 0.22 },
+  pumpkin: { seed: 0.06, grow: 0.12, ripe: 0.24 },
+  tomato: { seed: 0.04, grow: 0.06, ripe: 0.10 },
+  cotton: { seed: 0.06, grow: 0.08, ripe: 0.11 },
+  corn: { seed: 0.05, grow: 0.06, ripe: 0.08 },
+  sunflower: { seed: 0.05, grow: 0.06, ripe: 0.08 },
+};
 
 export type CropSilhouette = "bushy" | "tall" | "mid";
 
@@ -33,7 +73,8 @@ export function cropSilhouette(kind?: CropKind | null): CropSilhouette {
 }
 
 export function cropSinkFrac(stage: 1 | 2 | 3 | 4, kind?: CropKind | null): number {
-  const profile = CROP_SINK_FRAC[cropSilhouette(kind)];
+  const byKind = kind ? CROP_SINK_FRAC_BY_KIND[kind] : undefined;
+  const profile = byKind ?? CROP_SINK_FRAC[cropSilhouette(kind)];
   if (stage === 1) return profile.seed;
   if (stage === 4) return profile.ripe;
   return profile.grow;
@@ -60,13 +101,14 @@ export function plantedDiscTint(wilted: boolean, awaiting: boolean): number {
 
 export function drawContactShadow(g: Graphics, coverPx: number, stage: 1 | 2 | 3 | 4): void {
   g.clear();
-  // Sit BELOW the translucent soft-alpha foot so umber never shows through leaves.
+  // Sit at/above the stem foot (negative Y) so the umber lies under the soft-alpha
+  // fringe on the mound — never a detached band below the fruit (reads as float).
   const seed = stage === 1;
-  const haloA = seed ? 0.025 : 0.04;
-  const coreA = seed ? 0.03 : 0.055;
-  g.ellipse(0, coverPx * 0.08, coverPx * 0.26, coverPx * 0.08);
+  const haloA = seed ? 0.025 : 0.045;
+  const coreA = seed ? 0.03 : 0.06;
+  g.ellipse(0, -coverPx * 0.01, coverPx * 0.28, coverPx * 0.09);
   g.fill({ color: 0x6b4423, alpha: haloA });
-  g.ellipse(0, coverPx * 0.1, coverPx * 0.14, coverPx * 0.045);
+  g.ellipse(0, coverPx * 0.01, coverPx * 0.15, coverPx * 0.05);
   g.fill({ color: 0x8a5a32, alpha: coreA });
 }
 

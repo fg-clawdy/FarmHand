@@ -19,6 +19,7 @@ import {
   drawContactShadow,
   drawDirtLip,
   drawWaitingAura,
+  plantedFootAnchor,
   shouldShowWaitingAura,
   plantedDiscTint,
 } from "./plantedCropVisual";
@@ -500,7 +501,8 @@ class GardenHotspot {
       this.kinds[slot] = kind;
       // Foliage-only frame clips the baked soil-disc cookie; pivot at stem feet.
       spr.texture = cropPlantedFrame(this.painted.crops, kind, stage);
-      spr.anchor.set(0.5, 1);
+      const foot = plantedFootAnchor(kind);
+      spr.anchor.set(foot.x, foot.y);
       this.cropScale = cropCoverScale(kind, stage, FARM_MOUND_COVER_PX);
       spr.scale.set(this.cropScale);
       const uv = moundUv(this.spec, slot);
