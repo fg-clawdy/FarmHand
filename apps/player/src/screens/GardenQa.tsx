@@ -25,7 +25,7 @@ export default function GardenQa() {
   );
 }
 
-function plot(slot: number, tier: 1 | 2 | 3, stage: 1 | 2 | 3 | 4, ready = false): PublicPlot {
+function plot(slot: number, tier: 1 | 2 | 3 | 4 | 5 | 6, stage: 1 | 2 | 3 | 4, ready = false): PublicPlot {
   return {
     slot,
     state: ready ? "mature" : "growing",
@@ -74,6 +74,20 @@ function qaPlots(pack: string): PublicPlot[] {
       plot(6, 1, 2),
       plot(7, 2, 2),
       plot(8, 1, 4, true),
+    ];
+  }
+  // Ripe height proof: corn/cotton/strawberry/pumpkin/sunflower + tomato mid.
+  if (pack === "raise") {
+    return [
+      plot(0, 1, 4, true), // corn
+      plot(1, 2, 4, true), // cotton
+      plot(2, 6, 4, true), // sunflower
+      plot(3, 4, 4, true), // strawberry
+      plot(4, 5, 4, true), // pumpkin
+      plot(5, 3, 4, true), // tomato
+      plot(6, 4, 4, true), // strawberry
+      plot(7, 5, 4, true), // pumpkin
+      plot(8, 2, 4, true), // cotton
     ];
   }
   return [

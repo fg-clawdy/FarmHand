@@ -17,10 +17,10 @@ const BUSHY_FRUIT: ReadonlySet<CropKind> = new Set(["strawberry", "pumpkin", "to
 const TALL_THIN: ReadonlySet<CropKind> = new Set(["sunflower", "cotton", "corn"]);
 
 export const CROP_SINK_FRAC = {
-  // Soft-alpha foot dissolves into mound — modest sink, no sticker float.
-  bushy: { seed: 0.08, grow: 0.11, ripe: 0.14 },
-  tall: { seed: 0.1, grow: 0.14, ripe: 0.17 },
-  mid: { seed: 0.09, grow: 0.12, ripe: 0.15 },
+  // Negative sink lifts bushy fruit above the mound; tall stays lightly nested.
+  bushy: { seed: -0.02, grow: -0.05, ripe: -0.08 },
+  tall: { seed: 0.04, grow: 0.05, ripe: 0.06 },
+  mid: { seed: 0.0, grow: -0.01, ripe: -0.02 },
 } as const;
 
 export type CropSilhouette = "bushy" | "tall" | "mid";
