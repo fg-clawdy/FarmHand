@@ -95,6 +95,7 @@ export function useFarmPixi(handlers: {
   onPlayer: (id: string) => void;
   onStore: () => void;
   onAvatar?: (id: string) => void;
+  onLibrary?: { onJar?: (goalId: string) => void; onOverflow?: () => void };
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<FarmScene | null>(null);
@@ -120,6 +121,10 @@ export function useFarmPixi(handlers: {
           onPlayer: (id) => handlersRef.current.onPlayer(id),
           onStore: () => handlersRef.current.onStore(),
           onAvatar: (id) => handlersRef.current.onAvatar?.(id),
+          onLibrary: {
+            onJar: (goalId) => handlersRef.current.onLibrary?.onJar?.(goalId),
+            onOverflow: () => handlersRef.current.onLibrary?.onOverflow?.(),
+          },
         });
         if (dead) {
           scene.destroy();
@@ -156,7 +161,6 @@ export function useGardenPixi(
   onPlot: (slot: number) => void,
   onAvatar?: () => void,
   onBasket?: () => void,
-  onLibrary?: { onJar?: (goalId: string) => void; onOverflow?: () => void },
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<GardenScene | null>(null);
@@ -168,8 +172,6 @@ export function useGardenPixi(
   onAvatarRef.current = onAvatar;
   const onBasketRef = useRef(onBasket);
   onBasketRef.current = onBasket;
-  const onLibraryRef = useRef(onLibrary);
-  onLibraryRef.current = onLibrary;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -206,10 +208,6 @@ export function useGardenPixi(
           (slot) => onPlotRef.current(slot),
           () => onAvatarRef.current?.(),
           () => onBasketRef.current?.(),
-          {
-            onJar: (goalId) => onLibraryRef.current?.onJar?.(goalId),
-            onOverflow: () => onLibraryRef.current?.onOverflow?.(),
-          },
         );
         if (dead) {
           scene.destroy();

@@ -18,14 +18,19 @@ import { GARDEN_PLOT_COLS, PLOTS_PER_GARDEN } from "@farmhand/shared";
  * stay on the boards at any browser size — never place them in screen pixels.
  * Measured gaps between boards are level (rotation 0).
  *
- * Only the animated cow is drawn. Barn, tractor, hay, market stand, and the
- * three garden fences (full 3×3 soil + plaques) are solid blockers.
- * Shared goals live on the garden little library, not this overview.
+ * Only the animated cow is drawn. Barn, tractor, hay, market stand, the
+ * little-library stake, and the three garden fences (full 3×3 soil + plaques)
+ * are solid blockers.
+ * Shared goals live on the farm little library (the old ground-stake job
+ * board, left of the wordmark). The garden page does not show them.
  */
 
 export type Uv = { u: number; v: number };
 export type UvRect = { u0: number; v0: number; u1: number; v1: number };
 export type PixelRect = { x0: number; y0: number; x1: number; y1: number };
+
+/** Former corkboard stake: left-center grass, right of the exhaust, left of the wordmark. */
+const FARM_LIBRARY_HIT = { u0: 0.28, v0: 0.12, u1: 0.4, v1: 0.34 } as const satisfies UvRect;
 
 export const PLAYFIELD_TEXTURE = { width: 1536, height: 1024 } as const;
 
@@ -37,12 +42,18 @@ export const PLAYFIELD_LAYOUT = {
   /** Barn-side corridor — stays above the garden fence. */
   cowRoam: { u0: 0.12, v0: 0.2, u1: 0.49, v1: 0.36 } satisfies UvRect,
   storeHit: { u0: 0.78, v0: 0.02, u1: 0.98, v1: 0.38 } satisfies UvRect,
+  /**
+   * Little Free Library on the old job-board stake. Open shelves stay up
+   * with zero goals. Not the left tube chip and not a WANTED corkboard.
+   */
+  libraryHit: FARM_LIBRARY_HIT,
   /** Solid footprints — tractor chassis is intentionally large so the calf cannot climb the hood. */
   blockers: {
     barn: { u0: 0.0, v0: 0.0, u1: 0.26, v1: 0.26 } satisfies UvRect,
     hay: { u0: 0.0, v0: 0.08, u1: 0.14, v1: 0.28 } satisfies UvRect,
     tractor: { u0: 0.14, v0: 0.1, u1: 0.4, v1: 0.38 } satisfies UvRect,
     stand: { u0: 0.64, v0: 0.0, u1: 0.99, v1: 0.4 } satisfies UvRect,
+    library: FARM_LIBRARY_HIT,
   },
   gardens: [
     {
@@ -168,6 +179,7 @@ export function cowForbiddenUv(
     layout.blockers.hay,
     layout.blockers.tractor,
     layout.blockers.stand,
+    layout.blockers.library,
     ...layout.gardens.map((garden) => garden.hit),
   ].map((rect) => padUvRect(rect, pad));
 }

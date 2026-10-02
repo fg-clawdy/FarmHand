@@ -62,6 +62,24 @@ test("one goal is a hero jar larger than a crowded shelf", () => {
   assert.ok(one.slots[0]!.h > CABINET.h * 0.45);
 });
 
+test("two open goals are two jars, smaller than the hero, with the box still up", () => {
+  const layout = libraryShelfLayout(CABINET, 2, 0);
+  assert.equal(layout.visible, true);
+  assert.equal(layout.hero, false);
+  assert.equal(layout.slots.length, 2);
+  assert.ok(layout.slots.every((slot) => slot.kind === "jar"));
+  assert.deepEqual(
+    layout.slots.map((slot) => slot.shelf),
+    [0, 1],
+  );
+  for (const slot of layout.slots) inside(slot, CABINET);
+  noOverlap(layout.slots);
+  const hero = libraryShelfLayout(CABINET, 1, 0).slots[0]!;
+  for (const slot of layout.slots) {
+    assert.ok(area(slot) < area(hero), "two jars scale down from the hero");
+  }
+});
+
 test("a few goals split across both shelves and stay inside the cabinet", () => {
   const layout = libraryShelfLayout(CABINET, 3, 0);
   assert.equal(layout.hero, false);

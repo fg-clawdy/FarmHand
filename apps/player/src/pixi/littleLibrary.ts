@@ -6,7 +6,6 @@ import {
 import { Assets, Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
 import type { Atlas } from "./atlas";
 import { SparkleField } from "./fx";
-import { GARDEN_LIBRARY_LAYOUT } from "./gardenLayout";
 import {
   LIBRARY_JAR_CAPACITY,
   libraryHouseMetrics,
@@ -14,7 +13,7 @@ import {
   libraryWindow,
   type LibrarySlot,
 } from "./libraryShelfLayout";
-import { uvRectToLocal } from "./playfieldLayout";
+import { uvRectToLocal, type UvRect } from "./playfieldLayout";
 
 const INK = 0x3a2410;
 const RED = 0xc24b3e;
@@ -242,7 +241,7 @@ class ShelfJar {
 }
 
 /**
- * Neighborhood little free library on the garden's right post.
+ * Neighborhood little free library on the farm overview.
  * Open shelves, no door. Stays visible when every shelf is empty.
  */
 export class LittleLibrary {
@@ -259,10 +258,11 @@ export class LittleLibrary {
     atlas: Atlas,
     texW: number,
     texH: number,
+    hit: UvRect,
     onTap: (goalId: string) => void,
     onOverflow: () => void,
   ) {
-    const rect = uvRectToLocal(GARDEN_LIBRARY_LAYOUT.hit, texW, texH);
+    const rect = uvRectToLocal(hit, texW, texH);
     this.w = rect.x1 - rect.x0;
     this.h = rect.y1 - rect.y0;
     this.root.position.set(rect.x0, rect.y0);

@@ -1,15 +1,21 @@
-import { type FarmPlayerCard } from "@farmhand/shared";
+import { compactJarTitle, jarProgressLabel, type FarmPlayerCard, type PublicSharedGoal } from "@farmhand/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import AvatarPicker from "../components/AvatarPicker";
+import FamilyJarSheet from "../components/FamilyJarSheet";
 import PinPad from "../components/PinPad";
+import Sheet from "../components/Sheet";
 import StoreSheet from "../components/StoreSheet";
+import { familyJarVisible, libraryWindow } from "../pixi/libraryShelfLayout";
 import { useFarmPixi } from "../pixi/usePixi";
 
 export default function FarmDashboard() {
   const navigate = useNavigate();
   const [players, setPlayers] = useState<FarmPlayerCard[]>([]);
+  const [familyJars, setFamilyJars] = useState<PublicSharedGoal[]>([]);
+  const [jarId, setJarId] = useState<string | null>(null);
+  const [overflowOpen, setOverflowOpen] = useState(false);
   const [storeOpen, setStoreOpen] = useState(false);
   const [error, setError] = useState("");
   const [pinPlayer, setPinPlayer] = useState<{ id: string; name: string; after?: "garden" | "avatar" } | null>(null);
@@ -94,12 +100,29 @@ export default function FarmDashboard() {
     onAvatar: (id) => {
       void handleAvatarTap(id);
     },
+    onLibrary: {
+      onJar: (id) => {
+        setOverflowOpen(false);
+        setJarId(id);
+      },
+      onOverflow: () => setOverflowOpen(true),
+    },
   });
 
   async function load() {
     try {
       const farm = await api.farm();
       setPlayers(farm.players);
+      setFamilyJars((prev) => {
+        const incoming = (farm.familyJars ?? (farm.familyJar ? [farm.familyJar] : [])).filter(familyJarVisible);
+        return incoming.map((jar) => {
+          const old = prev.find((item) => item.id === jar.id);
+          if (old && old.filledStars > jar.filledStars && old.status === jar.status) {
+            return { ...jar, filledStars: old.filledStars };
+          }
+          return jar;
+        });
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load the farm.");
     }
@@ -120,10 +143,55 @@ export default function FarmDashboard() {
     sceneRef.current?.setPlayers(players);
   }, [players, ready, sceneRef]);
 
+  useEffect(() => {
+    sceneRef.current?.setFamilyJars(familyJars);
+  }, [familyJars, ready, sceneRef]);
+
+  useEffect(() => {
+    if (jarId && !familyJars.some((jar) => jar.id === jarId)) setJarId(null);
+    if (libraryWindow(familyJars).overflow === 0) setOverflowOpen(false);
+  }, [familyJars, jarId]);
+
+  const selectedJar = familyJars.find((jar) => jar.id === jarId) ?? null;
+
   return (
     <div className="scene farm-hybrid">
       <div className="pixi-host" ref={hostRef} />
       {storeOpen && <StoreSheet players={players} onClose={() => setStoreOpen(false)} />}
+      {overflowOpen && (
+        <Sheet title="More goals" onClose={() => setOverflowOpen(false)}>
+          <div className="sheet-actions">
+            {libraryWindow(familyJars).hidden.map((jar) => (
+              <button
+                key={jar.id}
+                className="btn gold"
+                type="button"
+                onClick={() => {
+                  setOverflowOpen(false);
+                  setJarId(jar.id);
+                }}
+              >
+                {jar.emoji} {compactJarTitle(jar.title, 22)} · {jarProgressLabel(jar.filledStars, jar.targetStars, jar.status)}
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
+      {selectedJar && (
+        <FamilyJarSheet
+          jar={selectedJar}
+          players={players}
+          onClose={() => setJarId(null)}
+          onUpdated={(next) =>
+            setFamilyJars((list) => {
+              const stillVisible = next.status === "OPEN" || next.status === "READY";
+              return stillVisible
+                ? list.map((jar) => (jar.id === next.id ? next : jar))
+                : list.filter((jar) => jar.id !== next.id);
+            })
+          }
+        />
+      )}
       {avatarKid && (
         <AvatarPicker
           player={avatarKid}

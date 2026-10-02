@@ -20,6 +20,7 @@ import {
   soilRectCenterUv,
   pickRoamTarget,
   pointInRect,
+  rectsOverlap,
   uvRectToLocal,
   uvToLocal,
 } from "./playfieldLayout.ts";
@@ -41,21 +42,36 @@ test("cover-fit local pixels match the 1536×1024 painting", () => {
   assert.equal(Math.round(tip.y), 258);
 });
 
-test("cow blockers include barn, tractor, hay, stand, and gardens", () => {
+test("cow blockers include barn, tractor, hay, stand, library, and gardens", () => {
   const keys = Object.keys(PLAYFIELD_LAYOUT.blockers);
-  for (const key of ["barn", "hay", "tractor", "stand"]) {
+  for (const key of ["barn", "hay", "tractor", "stand", "library"]) {
     assert.ok(keys.includes(key), key);
   }
   assert.ok(!keys.includes("mamaCow"));
   assert.ok(!keys.includes("jobBoard"));
-  assert.equal(cowForbiddenRects(1536, 1024).length, 7);
+  assert.equal(cowForbiddenRects(1536, 1024).length, 8);
 });
 
-test("farm overview no longer reserves a job board or shared-goal chip", () => {
+test("farm overview shows the little library and not a job board or tube chip", () => {
   const layout = PLAYFIELD_LAYOUT as Record<string, unknown>;
   assert.equal("jobBoardHit" in layout, false);
   assert.equal("familyJarHit" in layout, false);
   assert.equal("jobBoard" in PLAYFIELD_LAYOUT.blockers, false);
+  const hit = PLAYFIELD_LAYOUT.libraryHit;
+  assert.deepEqual(hit, PLAYFIELD_LAYOUT.blockers.library);
+  // Former ground-stake corkboard: right of the exhaust, left of the wordmark, above the gardens.
+  assert.ok(hit.u0 >= 0.24 && hit.u0 < 0.32, "starts in the stake grass");
+  assert.ok(hit.u1 > hit.u0 && hit.u1 <= 0.46, "stays left of the wordmark");
+  assert.ok(hit.v0 < 0.2 && hit.v1 <= PLAYFIELD_LAYOUT.gardens[0]!.hit.v0, "above the garden fences");
+  assert.equal(rectsOverlap(hit, PLAYFIELD_LAYOUT.storeHit), false);
+  const oldLeftChip = { u0: 0.012, v0: 0.292, u1: 0.115, v1: 0.392 };
+  assert.equal(rectsOverlap(hit, oldLeftChip), false, "no left tube chip");
+  for (const garden of PLAYFIELD_LAYOUT.gardens) {
+    assert.equal(rectsOverlap(hit, garden.hit), false, "clears garden signs");
+  }
+  const local = uvRectToLocal(hit, 1536, 1024);
+  assert.ok(local.x1 - local.x0 >= 160, "wide enough for two jars");
+  assert.ok(local.y1 - local.y0 >= 180, "tall enough for open shelves");
 });
 
 test("cow body cannot sit on garden soil, plaque, or fence", () => {
@@ -79,17 +95,15 @@ test("cow roam box never overlaps the three garden plots", () => {
   // when the roam corridor is tight — that is acceptable for deterministic seeds.
 });
 
-test("cow start sits in the roam area, clear of core blockers (job board stake is nearby)", () => {
+test("cow start sits in the roam area, clear of the library stake and other blockers", () => {
   const start = uvToLocal(PLAYFIELD_LAYOUT.cowStart, 1536, 1024);
   const roam = uvRectToLocal(PLAYFIELD_LAYOUT.cowRoam, 1536, 1024);
   assert.equal(pointInRect(start.x, start.y, roam), true);
-  // Core blockers: barn, hay, tractor, stand (indices 0-3), gardens (5-7).
-  // The job board ground stake (index 4) is new and sits near the cow start;
-  // the calf spawns beside it, not inside tractor/chassis.
-  const { barn, hay, tractor, stand } = PLAYFIELD_LAYOUT.blockers;
-  const core = [barn, hay, tractor, stand, ...PLAYFIELD_LAYOUT.gardens.map((g) => g.hit)]
+  const { barn, hay, tractor, stand, library } = PLAYFIELD_LAYOUT.blockers;
+  const core = [barn, hay, tractor, stand, library, ...PLAYFIELD_LAYOUT.gardens.map((g) => g.hit)]
     .map((r) => uvRectToLocal(r, 1536, 1024));
   assert.equal(cowBodyHitsForbidden(start.x, start.y, core), false);
+  assert.equal(cowBodyHitsForbidden(start.x, start.y, cowForbiddenRects(1536, 1024)), false);
 });
 
 test("cow body box, not just the hooves, is blocked by the tractor", () => {
