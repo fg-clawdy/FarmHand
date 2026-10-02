@@ -295,3 +295,16 @@ test("right-facing cow sheet flips via scale.x when roaming left", () => {
   assert.equal(facingFromDx(-8, 1), -1);
   assert.equal(facingFromDx(0, -1), -1, "hold last facing on a vertical step");
 });
+
+test("family jar sits clear of the cow, store, corkboard, gardens, and exhaust", () => {
+  const jar = PLAYFIELD_LAYOUT.familyJarHit;
+  assert.ok(jar.u0 > PLAYFIELD_LAYOUT.cowRoam.u1, "right of the cow roam");
+  assert.ok(jar.u1 < PLAYFIELD_LAYOUT.storeHit.u0, "left of the store tap");
+  assert.ok(jar.u0 > PLAYFIELD_LAYOUT.exhaustTip.u, "clear of the exhaust");
+  assert.ok(jar.u0 > PLAYFIELD_LAYOUT.jobBoardHit.u1, "clear of the corkboard");
+  for (const garden of PLAYFIELD_LAYOUT.gardens) {
+    assert.ok(jar.v1 < garden.hit.v0, "above the garden fences");
+    assert.ok(jar.v1 < garden.signFace.v, "above the garden planks");
+  }
+});
+

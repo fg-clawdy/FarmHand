@@ -1,4 +1,4 @@
-import type { CropKind, FarmPlayerCard, GameConfig, PublicPlot } from "@farmhand/shared";
+import type { CropKind, FarmPlayerCard, GameConfig, PublicPlot, PublicSharedGoal } from "@farmhand/shared";
 
 export type WaterState = {
   today: string;
@@ -41,6 +41,11 @@ export type GardenPlayer = {
   canMix: boolean;
   hasPin: boolean;
   isActive: boolean;
+  /** Present on session players. False means this child can only watch the jar. */
+  givingEnabled?: boolean;
+  giveCeiling?: number;
+  /** True until this child has seen the family-jar coach. */
+  familyJarCoach?: boolean;
   unlocked: boolean;
   selfie?: SelfieState;
   water: WaterState;
@@ -283,9 +288,25 @@ export function reportClientError(body: {
   }).catch(() => undefined);
 }
 
+export type SharedGoalPour = {
+  availableStars: number;
+  currentStars: number;
+  filledStars: number;
+  status: PublicSharedGoal["status"];
+  targetStars: number;
+  giveKey?: string;
+  amount?: number;
+};
+
 export const api = {
   farm: () =>
-    request<{ players: FarmPlayerCard[]; timezone: string; storeStatus: string; config: GameConfig }>("/api/farm"),
+    request<{
+      players: FarmPlayerCard[];
+      timezone: string;
+      storeStatus: string;
+      config: GameConfig;
+      familyJar: PublicSharedGoal | null;
+    }>("/api/farm"),
   farmJobs: () => request<{ jobs: FamilyJob[]; timezone: string }>("/api/farm/jobs"),
   session: () => request<{ player: GardenPlayer | null; config?: GameConfig }>("/api/session"),
   enter: (id: string, pin?: string) =>
@@ -378,5 +399,15 @@ export const api = {
     }),
   avatarPresets: () =>
     request<{ presets: Array<{ id: string; emoji: string; label: string }> }>("/api/avatar/presets"),
+  familyJar: () => request<{ familyJar: PublicSharedGoal | null }>("/api/shared-goal/active"),
+  giveStars: (body: { goalId: string; amount: number; requestId: string }) =>
+    request<SharedGoalPour>("/api/shared-goal/give", { method: "POST", body: JSON.stringify(body) }),
+  putBackStars: (body: { goalId: string; giveKey: string }) =>
+    request<SharedGoalPour>("/api/shared-goal/put-back", { method: "POST", body: JSON.stringify(body) }),
+  markFamilyJarCoach: () =>
+    request<{ ok: boolean; familyJarCoach: boolean }>("/api/shared-goal/coach-seen", {
+      method: "POST",
+      body: "{}",
+    }),
 };
 

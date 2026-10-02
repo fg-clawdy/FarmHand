@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type ParentKid, type ParentRedemption, type ParentStoreSku, type SkuWrite } from "../api";
+import SharedGoalsPage from "./SharedGoalsPage";
 
 type SkuForm = {
   title: string;
@@ -142,6 +143,7 @@ export default function StorePage() {
         <strong>Approve</strong> turns the request into an owned reward. <strong>Deny</strong> gives the stars back.
         Later, <strong>Mark redeemed</strong> when it actually happens. Full history also lives on each kid's Profile.
       </p>
+      <SharedGoalsPage />
       {error && <p className="error">{error}</p>}
 
       {kids.length > 0 && (

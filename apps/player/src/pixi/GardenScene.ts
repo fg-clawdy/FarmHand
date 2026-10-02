@@ -28,6 +28,7 @@ import {
   drawContactShadow,
   drawDirtLip,
   drawWaitingAura,
+  plantedFootAnchor,
   shouldShowWaitingAura,
   plantedDiscTint,
 } from "./plantedCropVisual";
@@ -662,7 +663,8 @@ class PlotNode {
     this.sinkPx = cropSinkPx(this.stage, this.coverPx, kind);
     // Foliage-only frame clips the baked soil-disc cookie; pivot at stem feet.
     this.plant.texture = cropPlantedFrame(this.painted.crops, kind, plot.growthStage);
-    this.plant.anchor.set(0.5, 1);
+    const foot = plantedFootAnchor(kind);
+    this.plant.anchor.set(foot.x, foot.y);
     this.cropScale = cropCoverScale(kind, plot.growthStage, this.coverPx);
     this.plant.scale.set(this.cropScale);
     this.applyPlantedSeat();

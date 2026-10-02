@@ -17,6 +17,17 @@ export type PushPayload = {
   critical?: boolean;
 };
 
+/** Informational push (no Approve/Deny actions), e.g. the family jar is full. */
+export type InfoPushPayload = {
+  type: "info";
+  kind: "shared_goal";
+  subjectId: string;
+  tag: string;
+  title: string;
+  body: string;
+  url: string;
+};
+
 export type PushSendResult = { sent: number; failed: number; dropped: number };
 
 const ACTION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -140,7 +151,7 @@ async function actionTokenFor(adminId: string, kind: ApprovalKind, subjectId: st
 
 async function sendToSubscription(
   sub: { id: string; endpoint: string; p256dh: string; auth: string },
-  payload: PushPayload,
+  payload: PushPayload | InfoPushPayload,
   urgency: "high" | "normal",
 ) {
   const ttl = payload.type === "clear" ? 300 : 86_400;
@@ -244,6 +255,31 @@ export async function notifyStoreRedemptionPending(opts: {
 
 export async function notifyStoreRedemptionResolved(redemptionId: string) {
   return notifyApprovalResolved({ kind: "store_redemption", subjectId: redemptionId });
+}
+
+export function sharedGoalReadyPayload(goalId: string, title: string): InfoPushPayload {
+  return {
+    type: "info",
+    kind: "shared_goal",
+    subjectId: goalId,
+    tag: `shared-goal:${goalId}`,
+    title: "The family jar is full!",
+    body: `${title} is ready. Open Goals to make it happen.`,
+    url: "/parent/goals",
+  };
+}
+
+/** Tell every subscribed grown-up the family jar has filled. */
+export async function notifySharedGoalReady(goalId: string, title: string): Promise<PushSendResult> {
+  const result: PushSendResult = { sent: 0, failed: 0, dropped: 0 };
+  if (!configureWebPush()) return result;
+  const payload = sharedGoalReadyPayload(goalId, title);
+  const subscriptions = await prisma.pushSubscription.findMany();
+  for (const sub of subscriptions) {
+    const outcome = await sendToSubscription(sub, payload, "normal");
+    result[outcome] += 1;
+  }
+  return result;
 }
 
 export async function upsertPushSubscription(opts: {

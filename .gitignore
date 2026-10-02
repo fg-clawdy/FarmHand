@@ -11,3 +11,14 @@ apps/api/generated/
 .prisma/
 data/selfies/*
 !data/selfies/.gitkeep
+
+# scratch / one-off agent artifacts (not source)
+tmp/
+.tmp_*
+/tmp_*
+/_fix_*.py
+/vite-err.txt
+/vite-out.txt
+/*.tgz
+LOCAL_DOCS/
+

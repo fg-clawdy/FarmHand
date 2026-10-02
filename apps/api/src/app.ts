@@ -7,6 +7,7 @@ import { playerRoutes } from "./routes/player.js";
 import { adminRoutes } from "./routes/admin.js";
 import { parentRoutes } from "./routes/parent.js";
 import { wantedMediaRoutes } from "./routes/wantedMedia.js";
+import { sharedGoalRoutes } from "./routes/sharedGoal.js";
 
 export async function buildApp() {
   const app = Fastify({ logger: true, bodyLimit: 8 * 1024 * 1024 });
@@ -32,5 +33,6 @@ export async function buildApp() {
   await app.register(playerRoutes);
   await app.register(adminRoutes);
   await app.register(parentRoutes);
+  await app.register(sharedGoalRoutes);
   return app;
 }

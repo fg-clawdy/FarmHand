@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Texture } from "pixi.js";
 import { log } from "../logger";
 import { buildAtlas } from "./atlas";
-import { createEngine, fitEngine, waitForHostSize, type PixiEngine } from "./engine";
+import { createEngine, fitEngine, renderNow, waitForHostSize, type PixiEngine } from "./engine";
 import { FarmScene } from "./FarmScene";
 import { GardenScene } from "./GardenScene";
 import { loadPaintedArt, type PaintedArt } from "./paintedAssets";
@@ -28,15 +28,16 @@ function loadPainted() {
 }
 
 function afterLayout(eng: PixiEngine, layout: () => void) {
-  fitEngine(eng.app, eng.host);
-  layout();
-  requestAnimationFrame(() => {
+  const pass = () => {
     fitEngine(eng.app, eng.host);
     layout();
-    requestAnimationFrame(() => {
-      fitEngine(eng.app, eng.host);
-      layout();
-    });
+    // Paint now instead of trusting the next rAF tick (dropped on some tablet PWAs).
+    renderNow(eng.app);
+  };
+  pass();
+  requestAnimationFrame(() => {
+    pass();
+    requestAnimationFrame(pass);
   });
 }
 
@@ -97,6 +98,7 @@ export function useFarmPixi(handlers: {
   onStore: () => void;
   onJobBoard: () => void;
   onAvatar?: (id: string) => void;
+  onFamilyJar?: () => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<FarmScene | null>(null);
@@ -123,6 +125,7 @@ export function useFarmPixi(handlers: {
           onStore: () => handlersRef.current.onStore(),
           onJobBoard: () => handlersRef.current.onJobBoard(),
           onAvatar: (id) => handlersRef.current.onAvatar?.(id),
+          onFamilyJar: () => handlersRef.current.onFamilyJar?.(),
         });
         if (dead) {
           scene.destroy();

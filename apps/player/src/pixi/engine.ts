@@ -1,4 +1,5 @@
-import { Application, Ticker } from "pixi.js";
+import { Application, Ticker, UPDATE_PRIORITY } from "pixi.js";
+import { log } from "../logger";
 
 export type PixiEngine = {
   app: Application;
@@ -14,7 +15,125 @@ export type PixiEngine = {
  */
 let shared: Application | null = null;
 let boot: Promise<Application> | null = null;
-let visBound = false;
+let healthBound = false;
+/** Host the shared canvas currently lives in (null while parked in the pool). */
+let activeHost: HTMLElement | null = null;
+let framesDrawn = 0;
+let lastFrameAt = 0;
+let stallReports = 0;
+
+/** No ticker frame for this long while the page is visible = the rAF loop is dead. */
+export const STALL_MS = 750;
+
+/**
+ * Pure stall check. Pixi's Ticker.start() is a no-op while `started` is true, so a
+ * dropped requestAnimationFrame (PWA launch / route change on some tablets) leaves a
+ * "started" ticker that never draws - solid clear-colour green until a background and
+ * foreground cycle runs stop() then start().
+ */
+export function tickerStalled(input: {
+  visible: boolean;
+  now: number;
+  lastFrameAt: number;
+  stallMs?: number;
+}): boolean {
+  if (!input.visible) return false;
+  return input.now - input.lastFrameAt > (input.stallMs ?? STALL_MS);
+}
+
+function contextLost(app: Application): boolean {
+  const ctx = (app.renderer as unknown as { context?: { isLost?: boolean } }).context;
+  return !!ctx?.isLost;
+}
+
+/** Draw one frame right now, independent of requestAnimationFrame. */
+export function renderNow(app: Application) {
+  if (contextLost(app)) return;
+  try {
+    app.render();
+  } catch (err) {
+    log.warn("pixi.render", err instanceof Error ? err.message : String(err));
+  }
+}
+
+/**
+ * Re-measure, optionally bounce the ticker (stop cancels a dead rAF id, start requests
+ * a fresh one), and paint immediately.
+ */
+function wake(app: Application, reason: string, restartTicker: boolean) {
+  const host = activeHost;
+  if (host && host.isConnected && hostHasSize(host)) fitEngine(app, host);
+  if (restartTicker) {
+    app.ticker.stop();
+    app.ticker.start();
+  } else if (!app.ticker.started) {
+    app.ticker.start();
+  }
+  renderNow(app);
+  lastFrameAt = performance.now();
+  void reason;
+}
+
+function bindHealth(app: Application) {
+  if (healthBound) return;
+  healthBound = true;
+  lastFrameAt = performance.now();
+  // Runs after Application's own render listener (LOW) so it only counts real frames.
+  app.ticker.add(
+    () => {
+      framesDrawn++;
+      lastFrameAt = performance.now();
+    },
+    undefined,
+    UPDATE_PRIORITY.UTILITY,
+  );
+
+  document.addEventListener("visibilitychange", () => {
+    if (!shared) return;
+    if (document.hidden) shared.ticker.stop();
+    else wake(shared, "visible", true);
+  });
+  window.addEventListener("pageshow", () => {
+    if (shared) wake(shared, "pageshow", true);
+  });
+  window.addEventListener("focus", () => {
+    if (shared && !document.hidden) wake(shared, "focus", false);
+  });
+  window.addEventListener("orientationchange", () => {
+    if (!shared) return;
+    wake(shared, "orientation", false);
+    // Standalone viewports settle a beat after the event fires.
+    window.setTimeout(() => shared && wake(shared, "orientation+300", false), 300);
+  });
+  window.visualViewport?.addEventListener("resize", () => {
+    if (shared) wake(shared, "visualViewport", false);
+  });
+
+  // setInterval is not gated on rAF, so it can still rescue a dead rAF loop.
+  window.setInterval(() => {
+    if (!shared) return;
+    const now = performance.now();
+    if (!tickerStalled({ visible: !document.hidden, now, lastFrameAt })) return;
+    const sinceFrame = Math.round(now - lastFrameAt);
+    wake(shared, "stall", true);
+    if (stallReports < 3) {
+      stallReports++;
+      const host = activeHost;
+      log.error("pixi.stall", "render loop stalled while visible; restarted", {
+        sinceFrameMs: sinceFrame,
+        framesDrawn,
+        started: shared.ticker.started,
+        contextLost: contextLost(shared),
+        visibility: document.visibilityState,
+        standalone:
+          typeof matchMedia === "function" ? matchMedia("(display-mode: standalone)").matches : null,
+        host: host ? { w: host.clientWidth, h: host.clientHeight, connected: host.isConnected } : null,
+        canvas: { w: shared.canvas.width, h: shared.canvas.height },
+        screen: { w: shared.screen.width, h: shared.screen.height },
+      });
+    }
+  }, 500);
+}
 /** Keep the canvas in the document when unmounted so mobile WebGL contexts survive reparent. */
 let canvasPool: HTMLDivElement | null = null;
 
@@ -51,15 +170,8 @@ async function sharedApp(): Promise<Application> {
     app.canvas.style.height = "100%";
     app.canvas.style.touchAction = "none";
     Ticker.shared.maxFPS = 60;
-    if (!visBound) {
-      visBound = true;
-      document.addEventListener("visibilitychange", () => {
-        if (!shared) return;
-        if (document.hidden) shared.ticker.stop();
-        else shared.ticker.start();
-      });
-    }
     shared = app;
+    bindHealth(app);
     return app;
   })();
   return boot;
@@ -119,21 +231,30 @@ export async function createEngine(host: HTMLElement): Promise<PixiEngine> {
   if (app.canvas.parentElement !== host) {
     host.appendChild(app.canvas);
   }
+  activeHost = host;
   fitEngine(app, host);
+  // A route change can leave a "started" ticker whose rAF was dropped: bounce it.
   if (!app.ticker.started) app.ticker.start();
+  else wake(app, "mount", true);
 
-  const onResize = () => fitEngine(app, host);
-  window.addEventListener("resize", onResize);
-  const ro = new ResizeObserver(() => fitEngine(app, host));
+  // Resizing clears the drawing buffer; always repaint in the same task so the
+  // compositor never presents an empty (clear-colour) frame while waiting for rAF.
+  const refit = () => {
+    fitEngine(app, host);
+    renderNow(app);
+  };
+  window.addEventListener("resize", refit);
+  const ro = new ResizeObserver(refit);
   ro.observe(host);
-  requestAnimationFrame(() => fitEngine(app, host));
+  requestAnimationFrame(refit);
 
   return {
     app,
     host,
     destroy() {
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", refit);
       ro.disconnect();
+      if (activeHost === host) activeHost = null;
       if (app.canvas.parentElement === host) {
         pool().appendChild(app.canvas);
       }
