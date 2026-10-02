@@ -1,4 +1,4 @@
-import { cropKindForTier, type CropKind, type FarmPlayerCard } from "@farmhand/shared";
+import { cropKindForTier, type CropKind, type FarmPlayerCard, type PublicSharedGoal } from "@farmhand/shared";
 import { Container, Graphics, Point, Sprite, Text, type Application } from "pixi.js";
 import { ACCENTS } from "../theme";
 import { ExhaustPuff, PaintedCow } from "./ambient";
@@ -6,6 +6,7 @@ import type { Atlas } from "./atlas";
 import { coverFit } from "./draw";
 import type { PixiEngine } from "./engine";
 import { SparkleField } from "./fx";
+import { LittleLibrary } from "./littleLibrary";
 import {
   FARM_MOUND_COVER_PX,
   cropCoverScale,
@@ -48,6 +49,7 @@ export class FarmScene {
   private cow: PaintedCow;
   private exhaust: ExhaustPuff;
   private store: Container;
+  private library: LittleLibrary;
   private app: Application;
   private onPlayer: (id: string) => void;
   private onStore: () => void;
@@ -62,6 +64,7 @@ export class FarmScene {
       onPlayer: (id: string) => void;
       onStore: () => void;
       onAvatar?: (id: string) => void;
+      onLibrary?: { onJar?: (goalId: string) => void; onOverflow?: () => void };
     },
   ) {
     this.app = engine.app;
@@ -91,6 +94,16 @@ export class FarmScene {
 
     this.store = this.makeStoreHit(tw, th);
     this.playfield.addChild(this.store);
+
+    this.library = new LittleLibrary(
+      atlas,
+      tw,
+      th,
+      PLAYFIELD_LAYOUT.libraryHit,
+      (goalId) => handlers.onLibrary?.onJar?.(goalId),
+      () => handlers.onLibrary?.onOverflow?.(),
+    );
+    this.playfield.addChild(this.library.root);
 
     for (let i = 0; i < 3; i++) {
       const bed = new GardenHotspot(
@@ -152,6 +165,11 @@ export class FarmScene {
     });
   }
 
+  /** Shared-goal jars. Empty list leaves the shelves bare and the box up. */
+  setFamilyJars(jars: PublicSharedGoal[]) {
+    this.library.setJars(jars);
+  }
+
   /** QA only (`/qa/farm?markers=1`). Default off — never drawn on the live farm. */
   setMoundMarkers(on: boolean) {
     this.beds.forEach((bed) => bed.setMoundMarkers(on));
@@ -183,6 +201,7 @@ export class FarmScene {
   private tick(dt: number) {
     this.t += dt;
     this.cow.update(dt);
+    this.library.update(dt, this.t);
     this.beds.forEach((b) => b.breathe(this.t));
   }
 
