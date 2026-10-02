@@ -44,34 +44,40 @@ export type LibraryHouseMetrics = {
   star: { x: number; y: number; r: number };
 };
 
-/** House-on-a-post box. No door. Interior is the open shelf cavity. */
+/**
+ * House-on-a-post box. No door. Interior is the open shelf cavity.
+ * Fractions are baked into `public/art/painted/farm/little_library.png`
+ * (see apps/player/scripts/paintLittleLibrary.py). Jars sit on those planks.
+ */
 export function libraryHouseMetrics(box: { w: number; h: number }): LibraryHouseMetrics {
   const { w, h } = box;
-  const bodyX = w * 0.02;
-  const bodyW = w * 0.96;
+  // Front face only. The painted right wall and roof overhang sit outside this rect.
+  const bodyX = w * 0.04;
+  const bodyW = w * 0.78;
   const bodyY = h * 0.145;
-  const bodyH = h * 0.5;
-  const wall = Math.max(8, bodyW * 0.07);
-  const eaveY = h * 0.175;
-  const postW = Math.max(18, w * 0.22);
-  const postY = bodyY + bodyH - 2;
+  const bodyH = h * 0.55;
+  const wall = Math.max(6, bodyW * 0.075);
+  const eaveY = bodyY + h * 0.012;
+  const postW = Math.max(14, w * 0.16);
+  const postX = bodyX + bodyW * 0.42 - postW / 2;
+  const postY = bodyY + bodyH - h * 0.008;
   return {
     body: { x: bodyX, y: bodyY, w: bodyW, h: bodyH },
     interior: {
-      x: bodyX + wall,
-      y: bodyY + bodyH * 0.07,
-      w: bodyW - wall * 2,
-      h: bodyH * 0.86,
+      x: bodyX + wall * 0.85,
+      y: bodyY + bodyH * 0.08,
+      w: bodyW - wall * 1.7,
+      h: bodyH * 0.84,
     },
-    post: { x: (w - postW) / 2, y: postY, w: postW, h: Math.max(8, h - postY) },
+    post: { x: postX, y: postY, w: postW, h: Math.max(8, h - postY) },
     roof: {
-      apexX: w / 2,
-      apexY: 0,
-      left: bodyX - w * 0.03,
-      right: bodyX + bodyW + w * 0.03,
+      apexX: bodyX + bodyW * 0.46,
+      apexY: h * 0.018,
+      left: bodyX - w * 0.035,
+      right: bodyX + bodyW + w * 0.015,
       eaveY,
     },
-    star: { x: w / 2, y: eaveY * 0.58, r: Math.max(6, w * 0.05) },
+    star: { x: bodyX + bodyW * 0.46, y: h * 0.078, r: Math.max(5, w * 0.042) },
   };
 }
 
@@ -85,9 +91,10 @@ export function libraryWindow(jars: readonly PublicSharedGoal[], capacity = LIBR
 }
 
 function shelfPair(cabinet: { w: number; h: number }): [LibraryShelf, LibraryShelf] {
-  const padX = Math.max(4, cabinet.w * 0.05);
-  const padY = Math.max(4, cabinet.h * 0.04);
-  const gap = Math.max(6, cabinet.h * 0.05);
+  // Pure fractions so the live jars stay on the painted planks at any cover-fit scale.
+  const padX = Math.max(1, cabinet.w * 0.05);
+  const padY = Math.max(1, cabinet.h * 0.04);
+  const gap = Math.max(1, cabinet.h * 0.05);
   const innerW = Math.max(1, cabinet.w - padX * 2);
   const cubbyH = Math.max(1, (cabinet.h - padY * 2 - gap) / LIBRARY_SHELF_COUNT);
   return [

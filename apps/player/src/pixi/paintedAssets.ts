@@ -108,6 +108,8 @@ export const PAINTED_ART = {
   harvestBasket: "/art/painted/garden/harvest_basket.png?v=3shallow",
   /** Front rim/lip drawn over produce bottoms (same canvas / true alpha nesting). */
   harvestBasketRim: "/art/painted/garden/harvest_basket_rim.png?v=3shallow",
+  /** Open little library on the farm overview. Empty shelves; jars are drawn on top. */
+  littleLibrary: "/art/painted/farm/little_library.png?v=1",
 } as const;
 
 export type PaintedArt = {
@@ -119,6 +121,7 @@ export type PaintedArt = {
   crops: Record<CropKind, Texture[]>;
   harvestBasket: Texture;
   harvestBasketRim: Texture;
+  littleLibrary: Texture;
 };
 
 /** 2px inset so adjacent frames never share an edge pixel (stops filter bleed). */
@@ -504,6 +507,7 @@ export async function loadPaintedArt(): Promise<PaintedArt> {
     ...CROP_KINDS.map((kind) => PAINTED_ART.crops[kind]),
     PAINTED_ART.harvestBasket,
     PAINTED_ART.harvestBasketRim,
+    PAINTED_ART.littleLibrary,
   ];
   // Drop only URLs that are actually cached. Blind Assets.unload on misses
   // logs "was not found in the Cache" and can leave half-dead GPU sources on
@@ -544,6 +548,7 @@ export async function loadPaintedArt(): Promise<PaintedArt> {
   const cropSheets = rest.slice(0, CROP_KINDS.length);
   const harvestBasket = rest[CROP_KINDS.length]!;
   const harvestBasketRim = rest[CROP_KINDS.length + 1]!;
+  const littleLibrary = rest[CROP_KINDS.length + 2]!;
   const crops = {} as Record<CropKind, Texture[]>;
   CROP_KINDS.forEach((kind, i) => {
     crops[kind] = sliceSheet(cropSheets[i]!, CROP_STAGE_FRAMES);
@@ -557,5 +562,6 @@ export async function loadPaintedArt(): Promise<PaintedArt> {
     crops,
     harvestBasket,
     harvestBasketRim,
+    littleLibrary,
   };
 }

@@ -29,8 +29,12 @@ export type Uv = { u: number; v: number };
 export type UvRect = { u0: number; v0: number; u1: number; v1: number };
 export type PixelRect = { x0: number; y0: number; x1: number; y1: number };
 
-/** Former corkboard stake: left-center grass, right of the exhaust, left of the wordmark. */
-const FARM_LIBRARY_HIT = { u0: 0.28, v0: 0.12, u1: 0.4, v1: 0.34 } as const satisfies UvRect;
+/**
+ * Little library on the grass between the tractor and the calf.
+ * Slightly smaller than the old floating stake (184×225) and lower so the post
+ * meets the ground instead of hanging in the sky. Stays above the garden fences.
+ */
+const FARM_LIBRARY_HIT = { u0: 0.289, v0: 0.186, u1: 0.4, v1: 0.391 } as const satisfies UvRect;
 
 export const PLAYFIELD_TEXTURE = { width: 1536, height: 1024 } as const;
 

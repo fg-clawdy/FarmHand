@@ -82,6 +82,7 @@ test("crop sheet slices are equal, in-bounds, and do not share pixels", () => {
 test("playfield art no longer loads the corkboard or wanted poster sheet", () => {
   const urls = Object.values(PAINTED_ART).flatMap((value) => (typeof value === "string" ? [value] : Object.values(value)));
   assert.ok(urls.every((url) => !url.includes("corkboard") && !url.includes("wanted")));
+  assert.ok(PAINTED_ART.littleLibrary.includes("little_library.png"));
 });
 
 test("eat sheet frames are equal, in-bounds, and do not share pixels", () => {

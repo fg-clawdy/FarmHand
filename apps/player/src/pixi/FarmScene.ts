@@ -101,6 +101,7 @@ export class FarmScene {
       tw,
       th,
       PLAYFIELD_LAYOUT.libraryHit,
+      painted.littleLibrary,
       (goalId) => handlers.onLibrary?.onJar?.(goalId),
       () => handlers.onLibrary?.onOverflow?.(),
     );
@@ -209,6 +210,7 @@ export class FarmScene {
   destroy() {
     this.app.ticker.remove(this.onTick);
     this.app.renderer.off("resize", this.onResize);
+    this.library.release();
     if (farmDebugOwner === this) {
       farmDebugOwner = null;
       const w = globalThis as { __farmhandFarmDebug?: unknown; __farmhandFarmCanvas?: unknown };

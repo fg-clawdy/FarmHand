@@ -72,6 +72,10 @@ test("farm overview shows the little library and not a job board or tube chip", 
   const local = uvRectToLocal(hit, 1536, 1024);
   assert.ok(local.x1 - local.x0 >= 160, "wide enough for two jars");
   assert.ok(local.y1 - local.y0 >= 180, "tall enough for open shelves");
+  // Slightly smaller than the old floating sticker (184×225) and seated in the grass.
+  assert.ok(local.x1 - local.x0 <= 176, "slightly narrower than the old sticker");
+  assert.ok(hit.v0 >= 0.16, "roof sits down in the scene");
+  assert.ok(hit.v1 >= 0.37, "post reaches the grass");
 });
 
 test("cow body cannot sit on garden soil, plaque, or fence", () => {
