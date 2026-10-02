@@ -1,6 +1,6 @@
 import { cropKindForTier, GARDEN_PLOT_COLS, PLOTS_PER_GARDEN, type PlantTier, type PublicPlot } from "@farmhand/shared";
 import { cameraFit } from "./draw";
-import type { Uv } from "./playfieldLayout";
+import type { Uv, UvRect } from "./playfieldLayout";
 
 /** Zoomed garden painting (`garden_zoom_3x3.jpg`) is 1536×1024, same as the farm playfield. */
 export const GARDEN_ZOOM_TEXTURE = { width: 1536, height: 1024 } as const;
@@ -55,6 +55,20 @@ export const GARDEN_ZOOM_LAYOUT = {
   mounds: GARDEN_MOUND_PX.map(moundUvFromPx),
   /** Hit ellipse in texture pixels around each mound center. */
   hit: { rx: 110, ry: 78 } as const,
+} as const;
+
+/**
+ * Little Free Library covering the painted WANTED board on the right of
+ * `garden_zoom_3x3.jpg`. Open front, no door. The player wood sign stays centered.
+ * Texture pixels on the 1536×1024 zoom painting.
+ */
+export const GARDEN_LIBRARY_LAYOUT = {
+  hit: {
+    u0: 1224 / GARDEN_ZOOM_TEXTURE.width,
+    v0: 0 / GARDEN_ZOOM_TEXTURE.height,
+    u1: 1536 / GARDEN_ZOOM_TEXTURE.width,
+    v1: 620 / GARDEN_ZOOM_TEXTURE.height,
+  } satisfies UvRect,
 } as const;
 
 /**

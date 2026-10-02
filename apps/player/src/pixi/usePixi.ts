@@ -54,11 +54,9 @@ export function auditPaintedArt(painted: PaintedArt): string[] {
   const misses: string[] = [];
   textureOk(painted.playfield, "playfield", misses);
   textureOk(painted.gardenZoom, "gardenZoom", misses);
-  textureOk(painted.corkboard, "corkboard", misses);
   painted.smokeFrames.forEach((t, i) => textureOk(t, `smoke[${i}]`, misses));
   painted.cowWalk.forEach((t, i) => textureOk(t, `cowWalk[${i}]`, misses));
   painted.cowEat.forEach((t, i) => textureOk(t, `cowEat[${i}]`, misses));
-  painted.wantedPosterFrames.forEach((t, i) => textureOk(t, `wanted[${i}]`, misses));
   for (const [kind, frames] of Object.entries(painted.crops)) {
     frames.forEach((t, i) => textureOk(t, `crop:${kind}[${i}]`, misses));
   }
@@ -73,9 +71,9 @@ export function auditPaintedArt(painted: PaintedArt): string[] {
  * 4) build scene + multi-rAF relayout (ResizeObserver in engine keeps fitting)
  */
 async function bootPixi(host: HTMLElement, dead: () => boolean) {
-  const eng = await createEngine(host);
-  if (dead()) {
-    eng.destroy();
+  const eng = await createEngine(host, dead);
+  if (!eng || dead()) {
+    eng?.destroy();
     return null;
   }
   const size = await waitForHostSize(host);
@@ -96,10 +94,7 @@ async function bootPixi(host: HTMLElement, dead: () => boolean) {
 export function useFarmPixi(handlers: {
   onPlayer: (id: string) => void;
   onStore: () => void;
-  onJobBoard: () => void;
   onAvatar?: (id: string) => void;
-  onFamilyJar?: (goalId: string) => void;
-  onFamilyJarOverflow?: () => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<FarmScene | null>(null);
@@ -124,10 +119,7 @@ export function useFarmPixi(handlers: {
         const scene = new FarmScene(eng, atlas, painted, {
           onPlayer: (id) => handlersRef.current.onPlayer(id),
           onStore: () => handlersRef.current.onStore(),
-          onJobBoard: () => handlersRef.current.onJobBoard(),
           onAvatar: (id) => handlersRef.current.onAvatar?.(id),
-          onFamilyJar: (goalId) => handlersRef.current.onFamilyJar?.(goalId),
-          onFamilyJarOverflow: () => handlersRef.current.onFamilyJarOverflow?.(),
         });
         if (dead) {
           scene.destroy();
@@ -160,7 +152,12 @@ export function useFarmPixi(handlers: {
 
 export type GardenPixiError = { message: string; phase: string };
 
-export function useGardenPixi(onPlot: (slot: number) => void, onAvatar?: () => void, onBasket?: () => void) {
+export function useGardenPixi(
+  onPlot: (slot: number) => void,
+  onAvatar?: () => void,
+  onBasket?: () => void,
+  onLibrary?: { onJar?: (goalId: string) => void; onOverflow?: () => void },
+) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<GardenScene | null>(null);
   const [ready, setReady] = useState(0);
@@ -171,6 +168,8 @@ export function useGardenPixi(onPlot: (slot: number) => void, onAvatar?: () => v
   onAvatarRef.current = onAvatar;
   const onBasketRef = useRef(onBasket);
   onBasketRef.current = onBasket;
+  const onLibraryRef = useRef(onLibrary);
+  onLibraryRef.current = onLibrary;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -207,6 +206,10 @@ export function useGardenPixi(onPlot: (slot: number) => void, onAvatar?: () => v
           (slot) => onPlotRef.current(slot),
           () => onAvatarRef.current?.(),
           () => onBasketRef.current?.(),
+          {
+            onJar: (goalId) => onLibraryRef.current?.onJar?.(goalId),
+            onOverflow: () => onLibraryRef.current?.onOverflow?.(),
+          },
         );
         if (dead) {
           scene.destroy();

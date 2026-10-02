@@ -41,32 +41,21 @@ test("cover-fit local pixels match the 1536×1024 painting", () => {
   assert.equal(Math.round(tip.y), 258);
 });
 
-test("cow blockers include barn, tractor, hay, stand, corkboard, and gardens", () => {
+test("cow blockers include barn, tractor, hay, stand, and gardens", () => {
   const keys = Object.keys(PLAYFIELD_LAYOUT.blockers);
-  for (const key of ["barn", "hay", "tractor", "stand", "jobBoard"]) {
+  for (const key of ["barn", "hay", "tractor", "stand"]) {
     assert.ok(keys.includes(key), key);
   }
   assert.ok(!keys.includes("mamaCow"));
-  assert.equal(cowForbiddenRects(1536, 1024).length, 9);
+  assert.ok(!keys.includes("jobBoard"));
+  assert.equal(cowForbiddenRects(1536, 1024).length, 7);
 });
 
-test("job board ground stake sits left of the title, right of the exhaust, above gardens", () => {
-  const hit = PLAYFIELD_LAYOUT.jobBoardHit;
-  const stake = { u0: 0.28, v0: 0.12, u1: 0.4, v1: 0.34 };
-  assert.deepEqual(hit, stake);
-  assert.deepEqual(PLAYFIELD_LAYOUT.blockers.jobBoard, stake);
-  assert.ok(hit.u0 >= PLAYFIELD_LAYOUT.exhaustTip.u, "clear of exhaust puff");
-  assert.ok(hit.u1 < 0.5, "left of FarmHand title center");
-  assert.ok(hit.u1 <= 0.42, "not under the wordmark");
-  assert.ok(hit.u1 < PLAYFIELD_LAYOUT.storeHit.u0);
-  for (const garden of PLAYFIELD_LAYOUT.gardens) {
-    assert.ok(hit.v1 < garden.hit.v0);
-    assert.ok(hit.v1 < garden.soil.v0);
-  }
-  const obsoleteTitleCover = { u0: 0.38, v0: 0.14, u1: 0.52, v1: 0.36 };
-  assert.notDeepEqual(hit, obsoleteTitleCover);
-  const obsoleteMidPath = { u0: 0.42, v0: 0.06, u1: 0.62, v1: 0.36 };
-  assert.notDeepEqual(hit, obsoleteMidPath);
+test("farm overview no longer reserves a job board or shared-goal chip", () => {
+  const layout = PLAYFIELD_LAYOUT as Record<string, unknown>;
+  assert.equal("jobBoardHit" in layout, false);
+  assert.equal("familyJarHit" in layout, false);
+  assert.equal("jobBoard" in PLAYFIELD_LAYOUT.blockers, false);
 });
 
 test("cow body cannot sit on garden soil, plaque, or fence", () => {
@@ -296,19 +285,8 @@ test("right-facing cow sheet flips via scale.x when roaming left", () => {
   assert.equal(facingFromDx(0, -1), -1, "hold last facing on a vertical step");
 });
 
-test("family jar chip is compact, lower-left, and clear of the store", () => {
-  const jar = PLAYFIELD_LAYOUT.familyJarHit;
-  const store = PLAYFIELD_LAYOUT.storeHit;
-  assert.ok(jar.u1 - jar.u0 < 0.16, "narrow chip");
-  assert.ok(jar.v1 - jar.v0 < 0.14, "short chip");
-  assert.ok(jar.u1 + 0.5 < store.u0, "far left of the store tap");
-  assert.ok(jar.u1 <= PLAYFIELD_LAYOUT.cowRoam.u0, "left of the cow roam");
-  assert.ok(jar.v0 > PLAYFIELD_LAYOUT.blockers.barn.v1, "below the barn");
-  assert.ok(jar.v0 > PLAYFIELD_LAYOUT.blockers.hay.v1, "below the hay");
-  assert.ok(jar.u1 < PLAYFIELD_LAYOUT.blockers.tractor.u0, "left of the tractor");
-  assert.ok(jar.u1 < PLAYFIELD_LAYOUT.jobBoardHit.u0, "left of the corkboard");
-  for (const garden of PLAYFIELD_LAYOUT.gardens) {
-    assert.ok(jar.v1 <= garden.hit.v0, "above the garden fences");
-  }
+test("cow roam still clears the garden fences after the chip and corkboard left", () => {
+  assert.equal(cowRoamAvoidsGardens(), true);
+  assert.ok(PLAYFIELD_LAYOUT.cowRoam.u0 < PLAYFIELD_LAYOUT.blockers.tractor.u1);
 });
 

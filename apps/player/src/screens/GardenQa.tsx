@@ -1,28 +1,100 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { PublicPlot } from "@farmhand/shared";
+import type { FarmPlayerCard, PublicPlot, PublicSharedGoal } from "@farmhand/shared";
+import FamilyJarSheet from "../components/FamilyJarSheet";
 import { useGardenPixi } from "../pixi/usePixi";
 
-/** Live Pixi garden with planted plots — no API. Used to proof mound alignment. */
+/**
+ * Live Pixi garden — no API.
+ * `?jars=0|1|3|8|overflow` previews little-library shelves.
+ * `?sheet=<jar id>` opens the donate sheet over that preview.
+ */
 export default function GardenQa() {
   const [params] = useSearchParams();
   const pack = params.get("pack") ?? "willow";
   const markers = params.get("markers") === "1";
-  const { hostRef, sceneRef, ready } = useGardenPixi(() => undefined);
+  const jarMode = params.get("jars");
+  const jars = useMemo(() => qaJars(jarMode), [jarMode]);
+  const sheet = params.get("sheet");
+  const celebrate = Number(params.get("celebrate") || 0);
+  const [openId, setOpenId] = useState<string | null>(sheet && jars.some((jar) => jar.id === sheet) ? sheet : null);
+  const selected = jars.find((jar) => jar.id === openId) ?? null;
+  const { hostRef, sceneRef, ready } = useGardenPixi(
+    () => undefined,
+    undefined,
+    undefined,
+    {
+      onJar: (id) => setOpenId(id),
+      onOverflow: () => setOpenId(jars[3]?.id ?? jars[0]?.id ?? null),
+    },
+  );
 
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene || !ready) return;
-    scene.setName("Willow's garden");
+    scene.setName("Willow");
     scene.setPlots(qaPlots(pack));
     scene.setMoundMarkers(markers);
-  }, [ready, pack, markers, sceneRef]);
+    scene.setFamilyJars(jars);
+  }, [ready, pack, markers, jarMode, sceneRef, jars]);
 
   return (
     <div className="screen garden-hybrid">
       <div className="pixi-host" ref={hostRef} data-qa="garden-pixi" />
+      {selected && (
+        <FamilyJarSheet
+          jar={selected}
+          players={qaPlayers()}
+          preview={{ availableStars: 24, celebrate: celebrate > 0 ? celebrate : undefined }}
+          onClose={() => setOpenId(null)}
+          onUpdated={() => undefined}
+        />
+      )}
     </div>
   );
+}
+
+function qaJars(mode: string | null): PublicSharedGoal[] {
+  const demo: PublicSharedGoal[] = [
+    { id: "qa-movie", title: "Movie", emoji: "🎬", targetStars: 10, filledStars: 3, status: "OPEN", tintIndex: 0, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-ice", title: "Ice cream", emoji: "🍦", targetStars: 10, filledStars: 7, status: "OPEN", tintIndex: 1, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-game", title: "Game night", emoji: "🎮", targetStars: 10, filledStars: 9, status: "OPEN", tintIndex: 2, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-netflix", title: "Netflix", emoji: "📺", targetStars: 10, filledStars: 10, status: "READY", tintIndex: 3, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-park", title: "Park day", emoji: "🌳", targetStars: 8, filledStars: 1, status: "OPEN", tintIndex: 4, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-books", title: "Books", emoji: "📚", targetStars: 12, filledStars: 4, status: "OPEN", tintIndex: 0, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-picnic", title: "Picnic", emoji: "🧺", targetStars: 9, filledStars: 2, status: "OPEN", tintIndex: 1, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-zoo", title: "Zoo", emoji: "🦁", targetStars: 20, filledStars: 6, status: "OPEN", tintIndex: 2, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-camp", title: "Camp", emoji: "⛺️", targetStars: 15, filledStars: 5, status: "OPEN", tintIndex: 3, artUrl: null, artStatus: "DEFAULT" },
+  ];
+  if (!mode || mode === "0" || mode === "empty") return [];
+  if (mode === "1") return demo.slice(0, 1);
+  if (mode === "3" || mode === "few") return demo.slice(0, 3);
+  if (mode === "8" || mode === "many") return demo.slice(0, 8);
+  if (mode === "5" || mode === "overflow") return demo;
+  return demo.slice(0, 3);
+}
+
+function qaPlayers(): FarmPlayerCard[] {
+  return [
+    {
+      id: "willow",
+      name: "Willow",
+      mascot: "cow",
+      avatarKind: "mascot",
+      avatarPreset: null,
+      avatarUrl: null,
+      seeds: 101,
+      provisionalSeeds: 0,
+      points: 1216,
+      fertilizer: 0,
+      seedShards: 0,
+      canWater: true,
+      plots: [],
+      hasPin: false,
+      unlocked: true,
+      isActive: true,
+    },
+  ];
 }
 
 function plot(slot: number, tier: 1 | 2 | 3 | 4 | 5 | 6, stage: 1 | 2 | 3 | 4, ready = false): PublicPlot {
@@ -58,11 +130,9 @@ function qaPlots(pack: string): PublicPlot[] {
   if (pack === "berries") {
     return Array.from({ length: 9 }, (_, slot) => plot(slot, 2, 4, true));
   }
-  // Stage 3 = 3-flower / green-berry flowering (the annotated Willow plant).
   if (pack === "flowers" || pack === "blossom") {
     return Array.from({ length: 9 }, (_, slot) => plot(slot, 2, 3));
   }
-  // Annotated Willow mix: ripe corn, flowering center strawberry, two sprouts.
   if (pack === "willow-full") {
     return [
       plot(0, 1, 4, true),
@@ -76,32 +146,30 @@ function qaPlots(pack: string): PublicPlot[] {
       plot(8, 1, 4, true),
     ];
   }
-  // Seed + first-grow seating proof: tall seeds, pumpkin stage 2, cotton sprout.
   if (pack === "seat") {
     return [
-      plot(0, 1, 1), // corn seed
-      plot(1, 2, 1), // cotton seed
-      plot(2, 6, 1), // sunflower seed
-      plot(3, 5, 1), // pumpkin seed
-      plot(4, 4, 1), // strawberry seed
-      plot(5, 5, 2), // pumpkin grow (stage 2)
-      plot(6, 1, 2), // corn grow
-      plot(7, 2, 2), // cotton grow
-      plot(8, 6, 2), // sunflower grow
+      plot(0, 1, 1),
+      plot(1, 2, 1),
+      plot(2, 6, 1),
+      plot(3, 5, 1),
+      plot(4, 4, 1),
+      plot(5, 5, 2),
+      plot(6, 1, 2),
+      plot(7, 2, 2),
+      plot(8, 6, 2),
     ];
   }
-  // Ripe height proof: corn/cotton/strawberry/pumpkin/sunflower + tomato mid.
   if (pack === "raise") {
     return [
-      plot(0, 1, 4, true), // corn
-      plot(1, 2, 4, true), // cotton
-      plot(2, 6, 4, true), // sunflower
-      plot(3, 4, 4, true), // strawberry
-      plot(4, 5, 4, true), // pumpkin
-      plot(5, 3, 4, true), // tomato
-      plot(6, 4, 4, true), // strawberry
-      plot(7, 5, 4, true), // pumpkin
-      plot(8, 2, 4, true), // cotton
+      plot(0, 1, 4, true),
+      plot(1, 2, 4, true),
+      plot(2, 6, 4, true),
+      plot(3, 4, 4, true),
+      plot(4, 5, 4, true),
+      plot(5, 3, 4, true),
+      plot(6, 4, 4, true),
+      plot(7, 5, 4, true),
+      plot(8, 2, 4, true),
     ];
   }
   return [

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { partitionEligibleChoresForNow } from "@farmhand/shared";
-import type { FamilyJob, GardenPlayer, PublicChore } from "../api";
+import type { GardenPlayer, PublicChore } from "../api";
 import { recordBoardEvent } from "../choreBoardEvents";
 import ChoreConfirmHero from "./ChoreConfirmHero";
 import JobCoach from "./JobCoach";
@@ -17,68 +17,6 @@ export function NeedJobsNudge({ onClose, onOpenJobs }: { onClose: () => void; on
       onClose={onClose}
       onContinue={onOpenJobs}
     />
-  );
-}
-
-export function FamilyJobBoard({
-  jobs,
-  onClose,
-  onPick,
-}: {
-  jobs: FamilyJob[];
-  onClose: () => void;
-  onPick: (job: FamilyJob) => void;
-}) {
-  const pinned = jobs.filter((job) => job.priority === "CRITICAL");
-  const openJobs = jobs.filter((job) => job.priority !== "CRITICAL");
-
-  useEffect(() => {
-    recordBoardEvent({ eventType: "BOARD_OPEN", source: "FARM_CORKBOARD" });
-    return () => {
-      recordBoardEvent({ eventType: "DISMISS", source: "FARM_CORKBOARD" });
-    };
-  }, []);
-
-  return (
-    <div className="job-board-backdrop" role="dialog" aria-label="Job Board">
-      <div className="job-board">
-        <header className="job-board-header">
-          <div>
-            <p className="job-board-kicker">Family corkboard</p>
-            <h2>Job Board</h2>
-          </div>
-          <button className="job-board-close" type="button" onClick={onClose} aria-label="Close Job Board">
-            Close
-          </button>
-        </header>
-        <p className="job-board-intro">
-          Open jobs for someone in the family. Tap a poster to claim — you'll pick who you are then.
-        </p>
-        <div className="job-board-scroll">
-          {jobs.length === 0 && <p className="job-board-empty">No open jobs right now. Check back soon.</p>}
-          {pinned.length > 0 && (
-            <section className="job-section">
-              <h3>Pinned · dogs first</h3>
-              <div className="job-grid job-grid-pinned">
-                {pinned.map((job) => (
-                  <JobCard key={job.id} chore={job} onPick={() => onPick(job)} />
-                ))}
-              </div>
-            </section>
-          )}
-          {openJobs.length > 0 && (
-            <section className="job-section">
-              <h3>{pinned.length > 0 ? "More jobs" : "Open jobs"}</h3>
-              <div className="job-grid">
-                {openJobs.map((job) => (
-                  <JobCard key={job.id} chore={job} onPick={() => onPick(job)} />
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -316,8 +254,7 @@ function JobCard({
   onPick?: () => void;
 }) {
   const critical = chore.priority === "CRITICAL";
-  // Garden / overlay list cards use the pre-flyer big-card look (emoji + title).
-  // Wanted poster art stays on the Farm corkboard only — do not put flyers on these cards.
+  // Garden chore cards stay emoji + title. Shared goals live on the little library.
   return (
     <button
       type="button"

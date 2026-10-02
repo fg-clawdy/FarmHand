@@ -1,36 +1,16 @@
-import {
-  compactJarTitle,
-  jarProgressLabel,
-  trayWindow,
-  type FarmPlayerCard,
-  type GameConfig,
-  type PublicSharedGoal,
-} from "@farmhand/shared";
+import { type FarmPlayerCard } from "@farmhand/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, type FamilyJob } from "../api";
+import { api } from "../api";
 import AvatarPicker from "../components/AvatarPicker";
-import FamilyJarSheet from "../components/FamilyJarSheet";
-import FarmChoreClaim from "../components/FarmChoreClaim";
-import FarmJobFlow from "../components/FarmJobFlow";
 import PinPad from "../components/PinPad";
-import Sheet from "../components/Sheet";
 import StoreSheet from "../components/StoreSheet";
-import { familyJarVisible } from "../pixi/familyJar";
 import { useFarmPixi } from "../pixi/usePixi";
 
 export default function FarmDashboard() {
   const navigate = useNavigate();
   const [players, setPlayers] = useState<FarmPlayerCard[]>([]);
-  const [config, setConfig] = useState<GameConfig | null>(null);
-  const [jobs, setJobs] = useState<FamilyJob[]>([]);
   const [storeOpen, setStoreOpen] = useState(false);
-  const [familyJars, setFamilyJars] = useState<PublicSharedGoal[]>([]);
-  const [jarId, setJarId] = useState<string | null>(null);
-  const [overflowOpen, setOverflowOpen] = useState(false);
-  const [jobsOpen, setJobsOpen] = useState(false);
-  const [claimJob, setClaimJob] = useState<FamilyJob | null>(null);
-  const [toast, setToast] = useState("");
   const [error, setError] = useState("");
   const [pinPlayer, setPinPlayer] = useState<{ id: string; name: string; after?: "garden" | "avatar" } | null>(null);
   const [avatarKid, setAvatarKid] = useState<FarmPlayerCard | null>(null);
@@ -111,56 +91,15 @@ export default function FarmDashboard() {
       void handlePlayerTap(id);
     },
     onStore: () => setStoreOpen(true),
-    onFamilyJar: (id) => {
-      setOverflowOpen(false);
-      setJarId(id);
-    },
-    onFamilyJarOverflow: () => setOverflowOpen(true),
     onAvatar: (id) => {
       void handleAvatarTap(id);
-    },
-    onJobBoard: () => {
-      // Open the chore currently shown on the Wanted flyer (not the full family board).
-      const current = sceneRef.current?.getCurrentWantedJob() ?? null;
-      if (current) {
-        const match = jobs.find((j) => j.id === current.id);
-        if (match) {
-          setClaimJob(match);
-          return;
-        }
-        // Flyer job from placeholders / stale list — synthesize FamilyJob shape.
-        setClaimJob({
-          id: current.id,
-          slug: current.slug ?? current.id,
-          title: current.title,
-          emoji: current.emoji,
-          description: "",
-          priority: "NORMAL",
-          assignmentMode: "ANY",
-          requiresSelfie: false,
-          flyerUrl: current.flyerUrl ?? undefined,
-        });
-        return;
-      }
-      // Fallback only when no flyer chore exists.
-      setJobsOpen(true);
     },
   });
 
   async function load() {
     try {
-      const [farm, board] = await Promise.all([api.farm(), api.farmJobs()]);
+      const farm = await api.farm();
       setPlayers(farm.players);
-      setConfig(farm.config);
-      setJobs(board.jobs);
-      setFamilyJars((prev) => {
-        const incoming = (farm.familyJars ?? (farm.familyJar ? [farm.familyJar] : [])).filter(familyJarVisible);
-        return incoming.map((jar) => {
-          const old = prev.find((item) => item.id === jar.id);
-          if (old && old.filledStars > jar.filledStars && old.status === jar.status) return { ...jar, filledStars: old.filledStars };
-          return jar;
-        });
-      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load the farm.");
     }
@@ -181,65 +120,10 @@ export default function FarmDashboard() {
     sceneRef.current?.setPlayers(players);
   }, [players, ready, sceneRef]);
 
-  useEffect(() => {
-    sceneRef.current?.setFamilyJars(familyJars);
-  }, [familyJars, ready, sceneRef]);
-
-  useEffect(() => {
-    if (jarId && !familyJars.some((jar) => jar.id === jarId)) setJarId(null);
-    if (trayWindow(familyJars).overflow === 0) setOverflowOpen(false);
-  }, [familyJars, jarId]);
-
-  useEffect(() => {
-    sceneRef.current?.setWantedJobs(jobs, config?.jobBoardPosterDwellSeconds);
-  }, [jobs, config, ready, sceneRef]);
-
-  const selectedJar = familyJars.find((jar) => jar.id === jarId) ?? null;
-
-  function handleClaimed(name: string) {
-    setToast(`Seeds added to ${name}'s bag!`);
-    window.setTimeout(() => setToast(""), 3200);
-    void load();
-  }
-
   return (
     <div className="scene farm-hybrid">
       <div className="pixi-host" ref={hostRef} />
       {storeOpen && <StoreSheet players={players} onClose={() => setStoreOpen(false)} />}
-      {overflowOpen && (
-        <Sheet title="More goals" onClose={() => setOverflowOpen(false)}>
-          <div className="sheet-actions">
-            {trayWindow(familyJars).hidden.map((jar) => (
-              <button
-                key={jar.id}
-                className="btn gold"
-                type="button"
-                onClick={() => {
-                  setOverflowOpen(false);
-                  setJarId(jar.id);
-                }}
-              >
-                {jar.emoji} {compactJarTitle(jar.title, 22)} · {jarProgressLabel(jar.filledStars, jar.targetStars, jar.status)}
-              </button>
-            ))}
-          </div>
-        </Sheet>
-      )}
-      {selectedJar && (
-        <FamilyJarSheet
-          jar={selectedJar}
-          players={players}
-          onClose={() => setJarId(null)}
-          onUpdated={(next) =>
-            setFamilyJars((list) => {
-              const stillVisible = next.status === "OPEN" || next.status === "READY";
-              return stillVisible
-                ? list.map((jar) => (jar.id === next.id ? next : jar))
-                : list.filter((jar) => jar.id !== next.id);
-            })
-          }
-        />
-      )}
       {avatarKid && (
         <AvatarPicker
           player={avatarKid}
@@ -263,22 +147,6 @@ export default function FarmDashboard() {
           }}
         />
       )}
-      {claimJob && (
-        <FarmChoreClaim
-          job={claimJob}
-          players={players}
-          onClose={() => setClaimJob(null)}
-          onClaimed={handleClaimed}
-        />
-      )}
-      {jobsOpen && config && (
-        <FarmJobFlow
-          players={players}
-          jobs={jobs}
-          onClose={() => setJobsOpen(false)}
-          onClaimed={handleClaimed}
-        />
-      )}
       {pinPlayer && (
         <PinPad
           name={pinPlayer.name}
@@ -286,7 +154,6 @@ export default function FarmDashboard() {
           onSubmit={handlePinSubmit}
         />
       )}
-      {toast && <div className="toast">{toast}</div>}
       {error && <div className="toast">{error}</div>}
     </div>
   );
