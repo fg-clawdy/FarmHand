@@ -112,8 +112,9 @@ class MiniJar {
     const titleSize = Math.max(11, Math.round(Math.min(15, w * 0.2)));
     this.title.style.fontSize = titleSize;
     this.sub.style.fontSize = Math.max(11, titleSize);
-    this.emoji.style.fontSize = Math.max(14, Math.round(w * 0.34));
-    this.plus.style.fontSize = Math.max(16, Math.round(w * 0.38));
+    const compact = h < 150;
+    this.emoji.style.fontSize = compact ? Math.max(9, Math.round(w * 0.28)) : Math.max(14, Math.round(w * 0.34));
+    this.plus.style.fontSize = compact ? Math.max(12, Math.round(w * 0.32)) : Math.max(16, Math.round(w * 0.38));
     this.hit.clear();
     this.hit.rect(0, 0, w, h);
     this.hit.fill({ color: 0xffffff, alpha: 0.001 });
@@ -201,10 +202,13 @@ class MiniJar {
   private draw(ratio: number) {
     const g = this.body;
     g.clear();
+    const compact = this.h < 150;
+    this.title.visible = this.mode === "jar" && !compact;
+    this.sub.visible = this.mode === "jar" && !compact;
     const titleH = Math.max(12, this.title.height || 14);
     const subH = Math.max(11, this.sub.height || 12);
-    const labelH = titleH + subH + 4;
-    const columnH = Math.max(36, this.h - labelH);
+    const labelH = compact ? 0 : titleH + subH + 4;
+    const columnH = Math.max(28, this.h - labelH);
     if (this.mode === "overflow") {
       const chipW = Math.min(this.w - 6, 54);
       const chipH = Math.min(columnH * 0.42, 72);
@@ -221,8 +225,10 @@ class MiniJar {
 
     const tint = jarTint(this.tintIndex);
     const clamped = Math.max(0, Math.min(1, ratio));
-    const tubeW = Math.max(14, Math.min(this.w * 0.36, columnH * 0.22, 34));
-    const badgeR = Math.max(11, tubeW * 0.72);
+    const tubeW = compact
+      ? Math.max(8, Math.min(this.w * 0.62, 22))
+      : Math.max(14, Math.min(this.w * 0.36, columnH * 0.22, 34));
+    const badgeR = compact ? Math.max(6, tubeW * 0.48) : Math.max(11, tubeW * 0.72);
     const x = (this.w - tubeW) / 2;
     const glassTop = badgeR * 1.55;
     const glassH = Math.max(24, columnH - glassTop - 2);
@@ -323,6 +329,7 @@ export class FamilyJarTray {
     });
     this.header.anchor.set(0.5, 0);
     this.header.position.set(this.w / 2, 7);
+    this.header.visible = false;
 
     this.emptyTitle = new Text({
       text: SHARED_GOAL_COPY.trayEmpty,
@@ -334,6 +341,10 @@ export class FamilyJarTray {
       style: { fontFamily: "Fredoka, sans-serif", fontSize: 12, fill: 0x6b4224, align: "center" },
     });
     this.emptySub.anchor.set(0.5, 0);
+    this.emptyTitle.visible = false;
+    this.emptySub.visible = false;
+    this.ghost.visible = false;
+    this.root.visible = false;
 
     this.slots = Array.from({ length: 4 }, () => new MiniJar(atlas, onTap, onOverflow));
     this.root.addChild(
@@ -350,6 +361,8 @@ export class FamilyJarTray {
 
   setJars(jars: PublicSharedGoal[]) {
     this.jars = jars.filter(familyJarVisible);
+    this.root.visible = this.jars.length > 0;
+    if (!this.root.visible) return;
     this.apply();
     void this.syncLids(this.jars);
   }
@@ -361,46 +374,25 @@ export class FamilyJarTray {
   private drawBoard() {
     const g = this.board;
     const { w, h } = this;
+    const r = Math.min(12, Math.round(Math.min(w, h) * 0.12));
     g.clear();
-    g.roundRect(0, 0, w, h, 14);
+    g.roundRect(0, 0, w, h, r);
     g.fill({ color: 0x6b3e24 });
-    g.roundRect(5, 5, w - 10, h - 10, 11);
-    g.fill({ color: 0xb5834e });
-    const rail = Math.max(28, Math.round(h * 0.13));
-    g.roundRect(10, rail, w - 20, h - rail - 10, 8);
+    g.roundRect(3, 3, w - 6, h - 6, Math.max(6, r - 2));
     g.fill({ color: 0xf4e6c4 });
-    for (const [x, y] of [
-      [14, 14],
-      [w - 14, 14],
-      [14, h - 14],
-      [w - 14, h - 14],
-    ] as const) {
-      g.circle(x, y, 3.1);
-      g.fill({ color: 0x4e3018 });
-    }
   }
 
   private apply() {
     const windowed = trayWindow(this.jars);
     const frames = jarTraySlots({ w: this.w, h: this.h }, windowed.shown.length, windowed.overflow);
     const empty = windowed.shown.length === 0;
-    this.ghost.visible = empty;
-    this.emptyTitle.visible = empty;
-    this.emptySub.visible = empty;
-    this.ghost.clear();
-    if (empty && frames.slots[0]) {
-      const frame = frames.slots[0];
-      const tubeW = Math.min(26, frame.w * 0.28);
-      const textTop = this.h - 72;
-      this.emptyTitle.position.set(this.w / 2, textTop);
-      this.emptySub.position.set(this.w / 2, textTop + 16);
-      const y = frame.y + 4;
-      const tubeH = Math.max(40, Math.min(110, textTop - y - tubeW - 8));
-      const x = this.w / 2 - tubeW / 2;
-      this.ghost.circle(x + tubeW / 2, y + tubeW * 0.55, tubeW * 0.7);
-      this.ghost.stroke({ color: WOOD, width: 2, alpha: 0.4 });
-      this.ghost.roundRect(x, y + tubeW, tubeW, tubeH, tubeW / 2);
-      this.ghost.stroke({ color: WOOD, width: 3, alpha: 0.45 });
+    this.root.visible = !empty;
+    this.ghost.visible = false;
+    this.emptyTitle.visible = false;
+    this.emptySub.visible = false;
+    if (empty) {
+      for (const slot of this.slots) slot.hide();
+      return;
     }
     this.slots.forEach((slot, index) => {
       const frame = frames.slots[index];

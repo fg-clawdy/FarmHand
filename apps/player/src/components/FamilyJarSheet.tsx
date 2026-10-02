@@ -118,6 +118,7 @@ function TubeGlass({
   lens,
   ready,
   glassRef,
+  hero = false,
 }: {
   jar: PublicSharedGoal;
   solid: number;
@@ -127,11 +128,12 @@ function TubeGlass({
   lens: boolean;
   ready: boolean;
   glassRef: Ref<HTMLDivElement>;
+  hero?: boolean;
 }) {
   const tint = jarTint(jar.tintIndex ?? 0);
   const solidPct = Math.round(Math.max(0, Math.min(1, solid)) * 1000) / 10;
   return (
-    <div className="tube-wrap">
+    <div className={hero ? "tube-wrap hero" : "tube-wrap"}>
       <div className="tube-badge" style={{ borderColor: tint.rim }}>
         {jar.artUrl ? <img src={jar.artUrl} alt="" /> : jar.emoji}
       </div>
@@ -156,10 +158,14 @@ function TubeGlass({
         {lens && <div className="tube-lens" style={{ bottom: `${solidPct}%` }} />}
         {burst != null && burst > 0 && <div className="tube-burst">+{burst}</div>}
       </div>
-      <p className="tube-title" style={{ color: tint.rim }}>
-        {compactJarTitle(jar.title, 18)}
-      </p>
-      <p className="tube-count">{jarProgressLabel(countFilled, jar.targetStars, jar.status)}</p>
+      {!hero && (
+        <>
+          <p className="tube-title" style={{ color: tint.rim }}>
+            {compactJarTitle(jar.title, 18)}
+          </p>
+          <p className="tube-count">{jarProgressLabel(countFilled, jar.targetStars, jar.status)}</p>
+        </>
+      )}
     </div>
   );
 }
@@ -405,91 +411,116 @@ function PourBody({
     }
   }
 
+  const previewMath = pending != null ? pourPreview(jar.filledStars, jar.targetStars, pending) : null;
+  const spent = previewMath ? previewMath.toFilled - previewMath.fromFilled : 0;
+  const nextWallet = wallet != null ? Math.max(0, wallet - spent) : null;
+
   return (
-    <Sheet title={`${jar.emoji} ${jar.title}`} onClose={onClose} className="family-jar-sheet">
-      <TubeGlass
-        jar={jar}
-        solid={solid}
-        countFilled={countFilled}
-        gift={gift}
-        burst={burst}
-        lens={lens}
-        ready={ready}
-        glassRef={glassRef}
-      />
-      <p aria-live="polite">{ready ? fill(SHARED_GOAL_COPY.ready, { title: jar.title }) : live || prompt}</p>
-      {ready && <p>{SHARED_GOAL_COPY.readySubline}</p>}
-      {coachOn && jar.status === "OPEN" && (
-        <>
-          <p>{SHARED_GOAL_COPY.coachLine1}</p>
-          <p>{SHARED_GOAL_COPY.coachLine2}</p>
-        </>
-      )}
-      {givingOff && <p>{SHARED_GOAL_COPY.givingOff}</p>}
-      {signedIn && !givingOff && !ready && wallet === 0 && <p>{SHARED_GOAL_COPY.noStars}</p>}
-      {signedIn && !givingOff && !ready && wallet != null && wallet > 0 && <p className="jar-stars">{wallet}★</p>}
-      {!ready && room > 0 && room < GIVE_CHIP_AMOUNTS[GIVE_CHIP_AMOUNTS.length - 1]! && (
-        <p>{fill(SHARED_GOAL_COPY.roomLeft, { n: room })}</p>
-      )}
-      {error && <p className="error">{error}</p>}
-
-      {jar.status === "OPEN" && !kid && !preview && !coachOn && (
-        <div className="sheet-actions">
-          <button className="btn gold" type="button" onClick={onIdentify}>
-            {SHARED_GOAL_COPY.buttonAdd}
-          </button>
-          <button className="btn ghost" type="button" onClick={onClose}>
-            {SHARED_GOAL_COPY.buttonNotNow}
-          </button>
-        </div>
-      )}
-
-      {coachOn && kid && jar.status === "OPEN" && (
-        <div className="sheet-actions">
-          <button className="btn gold" type="button" disabled={busy} onClick={() => void dismissCoach()}>
-            Okay
-          </button>
-        </div>
-      )}
-
-      {!coachOn && !givingOff && !ready && signedIn && pending == null && chips.length > 0 && !pour && !gift && (
-        <div className="sheet-actions jar-chips">
-          {chips.map((amount) => {
-            const math = pourPreview(jar.filledStars, jar.targetStars, amount);
-            return (
-              <button key={amount} className="chip" type="button" disabled={busy} onClick={() => setPending(amount)}>
-                <span>{amount}</span>
-                <span className="chip-math">{math.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {!coachOn && pending != null && (
-        <div className="sheet-actions">
-          <p>{fill(SHARED_GOAL_COPY.confirm, { n: pending, title: jar.title })}</p>
-          <p className="tube-math">
-            {wallet ?? 0}★ · {pourPreview(jar.filledStars, jar.targetStars, pending).label}
+    <Sheet title={jar.title} onClose={onClose} className="family-jar-sheet tube-hero-sheet">
+      <div className="tube-hero">
+        <div className="tube-hero-stage">
+          <TubeGlass
+            jar={jar}
+            solid={solid}
+            countFilled={countFilled}
+            gift={gift}
+            burst={burst}
+            lens={lens}
+            ready={ready}
+            glassRef={glassRef}
+            hero
+          />
+          <p className="tube-hero-count">
+            <strong>{countFilled.toLocaleString()}</strong>
+            <span> / {jar.targetStars.toLocaleString()} stars</span>
           </p>
-          <button className="btn gold" type="button" data-pour-origin disabled={busy} onClick={() => void confirmAdd()}>
-            {SHARED_GOAL_COPY.buttonAdd}
-          </button>
-          <button className="btn ghost" type="button" disabled={busy} onClick={() => setPending(null)}>
+        </div>
+        <div className="tube-hero-side">
+          <p className="sr-only" aria-live="polite">
+            {ready ? fill(SHARED_GOAL_COPY.ready, { title: jar.title }) : live || prompt}
+          </p>
+          {ready && <p>{fill(SHARED_GOAL_COPY.ready, { title: jar.title })} {SHARED_GOAL_COPY.readySubline}</p>}
+          {coachOn && jar.status === "OPEN" && (
+            <>
+              <p>{SHARED_GOAL_COPY.coachLine1}</p>
+              <p>{SHARED_GOAL_COPY.coachLine2}</p>
+            </>
+          )}
+          {givingOff && <p>{SHARED_GOAL_COPY.givingOff}</p>}
+          {signedIn && !givingOff && !ready && wallet === 0 && <p>{SHARED_GOAL_COPY.noStars}</p>}
+          {signedIn && !givingOff && wallet != null && (
+            <div className="tube-wallet">
+              <span className="tube-wallet-amt">{wallet} ★</span>
+              <span>Kid Wallet</span>
+            </div>
+          )}
+          {!ready && room > 0 && room < GIVE_CHIP_AMOUNTS[GIVE_CHIP_AMOUNTS.length - 1]! && (
+            <p>{fill(SHARED_GOAL_COPY.roomLeft, { n: room })}</p>
+          )}
+          {error && <p className="error">{error}</p>}
+
+          {!coachOn && !givingOff && !ready && signedIn && chips.length > 0 && !pour && !gift && (
+            <div className="tube-chip-stack">
+              {chips.map((amount) => (
+                <button
+                  key={amount}
+                  className={`tube-chip tone-${amount}${pending === amount ? " is-on" : ""}`}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setPending(amount)}
+                >
+                  +{amount}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {previewMath && nextWallet != null && wallet != null && !pour && !gift && (
+            <div className="tube-preview-card">
+              <p>
+                {previewMath.fromFilled.toLocaleString()} → {previewMath.toFilled.toLocaleString()} / {jar.targetStars.toLocaleString()}
+              </p>
+              <p>
+                Kid Wallet: {wallet} ★ → {nextWallet} ★
+              </p>
+            </div>
+          )}
+
+          {jar.status === "OPEN" && !kid && !preview && !coachOn && (
+            <button className="btn gold tube-add" type="button" onClick={onIdentify}>
+              {SHARED_GOAL_COPY.buttonAdd}
+            </button>
+          )}
+          {coachOn && kid && jar.status === "OPEN" && (
+            <button className="btn gold tube-add" type="button" disabled={busy} onClick={() => void dismissCoach()}>
+              Okay
+            </button>
+          )}
+          {!coachOn && !givingOff && !ready && signedIn && !pour && !gift && (
+            <button
+              className="btn gold tube-add"
+              type="button"
+              data-pour-origin
+              disabled={busy || pending == null}
+              onClick={() => void confirmAdd()}
+            >
+              {SHARED_GOAL_COPY.buttonAdd}
+            </button>
+          )}
+          <button className="btn tube-dismiss" type="button" disabled={busy} onClick={onClose}>
             {SHARED_GOAL_COPY.buttonNotNow}
           </button>
-        </div>
-      )}
 
-      {putBack && putBackLeft > 0 && !pour && (
-        <div className="sheet-actions">
-          <p>{SHARED_GOAL_COPY.putBack}</p>
-          <button className="btn ghost" type="button" disabled={busy} onClick={() => void undo()}>
-            {SHARED_GOAL_COPY.buttonPutBack}
-          </button>
+          {putBack && putBackLeft > 0 && !pour && (
+            <>
+              <p>{SHARED_GOAL_COPY.putBack}</p>
+              <button className="btn ghost" type="button" disabled={busy} onClick={() => void undo()}>
+                {SHARED_GOAL_COPY.buttonPutBack}
+              </button>
+            </>
+          )}
         </div>
-      )}
-
+      </div>
       {pour && <StarPour points={pour.amount} from={pour.from} to={pour.to} onDone={() => setPour(null)} />}
     </Sheet>
   );

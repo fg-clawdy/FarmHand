@@ -84,7 +84,7 @@ export const SHARED_GOAL_COPY = {
   coachLine2: "You can add stars if you want. You don't have to.",
   sheetPrompt: "Add your stars. When the jar is full, we all get {title}.",
   confirm: "Add {n} stars to the {title} jar?",
-  buttonAdd: "Add",
+  buttonAdd: "Add stars",
   buttonNotNow: "Not now",
   buttonPutBack: "Put back",
   pourLabel: "Into the jar",

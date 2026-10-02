@@ -32,17 +32,16 @@ export const PLAYFIELD_TEXTURE = { width: 1536, height: 1024 } as const;
 export const PLAYFIELD_LAYOUT = {
   /** Mouth of the tractor’s vertical exhaust stack (texture px 419, 258). */
   exhaustTip: { u: 0.273, v: 0.252 } satisfies Uv,
-  /** Open grass right of the tractor, left of the shared-goal tray. */
+  /** Open grass right of the tractor. The shared-goal chip sits on the far left. */
   cowStart: { u: 0.475, v: 0.3 } satisfies Uv,
-  /** Barn-side corridor — stays above the garden fence and left of the jar tray. */
+  /** Barn-side corridor — stays above the garden fence and right of the goal chip. */
   cowRoam: { u0: 0.12, v0: 0.2, u1: 0.49, v1: 0.36 } satisfies UvRect,
   storeHit: { u0: 0.78, v0: 0.02, u1: 0.98, v1: 0.38 } satisfies UvRect,
   /**
-   * Wood rack of tall shared-goal tubes. Wide enough for about three tubes plus a
-   * +N chip, right of the calf, left of the store, above the garden planks.
-   * The empty rack stays up as a ghost tube.
+   * Thumb-scale shared-goal chip. Lower left, under the barn and above the
+   * garden fence, far from the Farm Store tap. Hidden when no goal is open.
    */
-  familyJarHit: { u0: 0.55, v0: 0.045, u1: 0.774, v1: 0.388 } satisfies UvRect,
+  familyJarHit: { u0: 0.012, v0: 0.292, u1: 0.115, v1: 0.392 } satisfies UvRect,
   /**
    * Corkboard Job Board on a ground stake in the left-center grass, between the
    * tractor exhaust puff and the FarmHand title (not under the wordmark),

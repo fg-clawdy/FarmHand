@@ -14,9 +14,10 @@ export function jarTraySlots(
   visibleJars: number,
   overflow: number,
 ): { header: number; slots: JarSlotFrame[] } {
-  const header = Math.max(22, Math.round(board.h * 0.14));
-  const pad = Math.max(8, Math.round(board.w * 0.045));
-  const bottom = Math.max(18, Math.round(board.h * 0.07));
+  const compact = board.h < 150;
+  const header = compact ? 4 : Math.max(22, Math.round(board.h * 0.14));
+  const pad = compact ? 4 : Math.max(8, Math.round(board.w * 0.045));
+  const bottom = compact ? 4 : Math.max(18, Math.round(board.h * 0.07));
   const innerW = Math.max(1, board.w - pad * 2);
   const innerH = Math.max(1, board.h - header - bottom);
   if (visibleJars <= 0) {
