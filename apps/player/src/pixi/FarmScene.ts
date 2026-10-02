@@ -10,7 +10,6 @@ import { FamilyJarTray, familyJarVisible } from "./familyJar";
 import { CorkboardHotspot, type WantedJob } from "./jobBoard";
 import {
   FARM_MOUND_COVER_PX,
-  cropCoverScale,
   cropPlantedFrame,
   type PaintedArt,
 } from "./paintedAssets";
@@ -20,7 +19,9 @@ import {
   drawContactShadow,
   drawDirtLip,
   drawWaitingAura,
+  plantedCoverScale,
   plantedFootAnchor,
+  plantedRaisePx,
   shouldShowWaitingAura,
   plantedDiscTint,
 } from "./plantedCropVisual";
@@ -535,13 +536,14 @@ class GardenHotspot {
       spr.texture = cropPlantedFrame(this.painted.crops, kind, stage);
       const foot = plantedFootAnchor(kind);
       spr.anchor.set(foot.x, foot.y);
-      this.cropScale = cropCoverScale(kind, stage, FARM_MOUND_COVER_PX);
+      this.cropScale = plantedCoverScale(kind, stage, FARM_MOUND_COVER_PX);
       spr.scale.set(this.cropScale);
       const uv = moundUv(this.spec, slot);
       const p = uvToLocal(uv, this.texW, this.texH);
       const sink = cropSinkPx(stage, FARM_MOUND_COVER_PX, kind);
+      const raise = plantedRaisePx(kind, FARM_MOUND_COVER_PX);
       const x = p.x;
-      const y = p.y + sink;
+      const y = p.y + sink - raise;
       spr.position.set(x, y);
       shadow.position.set(x, y);
       nest.position.set(x, y);
