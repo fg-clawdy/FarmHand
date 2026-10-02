@@ -3,6 +3,35 @@ import { Link } from "react-router-dom";
 import { api, type InboxClaim, type ParentRedemption } from "../api";
 import PushSettings from "../components/PushSettings";
 
+/** Muted, light per-child background colors (hex). One per child, in section order. */
+const CHILD_COLORS = [
+  "#f2d7d5", // soft red
+  "#fdebd0", // soft apricot
+  "#fcf3cf", // soft yellow
+  "#d5f5e3", // soft green
+  "#d6eaf8", // soft blue
+  "#e8daef", // soft lavender
+  "#f5eef8", // soft periwinkle
+  "#fbeae1", // soft peach
+];
+
+const CHILD_COLOR_ALPHA = 0.3; // 30% opacity / 70% transparency, as requested.
+
+function withAlpha(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+type KidGroup = { player: InboxClaim["player"]; color: string; claims: InboxClaim[] };
+
+const MASCOT_EMOJI: Record<string, string> = {
+  cow: "🐮",
+  chicken: "🐔",
+  pig: "🐷",
+  sheep: "🐑",
+  horse: "🐴",
+};
+
 export default function InboxPage() {
   const [claims, setClaims] = useState<InboxClaim[] | null>(null);
   const [redemptions, setRedemptions] = useState<ParentRedemption[]>([]);
@@ -62,6 +91,24 @@ export default function InboxPage() {
 
   const empty = claims.length === 0 && redemptions.length === 0;
 
+  // Group claims by child, keeping the CRITICAL-first / oldest-first order the API sends.
+  const groups: KidGroup[] = [];
+  const orderByPlayer = new Map<string, number>();
+  for (const claim of claims) {
+    const pid = claim.player.id;
+    let order = orderByPlayer.get(pid);
+    if (order === undefined) {
+      order = orderByPlayer.size;
+      orderByPlayer.set(pid, order);
+    }
+    groups[order] ??= {
+      player: claim.player,
+      color: CHILD_COLORS[order % CHILD_COLORS.length],
+      claims: [],
+    };
+    groups[order].claims.push(claim);
+  }
+
   return (
     <div>
       <h2>Inbox</h2>
@@ -120,51 +167,91 @@ export default function InboxPage() {
 
       <h3>Chore claims</h3>
       {claims.length === 0 && !empty && <p className="card">No chore claims waiting.</p>}
-      <div className="claim-list">
-        {claims.map((claim) => (
-          <article key={claim.id} className={`card claim ${claim.priority === "CRITICAL" ? "critical" : ""}`}>
-            <div className="claim-head">
-              <span className="emoji">{claim.chore.emoji}</span>
-              <div>
-                <h3>
-                  {claim.chore.title}
-                  {claim.priority === "CRITICAL" && <em className="badge">CRITICAL</em>}
-                </h3>
-                <p>
-                  {claim.player.name} · plot {claim.slot + 1}
-                  {claim.hasPhoto ? " · photo attached" : ""}
-                </p>
-              </div>
-            </div>
-            {claim.chore.description && <p>{claim.chore.description}</p>}
-            {claim.hasPhoto && (
-              <img
-                className="proof"
-                alt={`Photo from ${claim.player.name}`}
-                src={`/api/parent/claims/${claim.id}/photo`}
-              />
-            )}
-            <div className="row">
-              <button
-                className="btn sage"
-                type="button"
-                disabled={busyId === claim.id}
-                onClick={() => void act(claim.id, "approve")}
+      {groups.map((group) => (
+        <section key={group.player.id} className="kid-group">
+          <h4 className="kid-group-head" style={{ background: withAlpha(group.color, CHILD_COLOR_ALPHA) }}>
+            <span className="emoji">{MASCOT_EMOJI[group.player.mascot] ?? "🌱"}</span>
+            {group.player.name}
+            <span className="muted">{group.claims.length} claim{group.claims.length === 1 ? "" : "s"}</span>
+          </h4>
+          <div className="claim-list">
+            {group.claims.map((claim) => (
+              <article
+                key={claim.id}
+                className={`card claim ${claim.priority === "CRITICAL" ? "critical" : ""}`}
+                style={{ background: withAlpha(group.color, CHILD_COLOR_ALPHA) }}
               >
-                Approve
-              </button>
-              <button
-                className="btn stamp"
-                type="button"
-                disabled={busyId === claim.id}
-                onClick={() => void act(claim.id, "deny")}
-              >
-                Deny
-              </button>
-            </div>
-          </article>
-        ))}
-      </div>
+                <div className="claim-head">
+                  <span className="emoji">{claim.chore.emoji}</span>
+                  <div>
+                    <h3>
+                      {claim.chore.title}
+                      {claim.priority === "CRITICAL" && <em className="badge">CRITICAL</em>}
+                    </h3>
+                    <p>
+                      {claim.player.name}
+                      {claim.claimedDay ? ` · claimed ${claim.claimedDay}` : ""}
+                      {claim.hasPhoto ? " · photo attached" : ""}
+                    </p>
+                  </div>
+                </div>
+                {claim.chore.description && <p>{claim.chore.description}</p>}
+                {(claim.plots ?? []).length > 0 && (
+                  <ul className="chore-break seed-panels">
+                    {(claim.plots ?? []).map((plot) => (
+                      <li key={`${claim.id}-${plot.slot}`} className="seed-panel">
+                        <div className="seed-line">
+                          <span>
+                            Plot {plot.slot + 1}
+                            {plot.cropTier ? ` · tier ${plot.cropTier} crop` : ""}
+                            {plot.seedsUsed > 1 ? ` · ${plot.seedsUsed} seeds used` : ""}
+                          </span>
+                          <span className="muted">{plot.playerName}</span>
+                        </div>
+                        <p className="muted seed-line">
+                          {plot.otherProvisionalSeeds.length > 0 ? (
+                            <>
+                              Also provisional here:{" "}
+                              {plot.otherProvisionalSeeds.map((seed) => `${seed.emoji} ${seed.title}`).join(", ")}
+                            </>
+                          ) : (
+                            "No other provisional seeds in this plot."
+                          )}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {claim.hasPhoto && (
+                  <img
+                    className="proof"
+                    alt={`Photo from ${claim.player.name}`}
+                    src={`/api/parent/claims/${claim.id}/photo`}
+                  />
+                )}
+                <div className="row">
+                  <button
+                    className="btn sage"
+                    type="button"
+                    disabled={busyId === claim.id}
+                    onClick={() => void act(claim.id, "approve")}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    className="btn stamp"
+                    type="button"
+                    disabled={busyId === claim.id}
+                    onClick={() => void act(claim.id, "deny")}
+                  >
+                    Deny
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

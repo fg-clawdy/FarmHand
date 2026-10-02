@@ -19,6 +19,7 @@ import { Prisma, type Chore, type PrismaClient } from "@prisma/client";
 import { prisma } from "./db.js";
 import { generateWantedFlyer, wantedFlyerPublicUrl } from "./wantedFlyer.js";
 import { chorePeriod } from "./tz.js";
+import { DateTime } from "luxon";
 import { recordAccoladeEvent } from "./accolades.js";
 import { loadConfig } from "./game.js";
 import { withLockedClaim } from "./locks.js";
@@ -643,35 +644,95 @@ export async function releaseClaimIfNeeded(
 }
 
 export async function listParentInbox() {
-  const claims = await prisma.choreClaim.findMany({
-    where: { status: "PENDING" },
-    include: { chore: true, player: true },
-  });
+  const [config, claims, links, plotPlayers] = await Promise.all([
+    loadConfig(),
+    prisma.choreClaim.findMany({
+      where: { status: "PENDING" },
+      include: { chore: true, player: true },
+    }),
+    prisma.plotClaimLink.findMany({
+      where: { claim: { status: "PENDING" } },
+      orderBy: { createdAt: "asc" },
+      include: { plot: { select: { id: true, slot: true, plantTier: true, player: { select: { id: true, name: true } } } } },
+    }),
+    prisma.plotClaimLink.findMany({
+      where: { claim: { status: "PENDING" } },
+      orderBy: { createdAt: "asc" },
+      include: { claim: { select: { id: true, chore: { select: { title: true, emoji: true } } } } },
+    }),
+  ]);
+  const tz = config.timezone || "America/Chicago";
+
+  // plotId -> player name (plots hold a plant; the plant's kid is who sees it in the garden).
+  const playerNameByPlot = new Map<string, string>();
+  for (const link of links) playerNameByPlot.set(link.plot.id, link.plot.player.name);
+
+  // plotId -> all other pending claims funding provisional seeds on that plot.
+  const pendingByPlot = new Map<string, Array<{ claimId: string; title: string; emoji: string }>>();
+  for (const link of plotPlayers) {
+    const bucket = pendingByPlot.get(link.plotId) ?? [];
+    bucket.push({
+      claimId: link.claim.id,
+      title: link.claim.chore.title,
+      emoji: link.claim.chore.emoji,
+    });
+    pendingByPlot.set(link.plotId, bucket);
+  }
+
+  // claim -> the plots its provisional seeds funded.
+  const plotsByClaim = new Map<string, Array<{ link: (typeof links)[number]; plot: (typeof links)[number]["plot"] }>>();
+  for (const link of links) {
+    if (!link.claimId) continue;
+    const bucket = plotsByClaim.get(link.claimId) ?? [];
+    bucket.push({ link, plot: link.plot });
+    plotsByClaim.set(link.claimId, bucket);
+  }
+
   const rows = claims
-    .map((claim) => ({
-      id: claim.id,
-      status: claim.status,
-      slot: claim.slot,
-      plantTier: claim.plantTier,
-      periodKey: claim.periodKey,
-      claimedAt: claim.claimedAt,
-      hasPhoto: Boolean(claim.proofJpegPath),
-      priority: claim.chore.priority as ChorePriority,
-      chore: {
-        id: claim.chore.id,
-        slug: claim.chore.slug,
-        title: claim.chore.title,
-        emoji: claim.chore.emoji,
-        description: claim.chore.description,
-        priority: claim.chore.priority,
-        requiresSelfie: claim.chore.requiresSelfie,
-      },
-      player: {
-        id: claim.player.id,
-        name: claim.player.name,
-        mascot: claim.player.mascot,
-      },
-    }))
+    .map((claim) => {
+      const claimedDay = DateTime.fromJSDate(claim.claimedAt).setZone(tz).toFormat("EEE, LLL d");
+      const plots = (plotsByClaim.get(claim.id) ?? []).map(({ link, plot }) => {
+        const others = (pendingByPlot.get(plot.id) ?? []).filter((seed) => seed.claimId !== claim.id);
+        return {
+          slot: plot.slot,
+          cropTier: plot.plantTier,
+          seedsUsed: link.seedsUsed,
+          playerName: playerNameByPlot.get(plot.id) ?? "",
+          otherProvisionalSeeds: others.map((seed) => ({
+            claimId: seed.claimId,
+            title: seed.title,
+            emoji: seed.emoji,
+          })),
+        };
+      });
+
+      return {
+        id: claim.id,
+        status: claim.status,
+        slot: claim.slot,
+        plantTier: claim.plantTier,
+        periodKey: claim.periodKey,
+        claimedAt: claim.claimedAt,
+        claimedDay,
+        hasPhoto: Boolean(claim.proofJpegPath),
+        priority: claim.chore.priority as ChorePriority,
+        chore: {
+          id: claim.chore.id,
+          slug: claim.chore.slug,
+          title: claim.chore.title,
+          emoji: claim.chore.emoji,
+          description: claim.chore.description,
+          priority: claim.chore.priority,
+          requiresSelfie: claim.chore.requiresSelfie,
+        },
+        player: {
+          id: claim.player.id,
+          name: claim.player.name,
+          mascot: claim.player.mascot,
+        },
+        plots,
+      };
+    })
     .sort(compareClaimsForInbox);
   return rows;
 }

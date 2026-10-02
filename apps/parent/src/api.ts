@@ -79,10 +79,12 @@ export type SkuWrite = {
 export type InboxClaim = {
   id: string;
   status: string;
-  slot: number;
-  plantTier: number;
+  slot: number | null;
+  plantTier: number | null;
   periodKey: string;
   claimedAt: string;
+  /** Local day (in the family timezone) the claim was made. */
+  claimedDay?: string;
   hasPhoto: boolean;
   priority: string;
   chore: {
@@ -95,6 +97,14 @@ export type InboxClaim = {
     requiresSelfie: boolean;
   };
   player: { id: string; name: string; mascot: string };
+  /** Plots this claim's provisional seeds were planted into. */
+  plots?: Array<{
+    slot: number;
+    cropTier: number | null;
+    seedsUsed: number;
+    playerName: string;
+    otherProvisionalSeeds: Array<{ claimId: string; title: string; emoji: string }>;
+  }>;
 };
 
 export type ParentChore = {
