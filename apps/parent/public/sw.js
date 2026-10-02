@@ -49,6 +49,18 @@ async function handlePush(event) {
     return;
   }
 
+  if (payload.type === "info") {
+    await self.registration.showNotification(payload.title || "FarmHand", {
+      body: payload.body,
+      tag: payload.tag,
+      data: payload,
+      icon: "/parent/icon.svg",
+      badge: "/parent/icon.svg",
+      renotify: true,
+    });
+    return;
+  }
+
   await self.registration.showNotification(payload.title || "FarmHand", {
     body: payload.body,
     tag: payload.tag,

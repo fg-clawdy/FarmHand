@@ -2358,6 +2358,59 @@ button.who.profile-entry:active {
     opacity: 0.15;
   }
 }
+
+.family-jar-sheet { text-align: center; }
+.jar-glass {
+  position: relative;
+  width: 120px;
+  height: 168px;
+  margin: 8px auto 12px;
+  border: 5px solid #6b3e1f;
+  border-radius: 16px 16px 36px 36px;
+  background: rgba(215, 238, 248, 0.55);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 3px rgba(255, 248, 230, 0.45);
+}
+.jar-lid {
+  position: absolute;
+  top: 0;
+  left: 8px;
+  right: 8px;
+  height: 16px;
+  background: #6b3e1f;
+  border-radius: 6px;
+  z-index: 2;
+}
+.jar-glass.ready .jar-lid { background: #c47a10; }
+.jar-fill {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  background: #f0a12a;
+  border-radius: 0 0 24px 24px;
+  transition: height 300ms linear;
+}
+.jar-stars { font-size: 28px; font-weight: 800; margin: 4px 0; }
+.jar-chips { justify-content: center; }
+.chip {
+  min-height: 64px;
+  min-width: 88px;
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(#ffe56a, #f0b429);
+  color: #2b1a10;
+  font: inherit;
+  font-size: 28px;
+  font-weight: 800;
+  box-shadow: 0 6px 0 #8a5a12;
+  cursor: pointer;
+}
+.chip:disabled { opacity: 0.45; }
+@media (prefers-reduced-motion: reduce) {
+  .jar-fill { transition: none; }
+}
+
 .meter.seed-meter.bump {
   animation: seedMeterBump 0.42s ease;
 }

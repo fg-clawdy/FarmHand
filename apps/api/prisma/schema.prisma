@@ -76,6 +76,8 @@ enum StarLedgerKind {
   SPEND_REWARD
   ADJUST_ADMIN
   OPENING_BALANCE
+  GIVE_SHARED
+  RETURN_SHARED
 }
 
 model Admin {
@@ -128,6 +130,9 @@ model Player {
   selfieUnlockDate        String?
   selfieSeedGrantDate     String?
   isActive                Boolean         @default(true)
+  givingEnabled           Boolean?        @default(true)
+  giveCeiling             Int?            @default(20)
+  familyJarCoachSeenAt    DateTime?
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
   plots                   Plot[]
@@ -144,6 +149,7 @@ model Player {
   choreBoardEvents        ChoreBoardEvent[]
   choreHeats              ChoreHeat[]
   basketItems             BasketItem[]
+  sharedGoalEvents        SharedGoalEvent[]
 }
 
 /// Produce picked but not yet sold. Stars stay here until Farmers Market sale.
@@ -521,4 +527,44 @@ model ChoreHeat {
   updatedAt     DateTime  @updatedAt
 
   @@index([updatedAt])
+}
+
+enum SharedGoalStatus {
+  WAITING
+  OPEN
+  READY
+  HAPPENED
+  CANCELLED
+}
+
+model SharedGoal {
+  id           String           @id @default(uuid())
+  title        String
+  emoji        String
+  targetStars  Int
+  status       SharedGoalStatus @default(WAITING)
+  sortOrder    Int              @default(0)
+  createdAt    DateTime         @default(now())
+  readyAt      DateTime?
+  happenedAt   DateTime?
+  cancelledAt  DateTime?
+  events       SharedGoalEvent[]
+
+  @@index([status, createdAt])
+  @@index([status, sortOrder])
+}
+
+model SharedGoalEvent {
+  id             String     @id @default(uuid())
+  goalId         String
+  goal           SharedGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  playerId       String
+  player         Player     @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  kind           String
+  amount         Int
+  idempotencyKey String     @unique
+  createdAt      DateTime   @default(now())
+
+  @@index([goalId, createdAt])
+  @@index([playerId, createdAt])
 }

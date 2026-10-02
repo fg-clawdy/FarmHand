@@ -58,7 +58,9 @@ export type StarLedgerKind =
   | "RELEASE_REWARD"
   | "SPEND_REWARD"
   | "ADJUST_ADMIN"
-  | "OPENING_BALANCE";
+  | "OPENING_BALANCE"
+  | "GIVE_SHARED"
+  | "RETURN_SHARED";
 
 export type StarLedgerLine = { kind: StarLedgerKind; amount: number };
 
@@ -71,6 +73,8 @@ export type StarWallet = {
   lifetimeEarnedGrant: number;
   lifetimeEarnedLegacy: number;
   lifetimeSpent: number;
+  /** Net stars moved into family jars. Not store spend, not earned. */
+  lifetimeGiven: number;
   adjustNet: number;
 };
 
@@ -98,6 +102,7 @@ export function walletFromLedger(lines: StarLedgerLine[], heldStars: number): St
   let lifetimeEarnedGrant = 0;
   let lifetimeEarnedLegacy = 0;
   let lifetimeSpent = 0;
+  let lifetimeGiven = 0;
   let adjustNet = 0;
   for (const line of lines) {
     if (line.kind === "EARN_HARVEST") lifetimeEarnedHarvest += line.amount;
@@ -105,9 +110,12 @@ export function walletFromLedger(lines: StarLedgerLine[], heldStars: number): St
     else if (line.kind === "OPENING_BALANCE") lifetimeEarnedLegacy += line.amount;
     else if (line.kind === "SPEND_REWARD") lifetimeSpent += line.amount;
     else if (line.kind === "ADJUST_ADMIN") adjustNet += line.amount;
+    else if (line.kind === "GIVE_SHARED") lifetimeGiven += line.amount;
+    else if (line.kind === "RETURN_SHARED") lifetimeGiven -= line.amount;
   }
   const lifetimeEarned = lifetimeEarnedHarvest + lifetimeEarnedGrant + lifetimeEarnedLegacy;
-  const currentStars = Math.max(0, lifetimeEarned + adjustNet - lifetimeSpent);
+  const given = Math.max(0, lifetimeGiven);
+  const currentStars = Math.max(0, lifetimeEarned + adjustNet - lifetimeSpent - given);
   return {
     currentStars,
     heldStars: Math.max(0, heldStars),
@@ -117,6 +125,7 @@ export function walletFromLedger(lines: StarLedgerLine[], heldStars: number): St
     lifetimeEarnedGrant,
     lifetimeEarnedLegacy,
     lifetimeSpent,
+    lifetimeGiven: given,
     adjustNet,
   };
 }

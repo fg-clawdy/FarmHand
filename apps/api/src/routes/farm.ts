@@ -5,21 +5,26 @@ import { listFamilyOpenChores } from "../chores.js";
 import { ensurePlots, loadConfig, selfieUnlockedOn, syncAllPlayerPlots } from "../game.js";
 import { getPlayerSession } from "../auth.js";
 import { avatarFieldsPublic } from "../avatar.js";
+import { activeSharedGoal } from "../sharedGoals.js";
 
 export async function farmRoutes(app: FastifyInstance) {
   app.get("/api/farm", async (request) => {
     const config = await loadConfig();
     await syncAllPlayerPlots(config.plotCount);
     const session = await getPlayerSession(request);
-    const players = await prisma.player.findMany({
-      where: { isActive: true },
-      include: { plots: { orderBy: { slot: "asc" } } },
-      orderBy: { createdAt: "asc" },
-    });
+    const [players, familyJar] = await Promise.all([
+      prisma.player.findMany({
+        where: { isActive: true },
+        include: { plots: { orderBy: { slot: "asc" } } },
+        orderBy: { createdAt: "asc" },
+      }),
+      activeSharedGoal(),
+    ]);
     return {
       timezone: config.timezone,
       storeStatus: "open",
       config,
+      familyJar,
       players: players.map((player) => {
         return {
           id: player.id,

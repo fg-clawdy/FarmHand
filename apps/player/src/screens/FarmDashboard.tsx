@@ -1,12 +1,14 @@
-import { type FarmPlayerCard, type GameConfig } from "@farmhand/shared";
+import { type FarmPlayerCard, type GameConfig, type PublicSharedGoal } from "@farmhand/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type FamilyJob } from "../api";
 import AvatarPicker from "../components/AvatarPicker";
+import FamilyJarSheet from "../components/FamilyJarSheet";
 import FarmChoreClaim from "../components/FarmChoreClaim";
 import FarmJobFlow from "../components/FarmJobFlow";
 import PinPad from "../components/PinPad";
 import StoreSheet from "../components/StoreSheet";
+import { familyJarVisible } from "../pixi/familyJar";
 import { useFarmPixi } from "../pixi/usePixi";
 
 export default function FarmDashboard() {
@@ -15,6 +17,8 @@ export default function FarmDashboard() {
   const [config, setConfig] = useState<GameConfig | null>(null);
   const [jobs, setJobs] = useState<FamilyJob[]>([]);
   const [storeOpen, setStoreOpen] = useState(false);
+  const [familyJar, setFamilyJar] = useState<PublicSharedGoal | null>(null);
+  const [jarOpen, setJarOpen] = useState(false);
   const [jobsOpen, setJobsOpen] = useState(false);
   const [claimJob, setClaimJob] = useState<FamilyJob | null>(null);
   const [toast, setToast] = useState("");
@@ -98,6 +102,7 @@ export default function FarmDashboard() {
       void handlePlayerTap(id);
     },
     onStore: () => setStoreOpen(true),
+    onFamilyJar: () => setJarOpen(true),
     onAvatar: (id) => {
       void handleAvatarTap(id);
     },
@@ -135,6 +140,12 @@ export default function FarmDashboard() {
       setPlayers(farm.players);
       setConfig(farm.config);
       setJobs(board.jobs);
+      setFamilyJar((prev) => {
+        const next = familyJarVisible(farm.familyJar) ? farm.familyJar : null;
+        if (!next) return null;
+        if (prev && prev.id === next.id && prev.filledStars > next.filledStars && prev.status === next.status) return prev;
+        return next;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load the farm.");
     }
@@ -156,6 +167,14 @@ export default function FarmDashboard() {
   }, [players, ready, sceneRef]);
 
   useEffect(() => {
+    sceneRef.current?.setFamilyJar(familyJar);
+  }, [familyJar, ready, sceneRef]);
+
+  useEffect(() => {
+    if (!familyJar) setJarOpen(false);
+  }, [familyJar]);
+
+  useEffect(() => {
     sceneRef.current?.setWantedJobs(jobs, config?.jobBoardPosterDwellSeconds);
   }, [jobs, config, ready, sceneRef]);
 
@@ -169,6 +188,14 @@ export default function FarmDashboard() {
     <div className="scene farm-hybrid">
       <div className="pixi-host" ref={hostRef} />
       {storeOpen && <StoreSheet players={players} onClose={() => setStoreOpen(false)} />}
+      {jarOpen && familyJar && (
+        <FamilyJarSheet
+          jar={familyJar}
+          players={players}
+          onClose={() => setJarOpen(false)}
+          onUpdated={(next) => setFamilyJar(familyJarVisible(next) ? next : null)}
+        />
+      )}
       {avatarKid && (
         <AvatarPicker
           player={avatarKid}

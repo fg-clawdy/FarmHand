@@ -1,3 +1,5 @@
+import type { ParentGoalContribution, ParentSharedGoal, PublicSharedGoal } from "@farmhand/shared";
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const hasBody = init?.body !== undefined;
   const res = await fetch(path, {
@@ -185,6 +187,13 @@ export type KidAccolades = {
   lifetime: { legends: AccoladeLegend[] };
 };
 
+export type ParentSharedGoals = {
+  active: ParentSharedGoal | null;
+  waiting: ParentSharedGoal[];
+  history: ParentSharedGoal[];
+  players: ParentGoalContribution[];
+};
+
 export type FarmAccolades = {
   timezone: string;
   seasonKey: string;
@@ -268,4 +277,20 @@ export const api = {
   kids: () => request<{ kids: ParentKid[] }>("/api/parent/kids"),
   stats: (range: "week" | "month") => request<ParentStats>(`/api/parent/stats?range=${range}`),
   accolades: () => request<FarmAccolades>("/api/parent/accolades"),
+  sharedGoals: () => request<ParentSharedGoals>("/api/parent/shared-goal"),
+  createSharedGoal: (body: { title: string; emoji: string; targetStars: number }) =>
+    request<{ goal: PublicSharedGoal }>("/api/parent/shared-goal", { method: "POST", body: JSON.stringify(body) }),
+  openSharedGoal: (id: string) => request(`/api/parent/shared-goal/${id}/open`, { method: "POST", body: "{}" }),
+  removeSharedGoal: (id: string) => request<{ ok: boolean }>(`/api/parent/shared-goal/${id}`, { method: "DELETE" }),
+  patchSharedGoal: (
+    id: string,
+    body: { title?: string; emoji?: string; targetStars?: number; sortOrder?: number },
+  ) => request(`/api/parent/shared-goal/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  happenSharedGoal: (id: string) => request(`/api/parent/shared-goal/${id}/happen`, { method: "POST", body: "{}" }),
+  cancelSharedGoal: (id: string) => request(`/api/parent/shared-goal/${id}/cancel`, { method: "POST", body: "{}" }),
+  patchGiving: (playerId: string, body: { givingEnabled?: boolean; giveCeiling?: number }) =>
+    request<{ player: { id: string; name: string; givingEnabled: boolean; giveCeiling: number } }>(
+      `/api/parent/players/${playerId}/giving`,
+      { method: "PATCH", body: JSON.stringify(body) },
+    ),
 };

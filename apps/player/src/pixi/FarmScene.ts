@@ -1,4 +1,4 @@
-import { cropKindForTier, type CropKind, type FarmPlayerCard } from "@farmhand/shared";
+import { cropKindForTier, type CropKind, type FarmPlayerCard, type PublicSharedGoal } from "@farmhand/shared";
 import { Container, Graphics, Point, Sprite, Text, type Application } from "pixi.js";
 import { ACCENTS } from "../theme";
 import { ExhaustPuff, PaintedCow } from "./ambient";
@@ -6,6 +6,7 @@ import type { Atlas } from "./atlas";
 import { coverFit } from "./draw";
 import type { PixiEngine } from "./engine";
 import { SparkleField } from "./fx";
+import { FamilyJarHotspot } from "./familyJar";
 import { CorkboardHotspot, type WantedJob } from "./jobBoard";
 import {
   FARM_MOUND_COVER_PX,
@@ -49,10 +50,12 @@ export class FarmScene {
   private cow: PaintedCow;
   private exhaust: ExhaustPuff;
   private store: Container;
+  private familyJar: FamilyJarHotspot;
   private jobBoard: CorkboardHotspot;
   private app: Application;
   private onPlayer: (id: string) => void;
   private onStore: () => void;
+  private onFamilyJar: () => void;
   private onJobBoard: () => void;
   private onAvatar: (id: string) => void;
   private t = 0;
@@ -61,11 +64,18 @@ export class FarmScene {
     engine: PixiEngine,
     atlas: Atlas,
     painted: PaintedArt,
-    handlers: { onPlayer: (id: string) => void; onStore: () => void; onJobBoard?: () => void; onAvatar?: (id: string) => void },
+    handlers: {
+      onPlayer: (id: string) => void;
+      onStore: () => void;
+      onJobBoard?: () => void;
+      onAvatar?: (id: string) => void;
+      onFamilyJar?: () => void;
+    },
   ) {
     this.app = engine.app;
     this.onPlayer = handlers.onPlayer;
     this.onStore = handlers.onStore;
+    this.onFamilyJar = handlers.onFamilyJar ?? (() => undefined);
     this.onJobBoard = handlers.onJobBoard ?? (() => undefined);
     this.onAvatar = handlers.onAvatar ?? (() => undefined);
 
@@ -91,6 +101,9 @@ export class FarmScene {
 
     this.store = this.makeStoreHit(tw, th);
     this.playfield.addChild(this.store);
+
+    this.familyJar = new FamilyJarHotspot(atlas, tw, th, () => this.onFamilyJar());
+    this.playfield.addChild(this.familyJar.root);
 
     this.jobBoard = new CorkboardHotspot(painted, tw, th, () => this.onJobBoard());
     this.playfield.addChild(this.jobBoard.root);
@@ -155,6 +168,11 @@ export class FarmScene {
     });
   }
 
+  /** OPEN or READY only. HAPPENED, CANCELLED, and null hide the jar. */
+  setFamilyJar(jar: PublicSharedGoal | null) {
+    this.familyJar.setJar(jar);
+  }
+
   /** Game Engineer: highlighted open chores for Wanted rotation. */
   setWantedJobs(jobs: WantedJob[], dwellSeconds?: number) {
     this.jobBoard.setJobs(jobs, dwellSeconds);
@@ -195,6 +213,7 @@ export class FarmScene {
   private tick(dt: number) {
     this.t += dt;
     this.cow.update(dt);
+    this.familyJar.update(dt, this.t);
     this.jobBoard.update(dt);
     this.beds.forEach((b) => b.breathe(this.t));
   }

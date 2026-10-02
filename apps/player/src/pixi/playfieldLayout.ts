@@ -36,7 +36,13 @@ export const PLAYFIELD_LAYOUT = {
   cowStart: { u: 0.5, v: 0.3 } satisfies Uv,
   /** Barn-side corridor — stays above the garden fence / plaque line. */
   cowRoam: { u0: 0.12, v0: 0.2, u1: 0.6, v1: 0.36 } satisfies UvRect,
-  storeHit: { u0: 0.64, v0: 0.02, u1: 0.98, v1: 0.38 } satisfies UvRect,
+  storeHit: { u0: 0.78, v0: 0.02, u1: 0.98, v1: 0.38 } satisfies UvRect,
+  /**
+   * Small table in front of the market stand. Right of the cow roam, left of the
+   * store tap, above the garden planks, and clear of the corkboard and exhaust.
+   * Drawn only while a jar is OPEN or READY.
+   */
+  familyJarHit: { u0: 0.615, v0: 0.06, u1: 0.765, v1: 0.34 } satisfies UvRect,
   /**
    * Corkboard Job Board on a ground stake in the left-center grass, between the
    * tractor exhaust puff and the FarmHand title (not under the wordmark),

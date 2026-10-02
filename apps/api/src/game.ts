@@ -259,6 +259,9 @@ export function publicPlayer(player: {
   selfieSeedGrantDate?: string | null;
   pinHash: string | null;
   isActive: boolean;
+  givingEnabled?: boolean | null;
+  giveCeiling?: number | null;
+  familyJarCoachSeenAt?: Date | null;
   lastParentNotifyAt?: Date | null;
   plots: Array<{
     slot: number;
@@ -313,6 +316,9 @@ export function publicPlayer(player: {
     canMix: player.moonDew >= 1 && player.growGoo >= 1 && player.phoenixAsh >= 1,
     hasPin: Boolean(player.pinHash),
     isActive: player.isActive,
+    givingEnabled: player.givingEnabled !== false,
+    giveCeiling: player.giveCeiling ?? 20,
+    familyJarCoach: player.familyJarCoachSeenAt == null,
     unlocked,
     selfie: {
       today,
