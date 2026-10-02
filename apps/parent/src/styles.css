@@ -213,6 +213,56 @@ fieldset.field {
 }
 .accolade-legends li { opacity: 0.5; }
 .accolade-legends li.earned { opacity: 1; }
+.jar-art-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.jar-preview {
+  width: 48px;
+  height: 92px;
+  position: relative;
+  flex: none;
+}
+.jar-preview .cork {
+  width: 32px;
+  height: 32px;
+  margin: 0 auto -8px;
+  border-radius: 50%;
+  border: 2px solid #8a6238;
+  background: #f8edd4;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  position: relative;
+  z-index: 1;
+}
+.jar-preview .cork img {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.jar-preview .bore {
+  height: 68px;
+  border-radius: 16px;
+  border: 3px solid #8fa883;
+  position: relative;
+  overflow: hidden;
+  background: #dfe8d4;
+}
+.jar-preview .fill {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  background: #e8c15a;
+  border-radius: 10px;
+}
+.jar-art-copy { flex: 1; min-width: 0; }
+.jar-art-copy h3 { margin: 0 0 4px; }
+.star-step { display: flex; gap: 8px; align-items: center; }
+.star-step input { flex: 1; }
 @media (max-width: 900px) {
   .shell { grid-template-columns: 1fr; }
   .nav {

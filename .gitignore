@@ -12,6 +12,10 @@ apps/api/generated/
 data/selfies/*
 !data/selfies/.gitkeep
 
+# Venice (or stub) jar lids written at runtime. Served from /api/media/jars.
+apps/player/public/art/painted/jars/*
+!apps/player/public/art/painted/jars/.gitkeep
+
 # scratch / one-off agent artifacts (not source)
 tmp/
 .tmp_*

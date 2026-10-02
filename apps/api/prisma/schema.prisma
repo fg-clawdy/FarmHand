@@ -537,17 +537,29 @@ enum SharedGoalStatus {
   CANCELLED
 }
 
+enum SharedGoalArtStatus {
+  DEFAULT
+  QUEUED
+  READY
+  FAILED
+}
+
 model SharedGoal {
-  id           String           @id @default(uuid())
+  id           String              @id @default(uuid())
   title        String
   emoji        String
   targetStars  Int
-  status       SharedGoalStatus @default(WAITING)
-  sortOrder    Int              @default(0)
-  createdAt    DateTime         @default(now())
+  status       SharedGoalStatus    @default(WAITING)
+  sortOrder    Int                 @default(0)
+  createdAt    DateTime            @default(now())
   readyAt      DateTime?
   happenedAt   DateTime?
   cancelledAt  DateTime?
+  tintIndex    Int                 @default(0)
+  artUrl       String?
+  artStatus    SharedGoalArtStatus @default(DEFAULT)
+  artPrompt    String?
+  artNotes     String?
   events       SharedGoalEvent[]
 
   @@index([status, createdAt])
