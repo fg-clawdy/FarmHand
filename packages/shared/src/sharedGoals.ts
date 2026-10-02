@@ -1,6 +1,6 @@
 export type SharedGoalStatus = "WAITING" | "OPEN" | "READY" | "HAPPENED" | "CANCELLED";
 
-/** Lid pipeline. DEFAULT is the instant pastel jar. QUEUED never blocks create or the farm. */
+/** Cork-badge pipeline. DEFAULT is the instant pastel badge. QUEUED never blocks create or the farm. */
 export type SharedGoalArtStatus = "DEFAULT" | "QUEUED" | "READY" | "FAILED";
 
 /**
@@ -17,7 +17,7 @@ export const JAR_TINTS = [
 
 export type JarTint = (typeof JAR_TINTS)[number];
 
-/** How many mini jars fit on the farm tray before the +N chip. */
+/** How many tubes fit on the farm rack before the +N chip. */
 export const JAR_TRAY_CAPACITY = 3;
 
 /** Public shape returned to the farm tablet and kid surfaces. No contributions, no prompts. */
@@ -107,13 +107,13 @@ export const SHARED_GOAL_COPY = {
     "Stars in this jar are for {title}. To work on something else, put this jar away. Each child's stars come back.",
   parentSharedOnly:
     "Everyone in the family gets this. If only one child would use it, put it in the store.",
-  parentTrayHint: "Open jars sit together on the farm. Kids see the jars, not who added stars.",
-  trayTitle: "shared goals",
+  parentTrayHint: "Open goals stand together on the farm. Kids see the tubes, not who added stars.",
+  trayTitle: "Shared Goals",
   trayEmpty: "0 goals",
-  trayComing: "Family jar coming",
+  trayComing: "A goal will stand here",
   artDefault: "Default art",
   artPainting: "Painting…",
-  artReady: "Lid ready",
+  artReady: "Badge ready",
   artKeptDefault: "Using default art",
 } as const;
 
@@ -136,13 +136,42 @@ export function compactJarTitle(title: string, max = 12): string {
   return `${trimmed.slice(0, Math.max(1, max - 1)).trimEnd()}…`;
 }
 
-/** Short label under a mini jar. No names. */
-export function jarProgressLabel(filled: number, target: number, status: SharedGoalStatus): string {
-  if (status === "READY") return "Ready";
-  if (target <= 0) return "0%";
+/** Exact filled/target under a tube. No rounded percent and no "nearly full". */
+export function jarProgressLabel(filled: number, target: number, _status?: SharedGoalStatus): string {
+  const safeTarget = Math.max(0, Math.trunc(target));
+  const safeFilled = Math.max(0, Math.trunc(filled));
+  if (safeTarget <= 0) return "0/0";
+  return `${Math.min(safeFilled, safeTarget)}/${safeTarget}`;
+}
+
+/** Liquid height. Clamped to the real ratio so a pour cannot draw past the true level. */
+export function tubeFillRatio(filled: number, target: number): number {
+  if (!(target > 0)) return 0;
   const ratio = filled / target;
-  if (ratio >= 0.85) return "nearly full";
-  return `${Math.round(ratio * 100)}%`;
+  if (ratio <= 0) return 0;
+  if (ratio >= 1) return 1;
+  return ratio;
+}
+
+/**
+ * Translucent gift band between the old meniscus and the new one.
+ * `solid` is the only height the liquid column may use.
+ */
+export function giftGhostBand(fromRatio: number, toRatio: number): { bottom: number; height: number; solid: number } {
+  const from = tubeFillRatio(fromRatio, 1);
+  const to = tubeFillRatio(toRatio, 1);
+  const bottom = Math.min(from, to);
+  const solid = Math.max(from, to);
+  return { bottom, height: solid - bottom, solid };
+}
+
+/** Chip math kids can check: exact wallet stays separate; this is filled → filled+chip, clamped to the target. */
+export function pourPreview(filled: number, target: number, chip: number): { fromFilled: number; toFilled: number; label: string } {
+  const safeTarget = Math.max(0, Math.trunc(target));
+  const fromFilled = safeTarget > 0 ? Math.min(Math.max(0, Math.trunc(filled)), safeTarget) : 0;
+  const add = Math.max(0, Math.trunc(chip));
+  const toFilled = safeTarget > 0 ? Math.min(safeTarget, fromFilled + add) : 0;
+  return { fromFilled, toFilled, label: `${fromFilled}/${safeTarget} → ${toFilled}/${safeTarget}` };
 }
 
 export function trayWindow<T>(items: readonly T[], capacity = JAR_TRAY_CAPACITY) {
@@ -156,13 +185,13 @@ export function trayWindow<T>(items: readonly T[], capacity = JAR_TRAY_CAPACITY)
 
 const ART_PROMPT_MAX = 1500;
 
-/** Cork-lid prompt. Default art does not wait on this string. */
+/** Round cork-badge prompt. Default art does not wait on this string. */
 export function buildJarArtPrompt(input: { title: string; emoji: string; notes?: string | null }): string {
   const notes = input.notes?.trim();
   const base = [
-    "A single round cork lid for a children's farm mason jar.",
+    "A single round badge for a cork stopper on a tall glass test tube.",
     "Soft watercolor, gentle pastel, storybook, no neon, no text, no letters, no watermark, no people.",
-    `Centered icon of ${input.emoji} ${input.title.trim()}, on a round cork, creamy paper.`,
+    `Centered icon of ${input.emoji} ${input.title.trim()}, on a round creamy badge.`,
   ];
   if (notes) base.push(`Parent notes: ${notes}`);
   return base.join(" ").slice(0, ART_PROMPT_MAX);

@@ -219,36 +219,45 @@ fieldset.field {
   align-items: flex-start;
 }
 .jar-preview {
-  width: 58px;
-  height: 78px;
-  border-radius: 14px 14px 20px 20px;
-  border: 3px solid #8fa883;
+  width: 48px;
+  height: 92px;
   position: relative;
-  overflow: hidden;
   flex: none;
-  background: #dfe8d4;
 }
 .jar-preview .cork {
-  height: 22px;
-  background: #e4c48a;
-  border-bottom: 2px solid #8a6238;
+  width: 32px;
+  height: 32px;
+  margin: 0 auto -8px;
+  border-radius: 50%;
+  border: 2px solid #8a6238;
+  background: #f8edd4;
   display: grid;
   place-items: center;
-  font-size: 14px;
+  font-size: 16px;
+  position: relative;
+  z-index: 1;
 }
 .jar-preview .cork img {
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   object-fit: cover;
 }
+.jar-preview .bore {
+  height: 68px;
+  border-radius: 16px;
+  border: 3px solid #8fa883;
+  position: relative;
+  overflow: hidden;
+  background: #dfe8d4;
+}
 .jar-preview .fill {
   position: absolute;
-  left: 4px;
-  right: 4px;
-  bottom: 4px;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
   background: #e8c15a;
-  border-radius: 0 0 12px 12px;
+  border-radius: 10px;
 }
 .jar-art-copy { flex: 1; min-width: 0; }
 .jar-art-copy h3 { margin: 0 0 4px; }

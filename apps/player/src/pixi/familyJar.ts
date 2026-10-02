@@ -20,11 +20,22 @@ function hex(color: string) {
   return Number.parseInt(color.slice(1), 16);
 }
 
+function drawStar(g: Graphics, cx: number, cy: number, r: number, color: number) {
+  const pts: number[] = [];
+  for (let i = 0; i < 10; i++) {
+    const ang = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rad = i % 2 === 0 ? r : r * 0.42;
+    pts.push(cx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad);
+  }
+  g.poly(pts);
+  g.fill({ color });
+}
+
 export function familyJarVisible(jar: PublicSharedGoal | null | undefined): jar is PublicSharedGoal {
   return !!jar && (jar.status === "OPEN" || jar.status === "READY");
 }
 
-/** One mini jar, the overflow chip, or a hidden slot. */
+/** One star tube, the overflow chip, or a hidden slot. */
 class MiniJar {
   readonly root = new Container();
   private readonly body = new Graphics();
@@ -77,8 +88,7 @@ class MiniJar {
         fill: INK,
         fontWeight: "700",
         align: "center",
-        wordWrap: true,
-        wordWrapWidth: 60,
+        wordWrap: false,
       },
     });
     this.title.anchor.set(0.5, 0);
@@ -99,10 +109,9 @@ class MiniJar {
   resize(w: number, h: number) {
     this.w = w;
     this.h = h;
-    const titleSize = Math.max(11, Math.round(w * 0.2));
+    const titleSize = Math.max(11, Math.round(Math.min(15, w * 0.2)));
     this.title.style.fontSize = titleSize;
-    this.title.style.wordWrapWidth = Math.max(20, w - 2);
-    this.sub.style.fontSize = Math.max(10, titleSize - 1);
+    this.sub.style.fontSize = Math.max(11, titleSize);
     this.emoji.style.fontSize = Math.max(14, Math.round(w * 0.34));
     this.plus.style.fontSize = Math.max(16, Math.round(w * 0.38));
     this.hit.clear();
@@ -118,18 +127,20 @@ class MiniJar {
     this.jarId = jar.id;
     this.tintIndex = jar.tintIndex ?? 0;
     this.ready = jar.status === "READY";
-    const next = jar.targetStars > 0 ? Math.min(1, jar.filledStars / jar.targetStars) : 0;
+    const next = jar.targetStars > 0 ? Math.min(1, Math.max(0, jar.filledStars / jar.targetStars)) : 0;
     if (!same) this.shown = next;
     this.target = next;
+    if (this.shown > this.target) this.shown = this.target;
     this.root.visible = true;
     this.emoji.text = jar.emoji;
     this.emoji.visible = !this.lid.visible;
     this.plus.visible = false;
     this.title.visible = true;
     this.sub.visible = true;
-    this.title.text = compactJarTitle(jar.title, 11);
+    this.title.text = compactJarTitle(jar.title, 14);
+    this.title.style.fill = hex(jarTint(this.tintIndex).rim);
     this.sub.text = jarProgressLabel(jar.filledStars, jar.targetStars, jar.status);
-    this.sub.style.fill = this.ready ? 0x2f6b32 : 0x6b4224;
+    this.sub.style.fill = this.ready ? 0x2f6b32 : INK;
     this.sparkles.setActive(this.ready);
     this.clearLid();
     this.draw(this.shown);
@@ -179,7 +190,10 @@ class MiniJar {
     if (!this.root.visible || this.mode !== "jar") return;
     const delta = this.target - this.shown;
     if (Math.abs(delta) < 0.002) this.shown = this.target;
-    else this.shown += Math.sign(delta) * Math.min(Math.abs(delta), dt / 0.3);
+    else {
+      const step = Math.min(Math.abs(delta), dt / 0.45);
+      this.shown = delta > 0 ? Math.min(this.target, this.shown + step) : Math.max(this.target, this.shown - step);
+    }
     this.draw(this.shown);
     this.sparkles.update(t);
   }
@@ -187,60 +201,88 @@ class MiniJar {
   private draw(ratio: number) {
     const g = this.body;
     g.clear();
-    const labelH = Math.min(42, this.h * 0.34);
-    const jarH = Math.max(24, this.h - labelH);
-    const jarW = Math.min(this.w - 2, jarH * 0.72);
-    const x = (this.w - jarW) / 2;
-    const y = 2;
+    const titleH = Math.max(12, this.title.height || 14);
+    const subH = Math.max(11, this.sub.height || 12);
+    const labelH = titleH + subH + 4;
+    const columnH = Math.max(36, this.h - labelH);
     if (this.mode === "overflow") {
-      g.roundRect(2, 8, this.w - 4, jarH - 8, 14);
+      const chipW = Math.min(this.w - 6, 54);
+      const chipH = Math.min(columnH * 0.42, 72);
+      const x = (this.w - chipW) / 2;
+      const y = (columnH - chipH) / 2;
+      g.roundRect(x, y, chipW, chipH, 12);
       g.fill({ color: 0xf7edd6, alpha: 0.96 });
-      g.roundRect(2, 8, this.w - 4, jarH - 8, 14);
+      g.roundRect(x, y, chipW, chipH, 12);
       g.stroke({ color: WOOD, width: 3, alpha: 0.85 });
-      this.plus.position.set(this.w / 2, 8 + (jarH - 8) / 2);
+      this.plus.position.set(this.w / 2, y + chipH / 2);
       return;
     }
     if (this.mode !== "jar") return;
 
     const tint = jarTint(this.tintIndex);
-    const lidH = Math.max(14, jarW * 0.32);
-    const glassY = y + lidH * 0.62;
-    const glassH = jarH - lidH * 0.5;
-    g.roundRect(x, glassY, jarW, glassH, jarW * 0.32);
-    g.fill({ color: hex(tint.glass), alpha: 0.92 });
-    const maxFill = Math.max(0, glassH - 8);
-    const fillH = Math.max(0, Math.min(maxFill, maxFill * ratio));
-    if (fillH > 1.5) {
-      g.roundRect(x + 4, glassY + glassH - 4 - fillH, jarW - 8, fillH, 7);
-      g.fill({ color: hex(tint.fill), alpha: 0.95 });
+    const clamped = Math.max(0, Math.min(1, ratio));
+    const tubeW = Math.max(14, Math.min(this.w * 0.36, columnH * 0.22, 34));
+    const badgeR = Math.max(11, tubeW * 0.72);
+    const x = (this.w - tubeW) / 2;
+    const glassTop = badgeR * 1.55;
+    const glassH = Math.max(24, columnH - glassTop - 2);
+    const glassBottom = glassTop + glassH;
+    const cx = this.w / 2;
+
+    g.roundRect(x, glassTop, tubeW, glassH, tubeW / 2);
+    g.fill({ color: hex(tint.glass), alpha: 0.72 });
+
+    const pad = Math.max(2, tubeW * 0.12);
+    const maxFill = Math.max(0, glassH - pad * 2);
+    const fillH = maxFill * clamped;
+    if (fillH > 1.2) {
+      const fillTop = glassBottom - pad - fillH;
+      g.roundRect(x + pad, fillTop, tubeW - pad * 2, fillH, (tubeW - pad * 2) / 2);
+      g.fill({ color: hex(tint.fill), alpha: 0.96 });
+      const starR = Math.max(2.2, tubeW * 0.11);
+      const room = fillH - starR * 2;
+      const count = room > starR * 5 ? 3 : room > starR * 2.2 ? 2 : 1;
+      for (let i = 0; i < count; i++) {
+        const sy = fillTop + fillH - starR * 1.6 - (count === 1 ? 0 : (i * room) / Math.max(1, count - 1));
+        drawStar(g, cx, sy, starR, 0xfff3c4);
+      }
+      g.roundRect(x + pad, fillTop - 1.5, tubeW - pad * 2, 3, 2);
+      g.fill({ color: 0xfff6d2, alpha: 0.9 });
     }
-    g.roundRect(x + jarW * 0.16, glassY + 6, 3, glassH * 0.38, 2);
-    g.fill({ color: 0xffffff, alpha: 0.45 });
-    g.roundRect(x, glassY, jarW, glassH, jarW * 0.32);
-    g.stroke({ color: hex(tint.rim), width: 3 });
-    g.roundRect(x - 1, y, jarW + 2, lidH, lidH / 2);
+
+    for (let i = 1; i <= 4; i++) {
+      const ty = glassTop + (glassH * i) / 5;
+      g.moveTo(x - 4, ty);
+      g.lineTo(x + 1, ty);
+      g.stroke({ color: 0x6b4224, width: 1.4, alpha: 0.45 });
+    }
+    g.roundRect(x + tubeW * 0.18, glassTop + 8, 2.4, glassH * 0.28, 2);
+    g.fill({ color: 0xffffff, alpha: 0.55 });
+    g.roundRect(x, glassTop, tubeW, glassH, tubeW / 2);
+    g.stroke({ color: hex(tint.rim), width: 2.5 });
+
+    const corkW = tubeW * 0.72;
+    const corkH = Math.max(6, tubeW * 0.28);
+    g.roundRect(cx - corkW / 2, glassTop - corkH * 0.55, corkW, corkH, 3);
     g.fill({ color: CORK });
-    g.roundRect(x - 1, y, jarW + 2, lidH, lidH / 2);
-    g.stroke({ color: 0x8a6238, width: 2 });
-    const cx = x + jarW / 2;
-    const cy = y + lidH / 2;
-    if (!this.lid.visible) {
-      g.circle(cx, cy, lidH * 0.34);
-      g.fill({ color: 0xf8edd4 });
-    }
-    this.emoji.position.set(cx, cy);
-    this.lid.position.set(cx, cy);
-    const icon = lidH * 0.86;
+    g.circle(cx, badgeR * 0.95, badgeR);
+    g.fill({ color: 0xf8edd4 });
+    g.circle(cx, badgeR * 0.95, badgeR);
+    g.stroke({ color: hex(tint.rim), width: 2.5 });
+
+    this.emoji.position.set(cx, badgeR * 0.95);
+    this.lid.position.set(cx, badgeR * 0.95);
+    const icon = badgeR * 1.55;
     this.lid.width = icon;
     this.lid.height = icon;
-    this.sparkles.root.position.set(cx, glassY + glassH * 0.55);
-    this.sparkles.setArea(jarW * 0.32, glassH * 0.2);
-    this.title.position.set(this.w / 2, jarH + 1);
-    this.sub.position.set(this.w / 2, jarH + 2 + (this.title.height || 14));
+    this.sparkles.root.position.set(cx, glassTop + glassH * (1 - clamped * 0.65));
+    this.sparkles.setArea(tubeW * 0.55, 16);
+    this.title.position.set(this.w / 2, columnH);
+    this.sub.position.set(this.w / 2, columnH + titleH);
   }
 }
 
-/** Wood tray of mini shared-goal jars. Kid surfaces never show who poured. */
+/** Wood rack of tall shared-goal tubes. Kid surfaces never show who poured. */
 export class FamilyJarTray {
   readonly root = new Container();
   private readonly board = new Graphics();
@@ -273,7 +315,7 @@ export class FamilyJarTray {
       text: SHARED_GOAL_COPY.trayTitle,
       style: {
         fontFamily: "Fredoka, sans-serif",
-        fontSize: Math.max(14, Math.round(this.w * 0.075)),
+        fontSize: Math.max(13, Math.round(this.w * 0.062)),
         fill: INK,
         fontWeight: "700",
         align: "center",
@@ -320,23 +362,21 @@ export class FamilyJarTray {
     const g = this.board;
     const { w, h } = this;
     g.clear();
-    g.roundRect(0, 0, w, h, 18);
-    g.fill({ color: 0x6e4124 });
-    g.roundRect(4, 4, w - 8, h - 8, 15);
-    g.fill({ color: 0xc4925a });
-    g.roundRect(8, 8, w - 16, h - 16, 12);
-    g.fill({ color: 0xe6c48a });
-    g.moveTo(16, 26);
-    g.lineTo(w - 16, 26);
-    g.stroke({ color: WOOD, width: 2, alpha: 0.28 });
+    g.roundRect(0, 0, w, h, 14);
+    g.fill({ color: 0x6b3e24 });
+    g.roundRect(5, 5, w - 10, h - 10, 11);
+    g.fill({ color: 0xb5834e });
+    const rail = Math.max(28, Math.round(h * 0.13));
+    g.roundRect(10, rail, w - 20, h - rail - 10, 8);
+    g.fill({ color: 0xf4e6c4 });
     for (const [x, y] of [
-      [16, 16],
-      [w - 16, 16],
-      [16, h - 16],
-      [w - 16, h - 16],
+      [14, 14],
+      [w - 14, 14],
+      [14, h - 14],
+      [w - 14, h - 14],
     ] as const) {
-      g.circle(x, y, 3.2);
-      g.fill({ color: 0x5c3a22 });
+      g.circle(x, y, 3.1);
+      g.fill({ color: 0x4e3018 });
     }
   }
 
@@ -350,16 +390,17 @@ export class FamilyJarTray {
     this.ghost.clear();
     if (empty && frames.slots[0]) {
       const frame = frames.slots[0];
-      const jarW = frame.w * 0.7;
-      const jarH = frame.h * 0.55;
-      const x = frame.x + (frame.w - jarW) / 2;
-      const y = frame.y;
-      this.ghost.roundRect(x, y + 10, jarW, jarH, 16);
-      this.ghost.stroke({ color: WOOD, width: 3, alpha: 0.4 });
-      this.ghost.circle(x + jarW / 2, y + 18, 8);
-      this.ghost.stroke({ color: WOOD, width: 2, alpha: 0.35 });
-      this.emptyTitle.position.set(this.w / 2, y + jarH + 16);
-      this.emptySub.position.set(this.w / 2, y + jarH + 34);
+      const tubeW = Math.min(26, frame.w * 0.28);
+      const textTop = this.h - 72;
+      this.emptyTitle.position.set(this.w / 2, textTop);
+      this.emptySub.position.set(this.w / 2, textTop + 16);
+      const y = frame.y + 4;
+      const tubeH = Math.max(40, Math.min(110, textTop - y - tubeW - 8));
+      const x = this.w / 2 - tubeW / 2;
+      this.ghost.circle(x + tubeW / 2, y + tubeW * 0.55, tubeW * 0.7);
+      this.ghost.stroke({ color: WOOD, width: 2, alpha: 0.4 });
+      this.ghost.roundRect(x, y + tubeW, tubeW, tubeH, tubeW / 2);
+      this.ghost.stroke({ color: WOOD, width: 3, alpha: 0.45 });
     }
     this.slots.forEach((slot, index) => {
       const frame = frames.slots[index];

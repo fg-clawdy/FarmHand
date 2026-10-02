@@ -207,7 +207,7 @@ export default function FarmDashboard() {
       <div className="pixi-host" ref={hostRef} />
       {storeOpen && <StoreSheet players={players} onClose={() => setStoreOpen(false)} />}
       {overflowOpen && (
-        <Sheet title="More jars" onClose={() => setOverflowOpen(false)}>
+        <Sheet title="More goals" onClose={() => setOverflowOpen(false)}>
           <div className="sheet-actions">
             {trayWindow(familyJars).hidden.map((jar) => (
               <button

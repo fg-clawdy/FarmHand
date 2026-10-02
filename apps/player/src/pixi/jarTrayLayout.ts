@@ -16,8 +16,9 @@ export function jarTraySlots(
 ): { header: number; slots: JarSlotFrame[] } {
   const header = Math.max(22, Math.round(board.h * 0.14));
   const pad = Math.max(8, Math.round(board.w * 0.045));
+  const bottom = Math.max(18, Math.round(board.h * 0.07));
   const innerW = Math.max(1, board.w - pad * 2);
-  const innerH = Math.max(1, board.h - header - pad);
+  const innerH = Math.max(1, board.h - header - bottom);
   if (visibleJars <= 0) {
     const ghostW = Math.min(innerW * 0.46, 96);
     const ghostH = Math.min(innerH * 0.78, 128);

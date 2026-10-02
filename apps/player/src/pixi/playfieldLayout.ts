@@ -38,9 +38,9 @@ export const PLAYFIELD_LAYOUT = {
   cowRoam: { u0: 0.12, v0: 0.2, u1: 0.49, v1: 0.36 } satisfies UvRect,
   storeHit: { u0: 0.78, v0: 0.02, u1: 0.98, v1: 0.38 } satisfies UvRect,
   /**
-   * Wood tray of mini shared-goal jars. Wide enough for about three jars plus a
+   * Wood rack of tall shared-goal tubes. Wide enough for about three tubes plus a
    * +N chip, right of the calf, left of the store, above the garden planks.
-   * The empty tray stays up as a ghost jar.
+   * The empty rack stays up as a ghost tube.
    */
   familyJarHit: { u0: 0.55, v0: 0.045, u1: 0.774, v1: 0.388 } satisfies UvRect,
   /**

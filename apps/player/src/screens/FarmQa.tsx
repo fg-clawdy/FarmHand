@@ -12,7 +12,9 @@ export default function FarmQa() {
   const markers = params.get("markers") === "1";
   const jarMode = params.get("jars");
   const jars = qaJars(jarMode);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const sheet = params.get("sheet");
+  const celebrate = Number(params.get("celebrate") || 0);
+  const [openId, setOpenId] = useState<string | null>(sheet && jars.some((jar) => jar.id === sheet) ? sheet : null);
   const selected = jars.find((jar) => jar.id === openId) ?? null;
   const { hostRef, sceneRef, ready } = useFarmPixi({
     onPlayer: () => undefined,
@@ -35,7 +37,13 @@ export default function FarmQa() {
     <div className="scene farm-hybrid">
       <div className="pixi-host" ref={hostRef} data-qa="farm-pixi" />
       {selected && (
-        <FamilyJarSheet jar={selected} players={qaPlayers(pack)} onClose={() => setOpenId(null)} onUpdated={() => undefined} />
+        <FamilyJarSheet
+          jar={selected}
+          players={qaPlayers(pack)}
+          preview={{ availableStars: 24, celebrate: celebrate > 0 ? celebrate : undefined }}
+          onClose={() => setOpenId(null)}
+          onUpdated={() => undefined}
+        />
       )}
     </div>
   );

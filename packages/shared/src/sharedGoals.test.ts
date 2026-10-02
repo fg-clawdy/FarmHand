@@ -5,10 +5,13 @@ import {
   JAR_TRAY_CAPACITY,
   buildJarArtPrompt,
   compactJarTitle,
+  giftGhostBand,
   jarProgressLabel,
   jarTint,
+  pourPreview,
   tintIndexFor,
   trayWindow,
+  tubeFillRatio,
 } from "./sharedGoals.js";
 
 describe("shared goal jar art", () => {
@@ -39,6 +42,8 @@ describe("shared goal jar art", () => {
     assert.match(prompt, /Read together/);
     assert.match(prompt, /warm lamp/);
     assert.match(prompt, /no neon/);
+    assert.match(prompt, /badge/i);
+    assert.doesNotMatch(prompt, /mason jar/i);
     assert.ok(prompt.length <= 1500);
   });
 
@@ -54,8 +59,19 @@ describe("shared goal jar art", () => {
   it("uses compact kid labels and no donor language", () => {
     assert.equal(compactJarTitle("Family ice cream", 12), "Family ice…");
     assert.equal(compactJarTitle("Movie"), "Movie");
-    assert.equal(jarProgressLabel(3, 10, "OPEN"), "30%");
-    assert.equal(jarProgressLabel(9, 10, "OPEN"), "nearly full");
-    assert.equal(jarProgressLabel(10, 10, "READY"), "Ready");
+    assert.equal(jarProgressLabel(3, 10, "OPEN"), "3/10");
+    assert.equal(jarProgressLabel(9, 10, "OPEN"), "9/10");
+    assert.equal(jarProgressLabel(10, 10, "READY"), "10/10");
+    assert.equal(jarProgressLabel(12, 10, "OPEN"), "10/10");
+    assert.equal(tubeFillRatio(3, 10), 0.3);
+    assert.equal(tubeFillRatio(12, 10), 1);
+    const preview = pourPreview(3, 10, 5);
+    assert.equal(preview.label, "3/10 → 8/10");
+    assert.equal(pourPreview(9, 10, 5).toFilled, 10);
+    const band = giftGhostBand(0.3, 0.8);
+    assert.equal(band.bottom, 0.3);
+    assert.equal(band.height, 0.5);
+    assert.equal(band.solid, 0.8);
+    assert.equal(giftGhostBand(0.3, 1.4).solid, 1);
   });
 });

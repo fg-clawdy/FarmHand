@@ -77,7 +77,7 @@ export default function SharedGoalsPage() {
     return (
       <section id="family-jar">
         <h3>Family jar</h3>
-        <p className="muted">Opening the jar…</p>
+        <p className="muted">Opening…</p>
       </section>
     );
   }
@@ -188,13 +188,13 @@ export default function SharedGoalsPage() {
           value={notes}
           rows={3}
           maxLength={500}
-          placeholder="e.g., cozy reading nook, books, warm lamp, soft greens, mason jar theme."
+          placeholder="e.g., cozy reading nook, books, warm lamp, soft greens."
           onChange={(e) => setNotes(e.target.value)}
         />
       </label>
       <label className="choice">
         <input type="checkbox" checked={generateArt} onChange={(e) => setGenerateArt(e.target.checked)} />
-        Generate lid art with AI (background)
+        Generate cork badge art with AI (background)
       </label>
       <p className="muted">Default art shows instantly.</p>
       <label className="choice">
@@ -231,7 +231,7 @@ export default function SharedGoalsPage() {
       </button>
 
       <h3>Shared goal art</h3>
-      {artGoals.length === 0 && <p className="muted">Add a jar and it gets a pastel lid right away.</p>}
+      {artGoals.length === 0 && <p className="muted">Add a goal and it gets a pastel badge right away.</p>}
       <div className="claim-list">
         {artGoals.map((goal) => (
           <GoalArtCard
@@ -305,9 +305,11 @@ function JarPreview({ goal }: { goal: ParentSharedGoal }) {
   const tint = jarTint(goal.tintIndex ?? 0);
   const ratio = goal.targetStars > 0 ? Math.max(0, Math.min(1, goal.filledStars / goal.targetStars)) : 0;
   return (
-    <div className="jar-preview" style={{ background: tint.glass, borderColor: tint.rim }} aria-hidden="true">
+    <div className="jar-preview" aria-hidden="true">
       <div className="cork">{goal.artUrl ? <img src={goal.artUrl} alt="" /> : goal.emoji}</div>
-      <div className="fill" style={{ height: `${Math.round(ratio * 62)}%`, background: tint.fill }} />
+      <div className="bore" style={{ background: tint.glass, borderColor: tint.rim }}>
+        <div className="fill" style={{ height: `${Math.round(ratio * 100)}%`, background: tint.fill }} />
+      </div>
     </div>
   );
 }
@@ -422,7 +424,7 @@ function GoalArtCard({
       </div>
       {editing && (
         <label className="field">
-          Lid prompt
+          Badge prompt
           <textarea value={prompt} rows={4} maxLength={1500} onChange={(e) => setPrompt(e.target.value)} />
           <div className="row">
             <button

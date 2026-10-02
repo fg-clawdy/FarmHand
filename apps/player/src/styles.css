@@ -2360,57 +2360,147 @@ button.who.profile-entry:active {
 }
 
 .family-jar-sheet { text-align: center; }
-.jar-glass {
-  position: relative;
-  width: 120px;
-  height: 168px;
-  margin: 8px auto 12px;
-  border: 5px solid #8fa883;
-  border-radius: 18px 18px 40px 40px;
-  background: #dfe8d4;
-  overflow: hidden;
-  box-shadow: inset 0 0 0 3px rgba(255, 248, 230, 0.55);
+.tube-wrap {
+  width: 140px;
+  margin: 4px auto 12px;
 }
-.jar-lid {
-  position: absolute;
-  top: 0;
-  left: 10px;
-  right: 10px;
-  height: 36px;
-  background: #e4c48a;
-  border-bottom: 3px solid #8a6238;
-  border-radius: 8px;
-  z-index: 2;
+.tube-badge {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto -10px;
+  border-radius: 50%;
+  border: 3px solid #8a6238;
+  background: #f8edd4;
   display: grid;
   place-items: center;
-  font-size: 22px;
+  font-size: 28px;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 2px 0 #c4a574;
 }
-.jar-lid img {
-  width: 28px;
-  height: 28px;
+.tube-badge img {
+  width: 42px;
+  height: 42px;
   object-fit: cover;
   border-radius: 50%;
 }
-.jar-glass.ready {
-  box-shadow:
-    inset 0 0 0 3px rgba(255, 248, 230, 0.55),
-    0 0 0 3px rgba(232, 193, 90, 0.45),
-    0 0 16px rgba(232, 193, 90, 0.35);
+.tube-bore {
+  position: relative;
+  width: 52px;
+  height: 188px;
+  margin: 0 auto;
+  border: 3px solid #8fa883;
+  border-radius: 22px;
+  background: #dfe8d4;
+  overflow: hidden;
+  box-shadow: inset 8px 0 0 rgba(255, 255, 255, 0.38);
 }
-.jar-fill {
+.tube-bore::before {
+  content: "";
   position: absolute;
-  left: 6px;
-  right: 6px;
-  bottom: 6px;
+  left: 3px;
+  top: 12px;
+  bottom: 12px;
+  width: 7px;
+  z-index: 3;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to top,
+    transparent 0 18px,
+    rgba(90, 60, 30, 0.35) 18px 20px
+  );
+}
+.tube-bore.ready {
+  box-shadow:
+    inset 8px 0 0 rgba(255, 255, 255, 0.38),
+    0 0 0 3px rgba(232, 193, 90, 0.4),
+    0 0 16px rgba(232, 193, 90, 0.28);
+}
+.tube-fill {
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  bottom: 5px;
   background: #e8c15a;
-  border-radius: 0 0 24px 24px;
-  transition: height 300ms linear;
+  border-radius: 14px;
+  overflow: hidden;
+  transition: height 700ms ease-out;
+}
+.tube-stars {
+  position: absolute;
+  inset: 4px 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff6c8;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+.tube-ghost {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  border-radius: 12px;
+  background: rgba(255, 214, 110, 0.42);
+  box-shadow: inset 0 0 0 2px rgba(255, 244, 190, 0.7);
+  pointer-events: none;
+  animation: tubeGhost 1.15s ease-out forwards;
+}
+.tube-lens {
+  position: absolute;
+  left: 50%;
+  width: 64px;
+  height: 28px;
+  margin-left: -32px;
+  border: 3px solid rgba(255, 236, 170, 0.95);
+  border-radius: 50%;
+  box-shadow: 0 0 0 6px rgba(255, 236, 170, 0.28);
+  pointer-events: none;
+  z-index: 4;
+  animation: tubeLens 0.95s ease-out forwards;
+}
+.tube-burst {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  z-index: 5;
+  color: #8a5a12;
+  font-size: 28px;
+  font-weight: 800;
+  pointer-events: none;
+  animation: tubeBurst 1.25s ease-out forwards;
+}
+.tube-title {
+  margin: 8px 0 0;
+  font-weight: 800;
+}
+.tube-count,
+.tube-math {
+  margin: 0;
+  font-weight: 800;
+  color: #3a2410;
+}
+@keyframes tubeGhost {
+  0% { opacity: 0; transform: translateY(-12px); }
+  22% { opacity: 0.95; transform: translateY(-8px); }
+  68% { opacity: 0.55; transform: translateY(-2px); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+@keyframes tubeLens {
+  0% { opacity: 0; transform: translateY(8px) scale(0.7); }
+  30% { opacity: 1; transform: translateY(0) scale(1.08); }
+  100% { opacity: 0; transform: translateY(0) scale(1.2); }
+}
+@keyframes tubeBurst {
+  0% { opacity: 0; transform: translate(-50%, 8px) scale(0.7); }
+  18% { opacity: 1; transform: translate(-50%, 0) scale(1.12); }
+  100% { opacity: 0; transform: translate(-50%, -36px) scale(1); }
 }
 .jar-stars { font-size: 28px; font-weight: 800; margin: 4px 0; }
 .jar-chips { justify-content: center; }
 .chip {
-  min-height: 64px;
-  min-width: 88px;
+  min-height: 72px;
+  min-width: 108px;
   border: 0;
   border-radius: 16px;
   background: linear-gradient(#ffe56a, #f0b429);
@@ -2420,10 +2510,21 @@ button.who.profile-entry:active {
   font-weight: 800;
   box-shadow: 0 6px 0 #8a5a12;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.05;
+  padding: 6px 10px;
+}
+.chip-math {
+  font-size: 13px;
+  font-weight: 800;
 }
 .chip:disabled { opacity: 0.45; }
 @media (prefers-reduced-motion: reduce) {
-  .jar-fill { transition: none; }
+  .tube-fill { transition: none; }
+  .tube-ghost, .tube-lens, .tube-burst { animation: none; opacity: 0; }
 }
 
 .meter.seed-meter.bump {
