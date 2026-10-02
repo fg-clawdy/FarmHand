@@ -15,7 +15,6 @@ import {
 } from "./gardenLayout";
 import {
   ZOOM_MOUND_COVER_PX,
-  cropCoverScale,
   cropDiscAnchor,
   cropPickedFrame,
   cropStageFrame,
@@ -28,7 +27,9 @@ import {
   drawContactShadow,
   drawDirtLip,
   drawWaitingAura,
+  plantedCoverScale,
   plantedFootAnchor,
+  plantedRaisePx,
   shouldShowWaitingAura,
   plantedDiscTint,
 } from "./plantedCropVisual";
@@ -493,6 +494,7 @@ class PlotNode {
   private texScale = 1;
   private coverPx = ZOOM_MOUND_COVER_PX;
   private sinkPx = 0;
+  private raisePx = 0;
   private stage: 1 | 2 | 3 | 4 | null = null;
   private celebrateT = -1;
   private kind: CropKind | null = null;
@@ -573,7 +575,10 @@ class PlotNode {
     this.texScale = s;
     const { rx, ry } = GARDEN_ZOOM_LAYOUT.hit;
     this.coverPx = ZOOM_MOUND_COVER_PX * s;
-    if (this.stage) this.sinkPx = cropSinkPx(this.stage, this.coverPx, this.kind);
+    if (this.stage) {
+      this.sinkPx = cropSinkPx(this.stage, this.coverPx, this.kind);
+      this.raisePx = plantedRaisePx(this.kind, this.coverPx);
+    }
     this.applyPlantedSeat();
     this.glow.position.set(0, -this.coverPx * 0.22);
     this.glow.scale.set(2.2 * s);
@@ -588,7 +593,8 @@ class PlotNode {
   /** Seat plant/shadow/aura; foliage-clipped frame hides baked soil cookie. */
   private applyPlantedSeat() {
     const x = GARDEN_CROP_SEAT.x;
-    const y = GARDEN_CROP_SEAT.y + this.sinkPx;
+    // Raise lifts the sprite off the lip. READY stays at sink so the label does not chase the plant.
+    const y = GARDEN_CROP_SEAT.y + this.sinkPx - this.raisePx;
     this.plant.position.set(x, y);
     // Soft contact shadow under stem feet — no opaque dirt-lip cookie.
     this.shadow.position.set(x, y);
@@ -654,6 +660,7 @@ class PlotNode {
       this.approvalAura.visible = false;
       this.stage = null;
       this.sinkPx = 0;
+      this.raisePx = 0;
       return;
     }
     const kind = cropKindForTier(plot.tier);
@@ -661,11 +668,12 @@ class PlotNode {
     this.stage = plot.growthStage;
     this.coverPx = ZOOM_MOUND_COVER_PX * this.texScale;
     this.sinkPx = cropSinkPx(this.stage, this.coverPx, kind);
+    this.raisePx = plantedRaisePx(kind, this.coverPx);
     // Foliage-only frame clips the baked soil-disc cookie; pivot at stem feet.
     this.plant.texture = cropPlantedFrame(this.painted.crops, kind, plot.growthStage);
     const foot = plantedFootAnchor(kind);
     this.plant.anchor.set(foot.x, foot.y);
-    this.cropScale = cropCoverScale(kind, plot.growthStage, this.coverPx);
+    this.cropScale = plantedCoverScale(kind, plot.growthStage, this.coverPx);
     this.plant.scale.set(this.cropScale);
     this.applyPlantedSeat();
     this.plant.visible = true;

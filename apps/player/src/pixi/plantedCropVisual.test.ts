@@ -4,16 +4,26 @@ import {
   CROP_SINK_FRAC,
   CROP_SINK_FRAC_BY_KIND,
   PLANTED_FOOT_ANCHOR,
+  PLANTED_RAISE_FRAC,
+  PLANTED_SCALE_MUL,
   cropSinkFrac,
   cropSilhouette,
+  plantedCoverScale,
   plantedFootAnchor,
+  plantedRaisePx,
+  plantedScaleMul,
+  plantedSpriteTopAboveMound,
 } from "./plantedCropVisual.ts";
 import {
   PLANTED_DISC_HIDE_BY_SILHOUETTE,
   PLANTED_DISC_HIDE_FRAC,
   PLANTED_FOOT_FADE_BY_SILHOUETTE,
   BUSHY_PLANTED_HIDE_TOP,
+  CROP_DISC_IN_CELL,
   TALL_PLANTED_HIDE_TOP,
+  ZOOM_MOUND_COVER_PX,
+  cropCoverScale,
+  cropPlantedFrameHeight,
 } from "./paintedAssets.ts";
 
 test("planted sink nests bushy fruit into the mound", () => {
@@ -38,13 +48,73 @@ test("planted foot anchors sit above texture bottom for soft fade", () => {
     assert.equal(a.x, 0.5);
     assert.ok(a.y >= 0.88 && a.y < 1, `${kind} foot y=${a.y}`);
   }
-  assert.ok(PLANTED_FOOT_ANCHOR.pumpkin.y >= 0.94);
-  assert.ok(PLANTED_FOOT_ANCHOR.strawberry.y >= 0.93);
-  assert.ok(PLANTED_FOOT_ANCHOR.cotton.y >= PLANTED_FOOT_ANCHOR.pumpkin.y);
-  assert.ok(PLANTED_FOOT_ANCHOR.corn.y >= 0.96);
-  assert.ok(PLANTED_FOOT_ANCHOR.sunflower.y >= 0.96);
+  assert.equal(PLANTED_FOOT_ANCHOR.pumpkin.y, 0.96);
+  assert.equal(PLANTED_FOOT_ANCHOR.strawberry.y, 0.95);
+  assert.equal(PLANTED_FOOT_ANCHOR.tomato.y, 0.96);
+  assert.ok(PLANTED_FOOT_ANCHOR.cotton.y > PLANTED_FOOT_ANCHOR.pumpkin.y);
+  assert.ok(PLANTED_FOOT_ANCHOR.corn.y >= 0.98);
+  assert.ok(PLANTED_FOOT_ANCHOR.sunflower.y >= 0.98);
   assert.ok(plantedFootAnchor("pumpkin").y < 1);
   assert.equal(plantedFootAnchor(null).y, 1);
+});
+
+test("bushy fruit scale and raise stay put", () => {
+  for (const kind of ["pumpkin", "strawberry", "tomato"] as const) {
+    assert.equal(plantedScaleMul(kind), 1, kind);
+    assert.equal(PLANTED_RAISE_FRAC[kind], 0, kind);
+    assert.equal(plantedRaisePx(kind, ZOOM_MOUND_COVER_PX), 0, kind);
+    for (const stage of [1, 2, 3, 4] as const) {
+      assert.equal(
+        plantedCoverScale(kind, stage, ZOOM_MOUND_COVER_PX),
+        cropCoverScale(kind, stage, ZOOM_MOUND_COVER_PX),
+        `${kind} stage ${stage}`,
+      );
+    }
+  }
+  assert.equal(CROP_SINK_FRAC_BY_KIND.pumpkin?.seed, 0.02);
+  assert.equal(CROP_SINK_FRAC_BY_KIND.pumpkin?.grow, 0.07);
+  assert.equal(CROP_SINK_FRAC_BY_KIND.pumpkin?.ripe, 0.2);
+  assert.equal(CROP_SINK_FRAC_BY_KIND.strawberry?.ripe, 0.18);
+  assert.equal(CROP_SINK_FRAC_BY_KIND.tomato?.ripe, 0.1);
+  // Pumpkin stage 2 (index 1) must stay below the gourd.
+  assert.equal(BUSHY_PLANTED_HIDE_TOP.pumpkin?.[1], 825);
+});
+
+test("tall crops scale down and sit higher without losing seeds", () => {
+  for (const kind of ["corn", "cotton", "sunflower"] as const) {
+    assert.ok(plantedScaleMul(kind) < 1, kind);
+    assert.ok(plantedScaleMul(kind) >= 0.7, kind);
+    assert.ok(plantedRaisePx(kind, ZOOM_MOUND_COVER_PX) > 0, kind);
+    const full = cropCoverScale(kind, 4, ZOOM_MOUND_COVER_PX);
+    const seated = plantedCoverScale(kind, 4, ZOOM_MOUND_COVER_PX);
+    assert.ok(Math.abs(seated - full * PLANTED_SCALE_MUL[kind]) < 1e-9);
+    // Seed hide lines stay at or below the kernel so stage 1 is not scissored off.
+    assert.ok((TALL_PLANTED_HIDE_TOP[kind]?.[0] ?? 0) > 0);
+    const seedH = cropPlantedFrameHeight(kind, 1);
+    assert.ok(seedH >= 24, kind);
+  }
+  assert.ok(PLANTED_SCALE_MUL.corn <= PLANTED_SCALE_MUL.sunflower);
+  assert.ok(PLANTED_SCALE_MUL.sunflower <= PLANTED_SCALE_MUL.cotton);
+  assert.ok(PLANTED_RAISE_FRAC.cotton >= PLANTED_RAISE_FRAC.corn);
+  assert.equal(plantedScaleMul(null), 1);
+  assert.equal(plantedRaisePx(null, ZOOM_MOUND_COVER_PX), 0);
+});
+
+test("mature tall sprites fit inside the top garden row", () => {
+  // Highest mound centers are y=338 on the 1024-tall zoom texture.
+  const topMoundY = 338;
+  for (const kind of ["corn", "sunflower", "cotton"] as const) {
+    const above = plantedSpriteTopAboveMound(kind, 4, ZOOM_MOUND_COVER_PX);
+    assert.ok(above < topMoundY - 12, `${kind} topAbove=${above.toFixed(1)}`);
+    assert.ok(above > 80, `${kind} still reads as a plant, topAbove=${above.toFixed(1)}`);
+  }
+  // Short ripe fruit is not pulled up with the tall-crop raise.
+  const pumpkinAbove = plantedSpriteTopAboveMound("pumpkin", 4, ZOOM_MOUND_COVER_PX);
+  const cornAbove = plantedSpriteTopAboveMound("corn", 4, ZOOM_MOUND_COVER_PX);
+  assert.ok(cornAbove < pumpkinAbove, "corn scale-down should not tower over pumpkin's old disc box");
+  // Disc diameter still drives the base scale for every kind.
+  const d = CROP_DISC_IN_CELL.corn[3]!.d;
+  assert.ok(Math.abs(cropCoverScale("corn", 4, ZOOM_MOUND_COVER_PX) * d - ZOOM_MOUND_COVER_PX) < 0.01);
 });
 
 test("planted disc hide leaves fruit belt intact", () => {

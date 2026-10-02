@@ -262,6 +262,25 @@ function plantedSilhouette(kind: CropKind): "bushy" | "tall" | "mid" {
   return "mid";
 }
 
+function clippedFrameHeight(hideTop: number, frameHeight: number): number {
+  const hideTopInFrame = hideTop - SHEET_INSET;
+  return Math.max(24, Math.min(Math.round(hideTopInFrame), frameHeight - 4));
+}
+
+/** Clipped planted-frame height. Same math as `cropAbsoluteHideFrame` for bushy and tall kinds. */
+export function cropPlantedFrameHeight(kind: CropKind, stage: 1 | 2 | 3 | 4, frameHeight?: number): number {
+  const fullH = frameHeight ?? CROP_SHEET_HEIGHT[kind] - SHEET_INSET * 2;
+  const sil = plantedSilhouette(kind);
+  const hideTop =
+    sil === "tall"
+      ? TALL_PLANTED_HIDE_TOP[kind]?.[stage - 1]
+      : sil === "bushy"
+        ? BUSHY_PLANTED_HIDE_TOP[kind]?.[stage - 1]
+        : undefined;
+  if (hideTop == null) return fullH;
+  return clippedFrameHeight(hideTop, fullH);
+}
+
 function cropAbsoluteHideFrame(
   crops: Record<CropKind, Texture[]>,
   kind: CropKind,
@@ -271,8 +290,7 @@ function cropAbsoluteHideFrame(
   const full = cropStageFrame(crops, kind, stage);
   if (full === Texture.EMPTY || !full.source) return full;
   const frame = full.frame;
-  const hideTopInFrame = hideTop - SHEET_INSET;
-  const height = Math.max(24, Math.min(Math.round(hideTopInFrame), frame.height - 4));
+  const height = clippedFrameHeight(hideTop, frame.height);
   return new Texture({
     source: full.source,
     frame: new Rectangle(frame.x, frame.y, frame.width, height),

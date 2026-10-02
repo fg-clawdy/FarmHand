@@ -1,5 +1,6 @@
 import { Graphics } from "pixi.js";
 import type { CropKind } from "@farmhand/shared";
+import { cropCoverScale, cropPlantedFrameHeight } from "./paintedAssets";
 
 /**
  * Planted-crop seating on painted mounds.
@@ -30,9 +31,36 @@ export const PLANTED_FOOT_ANCHOR: Record<CropKind, { x: number; y: number }> = {
   strawberry: { x: 0.5, y: 0.95 },
   pumpkin: { x: 0.5, y: 0.96 },
   tomato: { x: 0.5, y: 0.96 },
-  cotton: { x: 0.5, y: 0.97 },
-  corn: { x: 0.5, y: 0.97 },
-  sunflower: { x: 0.5, y: 0.97 },
+  // Taller sheets: pivot nearer the clipped foot so less sprite hangs below the mound.
+  cotton: { x: 0.5, y: 0.99 },
+  corn: { x: 0.5, y: 0.99 },
+  sunflower: { x: 0.5, y: 0.99 },
+};
+
+/**
+ * Disc-cover scale multiplier. Bushy fruit stays at 1 (pumpkin / strawberry / tomato
+ * already seat correctly). Tall sheets share that disc diameter but the art is much
+ * taller, so corn and sunflower run off the top of the garden and cotton fills the
+ * lower mound. A modest mul keeps every stage, including seeds, inside the row.
+ */
+export const PLANTED_SCALE_MUL: Record<CropKind, number> = {
+  strawberry: 1,
+  pumpkin: 1,
+  tomato: 1,
+  cotton: 0.86,
+  corn: 0.72,
+  sunflower: 0.8,
+};
+
+/** Extra upward lift as a fraction of coverPx. Zero for bushy fruit. */
+export const PLANTED_RAISE_FRAC: Record<CropKind, number> = {
+  strawberry: 0,
+  pumpkin: 0,
+  tomato: 0,
+  // Cotton bolls sit lowest; give them the most air above the mound lip.
+  cotton: 0.12,
+  corn: 0.04,
+  sunflower: 0.05,
 };
 
 const DEFAULT_FOOT_ANCHOR = { x: 0.5, y: 1 } as const;
@@ -40,6 +68,38 @@ const DEFAULT_FOOT_ANCHOR = { x: 0.5, y: 1 } as const;
 export function plantedFootAnchor(kind?: CropKind | null): { x: number; y: number } {
   if (!kind) return { x: DEFAULT_FOOT_ANCHOR.x, y: DEFAULT_FOOT_ANCHOR.y };
   return PLANTED_FOOT_ANCHOR[kind] ?? { x: DEFAULT_FOOT_ANCHOR.x, y: DEFAULT_FOOT_ANCHOR.y };
+}
+
+export function plantedScaleMul(kind?: CropKind | null): number {
+  if (!kind) return 1;
+  return PLANTED_SCALE_MUL[kind] ?? 1;
+}
+
+/** Disc-cover scale with the tall-crop mul. Bushy kinds match `cropCoverScale`. */
+export function plantedCoverScale(kind: CropKind, stage: 1 | 2 | 3 | 4, coverPx: number): number {
+  return cropCoverScale(kind, stage, coverPx) * plantedScaleMul(kind);
+}
+
+/** Pixels to lift the planted sprite (screen-up). READY label stays on the mound. */
+export function plantedRaisePx(kind: CropKind | null | undefined, coverPx: number): number {
+  if (!kind) return 0;
+  return coverPx * (PLANTED_RAISE_FRAC[kind] ?? 0);
+}
+
+/**
+ * Texture-pixels from the mound UV up to the top of the planted sprite.
+ * Includes sink and the tall-crop raise. Used to keep mature corn / sunflower
+ * inside the zoomed garden.
+ */
+export function plantedSpriteTopAboveMound(
+  kind: CropKind,
+  stage: 1 | 2 | 3 | 4,
+  coverPx: number,
+): number {
+  const height = cropPlantedFrameHeight(kind, stage);
+  const scale = plantedCoverScale(kind, stage, coverPx);
+  const anchorY = plantedFootAnchor(kind).y;
+  return anchorY * height * scale - cropSinkPx(stage, coverPx, kind) + plantedRaisePx(kind, coverPx);
 }
 
 /** Positive Y buries stem feet into the painted mound (screen Y down). */
