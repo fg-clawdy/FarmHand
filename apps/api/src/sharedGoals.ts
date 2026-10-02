@@ -5,10 +5,14 @@ import { appendStarEvent, playerWallet } from "./stars.js";
 import { withSerializableRetry, withLockedPlayer } from "./locks.js";
 import {
   PUT_BACK_WINDOW_SECONDS,
+  buildJarArtPrompt,
+  tintIndexFor,
   type PublicSharedGoal,
   type ParentSharedGoal,
   type ParentGoalContribution,
+  type SharedGoalArtStatus,
 } from "@farmhand/shared";
+import { enqueueJarArt, planJarArt } from "./jarArt.js";
 
 type Tx = Prisma.TransactionClient;
 
@@ -20,6 +24,9 @@ export function publicSharedGoal(row: {
   emoji: string;
   targetStars: number;
   status: string;
+  tintIndex?: number;
+  artUrl?: string | null;
+  artStatus?: string;
   _fill?: number;
 }): PublicSharedGoal {
   const fill = row._fill ?? 0;
@@ -30,7 +37,16 @@ export function publicSharedGoal(row: {
     targetStars: row.targetStars,
     filledStars: Math.min(fill, row.targetStars),
     status: row.status as PublicSharedGoal["status"],
+    tintIndex: row.tintIndex ?? 0,
+    artUrl: row.artUrl ?? null,
+    artStatus: (row.artStatus ?? "DEFAULT") as SharedGoalArtStatus,
   };
+}
+
+function clipNotes(notes: string | undefined): string | null {
+  const trimmed = notes?.trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, 500);
 }
 
 async function goalFill(goalId: string, tx: Tx = prisma): Promise<number> {
@@ -49,15 +65,6 @@ async function goalFill(goalId: string, tx: Tx = prisma): Promise<number> {
 
 // ---- Invariant guards ----
 
-async function assertNoActiveGoal(tx: Tx) {
-  const active = await tx.sharedGoal.findFirst({
-    where: { status: { in: ["OPEN", "READY"] } },
-  });
-  if (active) {
-    throw httpError("Another jar is already open. Finish or put it away first.", 409);
-  }
-}
-
 async function assertWaitingCountUnderLimit(tx: Tx) {
   const count = await tx.sharedGoal.count({ where: { status: "WAITING" } });
   if (count >= 3) {
@@ -71,20 +78,39 @@ export async function createSharedGoal(opts: {
   title: string;
   emoji: string;
   targetStars: number;
+  artNotes?: string;
+  /** Background lid paint. Default pastel art is saved either way. */
+  generateArt?: boolean;
+  /** Park on the parent Later list instead of the farm tray. */
+  queue?: boolean;
 }) {
-  if (!opts.title.trim()) throw httpError("Please give the jar a name.");
-  if (!opts.emoji.trim()) throw httpError("Please pick an emoji.");
+  const title = opts.title.trim();
+  const emoji = opts.emoji.trim();
+  if (!title) throw httpError("Please give the jar a name.");
+  if (!emoji) throw httpError("Please pick an emoji.");
   if (!Number.isInteger(opts.targetStars) || opts.targetStars < 1) {
     throw httpError("Target should be a whole number of stars, at least 1.");
   }
 
-  return withSerializableRetry(() =>
-    prisma.$transaction(async (tx) => {
-      const existingActive = await tx.sharedGoal.findFirst({
-        where: { status: { in: ["OPEN", "READY"] } },
-      });
+  const artNotes = clipNotes(opts.artNotes);
+  const artPrompt = buildJarArtPrompt({ title, emoji, notes: artNotes });
+  const generateArt = opts.generateArt === true;
+  const queue = opts.queue === true;
+  const artPlan = planJarArt({ requested: generateArt, previousUrl: null, phase: "create" });
 
-      if (existingActive) {
+  const created = await withSerializableRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const prior = await tx.sharedGoal.count();
+      const tintIndex = tintIndexFor(title, prior);
+      const art = {
+        tintIndex,
+        artNotes,
+        artPrompt,
+        artStatus: artPlan.artStatus,
+        artUrl: null as string | null,
+      };
+
+      if (queue) {
         await assertWaitingCountUnderLimit(tx);
         const maxSort = await tx.sharedGoal.aggregate({
           where: { status: "WAITING" },
@@ -92,27 +118,32 @@ export async function createSharedGoal(opts: {
         });
         const row = await tx.sharedGoal.create({
           data: {
-            title: opts.title.trim(),
-            emoji: opts.emoji.trim(),
+            title,
+            emoji,
             targetStars: opts.targetStars,
             status: "WAITING",
             sortOrder: (maxSort._max.sortOrder ?? 0) + 1,
+            ...art,
           },
         });
-        return { goal: publicSharedGoal({ ...row, _fill: 0 }) };
+        return publicSharedGoal({ ...row, _fill: 0 });
       }
 
       const row = await tx.sharedGoal.create({
         data: {
-          title: opts.title.trim(),
-          emoji: opts.emoji.trim(),
+          title,
+          emoji,
           targetStars: opts.targetStars,
           status: "OPEN",
+          ...art,
         },
       });
-      return { goal: publicSharedGoal({ ...row, _fill: 0 }) };
+      return publicSharedGoal({ ...row, _fill: 0 });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 12_000 }),
   );
+
+  if (generateArt) enqueueJarArt(created.id);
+  return { goal: created };
 }
 
 export async function openSharedGoal(goalId: string) {
@@ -122,7 +153,6 @@ export async function openSharedGoal(goalId: string) {
       if (goal.status !== "WAITING") {
         throw httpError("Only a waiting reward can be opened.", 409);
       }
-      await assertNoActiveGoal(tx);
       return tx.sharedGoal.update({
         where: { id: goalId },
         data: { status: "OPEN" },
@@ -255,6 +285,53 @@ export async function patchSharedGoal(
   );
 }
 
+export async function updateSharedGoalArt(
+  goalId: string,
+  patch: { artPrompt?: string; artNotes?: string; regenerate?: boolean },
+) {
+  const goal = await prisma.sharedGoal.findUnique({ where: { id: goalId } });
+  if (!goal) throw httpError("That jar isn't here.", 404);
+  if (goal.status === "HAPPENED" || goal.status === "CANCELLED") {
+    throw httpError("That jar is already put away.", 409);
+  }
+
+  const data: {
+    artPrompt?: string;
+    artNotes?: string | null;
+    artStatus?: SharedGoalArtStatus;
+  } = {};
+  if (patch.artPrompt !== undefined) {
+    const prompt = patch.artPrompt.trim();
+    if (!prompt) throw httpError("Write a prompt for the lid.");
+    if (prompt.length > 1500) throw httpError("That prompt is too long.");
+    data.artPrompt = prompt;
+  }
+  if (patch.artNotes !== undefined) data.artNotes = clipNotes(patch.artNotes);
+  if (patch.regenerate) data.artStatus = "QUEUED";
+  if (!Object.keys(data).length) throw httpError("Nothing to change.");
+
+  await prisma.sharedGoal.update({ where: { id: goalId }, data });
+  if (patch.regenerate) enqueueJarArt(goalId);
+  return { ok: true as const };
+}
+
+export async function regenerateSharedGoalArt(goalId: string) {
+  const goal = await prisma.sharedGoal.findUnique({ where: { id: goalId } });
+  if (!goal) throw httpError("That jar isn't here.", 404);
+  if (goal.status === "HAPPENED" || goal.status === "CANCELLED") {
+    throw httpError("That jar is already put away.", 409);
+  }
+  const artPrompt =
+    goal.artPrompt?.trim() ||
+    buildJarArtPrompt({ title: goal.title, emoji: goal.emoji, notes: goal.artNotes });
+  await prisma.sharedGoal.update({
+    where: { id: goalId },
+    data: { artPrompt, artStatus: "QUEUED" },
+  });
+  enqueueJarArt(goalId);
+  return { ok: true as const };
+}
+
 
 // ---- Player pour ----
 
@@ -296,6 +373,7 @@ export async function pourSharedGoal(opts: {
           filledStars: Math.min(fillNow, current.targetStars),
           status: current.status,
           targetStars: current.targetStars,
+          title: current.title,
           giveKey: idempotencyKey,
           amount: existingGive.amount,
         };
@@ -372,6 +450,7 @@ export async function pourSharedGoal(opts: {
         filledStars: Math.min(newFill, goal.targetStars),
         status: newStatus,
         targetStars: goal.targetStars,
+        title: goal.title,
         giveKey: idempotencyKey,
         amount: clampedAmount,
       };
@@ -425,6 +504,7 @@ export async function putBackSharedGoal(opts: {
           filledStars: Math.min(fill, goal.targetStars),
           status: goal.status,
           targetStars: goal.targetStars,
+          title: goal.title,
         };
       }
 
@@ -465,6 +545,7 @@ export async function putBackSharedGoal(opts: {
         filledStars: Math.min(newFill, goal.targetStars),
         status: newStatus,
         targetStars: goal.targetStars,
+        title: goal.title,
       };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 12_000 }),
   );
@@ -472,14 +553,22 @@ export async function putBackSharedGoal(opts: {
 
 // ---- Farm / kid reads ----
 
-export async function activeSharedGoal(): Promise<PublicSharedGoal | null> {
-  const goal = await prisma.sharedGoal.findFirst({
+export async function activeSharedGoals(): Promise<PublicSharedGoal[]> {
+  const goals = await prisma.sharedGoal.findMany({
     where: { status: { in: ["OPEN", "READY"] } },
     orderBy: { createdAt: "asc" },
   });
-  if (!goal) return null;
-  const fill = await goalFill(goal.id);
-  return publicSharedGoal({ ...goal, _fill: fill });
+  return Promise.all(
+    goals.map(async (goal) => {
+      const fill = await goalFill(goal.id);
+      return publicSharedGoal({ ...goal, _fill: fill });
+    }),
+  );
+}
+
+export async function activeSharedGoal(): Promise<PublicSharedGoal | null> {
+  const jars = await activeSharedGoals();
+  return jars[0] ?? null;
 }
 
 export async function getSharedGoal(goalId: string): Promise<PublicSharedGoal | null> {
@@ -493,12 +582,13 @@ export async function getSharedGoal(goalId: string): Promise<PublicSharedGoal | 
 
 export async function parentSharedGoals(): Promise<{
   active: ParentSharedGoal | null;
+  activeGoals: ParentSharedGoal[];
   waiting: ParentSharedGoal[];
   history: ParentSharedGoal[];
   players: ParentGoalContribution[];
 }> {
-  const [activeGoal, waitingGoals, pastGoals, players] = await Promise.all([
-    prisma.sharedGoal.findFirst({
+  const [activeGoals, waitingGoals, pastGoals, players] = await Promise.all([
+    prisma.sharedGoal.findMany({
       where: { status: { in: ["OPEN", "READY"] } },
       orderBy: { createdAt: "asc" },
     }),
@@ -519,7 +609,7 @@ export async function parentSharedGoals(): Promise<{
   ]);
 
   async function toParentGoal(
-    goal: typeof activeGoal,
+    goal: (typeof activeGoals)[number] | null,
   ): Promise<ParentSharedGoal | null> {
     if (!goal) return null;
     const fill = await goalFill(goal.id);
@@ -566,6 +656,11 @@ export async function parentSharedGoals(): Promise<{
       contributions,
       usdTarget: (goal.targetStars / 100).toFixed(2),
       usdFilled: (Math.min(fill, goal.targetStars) / 100).toFixed(2),
+      tintIndex: goal.tintIndex,
+      artUrl: goal.artUrl,
+      artStatus: goal.artStatus,
+      artPrompt: goal.artPrompt,
+      artNotes: goal.artNotes,
     };
   }
 
@@ -578,26 +673,16 @@ export async function parentSharedGoals(): Promise<{
     giveCeiling: p.giveCeiling ?? 20,
   }));
 
+  const onFarm = (
+    await Promise.all(activeGoals.map((goal) => toParentGoal(goal)))
+  ).filter((goal): goal is ParentSharedGoal => goal != null);
+
   return {
-    active: await toParentGoal(activeGoal),
-    waiting: await Promise.all(
-      waitingGoals.map(async (g) => ({
-        id: g.id,
-        title: g.title,
-        emoji: g.emoji,
-        targetStars: g.targetStars,
-        filledStars: 0,
-        status: g.status as ParentSharedGoal["status"],
-        sortOrder: g.sortOrder,
-        createdAt: g.createdAt.toISOString(),
-        readyAt: null,
-        happenedAt: null,
-        cancelledAt: null,
-        contributions: playerContributions,
-        usdTarget: (g.targetStars / 100).toFixed(2),
-        usdFilled: "0.00",
-      })),
-    ),
+    active: onFarm[0] ?? null,
+    activeGoals: onFarm,
+    waiting: (
+      await Promise.all(waitingGoals.map((goal) => toParentGoal(goal)))
+    ).filter((goal): goal is ParentSharedGoal => goal != null),
     history: (
       await Promise.all(pastGoals.map((g) => toParentGoal(g)))
     ).filter((g): g is ParentSharedGoal => g != null),

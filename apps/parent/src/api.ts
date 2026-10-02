@@ -199,6 +199,7 @@ export type KidAccolades = {
 
 export type ParentSharedGoals = {
   active: ParentSharedGoal | null;
+  activeGoals?: ParentSharedGoal[];
   waiting: ParentSharedGoal[];
   history: ParentSharedGoal[];
   players: ParentGoalContribution[];
@@ -288,8 +289,14 @@ export const api = {
   stats: (range: "week" | "month") => request<ParentStats>(`/api/parent/stats?range=${range}`),
   accolades: () => request<FarmAccolades>("/api/parent/accolades"),
   sharedGoals: () => request<ParentSharedGoals>("/api/parent/shared-goal"),
-  createSharedGoal: (body: { title: string; emoji: string; targetStars: number }) =>
-    request<{ goal: PublicSharedGoal }>("/api/parent/shared-goal", { method: "POST", body: JSON.stringify(body) }),
+  createSharedGoal: (body: {
+    title: string;
+    emoji: string;
+    targetStars: number;
+    artNotes?: string;
+    generateArt?: boolean;
+    queue?: boolean;
+  }) => request<{ goal: PublicSharedGoal }>("/api/parent/shared-goal", { method: "POST", body: JSON.stringify(body) }),
   openSharedGoal: (id: string) => request(`/api/parent/shared-goal/${id}/open`, { method: "POST", body: "{}" }),
   removeSharedGoal: (id: string) => request<{ ok: boolean }>(`/api/parent/shared-goal/${id}`, { method: "DELETE" }),
   patchSharedGoal: (
@@ -298,6 +305,10 @@ export const api = {
   ) => request(`/api/parent/shared-goal/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   happenSharedGoal: (id: string) => request(`/api/parent/shared-goal/${id}/happen`, { method: "POST", body: "{}" }),
   cancelSharedGoal: (id: string) => request(`/api/parent/shared-goal/${id}/cancel`, { method: "POST", body: "{}" }),
+  updateSharedGoalArt: (id: string, body: { artPrompt?: string; artNotes?: string; regenerate?: boolean }) =>
+    request<{ ok: boolean }>(`/api/parent/shared-goal/${id}/art`, { method: "PATCH", body: JSON.stringify(body) }),
+  regenerateSharedGoalArt: (id: string) =>
+    request<{ ok: boolean }>(`/api/parent/shared-goal/${id}/art/regenerate`, { method: "POST", body: "{}" }),
   patchGiving: (playerId: string, body: { givingEnabled?: boolean; giveCeiling?: number }) =>
     request<{ player: { id: string; name: string; givingEnabled: boolean; giveCeiling: number } }>(
       `/api/parent/players/${playerId}/giving`,

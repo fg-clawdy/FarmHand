@@ -7,6 +7,7 @@ import { playerRoutes } from "./routes/player.js";
 import { adminRoutes } from "./routes/admin.js";
 import { parentRoutes } from "./routes/parent.js";
 import { wantedMediaRoutes } from "./routes/wantedMedia.js";
+import { jarMediaRoutes } from "./routes/jarMedia.js";
 import { sharedGoalRoutes } from "./routes/sharedGoal.js";
 
 export async function buildApp() {
@@ -29,6 +30,7 @@ export async function buildApp() {
   });
   await app.register(healthRoutes);
   await app.register(wantedMediaRoutes);
+  await app.register(jarMediaRoutes);
   await app.register(farmRoutes);
   await app.register(playerRoutes);
   await app.register(adminRoutes);

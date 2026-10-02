@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { requirePlayer } from "../auth.js";
 import { requireAdmin } from "../auth.js";
 import {
-  activeSharedGoal,
+  activeSharedGoals,
   getSharedGoal,
   pourSharedGoal,
   putBackSharedGoal,
@@ -15,6 +15,8 @@ import {
   parentSharedGoals,
   markFamilyJarCoachSeen,
   patchPlayerGiving,
+  updateSharedGoalArt,
+  regenerateSharedGoalArt,
 } from "../sharedGoals.js";
 import { notifySharedGoalReady } from "../push.js";
 
@@ -22,8 +24,8 @@ export async function sharedGoalRoutes(app: FastifyInstance) {
   // ---- Kid / farm routes ----
 
   app.get("/api/shared-goal/active", async () => {
-    const jar = await activeSharedGoal();
-    return { familyJar: jar };
+    const familyJars = await activeSharedGoals();
+    return { familyJar: familyJars[0] ?? null, familyJars };
   });
 
   app.get("/api/shared-goal/:id", async (request, reply) => {
@@ -49,12 +51,9 @@ export async function sharedGoalRoutes(app: FastifyInstance) {
         requestId: String(body.requestId ?? ""),
       });
       if (result.status === "READY") {
-        const goal = await activeSharedGoal();
-        if (goal) {
-          void notifySharedGoalReady(goal.id, goal.title).catch((err: unknown) =>
-            app.log.warn({ err }, "shared goal ready push failed"),
-          );
-        }
+        void notifySharedGoalReady(String(body.goalId ?? ""), result.title).catch((err: unknown) =>
+          app.log.warn({ err }, "shared goal ready push failed"),
+        );
       }
       return result;
     } catch (err) {
@@ -103,12 +102,18 @@ export async function sharedGoalRoutes(app: FastifyInstance) {
       title?: string;
       emoji?: string;
       targetStars?: number;
+      artNotes?: string;
+      generateArt?: boolean;
+      queue?: boolean;
     };
     try {
       return await createSharedGoal({
         title: String(body.title ?? ""),
         emoji: String(body.emoji ?? ""),
         targetStars: Number(body.targetStars ?? 0),
+        artNotes: body.artNotes,
+        generateArt: body.generateArt === true,
+        queue: body.queue === true,
       });
     } catch (err) {
       const e = err as Error & { statusCode?: number };
@@ -161,6 +166,39 @@ export async function sharedGoalRoutes(app: FastifyInstance) {
         sortOrder: body.sortOrder !== undefined ? Number(body.sortOrder) : undefined,
       });
       return { goal };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.patch("/api/parent/shared-goal/:id/art", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    const body = (request.body ?? {}) as {
+      artPrompt?: string;
+      artNotes?: string;
+      regenerate?: boolean;
+    };
+    try {
+      return await updateSharedGoalArt(id, {
+        artPrompt: body.artPrompt,
+        artNotes: body.artNotes,
+        regenerate: body.regenerate === true,
+      });
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.post("/api/parent/shared-goal/:id/art/regenerate", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    try {
+      return await regenerateSharedGoalArt(id);
     } catch (err) {
       const e = err as Error & { statusCode?: number };
       return reply.code(e.statusCode ?? 400).send({ error: e.message });
