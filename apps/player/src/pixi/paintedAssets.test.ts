@@ -8,15 +8,11 @@ import {
   COW_EAT_SHEET,
   FARM_MOUND_COVER_PX,
   PAINTED_ART,
-  CORKBOARD_HANG,
   SHEET_INSET,
-  WANTED_POSTER_SHEET,
-  WANTED_POSTER_PAPER_INSET,
   ZOOM_MOUND_COVER_PX,
   cropCoverScale,
   cropDiscAnchor,
   sheetFrameRects,
-  wantedPosterFrameRects,
 } from "./paintedAssets.ts";
 
 test("walk uses two separate textures, not a combined walk/eat sheet", () => {
@@ -83,44 +79,9 @@ test("crop sheet slices are equal, in-bounds, and do not share pixels", () => {
   }
 });
 
-test("barn corkboard and wanted poster sheet are farm props, not crop sheets", () => {
-  assert.equal(PAINTED_ART.corkboard, "/art/painted/farm/corkboard.png");
-  assert.equal(PAINTED_ART.wantedPoster, "/art/painted/farm/wanted_poster_sheet.png");
-  assert.equal(WANTED_POSTER_SHEET.width, 1260);
-  assert.equal(WANTED_POSTER_SHEET.height, 470);
-  assert.equal(WANTED_POSTER_SHEET.frames, 4);
-  assert.equal(CORKBOARD_HANG.y + CORKBOARD_HANG.h, 560);
-  assert.ok(CORKBOARD_HANG.h < 814, "must not use the standing board full height");
-  const rects = sheetFrameRects(WANTED_POSTER_SHEET.width, WANTED_POSTER_SHEET.height, WANTED_POSTER_SHEET.frames);
-  assert.equal(rects.length, 4);
-  for (let i = 1; i < rects.length; i++) {
-    const prev = rects[i - 1]!;
-    const r = rects[i]!;
-    assert.ok(prev.x + prev.w <= r.x, "adjacent wanted frames must not share an x pixel");
-  }
-});
-
-test("wanted poster frames crop to paper, dropping the painted cork plate", () => {
-  const cell = WANTED_POSTER_SHEET.width / WANTED_POSTER_SHEET.frames;
-  const paper = wantedPosterFrameRects();
-  assert.equal(paper.length, 4);
-  assert.equal(WANTED_POSTER_PAPER_INSET.x, 28);
-  assert.equal(WANTED_POSTER_PAPER_INSET.y, 20);
-  assert.ok(WANTED_POSTER_PAPER_INSET.w < cell - 24, "drop left/right cork");
-  assert.ok(WANTED_POSTER_PAPER_INSET.h < WANTED_POSTER_SHEET.height - 40, "drop top/bottom cork");
-  for (let i = 0; i < paper.length; i++) {
-    const r = paper[i]!;
-    assert.equal(r.x, i * cell + WANTED_POSTER_PAPER_INSET.x);
-    assert.equal(r.y, WANTED_POSTER_PAPER_INSET.y);
-    assert.equal(r.w, WANTED_POSTER_PAPER_INSET.w);
-    assert.equal(r.h, WANTED_POSTER_PAPER_INSET.h);
-    assert.ok(r.x >= i * cell);
-    assert.ok(r.x + r.w <= (i + 1) * cell);
-    assert.ok(r.y + r.h <= WANTED_POSTER_SHEET.height);
-    if (i > 0) {
-      assert.ok(paper[i - 1]!.x + paper[i - 1]!.w <= r.x, "paper frames must not overlap");
-    }
-  }
+test("playfield art no longer loads the corkboard or wanted poster sheet", () => {
+  const urls = Object.values(PAINTED_ART).flatMap((value) => (typeof value === "string" ? [value] : Object.values(value)));
+  assert.ok(urls.every((url) => !url.includes("corkboard") && !url.includes("wanted")));
 });
 
 test("eat sheet frames are equal, in-bounds, and do not share pixels", () => {

@@ -1,4 +1,4 @@
-import { cropKindForTier, formatCountdown, PLOTS_PER_GARDEN, type CropKind, type PublicPlot } from "@farmhand/shared";
+import { cropKindForTier, formatCountdown, PLOTS_PER_GARDEN, type CropKind, type PublicPlot, type PublicSharedGoal } from "@farmhand/shared";
 import { Container, Ellipse, Graphics, Sprite, Text, type Application } from "pixi.js";
 import { STAR_FLIGHT_S, starLaunchDelay } from "../components/starPourPace";
 import type { Atlas } from "./atlas";
@@ -13,6 +13,7 @@ import {
   gardenMoundWorld,
   gardenPlayfieldFit,
 } from "./gardenLayout";
+import { LittleLibrary } from "./littleLibrary";
 import {
   ZOOM_MOUND_COVER_PX,
   cropCoverScale,
@@ -60,6 +61,9 @@ export class GardenScene {
   private onPlot: (slot: number) => void;
   private onAvatar: () => void;
   private onBasket: () => void;
+  private onLibraryJar: (goalId: string) => void;
+  private onLibraryOverflow: () => void;
+  private library: LittleLibrary;
   private avatarBadge: SignAvatarBadge;
 
   constructor(
@@ -69,11 +73,14 @@ export class GardenScene {
     onPlot: (slot: number) => void,
     onAvatar?: () => void,
     onBasket?: () => void,
+    onLibrary?: { onJar?: (goalId: string) => void; onOverflow?: () => void },
   ) {
     this.app = engine.app;
     this.onPlot = onPlot;
     this.onAvatar = onAvatar ?? (() => undefined);
     this.onBasket = onBasket ?? (() => undefined);
+    this.onLibraryJar = onLibrary?.onJar ?? (() => undefined);
+    this.onLibraryOverflow = onLibrary?.onOverflow ?? (() => undefined);
     this.fx = new FxLayer(atlas);
 
     this.ground = new Sprite(painted.gardenZoom);
@@ -120,6 +127,15 @@ export class GardenScene {
     this.basket = new HarvestBasket(painted, () => this.onBasket());
     this.playfield.addChild(this.basket.root);
 
+    this.library = new LittleLibrary(
+      atlas,
+      tw,
+      th,
+      (goalId) => this.onLibraryJar(goalId),
+      () => this.onLibraryOverflow(),
+    );
+    this.playfield.addChild(this.library.root);
+
     this.root.addChild(this.fill, this.playfield);
     this.app.stage.removeChildren();
     this.app.stage.addChild(this.root);
@@ -155,6 +171,11 @@ export class GardenScene {
     const radius = Math.max(22, 36 * (th / GARDEN_ZOOM_TEXTURE.height));
     const badge = gardenZoomBadgeLocal(sign, radius);
     this.avatarBadge.place(badge.x, badge.y, badge.radius);
+  }
+
+  /** Shared-goal jars on the little library. Empty list leaves the shelves bare. */
+  setFamilyJars(jars: PublicSharedGoal[]) {
+    this.library.setJars(jars);
   }
 
   setPlots(plots: PublicPlot[]) {
@@ -283,6 +304,7 @@ export class GardenScene {
   private tick(dt: number) {
     this.t += dt;
     this.fx.update(dt);
+    this.library.update(dt, this.t);
     this.slots.forEach((s) => s.breathe(this.t, dt));
     this.basket.update(dt);
     this.tickPicks(dt);

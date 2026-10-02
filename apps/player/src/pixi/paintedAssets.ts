@@ -87,19 +87,6 @@ export const CROP_FRAME_HEIGHT = CROP_SHEET_HEIGHT.corn;
 
 /** Padded 4-frame eat/graze PNG with real alpha (equal cells; Pixi insets so frames never share pixels). */
 export const COW_EAT_SHEET = { width: 1704, height: 304, frames: 4 } as const;
-/** 4-frame Wanted poster sheet: pinned, tearing, empty, pinning up. Equal 315×470 cells. */
-export const WANTED_POSTER_SHEET = { width: 1260, height: 470, frames: 4 } as const;
-/**
- * Aged Wanted paper inside each cell. Crop to the paper inset so only the flyer
- * layers on the standing cork (no second cork plate, no paper bolts).
- */
-export const WANTED_POSTER_PAPER_INSET = { x: 28, y: 20, w: 258, h: 386 } as const;
-/**
- * Standing corkboard PNG includes posts + grass. Loaded full as a ground stake.
- * Hang rect is the cork face (no posts) used to nest the paper poster.
- */
-export const CORKBOARD_HANG = { x: 6, y: 4, w: 708, h: 556 } as const;
-
 export const PAINTED_ART = {
   playfield: "/art/painted/farmhand_painted_playfield_v3_no_static_cow.jpg",
   gardenZoom: "/art/painted/garden/garden_zoom_3x3.jpg",
@@ -108,8 +95,6 @@ export const PAINTED_ART = {
   cowWalk: ["/art/painted/cow_walk_frame_a.png", "/art/painted/cow_walk_frame_b.png"],
   /** Must stay PNG so eat frames keep a transparent background. */
   cowEat: "/art/painted/cow_eat_sheet.png",
-  corkboard: "/art/painted/farm/corkboard.png",
-  wantedPoster: "/art/painted/farm/wanted_poster_sheet.png",
   crops: {
     corn: "/art/painted/plants/plant_corn_stages.png?v=3blossom",
     strawberry: "/art/painted/plants/plant_strawberry_stages.png?v=3blossom",
@@ -131,8 +116,6 @@ export type PaintedArt = {
   smokeFrames: Texture[];
   cowWalk: Texture[];
   cowEat: Texture[];
-  corkboard: Texture;
-  wantedPosterFrames: Texture[];
   crops: Record<CropKind, Texture[]>;
   harvestBasket: Texture;
   harvestBasketRim: Texture;
@@ -163,29 +146,6 @@ export function sliceSheet(texture: Texture, frames: number, inset: number = SHE
         source: texture.source,
         // Frame is atlas pixels; orig is local sprite size from (0,0) so trim/UV
         // math never treats frame.x as a sprite offset (would slide discs off mounds).
-        frame: new Rectangle(rect.x, rect.y, rect.w, rect.h),
-        orig: new Rectangle(0, 0, rect.w, rect.h),
-      }),
-  );
-}
-
-/** Paper-only Wanted frames — same size for pinned / tearing / torn / pinning. */
-export function wantedPosterFrameRects(): Array<{ x: number; y: number; w: number; h: number }> {
-  const cell = Math.floor(WANTED_POSTER_SHEET.width / WANTED_POSTER_SHEET.frames);
-  const { x, y, w, h } = WANTED_POSTER_PAPER_INSET;
-  return Array.from({ length: WANTED_POSTER_SHEET.frames }, (_, i) => ({
-    x: i * cell + x,
-    y,
-    w,
-    h,
-  }));
-}
-
-export function sliceWantedPoster(texture: Texture): Texture[] {
-  return wantedPosterFrameRects().map(
-    (rect) =>
-      new Texture({
-        source: texture.source,
         frame: new Rectangle(rect.x, rect.y, rect.w, rect.h),
         orig: new Rectangle(0, 0, rect.w, rect.h),
       }),
@@ -523,8 +483,6 @@ export async function loadPaintedArt(): Promise<PaintedArt> {
     PAINTED_ART.smoke,
     ...PAINTED_ART.cowWalk,
     PAINTED_ART.cowEat,
-    PAINTED_ART.corkboard,
-    PAINTED_ART.wantedPoster,
     ...CROP_KINDS.map((kind) => PAINTED_ART.crops[kind]),
     PAINTED_ART.harvestBasket,
     PAINTED_ART.harvestBasketRim,
@@ -555,12 +513,8 @@ export async function loadPaintedArt(): Promise<PaintedArt> {
     walkA,
     walkB,
     eat,
-    corkboard,
-    wantedPoster,
     ...rest
   ] = loaded as [
-    Texture,
-    Texture,
     Texture,
     Texture,
     Texture,
@@ -582,8 +536,6 @@ export async function loadPaintedArt(): Promise<PaintedArt> {
     smokeFrames: sliceSheet(smoke, 6),
     cowWalk: [walkA, walkB],
     cowEat: sliceSheet(eat, COW_EAT_SHEET.frames),
-    corkboard,
-    wantedPosterFrames: sliceWantedPoster(wantedPoster),
     crops,
     harvestBasket,
     harvestBasketRim,

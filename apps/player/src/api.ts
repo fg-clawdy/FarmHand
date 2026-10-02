@@ -400,7 +400,8 @@ export const api = {
     }),
   avatarPresets: () =>
     request<{ presets: Array<{ id: string; emoji: string; label: string }> }>("/api/avatar/presets"),
-  familyJar: () => request<{ familyJar: PublicSharedGoal | null }>("/api/shared-goal/active"),
+  familyJar: () =>
+    request<{ familyJar: PublicSharedGoal | null; familyJars?: PublicSharedGoal[] }>("/api/shared-goal/active"),
   giveStars: (body: { goalId: string; amount: number; requestId: string }) =>
     request<SharedGoalPour>("/api/shared-goal/give", { method: "POST", body: JSON.stringify(body) }),
   putBackStars: (body: { goalId: string; giveKey: string }) =>

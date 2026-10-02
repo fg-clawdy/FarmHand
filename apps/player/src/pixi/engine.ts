@@ -18,6 +18,8 @@ let boot: Promise<Application> | null = null;
 let healthBound = false;
 /** Host the shared canvas currently lives in (null while parked in the pool). */
 let activeHost: HTMLElement | null = null;
+/** Bumps on every attach so a cancelled StrictMode mount cannot park the live canvas. */
+let mountGen = 0;
 let framesDrawn = 0;
 let lastFrameAt = 0;
 let stallReports = 0;
@@ -225,8 +227,12 @@ export function waitForHostSize(host: HTMLElement, timeoutMs = 3000): Promise<{ 
   });
 }
 
-export async function createEngine(host: HTMLElement): Promise<PixiEngine> {
+export async function createEngine(host: HTMLElement, cancelled?: () => boolean): Promise<PixiEngine | null> {
   const app = await sharedApp();
+  // StrictMode starts a mount, cancels it, then starts another on the same host.
+  // A cancelled call that resumes after the live mount must not steal the canvas.
+  if (cancelled?.()) return null;
+  const gen = ++mountGen;
   // Reparent without leaving the document (detach -> WebGL context loss on some tablets).
   if (app.canvas.parentElement !== host) {
     host.appendChild(app.canvas);
@@ -254,6 +260,7 @@ export async function createEngine(host: HTMLElement): Promise<PixiEngine> {
     destroy() {
       window.removeEventListener("resize", refit);
       ro.disconnect();
+      if (gen !== mountGen) return;
       if (activeHost === host) activeHost = null;
       if (app.canvas.parentElement === host) {
         pool().appendChild(app.canvas);

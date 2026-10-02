@@ -11,6 +11,7 @@ import {
   GARDEN_BASKET_LAYOUT,
   GARDEN_CAMERA_ZOOM,
   GARDEN_CROP_SEAT,
+  GARDEN_LIBRARY_LAYOUT,
   GARDEN_MOUND_PX,
   GARDEN_TOOL_ART,
   GARDEN_ZOOM_LAYOUT,
@@ -78,6 +79,26 @@ test("mound pixels are the placement source of truth", () => {
       [1101, 712],
     ],
   );
+});
+
+test("little library covers the right-hand WANTED post and clears the wood sign and mounds", () => {
+  const hit = GARDEN_LIBRARY_LAYOUT.hit;
+  const texW = GARDEN_ZOOM_TEXTURE.width;
+  const texH = GARDEN_ZOOM_TEXTURE.height;
+  const x0 = hit.u0 * texW;
+  const y0 = hit.v0 * texH;
+  const x1 = hit.u1 * texW;
+  const y1 = hit.v1 * texH;
+  assert.ok(x0 > 1200, "sits on the right post");
+  assert.ok(y0 < 40, "covers the poster roof");
+  assert.ok(y1 > 540, "covers the poster post");
+  assert.ok(x1 <= texW);
+  const sign = uvToLocal(GARDEN_ZOOM_LAYOUT.sign, texW, texH);
+  assert.ok(sign.x < x0 - 80, "wood sign stays left of the library");
+  for (const mound of GARDEN_MOUND_PX) {
+    assert.ok(mound.x + GARDEN_ZOOM_LAYOUT.hit.rx < x0, `mound ${mound.x} stays tappable`);
+  }
+  assert.ok(GARDEN_BASKET_LAYOUT.origin.v > hit.v1, "basket stays below the library");
 });
 
 test("white-peak anchors sit tens of pixels off the old regular grid", () => {

@@ -1,4 +1,4 @@
-import { cropKindForTier, type CropKind, type FarmPlayerCard, type PublicSharedGoal } from "@farmhand/shared";
+import { cropKindForTier, type CropKind, type FarmPlayerCard } from "@farmhand/shared";
 import { Container, Graphics, Point, Sprite, Text, type Application } from "pixi.js";
 import { ACCENTS } from "../theme";
 import { ExhaustPuff, PaintedCow } from "./ambient";
@@ -6,8 +6,6 @@ import type { Atlas } from "./atlas";
 import { coverFit } from "./draw";
 import type { PixiEngine } from "./engine";
 import { SparkleField } from "./fx";
-import { FamilyJarTray, familyJarVisible } from "./familyJar";
-import { CorkboardHotspot, type WantedJob } from "./jobBoard";
 import {
   FARM_MOUND_COVER_PX,
   cropCoverScale,
@@ -50,14 +48,9 @@ export class FarmScene {
   private cow: PaintedCow;
   private exhaust: ExhaustPuff;
   private store: Container;
-  private familyJar: FamilyJarTray;
-  private jobBoard: CorkboardHotspot;
   private app: Application;
   private onPlayer: (id: string) => void;
   private onStore: () => void;
-  private onFamilyJar: (goalId: string) => void;
-  private onFamilyJarOverflow: () => void;
-  private onJobBoard: () => void;
   private onAvatar: (id: string) => void;
   private t = 0;
 
@@ -68,18 +61,12 @@ export class FarmScene {
     handlers: {
       onPlayer: (id: string) => void;
       onStore: () => void;
-      onJobBoard?: () => void;
       onAvatar?: (id: string) => void;
-      onFamilyJar?: (goalId: string) => void;
-      onFamilyJarOverflow?: () => void;
     },
   ) {
     this.app = engine.app;
     this.onPlayer = handlers.onPlayer;
     this.onStore = handlers.onStore;
-    this.onFamilyJar = handlers.onFamilyJar ?? (() => undefined);
-    this.onFamilyJarOverflow = handlers.onFamilyJarOverflow ?? (() => undefined);
-    this.onJobBoard = handlers.onJobBoard ?? (() => undefined);
     this.onAvatar = handlers.onAvatar ?? (() => undefined);
 
     this.ground = new Sprite(painted.playfield);
@@ -104,18 +91,6 @@ export class FarmScene {
 
     this.store = this.makeStoreHit(tw, th);
     this.playfield.addChild(this.store);
-
-    this.familyJar = new FamilyJarTray(
-      atlas,
-      tw,
-      th,
-      (goalId) => this.onFamilyJar(goalId),
-      () => this.onFamilyJarOverflow(),
-    );
-    this.playfield.addChild(this.familyJar.root);
-
-    this.jobBoard = new CorkboardHotspot(painted, tw, th, () => this.onJobBoard());
-    this.playfield.addChild(this.jobBoard.root);
 
     for (let i = 0; i < 3; i++) {
       const bed = new GardenHotspot(
@@ -177,24 +152,6 @@ export class FarmScene {
     });
   }
 
-  /** OPEN or READY jars on the wood tray. Empty still shows the ghost jar. */
-  setFamilyJars(jars: PublicSharedGoal[]) {
-    this.familyJar.setJars(jars.filter(familyJarVisible));
-  }
-
-  setFamilyJar(jar: PublicSharedGoal | null) {
-    this.setFamilyJars(jar && familyJarVisible(jar) ? [jar] : []);
-  }
-
-  /** Game Engineer: highlighted open chores for Wanted rotation. */
-  setWantedJobs(jobs: WantedJob[], dwellSeconds?: number) {
-    this.jobBoard.setJobs(jobs, dwellSeconds);
-  }
-
-  getCurrentWantedJob() {
-    return this.jobBoard.getCurrentJob();
-  }
-
   /** QA only (`/qa/farm?markers=1`). Default off — never drawn on the live farm. */
   setMoundMarkers(on: boolean) {
     this.beds.forEach((bed) => bed.setMoundMarkers(on));
@@ -226,8 +183,6 @@ export class FarmScene {
   private tick(dt: number) {
     this.t += dt;
     this.cow.update(dt);
-    this.familyJar.update(dt, this.t);
-    this.jobBoard.update(dt);
     this.beds.forEach((b) => b.breathe(this.t));
   }
 
@@ -236,19 +191,12 @@ export class FarmScene {
     this.app.renderer.off("resize", this.onResize);
     if (farmDebugOwner === this) {
       farmDebugOwner = null;
-      const w = globalThis as { __farmhandFarmDebug?: unknown; __farmhandFarmCanvas?: unknown; __farmhandJobBoard?: unknown };
+      const w = globalThis as { __farmhandFarmDebug?: unknown; __farmhandFarmCanvas?: unknown };
       if (w.__farmhandFarmDebug) delete w.__farmhandFarmDebug;
       if (w.__farmhandFarmCanvas) delete w.__farmhandFarmCanvas;
-      if (w.__farmhandJobBoard) delete w.__farmhandJobBoard;
     }
     this.root.removeFromParent();
     this.root.destroy({ children: true, texture: false, textureSource: false });
-  }
-
-  debugJobBoard() {
-    const tw = this.ground.texture.width || PLAYFIELD_TEXTURE.width;
-    const th = this.ground.texture.height || PLAYFIELD_TEXTURE.height;
-    return this.jobBoard.debugHit(tw, th);
   }
 
   debugPlants() {
@@ -280,11 +228,9 @@ function exposeFarmDebug(scene: FarmScene) {
   const w = globalThis as {
     __farmhandFarmDebug?: () => ReturnType<FarmScene["debugPlants"]>;
     __farmhandFarmCanvas?: () => HTMLCanvasElement | OffscreenCanvas | undefined;
-    __farmhandJobBoard?: () => ReturnType<FarmScene["debugJobBoard"]>;
   };
   w.__farmhandFarmDebug = () => scene.debugPlants();
   w.__farmhandFarmCanvas = () => scene["app"]?.canvas;
-  w.__farmhandJobBoard = () => scene.debugJobBoard();
 }
 
 function gardenSignText(

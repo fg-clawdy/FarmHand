@@ -1,8 +1,17 @@
-import { PLOTS_PER_GARDEN, type GameConfig, type PublicPlot } from "@farmhand/shared";
+import {
+  compactJarTitle,
+  jarProgressLabel,
+  PLOTS_PER_GARDEN,
+  type FarmPlayerCard,
+  type GameConfig,
+  type PublicPlot,
+  type PublicSharedGoal,
+} from "@farmhand/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, type AccoladeUnlock, type BasketItem, type GardenPlayer, type HarvestReward, type PublicChore } from "../api";
 import { AcornArt, BackArrow, SceneShell, StarIcon } from "../art";
+import FamilyJarSheet from "../components/FamilyJarSheet";
 import HarvestCelebration from "../components/HarvestCelebration";
 import HarvestBasketSheet, { MARKET_TRUCK_DRIVE_MS } from "../components/HarvestBasketSheet";
 import AcornPour from "../components/AcornPour";
@@ -16,6 +25,7 @@ import PinPad from "../components/PinPad";
 import PlantPicker from "../components/PlantPicker";
 import PlotSheet from "../components/PlotSheet";
 import ProfileSheet from "../components/ProfileSheet";
+import Sheet from "../components/Sheet";
 import SelfieCapture from "../components/SelfieCapture";
 import {
   cheapestSeedCost,
@@ -31,6 +41,7 @@ import {
   type GardenTool,
 } from "../pixi/gardenLayout";
 import { log } from "../logger";
+import { libraryWindow } from "../pixi/libraryShelfLayout";
 import { useGardenPixi } from "../pixi/usePixi";
 import { useGardenIdleLock } from "../hooks/useGardenIdleLock";
 
@@ -258,6 +269,9 @@ function GardenPlay({
   const [shownSeeds, setShownSeeds] = useState(player.seeds + player.provisionalSeeds);
   const [chores, setChores] = useState<PublicChore[]>([]);
   const [choreTimezone, setChoreTimezone] = useState("America/Chicago");
+  const [familyJars, setFamilyJars] = useState<PublicSharedGoal[]>([]);
+  const [jarId, setJarId] = useState<string | null>(null);
+  const [overflowOpen, setOverflowOpen] = useState(false);
 
   function celebrateClaimSeeds(
     seedsGranted: number,
@@ -365,7 +379,53 @@ function GardenPlay({
     () => {
       if (!pour) setOverlay({ type: "basket" });
     },
+    {
+      onJar: (id) => {
+        setOverflowOpen(false);
+        setJarId(id);
+      },
+      onOverflow: () => setOverflowOpen(true),
+    },
   );
+
+  useEffect(() => {
+    let dead = false;
+    async function pull() {
+      try {
+        const data = await api.familyJar();
+        if (dead) return;
+        const incoming = (data.familyJars ?? (data.familyJar ? [data.familyJar] : [])).filter(
+          (jar) => jar.status === "OPEN" || jar.status === "READY",
+        );
+        setFamilyJars((prev) =>
+          incoming.map((jar) => {
+            const old = prev.find((item) => item.id === jar.id);
+            if (old && old.filledStars > jar.filledStars && old.status === jar.status) {
+              return { ...jar, filledStars: old.filledStars };
+            }
+            return jar;
+          }),
+        );
+      } catch {
+        /* empty shelves stay up */
+      }
+    }
+    void pull();
+    const timer = window.setInterval(() => void pull(), 8000);
+    return () => {
+      dead = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    sceneRef.current?.setFamilyJars(familyJars);
+  }, [familyJars, ready, sceneRef]);
+
+  useEffect(() => {
+    if (jarId && !familyJars.some((jar) => jar.id === jarId)) setJarId(null);
+    if (libraryWindow(familyJars).overflow === 0) setOverflowOpen(false);
+  }, [familyJars, jarId]);
 
   useEffect(() => {
     if (pour) return;
@@ -459,6 +519,25 @@ function GardenPlay({
     sceneRef.current?.setGlow(glow);
   }, [glow, ready, sceneRef]);
 
+  const selectedJar = familyJars.find((jar) => jar.id === jarId) ?? null;
+  const kidCard: FarmPlayerCard = {
+    id: player.id,
+    name: player.name,
+    mascot: player.mascot,
+    avatarKind: player.avatarKind,
+    avatarPreset: player.avatarPreset ?? null,
+    avatarUrl: player.avatarUrl ?? null,
+    seeds: player.seeds,
+    provisionalSeeds: player.provisionalSeeds,
+    points: player.points,
+    fertilizer: player.fertilizer,
+    seedShards: player.seedShards,
+    canWater: player.water.canWater,
+    plots: player.plots,
+    hasPin: player.hasPin,
+    unlocked: player.unlocked,
+    isActive: player.isActive,
+  };
   const selected = overlay && "slot" in overlay ? plots.find((p) => p.slot === overlay.slot) : null;
   const livePlayer: GardenPlayer = {
     ...player,
@@ -762,6 +841,40 @@ function GardenPlay({
             applyGarden(next);
             setOverlay(null);
           }}
+        />
+      )}
+      {overflowOpen && (
+        <Sheet title="More goals" onClose={() => setOverflowOpen(false)}>
+          <div className="sheet-actions">
+            {libraryWindow(familyJars).hidden.map((jar) => (
+              <button
+                key={jar.id}
+                className="btn gold"
+                type="button"
+                onClick={() => {
+                  setOverflowOpen(false);
+                  setJarId(jar.id);
+                }}
+              >
+                {jar.emoji} {compactJarTitle(jar.title, 22)} · {jarProgressLabel(jar.filledStars, jar.targetStars, jar.status)}
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
+      {selectedJar && (
+        <FamilyJarSheet
+          jar={selectedJar}
+          players={[kidCard]}
+          onClose={() => setJarId(null)}
+          onUpdated={(next) =>
+            setFamilyJars((list) => {
+              const stillVisible = next.status === "OPEN" || next.status === "READY";
+              return stillVisible
+                ? list.map((jar) => (jar.id === next.id ? next : jar))
+                : list.filter((jar) => jar.id !== next.id);
+            })
+          }
         />
       )}
             {error && <div className="toast">{error}</div>}
