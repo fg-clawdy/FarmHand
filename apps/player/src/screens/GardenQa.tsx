@@ -76,6 +76,20 @@ function qaPlots(pack: string): PublicPlot[] {
       plot(8, 1, 4, true),
     ];
   }
+  // Seed + first-grow seating proof: tall seeds, pumpkin stage 2, cotton sprout.
+  if (pack === "seat") {
+    return [
+      plot(0, 1, 1), // corn seed
+      plot(1, 2, 1), // cotton seed
+      plot(2, 6, 1), // sunflower seed
+      plot(3, 5, 1), // pumpkin seed
+      plot(4, 4, 1), // strawberry seed
+      plot(5, 5, 2), // pumpkin grow (stage 2)
+      plot(6, 1, 2), // corn grow
+      plot(7, 2, 2), // cotton grow
+      plot(8, 6, 2), // sunflower grow
+    ];
+  }
   // Ripe height proof: corn/cotton/strawberry/pumpkin/sunflower + tomato mid.
   if (pack === "raise") {
     return [

@@ -208,14 +208,16 @@ export const PLANTED_DISC_HIDE_FRAC = 0.22;
 export const PLANTED_DISC_HIDE_BY_SILHOUETTE = {
   // Bushy fruit overlaps the baked cookie — barely hard-clip; soil-aware fade removes mud.
   bushy: 0.08,
-  tall: 0.40,
+  // Fallback only. Tall kinds use TALL_PLANTED_HIDE_TOP so seeds are not scissored off.
+  tall: 0.15,
   mid: 0.22,
 } as const;
 export const PLANTED_FOOT_FADE_BY_SILHOUETTE = {
-  // Fracs of planted frame height. Bushy frames end just under fruit — fade the thin cookie fringe.
-  bushy: 0.16,
-  tall: 0.18,
-  mid: 0.20,
+  // Fracs of planted frame height. Must cover the baked disc above the seed/foot
+  // so soil-aware fade can clear the cookie. Fruit and seeds are not soil, so they stay.
+  bushy: 0.42,
+  tall: 0.40,
+  mid: 0.28,
 } as const;
 /** Basket picked art: keep hanging berries; only shave the lower cookie. */
 export const PICKED_DISC_HIDE_FRAC = 0.25;
@@ -226,10 +228,24 @@ export const PICKED_DISC_HIDE_FRAC = 0.25;
  * float the art up a whole garden row. Clip just under measured fruit bottoms.
  */
 export const BUSHY_PLANTED_HIDE_TOP: Partial<Record<CropKind, readonly number[]>> = {
-  // stage 1..4 — keep fruit, leave a thin cookie fringe for soil-aware fade
-  pumpkin: [720, 760, 780, 800],
-  strawberry: [360, 380, 390, 385],
-  tomato: [720, 760, 780, 790],
+  // stage 1..4 — clip just under the seed / fruit, not through it.
+  // Pumpkin stage 2 fruit bottoms near cell Y 799; 760 was bisecting the gourd.
+  pumpkin: [730, 825, 805, 810],
+  // Strawberry seeds run to ~368; 360 was shaving the kernel bottoms.
+  strawberry: [400, 385, 400, 400],
+  tomato: [730, 770, 790, 820],
+};
+
+/**
+ * Absolute hideTop (full-cell Y) for tall planted frames.
+ * Disc-frac 0.40 sat above the opaque art, so corn/sunflower/cotton seeds
+ * never entered the sprite (and grow stages read as cut-off stubs).
+ */
+export const TALL_PLANTED_HIDE_TOP: Partial<Record<CropKind, readonly number[]>> = {
+  // Corn kernels sit ~752–786. Cotton seeds ~435–518. Sunflower seed head ~589–679.
+  corn: [810, 785, 790, 790],
+  cotton: [555, 500, 500, 460],
+  sunflower: [710, 660, 690, 670],
 };
 
 
@@ -286,18 +302,14 @@ function plantedSilhouette(kind: CropKind): "bushy" | "tall" | "mid" {
   return "mid";
 }
 
-function cropBushyPlantedBase(
+function cropAbsoluteHideFrame(
   crops: Record<CropKind, Texture[]>,
   kind: CropKind,
   stage: 1 | 2 | 3 | 4,
+  hideTop: number,
 ): Texture {
   const full = cropStageFrame(crops, kind, stage);
   if (full === Texture.EMPTY || !full.source) return full;
-  const tops = BUSHY_PLANTED_HIDE_TOP[kind];
-  const hideTop = tops?.[stage - 1];
-  if (hideTop == null) {
-    return cropFoliageFrame(crops, kind, stage, 4, PLANTED_DISC_HIDE_BY_SILHOUETTE.bushy);
-  }
   const frame = full.frame;
   const hideTopInFrame = hideTop - SHEET_INSET;
   const height = Math.max(24, Math.min(Math.round(hideTopInFrame), frame.height - 4));
@@ -308,6 +320,18 @@ function cropBushyPlantedBase(
   });
 }
 
+function cropBushyPlantedBase(
+  crops: Record<CropKind, Texture[]>,
+  kind: CropKind,
+  stage: 1 | 2 | 3 | 4,
+): Texture {
+  const hideTop = BUSHY_PLANTED_HIDE_TOP[kind]?.[stage - 1];
+  if (hideTop == null) {
+    return cropFoliageFrame(crops, kind, stage, 4, PLANTED_DISC_HIDE_BY_SILHOUETTE.bushy);
+  }
+  return cropAbsoluteHideFrame(crops, kind, stage, hideTop);
+}
+
 export function cropPlantedFrame(
   crops: Record<CropKind, Texture[]>,
   kind: CropKind,
@@ -316,14 +340,18 @@ export function cropPlantedFrame(
   const sil = plantedSilhouette(kind);
   const hideFrac = PLANTED_DISC_HIDE_BY_SILHOUETTE[sil];
   const fadeFrac = PLANTED_FOOT_FADE_BY_SILHOUETTE[sil];
-  const soilAware = sil === "bushy" || sil === "mid";
-  const key = `planted:v11:${kind}:${stage}:${sil}:${fadeFrac}:${soilAware ? "soil" : "all"}`;
+  // Tall seeds sit inside the cookie. Soil-aware fade drops umber and keeps kernels.
+  const soilAware = true;
+  const tallTop = sil === "tall" ? TALL_PLANTED_HIDE_TOP[kind]?.[stage - 1] : undefined;
+  const key = `planted:v12:${kind}:${stage}:${sil}:${fadeFrac}:${tallTop ?? "frac"}`;
   const hit = plantedFrameCache.get(key);
   if (hit) return hit;
   const hard =
     sil === "bushy"
       ? cropBushyPlantedBase(crops, kind, stage)
-      : cropFoliageFrame(crops, kind, stage, 4, hideFrac);
+      : tallTop != null
+        ? cropAbsoluteHideFrame(crops, kind, stage, tallTop)
+        : cropFoliageFrame(crops, kind, stage, 4, hideFrac);
   const faded = softFadeTextureFoot(hard, fadeFrac, soilAware);
   plantedFrameCache.set(key, faded);
   return faded;
@@ -380,6 +408,9 @@ function isBakedSoilPixel(r: number, g: number, b: number): boolean {
   if (g > r + 12 && g > 70) return false; // leaf green
   if (r > 200 && g > 200 && b > 180) return false; // cotton white
   if (r > 180 && g > 140 && b < 80) return false; // corn gold
+  // Tan seed kernels (cotton / sunflower / pumpkin). Lighter than cookie umber
+  // and only a fraction of a percent of disc pixels, so the plate still dissolves.
+  if (r > 150 && g > 100 && b > 55 && r > g && g >= b - 5 && r - b > 35 && r + g + b > 340) return false;
   // Cookie umbers — include purple-tinted strawberry mound fringe.
   if (r < 35 || r > 175) return false;
   if (g < 18 || g > 130) return false;
@@ -425,16 +456,28 @@ function softFadeTextureFoot(tex: Texture, fadeFrac: number, soilAware = false):
       const gC = data[i + 1]!;
       const bC = data[i + 2]!;
       const dx = (x - cx) / rx;
-      const r = Math.sqrt(dx * dx + dy * dy);
-      let tFade = (r - 0.18) / 0.82;
-      if (tFade <= 0) continue;
+      const rad = Math.sqrt(dx * dx + dy * dy);
+      let tFade = (rad - 0.18) / 0.82;
       if (tFade > 1) tFade = 1;
-      const s = tFade * tFade * (3 - 2 * tFade);
+      const s = tFade <= 0 ? 0 : tFade * tFade * (3 - 2 * tFade);
+      // Soil-aware: wipe cookie umber across the whole foot band, including the
+      // ellipse core (that core used to leave a dirt nub under seeds). Fruit,
+      // leaves, and seed kernels are not soil, so they keep their alpha.
+      if (soilAware && isBakedSoilPixel(rC, gC, bC)) {
+        let aMulSoil: number;
+        if (dy >= 0.1) aMulSoil = 0;
+        else {
+          const u = dy / 0.1;
+          aMulSoil = (1 - u) * (1 - u);
+        }
+        data[i + 3] = Math.round(a * aMulSoil);
+        continue;
+      }
+      if (tFade <= 0) continue;
       let aMul = Math.pow(1 - s, 2.2);
       // Absolute bottom strip of the cell is always cleared (cookie fringe / sheet pad).
       if (dy >= 0.78) aMul = 0;
-      // Soil-aware: fruit/foliage keep most alpha; only mud takes the full dissolve.
-      if (soilAware && !isBakedSoilPixel(rC, gC, bC)) {
+      if (soilAware) {
         // Slight soften at extreme foot so hard sheet edge doesn't flash, but keep fruit.
         if (dy < 0.92) continue;
         aMul = Math.max(aMul, 0.65);
