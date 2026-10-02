@@ -24,14 +24,15 @@ const TALL_THIN: ReadonlySet<CropKind> = new Set(["sunflower", "cotton", "corn"]
  * y < 1 places that contact on the mound UV with the faded fringe buried.
  */
 export const PLANTED_FOOT_ANCHOR: Record<CropKind, { x: number; y: number }> = {
-  // Opaque foot ≈ 0.98–1.0 of clipped frame. Bushy fruit needs a hair more hang so the
-  // round bottom overlaps the mound peak (thin stems read seated sooner).
-  strawberry: { x: 0.5, y: 0.90 },
-  pumpkin: { x: 0.5, y: 0.92 },
+  // Pivot on the opaque foot of the clipped frame. Smaller y hangs more of the
+  // sprite below the mound (reads buried). Tall stems seat near the texture bottom;
+  // bushy fruit keeps a little hang so the curve overlaps the mound peak.
+  strawberry: { x: 0.5, y: 0.95 },
+  pumpkin: { x: 0.5, y: 0.96 },
   tomato: { x: 0.5, y: 0.96 },
-  cotton: { x: 0.5, y: 0.98 },
-  corn: { x: 0.5, y: 0.98 },
-  sunflower: { x: 0.5, y: 0.98 },
+  cotton: { x: 0.5, y: 0.97 },
+  corn: { x: 0.5, y: 0.97 },
+  sunflower: { x: 0.5, y: 0.97 },
 };
 
 const DEFAULT_FOOT_ANCHOR = { x: 0.5, y: 1 } as const;
@@ -45,22 +46,23 @@ export function plantedFootAnchor(kind?: CropKind | null): { x: number; y: numbe
 export const CROP_SINK_FRAC = {
   // Positive bury once foot anchors sit on the opaque contact.
   // Undoes the #12 negative lift that floated bushy ripe after fruit-aware clips.
-  bushy: { seed: 0.03, grow: 0.05, ripe: 0.07 },
-  tall: { seed: 0.05, grow: 0.06, ripe: 0.08 },
-  mid: { seed: 0.03, grow: 0.04, ripe: 0.06 },
+  bushy: { seed: 0.02, grow: 0.04, ripe: 0.07 },
+  tall: { seed: 0.02, grow: 0.03, ripe: 0.05 },
+  mid: { seed: 0.02, grow: 0.03, ripe: 0.05 },
 } as const;
 
 /** Optional per-kind sink overrides (frac of coverPx). Prefer anchors; keep these small. */
 export const CROP_SINK_FRAC_BY_KIND: Partial<
   Record<CropKind, { seed: number; grow: number; ripe: number }>
 > = {
-  // Extra ripe bury for round fruit so the curve kisses/overlaps the mound peak.
-  strawberry: { seed: 0.05, grow: 0.10, ripe: 0.22 },
-  pumpkin: { seed: 0.06, grow: 0.12, ripe: 0.24 },
-  tomato: { seed: 0.04, grow: 0.06, ripe: 0.10 },
-  cotton: { seed: 0.06, grow: 0.08, ripe: 0.11 },
-  corn: { seed: 0.05, grow: 0.06, ripe: 0.08 },
-  sunflower: { seed: 0.05, grow: 0.06, ripe: 0.08 },
+  // Seed/grow stay shallow so kernels and the first pumpkin aren't pushed under the mound.
+  // Ripe round fruit still overlaps the peak.
+  strawberry: { seed: 0.03, grow: 0.045, ripe: 0.18 },
+  pumpkin: { seed: 0.02, grow: 0.07, ripe: 0.20 },
+  tomato: { seed: 0.03, grow: 0.04, ripe: 0.10 },
+  cotton: { seed: 0.02, grow: 0.03, ripe: 0.06 },
+  corn: { seed: 0.015, grow: 0.025, ripe: 0.05 },
+  sunflower: { seed: 0.05, grow: 0.055, ripe: 0.07 },
 };
 
 export type CropSilhouette = "bushy" | "tall" | "mid";
