@@ -91,6 +91,14 @@ export class SparkleField {
     for (const spr of this.sprites) spr.visible = on;
   }
 
+  /** Warm, low-glow sparkles for a full jar. */
+  setSoft(on: boolean) {
+    for (const spr of this.sprites) {
+      spr.blendMode = on ? "normal" : "add";
+      spr.tint = on ? 0xffe3a1 : 0xffffff;
+    }
+  }
+
   update(t: number) {
     if (!this.active) return;
     this.sprites.forEach((spr, i) => {

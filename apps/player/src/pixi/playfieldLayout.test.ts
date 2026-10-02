@@ -47,7 +47,7 @@ test("cow blockers include barn, tractor, hay, stand, corkboard, and gardens", (
     assert.ok(keys.includes(key), key);
   }
   assert.ok(!keys.includes("mamaCow"));
-  assert.equal(cowForbiddenRects(1536, 1024).length, 8);
+  assert.equal(cowForbiddenRects(1536, 1024).length, 9);
 });
 
 test("job board ground stake sits left of the title, right of the exhaust, above gardens", () => {

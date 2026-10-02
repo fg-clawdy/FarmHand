@@ -2,6 +2,7 @@ import {
   GIVE_CHIP_AMOUNTS,
   PUT_BACK_WINDOW_SECONDS,
   SHARED_GOAL_COPY,
+  jarTint,
   type FarmPlayerCard,
   type PublicSharedGoal,
 } from "@farmhand/shared";
@@ -100,19 +101,27 @@ export default function FamilyJarSheet({
 }
 
 function JarGlass({
+  jar,
   ratio,
   ready,
   glassRef,
 }: {
+  jar: PublicSharedGoal;
   ratio: number;
   ready: boolean;
   glassRef: RefObject<HTMLDivElement>;
 }) {
   const clamped = Math.max(0, Math.min(1, ratio));
+  const tint = jarTint(jar.tintIndex ?? 0);
   return (
-    <div className={`jar-glass${ready ? " ready" : ""}`} ref={glassRef} aria-hidden="true">
-      <div className="jar-lid" />
-      <div className="jar-fill" style={{ height: `${Math.round(clamped * 100)}%` }} />
+    <div
+      className={`jar-glass${ready ? " ready" : ""}`}
+      ref={glassRef}
+      aria-hidden="true"
+      style={{ background: tint.glass, borderColor: tint.rim }}
+    >
+      <div className="jar-lid">{jar.artUrl ? <img src={jar.artUrl} alt="" /> : jar.emoji}</div>
+      <div className="jar-fill" style={{ height: `${Math.round(clamped * 100)}%`, background: tint.fill }} />
     </div>
   );
 }
@@ -285,7 +294,7 @@ function PourBody({
 
   return (
     <Sheet title={`${jar.emoji} ${jar.title}`} onClose={onClose} className="family-jar-sheet">
-      <JarGlass ratio={shown} ready={ready} glassRef={glassRef} />
+      <JarGlass jar={jar} ratio={shown} ready={ready} glassRef={glassRef} />
       <p aria-live="polite">{ready ? fill(SHARED_GOAL_COPY.ready, { title: jar.title }) : live || prompt}</p>
       {ready && <p>{SHARED_GOAL_COPY.readySubline}</p>}
       {coachOn && jar.status === "OPEN" && (

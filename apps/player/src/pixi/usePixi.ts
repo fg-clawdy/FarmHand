@@ -98,7 +98,8 @@ export function useFarmPixi(handlers: {
   onStore: () => void;
   onJobBoard: () => void;
   onAvatar?: (id: string) => void;
-  onFamilyJar?: () => void;
+  onFamilyJar?: (goalId: string) => void;
+  onFamilyJarOverflow?: () => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<FarmScene | null>(null);
@@ -125,7 +126,8 @@ export function useFarmPixi(handlers: {
           onStore: () => handlersRef.current.onStore(),
           onJobBoard: () => handlersRef.current.onJobBoard(),
           onAvatar: (id) => handlersRef.current.onAvatar?.(id),
-          onFamilyJar: () => handlersRef.current.onFamilyJar?.(),
+          onFamilyJar: (goalId) => handlersRef.current.onFamilyJar?.(goalId),
+          onFamilyJarOverflow: () => handlersRef.current.onFamilyJarOverflow?.(),
         });
         if (dead) {
           scene.destroy();

@@ -306,6 +306,7 @@ export const api = {
       storeStatus: string;
       config: GameConfig;
       familyJar: PublicSharedGoal | null;
+      familyJars?: PublicSharedGoal[];
     }>("/api/farm"),
   farmJobs: () => request<{ jobs: FamilyJob[]; timezone: string }>("/api/farm/jobs"),
   session: () => request<{ player: GardenPlayer | null; config?: GameConfig }>("/api/session"),

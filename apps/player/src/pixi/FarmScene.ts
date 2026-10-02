@@ -6,7 +6,7 @@ import type { Atlas } from "./atlas";
 import { coverFit } from "./draw";
 import type { PixiEngine } from "./engine";
 import { SparkleField } from "./fx";
-import { FamilyJarHotspot } from "./familyJar";
+import { FamilyJarTray, familyJarVisible } from "./familyJar";
 import { CorkboardHotspot, type WantedJob } from "./jobBoard";
 import {
   FARM_MOUND_COVER_PX,
@@ -50,12 +50,13 @@ export class FarmScene {
   private cow: PaintedCow;
   private exhaust: ExhaustPuff;
   private store: Container;
-  private familyJar: FamilyJarHotspot;
+  private familyJar: FamilyJarTray;
   private jobBoard: CorkboardHotspot;
   private app: Application;
   private onPlayer: (id: string) => void;
   private onStore: () => void;
-  private onFamilyJar: () => void;
+  private onFamilyJar: (goalId: string) => void;
+  private onFamilyJarOverflow: () => void;
   private onJobBoard: () => void;
   private onAvatar: (id: string) => void;
   private t = 0;
@@ -69,13 +70,15 @@ export class FarmScene {
       onStore: () => void;
       onJobBoard?: () => void;
       onAvatar?: (id: string) => void;
-      onFamilyJar?: () => void;
+      onFamilyJar?: (goalId: string) => void;
+      onFamilyJarOverflow?: () => void;
     },
   ) {
     this.app = engine.app;
     this.onPlayer = handlers.onPlayer;
     this.onStore = handlers.onStore;
     this.onFamilyJar = handlers.onFamilyJar ?? (() => undefined);
+    this.onFamilyJarOverflow = handlers.onFamilyJarOverflow ?? (() => undefined);
     this.onJobBoard = handlers.onJobBoard ?? (() => undefined);
     this.onAvatar = handlers.onAvatar ?? (() => undefined);
 
@@ -102,7 +105,13 @@ export class FarmScene {
     this.store = this.makeStoreHit(tw, th);
     this.playfield.addChild(this.store);
 
-    this.familyJar = new FamilyJarHotspot(atlas, tw, th, () => this.onFamilyJar());
+    this.familyJar = new FamilyJarTray(
+      atlas,
+      tw,
+      th,
+      (goalId) => this.onFamilyJar(goalId),
+      () => this.onFamilyJarOverflow(),
+    );
     this.playfield.addChild(this.familyJar.root);
 
     this.jobBoard = new CorkboardHotspot(painted, tw, th, () => this.onJobBoard());
@@ -168,9 +177,13 @@ export class FarmScene {
     });
   }
 
-  /** OPEN or READY only. HAPPENED, CANCELLED, and null hide the jar. */
+  /** OPEN or READY jars on the wood tray. Empty still shows the ghost jar. */
+  setFamilyJars(jars: PublicSharedGoal[]) {
+    this.familyJar.setJars(jars.filter(familyJarVisible));
+  }
+
   setFamilyJar(jar: PublicSharedGoal | null) {
-    this.familyJar.setJar(jar);
+    this.setFamilyJars(jar && familyJarVisible(jar) ? [jar] : []);
   }
 
   /** Game Engineer: highlighted open chores for Wanted rotation. */

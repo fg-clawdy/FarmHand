@@ -1,4 +1,11 @@
-import { type FarmPlayerCard, type GameConfig, type PublicSharedGoal } from "@farmhand/shared";
+import {
+  compactJarTitle,
+  jarProgressLabel,
+  trayWindow,
+  type FarmPlayerCard,
+  type GameConfig,
+  type PublicSharedGoal,
+} from "@farmhand/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type FamilyJob } from "../api";
@@ -7,6 +14,7 @@ import FamilyJarSheet from "../components/FamilyJarSheet";
 import FarmChoreClaim from "../components/FarmChoreClaim";
 import FarmJobFlow from "../components/FarmJobFlow";
 import PinPad from "../components/PinPad";
+import Sheet from "../components/Sheet";
 import StoreSheet from "../components/StoreSheet";
 import { familyJarVisible } from "../pixi/familyJar";
 import { useFarmPixi } from "../pixi/usePixi";
@@ -17,8 +25,9 @@ export default function FarmDashboard() {
   const [config, setConfig] = useState<GameConfig | null>(null);
   const [jobs, setJobs] = useState<FamilyJob[]>([]);
   const [storeOpen, setStoreOpen] = useState(false);
-  const [familyJar, setFamilyJar] = useState<PublicSharedGoal | null>(null);
-  const [jarOpen, setJarOpen] = useState(false);
+  const [familyJars, setFamilyJars] = useState<PublicSharedGoal[]>([]);
+  const [jarId, setJarId] = useState<string | null>(null);
+  const [overflowOpen, setOverflowOpen] = useState(false);
   const [jobsOpen, setJobsOpen] = useState(false);
   const [claimJob, setClaimJob] = useState<FamilyJob | null>(null);
   const [toast, setToast] = useState("");
@@ -102,7 +111,11 @@ export default function FarmDashboard() {
       void handlePlayerTap(id);
     },
     onStore: () => setStoreOpen(true),
-    onFamilyJar: () => setJarOpen(true),
+    onFamilyJar: (id) => {
+      setOverflowOpen(false);
+      setJarId(id);
+    },
+    onFamilyJarOverflow: () => setOverflowOpen(true),
     onAvatar: (id) => {
       void handleAvatarTap(id);
     },
@@ -140,11 +153,13 @@ export default function FarmDashboard() {
       setPlayers(farm.players);
       setConfig(farm.config);
       setJobs(board.jobs);
-      setFamilyJar((prev) => {
-        const next = familyJarVisible(farm.familyJar) ? farm.familyJar : null;
-        if (!next) return null;
-        if (prev && prev.id === next.id && prev.filledStars > next.filledStars && prev.status === next.status) return prev;
-        return next;
+      setFamilyJars((prev) => {
+        const incoming = (farm.familyJars ?? (farm.familyJar ? [farm.familyJar] : [])).filter(familyJarVisible);
+        return incoming.map((jar) => {
+          const old = prev.find((item) => item.id === jar.id);
+          if (old && old.filledStars > jar.filledStars && old.status === jar.status) return { ...jar, filledStars: old.filledStars };
+          return jar;
+        });
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load the farm.");
@@ -167,16 +182,19 @@ export default function FarmDashboard() {
   }, [players, ready, sceneRef]);
 
   useEffect(() => {
-    sceneRef.current?.setFamilyJar(familyJar);
-  }, [familyJar, ready, sceneRef]);
+    sceneRef.current?.setFamilyJars(familyJars);
+  }, [familyJars, ready, sceneRef]);
 
   useEffect(() => {
-    if (!familyJar) setJarOpen(false);
-  }, [familyJar]);
+    if (jarId && !familyJars.some((jar) => jar.id === jarId)) setJarId(null);
+    if (trayWindow(familyJars).overflow === 0) setOverflowOpen(false);
+  }, [familyJars, jarId]);
 
   useEffect(() => {
     sceneRef.current?.setWantedJobs(jobs, config?.jobBoardPosterDwellSeconds);
   }, [jobs, config, ready, sceneRef]);
+
+  const selectedJar = familyJars.find((jar) => jar.id === jarId) ?? null;
 
   function handleClaimed(name: string) {
     setToast(`Seeds added to ${name}'s bag!`);
@@ -188,12 +206,38 @@ export default function FarmDashboard() {
     <div className="scene farm-hybrid">
       <div className="pixi-host" ref={hostRef} />
       {storeOpen && <StoreSheet players={players} onClose={() => setStoreOpen(false)} />}
-      {jarOpen && familyJar && (
+      {overflowOpen && (
+        <Sheet title="More jars" onClose={() => setOverflowOpen(false)}>
+          <div className="sheet-actions">
+            {trayWindow(familyJars).hidden.map((jar) => (
+              <button
+                key={jar.id}
+                className="btn gold"
+                type="button"
+                onClick={() => {
+                  setOverflowOpen(false);
+                  setJarId(jar.id);
+                }}
+              >
+                {jar.emoji} {compactJarTitle(jar.title, 22)} · {jarProgressLabel(jar.filledStars, jar.targetStars, jar.status)}
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
+      {selectedJar && (
         <FamilyJarSheet
-          jar={familyJar}
+          jar={selectedJar}
           players={players}
-          onClose={() => setJarOpen(false)}
-          onUpdated={(next) => setFamilyJar(familyJarVisible(next) ? next : null)}
+          onClose={() => setJarId(null)}
+          onUpdated={(next) =>
+            setFamilyJars((list) => {
+              const stillVisible = next.status === "OPEN" || next.status === "READY";
+              return stillVisible
+                ? list.map((jar) => (jar.id === next.id ? next : jar))
+                : list.filter((jar) => jar.id !== next.id);
+            })
+          }
         />
       )}
       {avatarKid && (
