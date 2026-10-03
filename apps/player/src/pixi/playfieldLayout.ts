@@ -30,11 +30,12 @@ export type UvRect = { u0: number; v0: number; u1: number; v1: number };
 export type PixelRect = { x0: number; y0: number; x1: number; y1: number };
 
 /**
- * Little library on the grass between the tractor and the calf.
- * Slightly smaller than the old floating stake (184×225) and lower so the post
- * meets the ground instead of hanging in the sky. Stays above the garden fences.
+ * Little library on the grass beside the tractor.
+ * The painted sprite is a tall house-on-a-post (554×1006), so the hit is narrower
+ * than the old floating stake (184×225) and the post still meets the grass.
+ * Stays above the garden fences and left of the calf.
  */
-const FARM_LIBRARY_HIT = { u0: 0.289, v0: 0.186, u1: 0.4, v1: 0.391 } as const satisfies UvRect;
+const FARM_LIBRARY_HIT = { u0: 0.3008, v0: 0.1475, u1: 0.39, v1: 0.3906 } as const satisfies UvRect;
 
 export const PLAYFIELD_TEXTURE = { width: 1536, height: 1024 } as const;
 

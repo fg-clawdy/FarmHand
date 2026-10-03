@@ -109,7 +109,7 @@ export const PAINTED_ART = {
   /** Front rim/lip drawn over produce bottoms (same canvas / true alpha nesting). */
   harvestBasketRim: "/art/painted/garden/harvest_basket_rim.png?v=3shallow",
   /** Open little library on the farm overview. Empty shelves; jars are drawn on top. */
-  littleLibrary: "/art/painted/farm/little_library.png?v=1",
+  littleLibrary: "/art/painted/farm/little_library.png?v=2",
 } as const;
 
 export type PaintedArt = {

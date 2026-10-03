@@ -46,38 +46,27 @@ export type LibraryHouseMetrics = {
 
 /**
  * House-on-a-post box. No door. Interior is the open shelf cavity.
- * Fractions are baked into `public/art/painted/farm/little_library.png`
- * (see apps/player/scripts/paintLittleLibrary.py). Jars sit on those planks.
+ * Fractions are measured on `public/art/painted/farm/little_library.png` (554×1006).
+ * Equal shelfPair pads (4% / 5%) put cubby bottoms on the painted plank tops
+ * (about 34% and 48.5% of the sprite height).
  */
 export function libraryHouseMetrics(box: { w: number; h: number }): LibraryHouseMetrics {
   const { w, h } = box;
-  // Front face only. The painted right wall and roof overhang sit outside this rect.
-  const bodyX = w * 0.04;
-  const bodyW = w * 0.78;
-  const bodyY = h * 0.145;
-  const bodyH = h * 0.55;
-  const wall = Math.max(6, bodyW * 0.075);
-  const eaveY = bodyY + h * 0.012;
-  const postW = Math.max(14, w * 0.16);
-  const postX = bodyX + bodyW * 0.42 - postW / 2;
-  const postY = bodyY + bodyH - h * 0.008;
+  const body = { x: w * 0.08, y: h * 0.15, w: w * 0.72, h: h * 0.42 };
+  const postW = Math.max(8, w * 0.14);
+  const postY = body.y + body.h;
   return {
-    body: { x: bodyX, y: bodyY, w: bodyW, h: bodyH },
-    interior: {
-      x: bodyX + wall * 0.85,
-      y: bodyY + bodyH * 0.08,
-      w: bodyW - wall * 1.7,
-      h: bodyH * 0.84,
-    },
-    post: { x: postX, y: postY, w: postW, h: Math.max(8, h - postY) },
+    body,
+    interior: { x: w * 0.155, y: h * 0.198, w: w * 0.53, h: h * 0.299 },
+    post: { x: body.x + body.w * 0.48 - postW / 2, y: postY, w: postW, h: Math.max(8, h - postY) },
     roof: {
-      apexX: bodyX + bodyW * 0.46,
-      apexY: h * 0.018,
-      left: bodyX - w * 0.035,
-      right: bodyX + bodyW + w * 0.015,
-      eaveY,
+      apexX: body.x + body.w * 0.42,
+      apexY: h * 0.02,
+      left: w * 0.02,
+      right: w * 0.9,
+      eaveY: body.y + h * 0.02,
     },
-    star: { x: bodyX + bodyW * 0.46, y: h * 0.078, r: Math.max(5, w * 0.042) },
+    star: { x: body.x + body.w * 0.42, y: h * 0.09, r: Math.max(4, w * 0.045) },
   };
 }
 
