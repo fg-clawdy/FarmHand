@@ -422,7 +422,7 @@ class ShelfJar {
 /**
  * Neighborhood little free library on the farm overview.
  * Open shelves, no door. Stays visible when every shelf is empty.
- * The house is the painted isometric sprite; jars are drawn in the same soft glass style.
+ * The house is the painted front-facing sprite; jars are drawn in the same soft glass style.
  */
 export class LittleLibrary {
   readonly root = new Container();

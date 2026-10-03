@@ -11,6 +11,6 @@ Texture is **1536×1024**. UV anchors (fractions of the painting) live in `apps/
 | `plants/plant_*_stages.png` | 4-frame horizontal crop sheets (left→right: seed, seedling, buds, ripe). Frame width 480. Pivot on the soil-disc center of each painted garden mound. Crop **names are not painted on the art** — Pixi/React labels use `/api` tier names. |
 | `garden/garden_zoom_3x3.jpg` | Zoomed garden close-up: fenced dirt with **nine empty mounds**, blank back sign, no animals. Cover-fit. |
 | `garden/tool_seeds.png` / `tool_water.png` / `tool_fert.png` | Garden toolbar icons (PNG, real alpha). |
-| `farm/little_library.png` | Farm-overview little free library (554×1006, open shelves, no door). Isometric painted house on a post, matching the barn and tractor. Jars are drawn on the measured shelf lips at runtime. |
+| `farm/little_library.png` | Farm-overview little free library (559×1048, open shelves, no door). Front-facing painted house on a post, matching the barn and tractor. Jars are drawn on the measured shelf lips at runtime. |
 
 No Holstein is baked into the playfield. Only the animated calf is drawn; it weaves around barn, tractor, hay, stand, and garden fences.

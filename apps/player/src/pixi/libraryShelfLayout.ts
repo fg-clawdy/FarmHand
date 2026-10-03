@@ -46,27 +46,27 @@ export type LibraryHouseMetrics = {
 
 /**
  * House-on-a-post box. No door. Interior is the open shelf cavity.
- * Fractions are measured on `public/art/painted/farm/little_library.png` (554×1006).
+ * Fractions are measured on the front-facing `little_library.png` (559×1048).
  * Equal shelfPair pads (4% / 5%) put cubby bottoms on the painted plank tops
- * (about 34% and 48.5% of the sprite height).
+ * (about 33.4% and 47.7% of the sprite height).
  */
 export function libraryHouseMetrics(box: { w: number; h: number }): LibraryHouseMetrics {
   const { w, h } = box;
-  const body = { x: w * 0.08, y: h * 0.15, w: w * 0.72, h: h * 0.42 };
-  const postW = Math.max(8, w * 0.14);
+  const body = { x: w * 0.06, y: h * 0.12, w: w * 0.88, h: h * 0.55 };
+  const postW = Math.max(8, w * 0.16);
   const postY = body.y + body.h;
   return {
     body,
-    interior: { x: w * 0.155, y: h * 0.198, w: w * 0.53, h: h * 0.299 },
-    post: { x: body.x + body.w * 0.48 - postW / 2, y: postY, w: postW, h: Math.max(8, h - postY) },
+    interior: { x: w * 0.17, y: h * 0.194, w: w * 0.64, h: h * 0.295 },
+    post: { x: body.x + body.w * 0.5 - postW / 2, y: postY, w: postW, h: Math.max(8, h - postY) },
     roof: {
-      apexX: body.x + body.w * 0.42,
+      apexX: body.x + body.w * 0.5,
       apexY: h * 0.02,
       left: w * 0.02,
-      right: w * 0.9,
+      right: w * 0.98,
       eaveY: body.y + h * 0.02,
     },
-    star: { x: body.x + body.w * 0.42, y: h * 0.09, r: Math.max(4, w * 0.045) },
+    star: { x: body.x + body.w * 0.5, y: h * 0.08, r: Math.max(4, w * 0.05) },
   };
 }
 

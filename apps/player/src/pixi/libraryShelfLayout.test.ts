@@ -124,16 +124,16 @@ test("overflow past the shelf cap adds one chip and keeps jars readable", () => 
 });
 
 test("painted shelf lips sit on the little library planks", () => {
-  const box = { w: 554, h: 1006 };
+  const box = { w: 559, h: 1048 };
   const house = libraryHouseMetrics(box);
   const layout = libraryShelfLayout(house.interior, 2, 0);
   const lips = layout.slots.map((slot) => (house.interior.y + slot.y + slot.h) / box.h);
-  assert.ok(Math.abs(lips[0]! - 0.34) < 0.012, `top lip ${lips[0]}`);
-  assert.ok(Math.abs(lips[1]! - 0.485) < 0.012, `bottom lip ${lips[1]}`);
+  assert.ok(Math.abs(lips[0]! - 0.334) < 0.012, `top lip ${lips[0]}`);
+  assert.ok(Math.abs(lips[1]! - 0.477) < 0.012, `bottom lip ${lips[1]}`);
   const woodLeft = house.interior.x / box.w;
   const woodRight = (house.interior.x + house.interior.w) / box.w;
-  assert.ok(woodLeft > 0.12 && woodLeft < 0.2, "interior starts on the left shelf board");
-  assert.ok(woodRight > 0.64 && woodRight < 0.74, "interior ends before the side wall");
+  assert.ok(woodLeft > 0.14 && woodLeft < 0.22, "interior starts inside the left jamb");
+  assert.ok(woodRight > 0.75 && woodRight < 0.88, "interior ends inside the right jamb");
 });
 
 test("house metrics leave an open cabinet inside the post and roof", () => {

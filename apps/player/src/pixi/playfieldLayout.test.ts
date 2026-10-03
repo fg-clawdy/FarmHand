@@ -72,12 +72,12 @@ test("farm overview shows the little library and not a job board or tube chip", 
   const local = uvRectToLocal(hit, 1536, 1024);
   const width = local.x1 - local.x0;
   const height = local.y1 - local.y0;
-  // Painted house is a tall 554×1006 sprite, narrower than the old 184×225 stake.
+  // Front-facing painted house is 559×1048, narrower than the old 184×225 stake.
   assert.ok(width >= 120, "wide enough for two jars");
   assert.ok(height >= 180, "tall enough for open shelves");
   assert.ok(width <= 176, "narrower than the old sticker");
   assert.ok(width * height < 184 * 225, "smaller footprint than the old floating stake");
-  assert.ok(Math.abs(width / height - 554 / 1006) < 0.02, "hit matches the painted sprite");
+  assert.ok(Math.abs(width / height - 559 / 1048) < 0.02, "hit matches the painted sprite");
   assert.ok(hit.v0 >= 0.14, "roof sits down in the scene");
   assert.ok(hit.v1 >= 0.37, "post reaches the grass");
 });
