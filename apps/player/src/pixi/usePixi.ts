@@ -57,6 +57,7 @@ export function auditPaintedArt(painted: PaintedArt): string[] {
   painted.smokeFrames.forEach((t, i) => textureOk(t, `smoke[${i}]`, misses));
   painted.cowWalk.forEach((t, i) => textureOk(t, `cowWalk[${i}]`, misses));
   painted.cowEat.forEach((t, i) => textureOk(t, `cowEat[${i}]`, misses));
+  textureOk(painted.littleLibrary, "littleLibrary", misses);
   for (const [kind, frames] of Object.entries(painted.crops)) {
     frames.forEach((t, i) => textureOk(t, `crop:${kind}[${i}]`, misses));
   }

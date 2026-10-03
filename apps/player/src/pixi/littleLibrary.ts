@@ -3,7 +3,7 @@ import {
   tubeFillRatio,
   type PublicSharedGoal,
 } from "@farmhand/shared";
-import { Assets, Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
+import { Assets, CanvasSource, Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
 import type { Atlas } from "./atlas";
 import { SparkleField } from "./fx";
 import {
@@ -16,36 +16,221 @@ import {
 import { uvRectToLocal, type UvRect } from "./playfieldLayout";
 
 const INK = 0x3a2410;
-const RED = 0xc24b3e;
-const RED_DARK = 0x8a332c;
-const RED_ROOF = 0xb13e34;
-const CREAM = 0xf7ecd4;
-const CREAM_DEEP = 0xecd9b4;
-const WOOD = 0xc49262;
-const WOOD_DARK = 0x8d5a32;
-const CORK = 0xe4c48a;
-const STAR = 0xf2c56b;
+const JAR_RESOLUTION = 2;
 
-function hex(color: string) {
-  return Number.parseInt(color.slice(1), 16);
+function mixHex(color: string, amount: number) {
+  const n = Number.parseInt(color.slice(1), 16);
+  const toward = amount > 0 ? 255 : 0;
+  const k = Math.min(1, Math.abs(amount));
+  const ch = (shift: number) => {
+    const v = (n >> shift) & 255;
+    return Math.round(v + (toward - v) * k);
+  };
+  return `rgb(${ch(16)}, ${ch(8)}, ${ch(0)})`;
 }
 
-function drawStar(g: Graphics, cx: number, cy: number, r: number, color: number) {
-  const pts: number[] = [];
-  for (let i = 0; i < 10; i++) {
-    const ang = -Math.PI / 2 + (i * Math.PI) / 5;
-    const rad = i % 2 === 0 ? r : r * 0.42;
-    pts.push(cx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad);
+type JarGeom = {
+  cx: number;
+  corkH: number;
+  bodyTop: number;
+  bodyBot: number;
+  bodyW: number;
+  left: number;
+  right: number;
+  neckW: number;
+  neckL: number;
+  neckR: number;
+  shoulder: number;
+};
+
+/** Chubby mason jar silhouette in logical pixels. No stroke — the fill is the glass. */
+function traceJar(ctx: CanvasRenderingContext2D, w: number, h: number): JarGeom {
+  const cx = w / 2;
+  const corkH = h * 0.16;
+  const bodyTop = h * 0.25;
+  const bodyBot = h * 0.95;
+  const bodyW = w * 0.86;
+  const left = cx - bodyW / 2;
+  const right = cx + bodyW / 2;
+  const neckW = bodyW * 0.58;
+  const neckL = cx - neckW / 2;
+  const neckR = cx + neckW / 2;
+  const shoulder = bodyTop + h * 0.09;
+  const radius = Math.min(bodyW * 0.36, Math.max(3, (bodyBot - shoulder) * 0.48));
+  ctx.beginPath();
+  ctx.moveTo(neckL, bodyTop);
+  ctx.quadraticCurveTo(left + bodyW * 0.04, bodyTop + h * 0.015, left, shoulder);
+  ctx.lineTo(left, bodyBot - radius);
+  ctx.quadraticCurveTo(left, bodyBot, left + radius, bodyBot);
+  ctx.lineTo(right - radius, bodyBot);
+  ctx.quadraticCurveTo(right, bodyBot, right, bodyBot - radius);
+  ctx.lineTo(right, shoulder);
+  ctx.quadraticCurveTo(right - bodyW * 0.04, bodyTop + h * 0.015, neckR, bodyTop);
+  ctx.closePath();
+  return { cx, corkH, bodyTop, bodyBot, bodyW, left, right, neckW, neckL, neckR, shoulder };
+}
+
+function paintJarGlass(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  glass: string,
+  rim: string,
+  fill: string,
+  ratio: number,
+) {
+  const geom = traceJar(ctx, w, h);
+  ctx.save();
+  ctx.shadowColor = "rgba(48, 62, 18, 0.28)";
+  ctx.shadowBlur = Math.max(2, h * 0.04);
+  ctx.shadowOffsetY = Math.max(1, h * 0.015);
+  ctx.fillStyle = "rgba(48, 62, 18, 0.01)";
+  ctx.beginPath();
+  ctx.ellipse(geom.cx, h * 0.97, geom.bodyW * 0.36, Math.max(1.2, h * 0.028), 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  const glassPaint = ctx.createLinearGradient(geom.left, 0, geom.right, 0);
+  glassPaint.addColorStop(0, mixHex(glass, 0.28));
+  glassPaint.addColorStop(0.42, glass);
+  glassPaint.addColorStop(1, mixHex(glass, -0.16));
+  ctx.save();
+  ctx.shadowColor = "rgba(58, 36, 16, 0.18)";
+  ctx.shadowBlur = Math.max(1.5, w * 0.06);
+  ctx.fillStyle = glassPaint;
+  ctx.globalAlpha = 0.94;
+  traceJar(ctx, w, h);
+  ctx.fill();
+  ctx.restore();
+
+  const clamped = Math.max(0, Math.min(1, ratio));
+  if (clamped > 0.02) {
+    const span = (geom.bodyBot - geom.bodyTop) * 0.82;
+    const fillH = span * clamped;
+    const fillTop = geom.bodyBot - (geom.bodyBot - geom.bodyTop) * 0.07 - fillH;
+    ctx.save();
+    traceJar(ctx, w, h);
+    ctx.clip();
+    const liquid = ctx.createLinearGradient(0, fillTop, 0, geom.bodyBot);
+    liquid.addColorStop(0, mixHex(fill, 0.28));
+    liquid.addColorStop(0.16, fill);
+    liquid.addColorStop(1, mixHex(fill, -0.2));
+    ctx.fillStyle = liquid;
+    ctx.globalAlpha = 0.95;
+    ctx.fillRect(geom.left - 2, fillTop, geom.bodyW + 4, geom.bodyBot - fillTop + 4);
+    ctx.beginPath();
+    ctx.ellipse(geom.cx, fillTop, geom.bodyW * 0.4, Math.max(1.4, h * 0.032), 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255, 248, 220, 0.45)";
+    ctx.beginPath();
+    ctx.ellipse(geom.cx - geom.bodyW * 0.06, fillTop + h * 0.008, geom.bodyW * 0.16, Math.max(0.8, h * 0.012), 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
-  g.poly(pts);
-  g.fill({ color });
+
+  ctx.save();
+  traceJar(ctx, w, h);
+  ctx.clip();
+  const shade = ctx.createLinearGradient(geom.left, 0, geom.right, 0);
+  shade.addColorStop(0, "rgba(255,255,255,0.2)");
+  shade.addColorStop(0.4, "rgba(255,255,255,0)");
+  shade.addColorStop(1, "rgba(48, 32, 16, 0.2)");
+  ctx.fillStyle = shade;
+  ctx.fillRect(geom.left, geom.bodyTop, geom.bodyW, geom.bodyBot - geom.bodyTop);
+  ctx.fillStyle = "rgba(255,255,255,0.38)";
+  ctx.beginPath();
+  ctx.ellipse(
+    geom.left + geom.bodyW * 0.24,
+    geom.shoulder + (geom.bodyBot - geom.shoulder) * 0.32,
+    geom.bodyW * 0.07,
+    (geom.bodyBot - geom.shoulder) * 0.2,
+    -0.2,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  ctx.fillStyle = "rgba(48, 32, 16, 0.14)";
+  ctx.beginPath();
+  ctx.ellipse(geom.cx, geom.bodyBot - h * 0.025, geom.bodyW * 0.3, Math.max(1.2, h * 0.028), 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  const neckGrad = ctx.createLinearGradient(geom.neckL, 0, geom.neckR, 0);
+  neckGrad.addColorStop(0, mixHex(glass, 0.2));
+  neckGrad.addColorStop(1, mixHex(glass, -0.1));
+  ctx.fillStyle = neckGrad;
+  ctx.globalAlpha = 0.94;
+  ctx.beginPath();
+  ctx.roundRect(geom.neckL, geom.corkH * 0.78, geom.neckW, geom.bodyTop - geom.corkH * 0.62, 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  const corkW = geom.neckW * 1.12;
+  const cork = ctx.createLinearGradient(geom.cx - corkW / 2, 0, geom.cx + corkW / 2, 0);
+  cork.addColorStop(0, "#f6e2b4");
+  cork.addColorStop(0.55, "#e4c48a");
+  cork.addColorStop(1, "#b88848");
+  ctx.fillStyle = cork;
+  ctx.beginPath();
+  ctx.roundRect(geom.cx - corkW / 2, 1, corkW, geom.corkH, Math.min(5, corkW * 0.2));
+  ctx.fill();
+  ctx.strokeStyle = "rgba(120, 74, 32, 0.35)";
+  ctx.lineWidth = Math.max(0.6, w * 0.02);
+  for (let i = 0; i < 3; i++) {
+    const x = geom.cx - corkW * 0.22 + i * corkW * 0.2;
+    ctx.beginPath();
+    ctx.moveTo(x, 3);
+    ctx.quadraticCurveTo(x + w * 0.02, geom.corkH * 0.5, x - w * 0.01, geom.corkH - 2);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "rgba(255, 244, 214, 0.4)";
+  ctx.beginPath();
+  ctx.ellipse(geom.cx - corkW * 0.16, geom.corkH * 0.45, corkW * 0.08, geom.corkH * 0.28, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.save();
+  traceJar(ctx, w, h);
+  ctx.strokeStyle = rim;
+  ctx.globalAlpha = 0.38;
+  ctx.lineWidth = Math.max(1, geom.bodyW * 0.035);
+  ctx.stroke();
+  ctx.restore();
+
+  return geom;
+}
+
+function paintOverflowChip(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const chipW = w * 0.86;
+  const chipH = h * 0.62;
+  const x = (w - chipW) / 2;
+  const y = (h - chipH) / 2;
+  ctx.save();
+  ctx.shadowColor = "rgba(58, 36, 16, 0.25)";
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetY = 2;
+  const face = ctx.createLinearGradient(x, y, x, y + chipH);
+  face.addColorStop(0, "#fff4dc");
+  face.addColorStop(1, "#e4c894");
+  ctx.fillStyle = face;
+  ctx.beginPath();
+  ctx.roundRect(x, y, chipW, chipH, 8);
+  ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle = "rgba(120, 74, 32, 0.4)";
+  ctx.lineWidth = Math.max(1.25, w * 0.035);
+  ctx.beginPath();
+  ctx.roundRect(x, y, chipW, chipH, 8);
+  ctx.stroke();
 }
 
 /** One mason jar on a shelf, or the +N chip when more goals exist than fit. */
 class ShelfJar {
   readonly root = new Container();
-  private readonly body = new Graphics();
   private readonly hit = new Graphics();
+  private readonly canvas: HTMLCanvasElement;
+  private readonly source: CanvasSource;
+  private readonly texture: Texture;
+  private readonly view: Sprite;
   private readonly emoji: Text;
   private readonly plus: Text;
   private readonly lid = new Sprite(Texture.EMPTY);
@@ -58,6 +243,7 @@ class ShelfJar {
   private shown = 0;
   private target = 0;
   private ready = false;
+  private paintKey = "";
 
   constructor(
     atlas: Atlas,
@@ -71,6 +257,18 @@ class ShelfJar {
       if (this.mode === "overflow") this.onOverflow();
       else if (this.mode === "jar" && this.jarId) this.onTap(this.jarId);
     });
+
+    this.canvas = document.createElement("canvas");
+    this.source = new CanvasSource({
+      resource: this.canvas,
+      width: 4,
+      height: 4,
+      resolution: JAR_RESOLUTION,
+      transparent: true,
+    });
+    this.texture = new Texture({ source: this.source });
+    this.view = new Sprite(this.texture);
+    this.view.eventMode = "none";
 
     this.emoji = new Text({
       text: "",
@@ -90,7 +288,7 @@ class ShelfJar {
     this.lid.visible = false;
     this.sparkles = new SparkleField(atlas, 4);
     this.sparkles.setSoft(true);
-    this.root.addChild(this.hit, this.body, this.sparkles.root, this.lid, this.emoji, this.plus);
+    this.root.addChild(this.hit, this.view, this.sparkles.root, this.lid, this.emoji, this.plus);
   }
 
   resize(w: number, h: number) {
@@ -100,6 +298,7 @@ class ShelfJar {
     this.hit.rect(0, 0, w, h);
     this.hit.fill({ color: 0xffffff, alpha: 0.001 });
     this.root.hitArea = new Rectangle(0, 0, w, h);
+    this.paintKey = "";
   }
 
   setJar(jar: PublicSharedGoal) {
@@ -113,6 +312,7 @@ class ShelfJar {
     if (!same) {
       this.lid.visible = false;
       this.lid.texture = Texture.EMPTY;
+      this.paintKey = "";
     }
     const next = tubeFillRatio(jar.filledStars, jar.targetStars);
     if (!same) this.shown = next;
@@ -134,6 +334,7 @@ class ShelfJar {
     this.plus.visible = true;
     this.plus.text = `+${count}`;
     this.sparkles.setActive(false);
+    this.paintKey = "";
     this.draw(0);
   }
 
@@ -168,85 +369,64 @@ class ShelfJar {
     this.sparkles.update(t);
   }
 
+  release() {
+    this.view.texture = Texture.EMPTY;
+    this.texture.destroy(true);
+  }
+
   private draw(ratio: number) {
-    const g = this.body;
-    g.clear();
+    if (this.mode === "jar") this.emoji.visible = !this.lid.visible;
+    const key = `${this.mode}:${this.tintIndex}:${ratio.toFixed(3)}:${this.w.toFixed(1)}:${this.h.toFixed(1)}`;
+    if (key === this.paintKey) return;
+    this.paintKey = key;
+
+    const lw = Math.max(2, this.w);
+    const lh = Math.max(2, this.h);
+    if (Math.abs(this.source.width - lw) > 0.5 || Math.abs(this.source.height - lh) > 0.5) {
+      this.source.resize(lw, lh, JAR_RESOLUTION);
+    }
+    const ctx = this.source.context2D;
+    if (!ctx) return;
+    ctx.setTransform(JAR_RESOLUTION, 0, 0, JAR_RESOLUTION, 0, 0);
+    ctx.clearRect(0, 0, lw, lh);
+
     if (this.mode === "overflow") {
-      const chipW = this.w * 0.86;
-      const chipH = this.h * 0.72;
-      const x = (this.w - chipW) / 2;
-      const y = (this.h - chipH) / 2;
-      g.roundRect(x, y, chipW, chipH, 10);
-      g.fill({ color: CREAM });
-      g.roundRect(x, y, chipW, chipH, 10);
-      g.stroke({ color: WOOD_DARK, width: 3 });
+      paintOverflowChip(ctx, lw, lh);
       this.plus.position.set(this.w / 2, this.h / 2);
       this.plus.style.fontSize = Math.max(14, Math.round(this.w * 0.34));
+      this.view.width = this.w;
+      this.view.height = this.h;
+      this.source.update();
       return;
     }
     if (this.mode !== "jar") return;
 
     const tint = jarTint(this.tintIndex);
-    const clamped = Math.max(0, Math.min(1, ratio));
-    const corkH = this.h * 0.16;
-    const neckH = this.h * 0.06;
-    const bodyTop = corkH + neckH;
-    const bodyH = this.h - bodyTop;
-    const bodyW = this.w * 0.86;
-    const neckW = bodyW * 0.62;
-    const x = (this.w - bodyW) / 2;
-    const cx = this.w / 2;
-
-    g.roundRect(x, bodyTop, bodyW, bodyH, Math.min(14, bodyW * 0.28));
-    g.fill({ color: hex(tint.glass), alpha: 0.9 });
-
-    const pad = Math.max(3, bodyW * 0.1);
-    const maxFill = Math.max(0, bodyH - pad * 1.4);
-    const fillH = maxFill * clamped;
-    if (fillH > 1.2) {
-      const fillTop = bodyTop + bodyH - pad * 0.45 - fillH;
-      g.roundRect(x + pad, fillTop, bodyW - pad * 2, fillH, Math.min(10, (bodyW - pad * 2) * 0.28));
-      g.fill({ color: hex(tint.fill), alpha: 0.94 });
-      const starR = Math.max(3, Math.min(bodyW * 0.16, fillH * 0.28));
-      drawStar(g, cx, fillTop + fillH * 0.58, starR, 0xfff6d8);
-    }
-
-    g.roundRect(x + bodyW * 0.16, bodyTop + bodyH * 0.08, Math.max(2, bodyW * 0.08), bodyH * 0.28, 3);
-    g.fill({ color: 0xffffff, alpha: 0.45 });
-    g.roundRect(x, bodyTop, bodyW, bodyH, Math.min(14, bodyW * 0.28));
-    g.stroke({ color: hex(tint.rim), width: Math.max(2, bodyW * 0.045) });
-
-    const neckX = cx - neckW / 2;
-    g.roundRect(neckX, corkH * 0.85, neckW, neckH + 2, 3);
-    g.fill({ color: hex(tint.glass), alpha: 0.9 });
-    g.roundRect(neckX, corkH * 0.85, neckW, neckH + 2, 3);
-    g.stroke({ color: hex(tint.rim), width: 2 });
-
-    const corkW = neckW * 1.05;
-    g.roundRect(cx - corkW / 2, 1, corkW, corkH, 4);
-    g.fill({ color: CORK });
-    g.roundRect(cx - corkW / 2, 1, corkW, corkH * 0.35, 3);
-    g.fill({ color: 0xf3ddb0, alpha: 0.9 });
-
-    const badgeR = corkH * 0.72;
+    const geom = paintJarGlass(ctx, lw, lh, tint.glass, tint.rim, tint.fill, ratio);
+    const badgeR = geom.corkH * 0.72;
     this.emoji.visible = !this.lid.visible;
     this.emoji.style.fontSize = Math.max(10, Math.round(badgeR * 1.5));
-    this.emoji.position.set(cx, corkH * 0.55);
-    this.lid.position.set(cx, corkH * 0.55);
+    this.emoji.position.set(geom.cx, geom.corkH * 0.55);
+    this.lid.position.set(geom.cx, geom.corkH * 0.55);
     this.lid.width = badgeR * 2;
     this.lid.height = badgeR * 2;
-    this.sparkles.root.position.set(cx, bodyTop + bodyH * (1 - clamped * 0.55));
-    this.sparkles.setArea(bodyW * 0.35, 12);
+    const clamped = Math.max(0, Math.min(1, ratio));
+    this.sparkles.root.position.set(geom.cx, geom.bodyTop + (geom.bodyBot - geom.bodyTop) * (1 - clamped * 0.55));
+    this.sparkles.setArea(geom.bodyW * 0.35, 12);
+    this.view.width = this.w;
+    this.view.height = this.h;
+    this.source.update();
   }
 }
 
 /**
  * Neighborhood little free library on the farm overview.
  * Open shelves, no door. Stays visible when every shelf is empty.
+ * The house is the painted front-facing sprite; jars are drawn in the same soft glass style.
  */
 export class LittleLibrary {
   readonly root = new Container();
-  private readonly house = new Graphics();
+  private readonly house: Sprite;
   private readonly slots: ShelfJar[];
   private readonly lids = new Map<string, Texture>();
   private jars: PublicSharedGoal[] = [];
@@ -259,6 +439,7 @@ export class LittleLibrary {
     texW: number,
     texH: number,
     hit: UvRect,
+    houseTexture: Texture,
     onTap: (goalId: string) => void,
     onOverflow: () => void,
   ) {
@@ -269,9 +450,12 @@ export class LittleLibrary {
     this.root.zIndex = 1700;
     this.root.eventMode = "passive";
     this.root.visible = true;
+    this.house = new Sprite(houseTexture);
+    this.house.eventMode = "none";
+    this.house.width = this.w;
+    this.house.height = this.h;
     this.slots = Array.from({ length: LIBRARY_JAR_CAPACITY + 1 }, () => new ShelfJar(atlas, onTap, onOverflow));
     this.root.addChild(this.house, ...this.slots.map((slot) => slot.root));
-    this.paintHouse();
     this.apply();
   }
 
@@ -286,53 +470,13 @@ export class LittleLibrary {
     for (const slot of this.slots) slot.update(dt, t);
   }
 
-  private interiorOrigin() {
-    return libraryHouseMetrics({ w: this.w, h: this.h }).interior;
+  /** Canvas jar textures are not part of the shared painted-art cache. */
+  release() {
+    for (const slot of this.slots) slot.release();
   }
 
-  private paintHouse() {
-    const g = this.house;
-    const box = { w: this.w, h: this.h };
-    const { body, interior, post, roof, star } = libraryHouseMetrics(box);
-    const empty = libraryShelfLayout(interior, 0, 0);
-    g.clear();
-
-    g.roundRect(post.x, post.y, post.w, post.h, 5);
-    g.fill({ color: WOOD });
-    g.roundRect(post.x + post.w * 0.18, post.y + 8, post.w * 0.16, post.h * 0.55, 3);
-    g.fill({ color: 0xf0d2a4, alpha: 0.35 });
-    g.roundRect(post.x, post.y, post.w, post.h, 5);
-    g.stroke({ color: WOOD_DARK, width: 3 });
-
-    const braceW = post.w * 2.1;
-    g.roundRect((this.w - braceW) / 2, post.y - 6, braceW, 12, 3);
-    g.fill({ color: WOOD_DARK });
-
-    g.roundRect(body.x, body.y, body.w, body.h, 8);
-    g.fill({ color: RED });
-    g.poly([roof.left, roof.eaveY, roof.apexX, roof.apexY, roof.right, roof.eaveY]);
-    g.fill({ color: RED_ROOF });
-    g.poly([roof.left, roof.eaveY, roof.apexX, roof.apexY, roof.right, roof.eaveY]);
-    g.stroke({ color: RED_DARK, width: 4 });
-
-    g.roundRect(interior.x, interior.y, interior.w, interior.h, 4);
-    g.fill({ color: CREAM });
-    g.roundRect(interior.x, interior.y, interior.w * 0.08, interior.h, 2);
-    g.fill({ color: CREAM_DEEP, alpha: 0.65 });
-
-    for (const shelf of empty.shelves) {
-      const boardY = interior.y + shelf.y + shelf.h - 7;
-      g.roundRect(interior.x + 2, boardY, interior.w - 4, 8, 2);
-      g.fill({ color: WOOD });
-      g.rect(interior.x + 2, boardY + 6, interior.w - 4, 2);
-      g.fill({ color: WOOD_DARK, alpha: 0.45 });
-    }
-
-    g.roundRect(body.x, body.y, body.w, body.h, 8);
-    g.stroke({ color: RED_DARK, width: 5 });
-    drawStar(g, star.x, star.y, star.r, STAR);
-    g.circle(star.x, star.y, star.r * 0.28);
-    g.fill({ color: 0xfff6d4, alpha: 0.85 });
+  private interiorOrigin() {
+    return libraryHouseMetrics({ w: this.w, h: this.h }).interior;
   }
 
   private apply() {

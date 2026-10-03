@@ -44,34 +44,29 @@ export type LibraryHouseMetrics = {
   star: { x: number; y: number; r: number };
 };
 
-/** House-on-a-post box. No door. Interior is the open shelf cavity. */
+/**
+ * House-on-a-post box. No door. Interior is the open shelf cavity.
+ * Fractions are measured on the front-facing `little_library.png` (559×1048).
+ * Equal shelfPair pads (4% / 5%) put cubby bottoms on the painted plank tops
+ * (about 33.4% and 47.7% of the sprite height).
+ */
 export function libraryHouseMetrics(box: { w: number; h: number }): LibraryHouseMetrics {
   const { w, h } = box;
-  const bodyX = w * 0.02;
-  const bodyW = w * 0.96;
-  const bodyY = h * 0.145;
-  const bodyH = h * 0.5;
-  const wall = Math.max(8, bodyW * 0.07);
-  const eaveY = h * 0.175;
-  const postW = Math.max(18, w * 0.22);
-  const postY = bodyY + bodyH - 2;
+  const body = { x: w * 0.06, y: h * 0.12, w: w * 0.88, h: h * 0.55 };
+  const postW = Math.max(8, w * 0.16);
+  const postY = body.y + body.h;
   return {
-    body: { x: bodyX, y: bodyY, w: bodyW, h: bodyH },
-    interior: {
-      x: bodyX + wall,
-      y: bodyY + bodyH * 0.07,
-      w: bodyW - wall * 2,
-      h: bodyH * 0.86,
-    },
-    post: { x: (w - postW) / 2, y: postY, w: postW, h: Math.max(8, h - postY) },
+    body,
+    interior: { x: w * 0.17, y: h * 0.194, w: w * 0.64, h: h * 0.295 },
+    post: { x: body.x + body.w * 0.5 - postW / 2, y: postY, w: postW, h: Math.max(8, h - postY) },
     roof: {
-      apexX: w / 2,
-      apexY: 0,
-      left: bodyX - w * 0.03,
-      right: bodyX + bodyW + w * 0.03,
-      eaveY,
+      apexX: body.x + body.w * 0.5,
+      apexY: h * 0.02,
+      left: w * 0.02,
+      right: w * 0.98,
+      eaveY: body.y + h * 0.02,
     },
-    star: { x: w / 2, y: eaveY * 0.58, r: Math.max(6, w * 0.05) },
+    star: { x: body.x + body.w * 0.5, y: h * 0.08, r: Math.max(4, w * 0.05) },
   };
 }
 
@@ -85,9 +80,10 @@ export function libraryWindow(jars: readonly PublicSharedGoal[], capacity = LIBR
 }
 
 function shelfPair(cabinet: { w: number; h: number }): [LibraryShelf, LibraryShelf] {
-  const padX = Math.max(4, cabinet.w * 0.05);
-  const padY = Math.max(4, cabinet.h * 0.04);
-  const gap = Math.max(6, cabinet.h * 0.05);
+  // Pure fractions so the live jars stay on the painted planks at any cover-fit scale.
+  const padX = Math.max(1, cabinet.w * 0.05);
+  const padY = Math.max(1, cabinet.h * 0.04);
+  const gap = Math.max(1, cabinet.h * 0.05);
   const innerW = Math.max(1, cabinet.w - padX * 2);
   const cubbyH = Math.max(1, (cabinet.h - padY * 2 - gap) / LIBRARY_SHELF_COUNT);
   return [

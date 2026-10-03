@@ -70,8 +70,16 @@ test("farm overview shows the little library and not a job board or tube chip", 
     assert.equal(rectsOverlap(hit, garden.hit), false, "clears garden signs");
   }
   const local = uvRectToLocal(hit, 1536, 1024);
-  assert.ok(local.x1 - local.x0 >= 160, "wide enough for two jars");
-  assert.ok(local.y1 - local.y0 >= 180, "tall enough for open shelves");
+  const width = local.x1 - local.x0;
+  const height = local.y1 - local.y0;
+  // Front-facing painted house is 559×1048, narrower than the old 184×225 stake.
+  assert.ok(width >= 120, "wide enough for two jars");
+  assert.ok(height >= 180, "tall enough for open shelves");
+  assert.ok(width <= 176, "narrower than the old sticker");
+  assert.ok(width * height < 184 * 225, "smaller footprint than the old floating stake");
+  assert.ok(Math.abs(width / height - 559 / 1048) < 0.02, "hit matches the painted sprite");
+  assert.ok(hit.v0 >= 0.14, "roof sits down in the scene");
+  assert.ok(hit.v1 >= 0.37, "post reaches the grass");
 });
 
 test("cow body cannot sit on garden soil, plaque, or fence", () => {
