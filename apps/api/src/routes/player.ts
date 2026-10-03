@@ -280,7 +280,6 @@ export async function playerRoutes(app: FastifyInstance) {
           throw Object.assign(new Error((err as Error).message), { statusCode: 400 });
         }
 
-        let choreClaimId: string | null = null;
         const claimAllocations: Array<{ claimId: string; seedsUsed: number }> = [];
 
         if (spend.confirmedUsed > 0) {
@@ -324,7 +323,6 @@ export async function playerRoutes(app: FastifyInstance) {
               },
             });
           }
-          choreClaimId = claimAllocations[0]?.claimId ?? null;
         }
 
         // Always grow immediately. Harvest stays gated while linked claims are PENDING.
@@ -335,7 +333,6 @@ export async function playerRoutes(app: FastifyInstance) {
             plantTier: plantTier.tier,
             plantedAt,
             phase: "growing",
-            choreClaimId,
             waterReductionMinutes: 0,
             fertilizerReductionMinutes: 0,
             lastWateredAt: null,
@@ -362,7 +359,6 @@ export async function playerRoutes(app: FastifyInstance) {
               slot,
               tier: plantTier.tier,
               phase: "growing",
-              choreClaimId,
               confirmedUsed: spend.confirmedUsed,
               provisionalUsed: spend.provisionalUsed,
               claimIds: claimAllocations.map((a) => a.claimId),
