@@ -229,6 +229,8 @@ fieldset.field {
 .seed-panel { display: block; padding: 6px 0; }
 .seed-line { display: flex; justify-content: space-between; gap: 8px; margin: 0; }
 .seed-panel .seed-line:last-child { font-size: 14px; }
+.plot-maturity { font-size: 15px; }
+.plot-maturity.ready { color: var(--sage); }
 .jar-art-row {
   display: flex;
   gap: 14px;

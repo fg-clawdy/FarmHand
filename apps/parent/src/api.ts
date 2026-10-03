@@ -98,13 +98,20 @@ export type InboxClaim = {
   };
   player: { id: string; name: string; mascot: string };
   /** Plots this claim's provisional seeds were planted into. */
-  plots?: Array<{
-    slot: number;
-    cropTier: number | null;
-    seedsUsed: number;
-    playerName: string;
-    otherProvisionalSeeds: Array<{ claimId: string; title: string; emoji: string }>;
-  }>;
+  plots?: InboxPlot[];
+};
+
+/** A single plot funded by a claim's provisional seeds, with server-computed maturity. */
+export type InboxPlot = {
+  slot: number;
+  cropTier: number | null;
+  seedsUsed: number;
+  playerName: string;
+  state: string;
+  ready: boolean;
+  maturesAt: string | null;
+  remainingMs: number;
+  otherProvisionalSeeds: Array<{ claimId: string; title: string; emoji: string }>;
 };
 
 export type ParentChore = {

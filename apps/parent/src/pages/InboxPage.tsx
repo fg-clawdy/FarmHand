@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, type InboxClaim, type ParentRedemption } from "../api";
+import { formatCountdown } from "@farmhand/shared";
+import { api, type InboxClaim, type InboxPlot, type ParentRedemption } from "../api";
 import PushSettings from "../components/PushSettings";
 
 /** Muted, light per-child background colors (hex). One per child, in section order. */
@@ -20,6 +21,21 @@ const CHILD_COLOR_ALPHA = 0.3; // 30% opacity / 70% transparency, as requested.
 function withAlpha(hex: string, alpha: number): string {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+/** Stable pastel pick per child, so a child keeps "their" color across views and refreshes. */
+function colorIndexFor(id: string): number {
+  let hash = 0;
+  for (const ch of id) hash = (hash * 33 + ch.charCodeAt(0)) >>> 0;
+  return hash % CHILD_COLORS.length;
+}
+
+/** Server-computed maturity, rendered as a terse, tasteful line. */
+function maturityLabel(plot: InboxPlot): string {
+  if (plot.state === "wilted") return "Wilted";
+  if (plot.ready) return "Ready to harvest";
+  if (plot.maturesAt) return `Matures in ${formatCountdown(plot.remainingMs)}`;
+  return "Starts growing on approval";
 }
 
 type KidGroup = { player: InboxClaim["player"]; color: string; claims: InboxClaim[] };
@@ -94,18 +110,22 @@ export default function InboxPage() {
   // Group claims by child, keeping the CRITICAL-first / oldest-first order the API sends.
   const groups: KidGroup[] = [];
   const orderByPlayer = new Map<string, number>();
+  const usedColors = new Set<number>();
   for (const claim of claims) {
     const pid = claim.player.id;
     let order = orderByPlayer.get(pid);
     if (order === undefined) {
       order = orderByPlayer.size;
       orderByPlayer.set(pid, order);
+      let colorIndex = colorIndexFor(pid);
+      while (usedColors.has(colorIndex)) colorIndex = (colorIndex + 1) % CHILD_COLORS.length;
+      usedColors.add(colorIndex);
+      groups[order] = {
+        player: claim.player,
+        color: CHILD_COLORS[colorIndex],
+        claims: [],
+      };
     }
-    groups[order] ??= {
-      player: claim.player,
-      color: CHILD_COLORS[order % CHILD_COLORS.length],
-      claims: [],
-    };
     groups[order].claims.push(claim);
   }
 
@@ -208,6 +228,9 @@ export default function InboxPage() {
                           </span>
                           <span className="muted">{plot.playerName}</span>
                         </div>
+                        <p className={`seed-line plot-maturity${plot.ready ? " ready" : ""}`}>
+                          <span>{maturityLabel(plot)}</span>
+                        </p>
                         <p className="muted seed-line">
                           {plot.otherProvisionalSeeds.length > 0 ? (
                             <>

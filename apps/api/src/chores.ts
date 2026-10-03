@@ -653,7 +653,20 @@ export async function listParentInbox() {
     prisma.plotClaimLink.findMany({
       where: { claim: { status: "PENDING" } },
       orderBy: { createdAt: "asc" },
-      include: { plot: { select: { id: true, slot: true, plantTier: true, player: { select: { id: true, name: true } } } } },
+      include: {
+        plot: {
+          select: {
+            id: true,
+            slot: true,
+            plantTier: true,
+            plantedAt: true,
+            phase: true,
+            waterReductionMinutes: true,
+            fertilizerReductionMinutes: true,
+            player: { select: { id: true, name: true } },
+          },
+        },
+      },
     }),
     prisma.plotClaimLink.findMany({
       where: { claim: { status: "PENDING" } },
@@ -693,11 +706,27 @@ export async function listParentInbox() {
       const claimedDay = DateTime.fromJSDate(claim.claimedAt).setZone(tz).toFormat("EEE, LLL d");
       const plots = (plotsByClaim.get(claim.id) ?? []).map(({ link, plot }) => {
         const others = (pendingByPlot.get(plot.id) ?? []).filter((seed) => seed.claimId !== claim.id);
+        // Maturity is computed server-side so the parent view never trusts a client clock.
+        const planted = serializePlot(
+          {
+            slot: plot.slot,
+            plantTier: plot.plantTier,
+            plantedAt: plot.plantedAt,
+            waterReductionMinutes: plot.waterReductionMinutes,
+            fertilizerReductionMinutes: plot.fertilizerReductionMinutes,
+            phase: plot.phase,
+          },
+          config,
+        );
         return {
           slot: plot.slot,
           cropTier: plot.plantTier,
           seedsUsed: link.seedsUsed,
           playerName: playerNameByPlot.get(plot.id) ?? "",
+          state: planted.state,
+          ready: planted.ready,
+          maturesAt: planted.maturesAt,
+          remainingMs: planted.remainingMs,
           otherProvisionalSeeds: others.map((seed) => ({
             claimId: seed.claimId,
             title: seed.title,
