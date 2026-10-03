@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Texture } from "pixi.js";
 import { log } from "../logger";
 import { buildAtlas } from "./atlas";
-import { createEngine, fitEngine, renderNow, waitForHostSize, type PixiEngine } from "./engine";
+import { publishScenePresent, presentBlocksPlay, ScenePresentError } from "./gardenPresent";
+import { createEngine, fitEngine, hostHasSize, renderNow, waitForHostSize, type PixiEngine } from "./engine";
 import { FarmScene } from "./FarmScene";
 import { GardenScene } from "./GardenScene";
 import { loadPaintedArt, type PaintedArt } from "./paintedAssets";
@@ -83,6 +84,12 @@ async function bootPixi(host: HTMLElement, dead: () => boolean) {
     eng.destroy();
     return null;
   }
+  if (!hostHasSize(host)) {
+    eng.destroy();
+    throw new Error(
+      `The garden picture has no room to draw yet (${host.clientWidth}×${host.clientHeight}).`,
+    );
+  }
   fitEngine(eng.app, host);
   const [{ atlas }, painted] = await Promise.all([loadAtlas(), loadPainted()]);
   if (dead()) {
@@ -134,6 +141,10 @@ export function useFarmPixi(handlers: {
         }
         sceneRef.current = scene;
         afterLayout(eng, () => scene.relayout());
+        const presented = publishScenePresent(host, eng.app);
+        if (presentBlocksPlay(presented)) {
+          throw new ScenePresentError(presented.reason);
+        }
         setReady((n) => n + 1);
         log.info("farm.mount", "ready", {
           host: { w: host.clientWidth, h: host.clientHeight },
@@ -142,7 +153,10 @@ export function useFarmPixi(handlers: {
       } catch (err) {
         if (dead) return;
         const message = err instanceof Error ? err.message : String(err);
-        log.error("farm.mount", message, { stack: err instanceof Error ? err.stack : undefined });
+        log.error("farm.mount", message, {
+          reason: err instanceof ScenePresentError ? err.reason : undefined,
+          stack: err instanceof Error ? err.stack : undefined,
+        });
       }
     })();
     return () => {
@@ -216,8 +230,13 @@ export function useGardenPixi(
           return;
         }
         phase = "layout";
+        phase = "present";
         sceneRef.current = scene;
         afterLayout(eng, () => scene.relayout());
+        const presented = publishScenePresent(host, eng.app);
+        if (presentBlocksPlay(presented)) {
+          throw new ScenePresentError(presented.reason);
+        }
         setReady((n) => n + 1);
         log.info("garden.mount", "ready", {
           host: { w: host.clientWidth, h: host.clientHeight },
@@ -228,6 +247,7 @@ export function useGardenPixi(
         const message = err instanceof Error ? err.message : String(err);
         log.error("garden.mount", message, {
           phase,
+          reason: err instanceof ScenePresentError ? err.reason : undefined,
           stack: err instanceof Error ? err.stack : undefined,
         });
         setMountError({ message, phase });

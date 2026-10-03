@@ -1,5 +1,6 @@
 import { Application, Ticker, UPDATE_PRIORITY } from "pixi.js";
 import { log } from "../logger";
+import { canvasPoolCss, MIN_HOST_PX, rendererInitOptions } from "./webglBoot";
 
 export type PixiEngine = {
   app: Application;
@@ -43,9 +44,14 @@ export function tickerStalled(input: {
   return input.now - input.lastFrameAt > (input.stallMs ?? STALL_MS);
 }
 
+type RendererContext = { isLost?: boolean; webGLVersion?: 1 | 2 };
+
+function rendererContext(app: Application): RendererContext | undefined {
+  return (app.renderer as unknown as { context?: RendererContext }).context;
+}
+
 function contextLost(app: Application): boolean {
-  const ctx = (app.renderer as unknown as { context?: { isLost?: boolean } }).context;
-  return !!ctx?.isLost;
+  return !!rendererContext(app)?.isLost;
 }
 
 /** Draw one frame right now, independent of requestAnimationFrame. */
@@ -89,6 +95,18 @@ function bindHealth(app: Application) {
     undefined,
     UPDATE_PRIORITY.UTILITY,
   );
+
+  app.canvas.addEventListener("webglcontextlost", (event) => {
+    event.preventDefault();
+    log.error("pixi.context", "webgl context lost", {
+      webGLVersion: rendererContext(app)?.webGLVersion ?? null,
+      framesDrawn,
+    });
+  });
+  app.canvas.addEventListener("webglcontextrestored", () => {
+    log.info("pixi.context", "webgl context restored");
+    if (shared) wake(shared, "contextrestored", true);
+  });
 
   document.addEventListener("visibilitychange", () => {
     if (!shared) return;
@@ -143,8 +161,7 @@ function pool(): HTMLDivElement {
   if (canvasPool && canvasPool.isConnected) return canvasPool;
   const el = document.createElement("div");
   el.setAttribute("data-farmhand-pixi-pool", "1");
-  el.style.cssText =
-    "position:fixed;left:0;top:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;z-index:-1;";
+  el.style.cssText = canvasPoolCss();
   document.body.appendChild(el);
   canvasPool = el;
   return el;
@@ -154,23 +171,15 @@ async function sharedApp(): Promise<Application> {
   if (shared) return shared;
   boot ??= (async () => {
     const app = new Application();
-    // Avoid high-performance on mobile Firefox PWAs (clear-color / no textures).
-    await app.init({
-      background: 0x3d8a32,
-      backgroundAlpha: 1,
-      antialias: false,
-      autoDensity: true,
-      resolution: Math.min(window.devicePixelRatio || 1, 2),
-      powerPreference: "low-power",
-      preference: "webgl",
-      preferWebGLVersion: 1,
-      width: 800,
-      height: 600,
-    });
-    app.canvas.style.display = "block";
-    app.canvas.style.width = "100%";
-    app.canvas.style.height = "100%";
-    app.canvas.style.touchAction = "none";
+    // WebGL2 (not WebGL1). low-power stays for mobile Firefox clear-color bugs.
+    // preferWebGLVersion 1 made Adreno/ANGLE draw only background 0x3d8a32.
+    await app.init(rendererInitOptions(window.devicePixelRatio));
+    showCanvas(app.canvas);
+    const webGLVersion = rendererContext(app)?.webGLVersion ?? null;
+    log.info("pixi.boot", "shared renderer ready", { webGLVersion, preferWebGLVersion: 2 });
+    if (webGLVersion === 1) {
+      log.warn("pixi.boot", "WebGL2 unavailable; WebGL1 must use driver attribute locations");
+    }
     Ticker.shared.maxFPS = 60;
     shared = app;
     bindHealth(app);
@@ -179,9 +188,21 @@ async function sharedApp(): Promise<Application> {
   return boot;
 }
 
+function showCanvas(canvas: HTMLCanvasElement) {
+  canvas.style.display = "block";
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
+  canvas.style.touchAction = "none";
+  canvas.style.opacity = "1";
+  // Own layer after the canvas is reparented out of the pool. Without this,
+  // Chrome Android can keep presenting the page background instead of WebGL.
+  canvas.style.transform = "translateZ(0)";
+}
+
 export function fitEngine(app: Application, host: HTMLElement) {
-  const w = Math.max(1, host.clientWidth);
-  const h = Math.max(1, host.clientHeight);
+  if (!hostHasSize(host)) return { w: host.clientWidth, h: host.clientHeight };
+  const w = host.clientWidth;
+  const h = host.clientHeight;
   // Always resize: with autoDensity, renderer.width is device pixels and must not
   // be compared to CSS clientWidth (or we skip the real layout pass).
   app.renderer.resize(w, h);
@@ -190,8 +211,8 @@ export function fitEngine(app: Application, host: HTMLElement) {
   return { w, h };
 }
 
-/** True when the host has a real laid-out box (not the pre-layout 0x0 -> 1x1 trap). */
-export function hostHasSize(host: HTMLElement, min = 2): boolean {
+/** True when the host has a real laid-out box (not the pre-layout 0x0 or CSS 2px floor). */
+export function hostHasSize(host: HTMLElement, min = MIN_HOST_PX): boolean {
   return host.clientWidth >= min && host.clientHeight >= min;
 }
 
@@ -237,6 +258,7 @@ export async function createEngine(host: HTMLElement, cancelled?: () => boolean)
   if (app.canvas.parentElement !== host) {
     host.appendChild(app.canvas);
   }
+  showCanvas(app.canvas);
   activeHost = host;
   fitEngine(app, host);
   // A route change can leave a "started" ticker whose rAF was dropped: bounce it.

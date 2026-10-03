@@ -27,7 +27,7 @@ button, input { font: inherit; }
   position: absolute;
   inset: 0;
   z-index: 0;
-  /* Avoid 0x0 client box on first PWA paint (shared canvas locked at 1x1 green). */
+  /* Floor only. 2px must not count as laid out — engine waits for a real box. */
   min-width: 2px;
   min-height: 2px;
   width: 100%;

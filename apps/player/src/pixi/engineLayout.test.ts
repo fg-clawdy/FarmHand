@@ -3,10 +3,11 @@ import test from "node:test";
 import { coverFit } from "./draw.ts";
 import { hostHasSize, STALL_MS, tickerStalled } from "./engine.ts";
 
-test("hostHasSize rejects the pre-layout 0x0 / 1x1 trap", () => {
+test("hostHasSize rejects the pre-layout 0x0 / 1x1 trap and the CSS 2px floor", () => {
   assert.equal(hostHasSize({ clientWidth: 0, clientHeight: 0 } as HTMLElement), false);
   assert.equal(hostHasSize({ clientWidth: 1, clientHeight: 1 } as HTMLElement), false);
-  assert.equal(hostHasSize({ clientWidth: 2, clientHeight: 2 } as HTMLElement), true);
+  assert.equal(hostHasSize({ clientWidth: 2, clientHeight: 2 } as HTMLElement), false);
+  assert.equal(hostHasSize({ clientWidth: 32, clientHeight: 32 } as HTMLElement), true);
   assert.equal(hostHasSize({ clientWidth: 800, clientHeight: 600 } as HTMLElement), true);
 });
 
