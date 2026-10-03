@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { randomUUID } from "node:crypto";
 /**
  * End-to-end smoke against a running FarmHand stack (nginx or API).
  * Usage:
@@ -300,7 +301,7 @@ while ((track(badges, "harvests")?.count ?? 0) < 10) {
   if (gardenNow.seeds < 1) {
     await req(`/api/admin/players/${willow.id}/resources`, {
       method: "POST",
-      body: { seeds: 8, reason: "smoke harvester bronze" },
+      body: { seeds: 8, reason: "smoke harvester bronze", requestId: randomUUID() },
       cookie: adminCookie,
     });
   }
@@ -452,7 +453,7 @@ console.log("Homestead Helper still locked at", helper.count, "waters");
 
 await req(`/api/admin/players/${willow.id}/resources`, {
   method: "POST",
-  body: { fertilizer: 1, moonDew: 1, growGoo: 1, phoenixAsh: 1, reason: "smoke mix" },
+  body: { fertilizer: 1, moonDew: 1, growGoo: 1, phoenixAsh: 1, reason: "smoke mix", requestId: randomUUID() },
   cookie: adminCookie,
 });
 const fertilized = await req(`/api/plots/${empty2.slot}/fertilize`, { method: "POST", cookie: kidCookie2 });
@@ -799,7 +800,7 @@ const beforeSet = await req("/api/store", { cookie: kidCookie2 });
 const harvestBeforeSet = beforeSet.data.lifetimeEarnedHarvest ?? 0;
 await req(`/api/admin/players/${willow.id}/resources`, {
   method: "POST",
-  body: { points: 800, reason: "smoke store stars" },
+  body: { points: 800, reason: "smoke store stars", requestId: randomUUID() },
   cookie: adminCookie,
 });
 const parentStore = await req("/api/parent/store", { cookie: adminCookie });
@@ -948,7 +949,7 @@ const finnCookie = finnShop.cookie;
 const finnBeforeGrant = await req("/api/store", { cookie: finnCookie });
 await req(`/api/admin/players/${finn.id}/grant-stars`, {
   method: "POST",
-  body: { amount: 2100, reason: "smoke lifetime earn" },
+  body: { amount: 2100, reason: "smoke lifetime earn", requestId: randomUUID() },
   cookie: adminCookie,
 });
 const finnAfterGrant = await req("/api/store", { cookie: finnCookie });
@@ -991,7 +992,7 @@ if (!afterDate.data.owned?.some((r) => r.id === dateReq.data.redemption.id && r.
 }
 await req(`/api/admin/players/${finn.id}/grant-stars`, {
   method: "POST",
-  body: { amount: 100, reason: "smoke extra earn" },
+  body: { amount: 100, reason: "smoke extra earn", requestId: randomUUID() },
   cookie: adminCookie,
 });
 const movieReq = await req("/api/store/request", {
@@ -1054,7 +1055,7 @@ const sage = players.data.players.find((p) => p.name === "Sage");
 if (!sage) throw new Error("Sage missing");
 await req(`/api/admin/players/${sage.id}/resources`, {
   method: "POST",
-  body: { seeds: 20, reason: "smoke fill garden" },
+  body: { seeds: 20, reason: "smoke fill garden", requestId: randomUUID() },
   cookie: adminCookie,
 });
 const sageEnter = await req(`/api/players/${sage.id}/enter`, { method: "POST", body: { pin: "3333" } });

@@ -160,12 +160,13 @@ export default function PlayerDetailPage() {
         <button
           className="btn sage"
           type="button"
-          onClick={() =>
+          onClick={() => {
+            const requestId = crypto.randomUUID();
             void api
-              .resources(player.id, { ...resources, reason })
+              .resources(player.id, { ...resources, reason, requestId })
               .then(load)
-              .catch((err: Error) => setError(err.message))
-          }
+              .catch((err: Error) => setError(err.message));
+          }}
         >
           Save resources
         </button>
