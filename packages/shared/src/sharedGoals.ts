@@ -92,6 +92,7 @@ export const SHARED_GOAL_COPY = {
   noStars: "No stars to add yet.",
   givingOff: "You can watch the jar fill.",
   roomLeft: "Room for {n} more.",
+  pickAmount: "Pick stars to add",
   halfway: "Halfway to {title}.",
   ready: "{title} is ready.",
   readySubline: "A grown-up will make it happen.",
@@ -198,7 +199,13 @@ export function buildJarArtPrompt(input: { title: string; emoji: string; notes?:
 }
 
 /** Pour chip amounts shown to kids. */
-export const GIVE_CHIP_AMOUNTS = [1, 5, 10] as const;
+export const GIVE_CHIP_AMOUNTS = [5, 10, 25, 50, 100] as const;
+
+/** Largest chip a kid can tap. Chips above the wallet, ceiling, or room left are hidden. */
+export const MAX_GIVE_CHIP = GIVE_CHIP_AMOUNTS[GIVE_CHIP_AMOUNTS.length - 1]!;
+
+/** Default per-pour ceiling when a player row has no explicit one. Matches the DB default. */
+export const DEFAULT_GIVE_CEILING = 100;
 
 /** Mis-tap put-back window in seconds. */
 export const PUT_BACK_WINDOW_SECONDS = 15;

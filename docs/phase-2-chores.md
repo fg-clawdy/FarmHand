@@ -59,3 +59,16 @@ Manual:
 - Periods use the game timezone (`America/Chicago`). `NONE` uses `periodKey = "open"` until deny or harvest.
 - Claims run in a **serializable** transaction; race chores also insert `ChoreRaceSlot` (`choreId, periodKey`) so two kids cannot double-claim.
 - Proof JPEGs for selfie-required chores land under `SELFIE_DROP_DIR/chores/`. They do not call `POST /api/selfie`.
+
+## Scheduled playbooks + day-of-week (new)
+
+**Playbooks** bundle chores into missions that broadcast on the kid's Job Board during a window, as a checklist. Finishing the whole bundle counts toward a badge.
+
+- Schema: `ChorePlaybook` (slug / title / emoji / description / `windowStart` / `windowEnd` / `isActive` / `sortOrder`) plus a many-to-many `ChorePlaybookItem` (one chore can belong to several playbooks, in a fixed order).
+- Parent: a **Playbooks** page (`/playbooks`) plus a per-chore "Playbooks" picker in **Chores → Edit**. Seed ships **Morning Routine** (`morning`) and **Bedtime Routine** (`bedtime`) playbooks, both **inactive** until a parent turns them on.
+- Kid: active, in-window playbooks render as a **Missions** strip on the Job Board; tapping one opens a checklist. Claiming every chore completes the mission and fires a `playbook_complete` accolade event (server-side, detected on the final claim).
+- Completion is idempotent: it only fires on the claim that finishes the last open item, so double-counting is impossible.
+
+**Day-of-week**: `Chore.activeDays Int[]` (ISO weekday 1=Mon..7=Sun, empty = every day). The migration backfills `WEEKDAYS` → `[1..5]`. `chorePeriod()` gates eligibility on the day; the player Job Board's `partitionEligibleChoresForNow()` re-checks it client-side.
+
+**Morning Person badge** (seasonal, `morning-person`): finish the Morning playbook on `1 / 5 / 15 / 30` days → `basic / bronze / silver / gold`. There is **no platinum tier** (the medal set is `basic, bronze, silver, gold`), so gold at 30 is the ceiling. The counter lives on `AccoladeCounter.morningPlaybooks` and only increments when the completed playbook's slug is `morning` (`MORNING_PLAYBOOK_SLUG`).

@@ -40,7 +40,12 @@ export function jarArtDiskPath(goalId: string): string {
 
 type PaintResult = { ok: true; png: Buffer } | { ok: false; reason: string };
 
-/** Venice `/image/generate`. Missing key is a soft miss — callers keep default art. */
+/**
+ * Venice `/image/generate`. Missing key is a soft miss — callers keep default art.
+ * Default model is Flux 3 (`flux-3-image`), a resolution-tier model: it takes
+ * `aspect_ratio` + `resolution`, not `width`/`height`. Pixel-based models
+ * (e.g. `z-image-turbo`) keep the square 512 request.
+ */
 export async function paintJarLid(opts: {
   prompt: string;
   apiKey: string | undefined;
@@ -49,7 +54,11 @@ export async function paintJarLid(opts: {
   const key = opts.apiKey?.trim();
   if (!key) return { ok: false, reason: "no-key" };
   const fetcher = opts.fetcher ?? fetch;
-  const model = process.env.VENICE_IMAGE_MODEL?.trim() || "z-image-turbo";
+  const model = process.env.VENICE_IMAGE_MODEL?.trim() || "flux-3-image";
+  const resolutionTier = /^(flux-3|nano-banana|gpt-image)/.test(model);
+  const sizing = resolutionTier
+    ? { aspect_ratio: "1:1", resolution: "1K" }
+    : { width: 512, height: 512 };
   let response: Response;
   try {
     response = await fetcher("https://api.venice.ai/api/v1/image/generate", {
@@ -62,8 +71,7 @@ export async function paintJarLid(opts: {
         model,
         prompt: opts.prompt.slice(0, 1500),
         negative_prompt: "text, letters, words, watermark, neon, people, hands, scary, photorealistic",
-        width: 512,
-        height: 512,
+        ...sizing,
         format: "png",
         safe_mode: true,
         variants: 1,

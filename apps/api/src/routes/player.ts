@@ -26,7 +26,7 @@ import { claimChore, EMPTY_PLOT_DATA, listPlayerChores, prunePlot, releaseClaimI
 import { loadConfig, plotWateringState, publicPlayer, selfieUnlockedOn, syncPlayerPlots } from "../game.js";
 import { recordAccoladeEvent, playerAccoladeLedger } from "../accolades.js";
 import { notifyApprovalsPending, notifyChoreClaimPending, notifyStoreRedemptionPending } from "../push.js";
-import { listActiveCatalog, playerStore, requestStoreSku } from "../store.js";
+import { listActiveCatalog, playerStore, requestStoreSku, requestWishlistReward } from "../store.js";
 import { playerProfile } from "../profile.js";
 import { playerReview } from "../playerReview.js";
 import {
@@ -42,6 +42,7 @@ import { appendStarEvent } from "../stars.js";
 import { todayKey } from "../tz.js";
 import { withLockedPlot, withLockedPlayer } from "../locks.js";
 import { recordChoreBoardEvent } from "../choreHeat.js";
+import { buildPlaybookView } from "../playbooks.js";
 import { skipChore } from "../choreSkip.js";
 import { AVATAR_PRESETS } from "@farmhand/shared";
 import {
@@ -751,9 +752,11 @@ app.post("/api/plots/:slot/water", async (request, reply) => {
             }, basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } } },
     });
     const chores = await listPlayerChores(session.playerId, config.timezone);
+    const activePlaybooks = await buildPlaybookView(session.playerId, config.timezone);
     return {
       timezone: config.timezone,
       chores,
+      activePlaybooks,
       player: publicPlayer(player, config, true),
     };
   });
@@ -841,6 +844,7 @@ app.post("/api/plots/:slot/water", async (request, reply) => {
         claim: { id: result.claim.id, status: result.claim.status, slot: result.claim.slot },
         unlocks: result.unlocks ?? [],
         seedsGranted: result.seedsGranted ?? 0,
+        playbookComplete: result.completedPlaybooks ?? [],
       };
     } catch (err) {
       const e = err as Error & { statusCode?: number };
@@ -922,11 +926,14 @@ app.post("/api/plots/:slot/water", async (request, reply) => {
   app.post("/api/store/request", async (request, reply) => {
     const session = await requirePlayer(request, reply);
     if (!session) return;
-    const body = (request.body ?? {}) as { skuId?: unknown };
+    const body = (request.body ?? {}) as { skuId?: unknown; wishlistItemId?: unknown };
     const skuId = typeof body.skuId === "string" ? body.skuId : "";
-    if (!skuId) return reply.code(400).send({ error: "Pick a reward first." });
+    const wishlistItemId = typeof body.wishlistItemId === "string" ? body.wishlistItemId : "";
+    if (!skuId && !wishlistItemId) return reply.code(400).send({ error: "Pick a reward first." });
     try {
-      const result = await requestStoreSku(session.playerId, skuId);
+      const result = wishlistItemId
+        ? await requestWishlistReward(session.playerId, wishlistItemId)
+        : await requestStoreSku(session.playerId, skuId);
       void notifyStoreRedemptionPending({
         redemptionId: result.redemption.id,
         playerName: result.playerName,

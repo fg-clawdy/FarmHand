@@ -2,6 +2,7 @@ import { type FarmPlayerCard } from "@farmhand/shared";
 import { useEffect, useState } from "react";
 import { api, type PlayerStore, type StoreSku } from "../api";
 import { FarmStoreArt } from "../art";
+import { AlertIcon, CheckIcon, ClockIcon, GiftIcon, StarIcon, StoreIcon } from "./ModalIcons";
 import Sheet from "./Sheet";
 import WhoseKidPicker from "./WhoseKidPicker";
 
@@ -83,7 +84,9 @@ export default function StoreSheet({
     setBusy(true);
     setError("");
     try {
-      const data = await api.requestStore(sku.id);
+      const data = sku.wishlistItemId
+        ? await api.requestStore({ wishlistItemId: sku.wishlistItemId })
+        : await api.requestStore({ skuId: sku.id });
       setStore(data);
       setConfirm(null);
       setTab("waiting");
@@ -120,46 +123,139 @@ export default function StoreSheet({
   }
 
   return (
-    <Sheet title="Farm Store" className="store-sheet" onClose={onClose}>
-      <FarmStoreArt className="store-preview" />
-      <p className="store-balance">
-        {shopper && store ? (
-          <>
-            {shopper.name}'s stars · <strong>{store.availableStars}★</strong> ready
-            {store.starsHeld > 0 ? ` · ${store.starsHeld}★ waiting on a grown-up` : ""}
-          </>
-        ) : (
-          <>Pick whose stars · catalog is open to browse</>
-        )}
-      </p>
-      <p className="muted">
+    <Sheet
+      title="Farm Store"
+      className="store-sheet"
+      variant="crate"
+      icon={<FarmStoreArt className="store-preview" />}
+      onClose={onClose}
+      subhead={
+        <>
+          <div className="store-wallet">
+            <StarIcon className="store-wallet-star" />
+            <p className="store-balance">
+              {shopper && store ? (
+                <>
+                  <span className="store-wallet-name">{shopper.name}'s stars</span>
+                  <span className="store-wallet-count">
+                    <strong>{store.availableStars}★</strong> ready
+                  </span>
+                  {store.starsHeld > 0 && (
+                    <span className="store-wallet-held">
+                      <ClockIcon /> {store.starsHeld}★ waiting on a grown-up
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="store-wallet-name">Pick whose stars · catalog is open to browse</span>
+              )}
+            </p>
+          </div>
+          <div className="store-tabs" role="tablist" aria-label="Store sections">
+            <button
+              className={tab === "shop" ? "store-tab on" : "store-tab"}
+              type="button"
+              role="tab"
+              aria-selected={tab === "shop"}
+              onClick={() => openTab("shop")}
+            >
+              <StoreIcon /> Shop
+            </button>
+            <button
+              className={tab === "waiting" ? "store-tab on" : "store-tab"}
+              type="button"
+              role="tab"
+              aria-selected={tab === "waiting"}
+              onClick={() => openTab("waiting")}
+            >
+              <ClockIcon /> Waiting{store?.pending.length ? ` (${store.pending.length})` : ""}
+            </button>
+            <button
+              className={tab === "owned" ? "store-tab on" : "store-tab"}
+              type="button"
+              role="tab"
+              aria-selected={tab === "owned"}
+              onClick={() => openTab("owned")}
+            >
+              <GiftIcon /> Owned{store?.owned.length ? ` (${store.owned.length})` : ""}
+            </button>
+          </div>
+        </>
+      }
+      footer={
+        <>
+          {shopperId && (
+            <button
+              className="btn ghost"
+              type="button"
+              onClick={() => {
+                setShopperId(null);
+                setStore(null);
+                setConfirm(null);
+                setTab("shop");
+                void loadCatalog();
+              }}
+            >
+              Browse without a kid
+            </button>
+          )}
+          <button className="btn ghost" type="button" onClick={onClose}>
+            Back to the farm
+          </button>
+        </>
+      }
+      overlay={
+        confirm && (
+          <div className="store-confirm-scrim">
+            <div className="store-confirm" role="dialog" aria-label="Confirm store request">
+              <span className="store-confirm-emoji" aria-hidden>
+                {confirm.emoji}
+              </span>
+              <p className="store-confirm-title">
+                Ask a grown-up for {confirm.emoji} <strong>{confirm.title}</strong>?
+              </p>
+              <p className="store-confirm-copy">
+                We'll keep <strong>{confirm.starCost}★</strong> set aside while they decide. If they say yes, it's yours
+                to use later. If they say no, you get the stars back.
+              </p>
+              <div className="sheet-actions">
+                <button className="btn primary" type="button" disabled={busy} onClick={() => void requestSku(confirm)}>
+                  {busy ? "Asking…" : "Ask a grown-up"}
+                </button>
+                <button className="btn ghost" type="button" onClick={() => setConfirm(null)}>
+                  Not now
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+    >
+      <p className="muted store-note">
         Ask for a reward here. Your Profile keeps the full story — earned stars, used rewards, and badges.
       </p>
-      {toast && <p className="store-toast">{toast}</p>}
-      {error && <p className="error">{error}</p>}
+      {toast && (
+        <p className="store-toast" role="status">
+          <CheckIcon /> {toast}
+        </p>
+      )}
+      {error && (
+        <p className="error store-error" role="alert">
+          <AlertIcon /> {error}
+        </p>
+      )}
       {shelf.length === 0 && <p>Opening the shelves…</p>}
-      <div className="store-tabs" role="tablist" aria-label="Store sections">
-        <button className={tab === "shop" ? "store-tab on" : "store-tab"} type="button" onClick={() => openTab("shop")}>
-          Shop
-        </button>
-        <button
-          className={tab === "waiting" ? "store-tab on" : "store-tab"}
-          type="button"
-          onClick={() => openTab("waiting")}
-        >
-          Waiting{store?.pending.length ? ` (${store.pending.length})` : ""}
-        </button>
-        <button className={tab === "owned" ? "store-tab on" : "store-tab"} type="button" onClick={() => openTab("owned")}>
-          Owned{store?.owned.length ? ` (${store.owned.length})` : ""}
-        </button>
-      </div>
       {tab === "waiting" && shopperId && store && (
         <div className="store-pending">
           <h3>Waiting on a grown-up</h3>
           {store.pending.length === 0 && <p>Nothing waiting. Ask from Shop when you are ready.</p>}
           {store.pending.map((row) => (
-            <p key={row.id}>
-              {row.emoji} {row.title} · {row.starCost}★ set aside
+            <p key={row.id} className="store-row">
+              <span className="store-row-emoji">{row.emoji}</span>
+              <span className="store-row-title">{row.title}</span>
+              <span className="store-tag">
+                <StarIcon /> {row.starCost}★ set aside
+              </span>
             </p>
           ))}
         </div>
@@ -171,8 +267,12 @@ export default function StoreSheet({
             <p>When a grown-up says yes, the reward lives here until you use it in real life.</p>
           )}
           {store.owned.map((row) => (
-            <p key={row.id}>
-              {row.emoji} {row.title} · yours · {row.starCost}★
+            <p key={row.id} className="store-row">
+              <span className="store-row-emoji">{row.emoji}</span>
+              <span className="store-row-title">{row.title}</span>
+              <span className="store-tag store-tag--owned">
+                <CheckIcon /> yours · {row.starCost}★
+              </span>
             </p>
           ))}
         </div>
@@ -202,55 +302,20 @@ export default function StoreSheet({
                   setConfirm(sku);
                 }}
               >
-                <span className="store-card-emoji">{sku.emoji}</span>
-                <strong>{sku.title}</strong>
-                <span className="store-card-cost">{sku.starCost}★</span>
+                {sku.imageUrl ? (
+                  <img className="store-card-thumb" src={sku.imageUrl} alt="" draggable={false} />
+                ) : (
+                  <span className="store-card-emoji">{sku.emoji}</span>
+                )}
+                <strong className="store-card-title">{sku.title}</strong>
                 {sku.description && <span className="store-card-copy">{sku.description}</span>}
+                <span className="store-card-cost">
+                  <StarIcon /> {sku.starCost}★
+                </span>
                 {unaffordable && <span className="store-card-need">Need more stars</span>}
               </button>
             );
           })}
-        </div>
-      )}
-      {shopperId && (
-        <p>
-          <button
-            className="btn ghost"
-            type="button"
-            onClick={() => {
-              setShopperId(null);
-              setStore(null);
-              setConfirm(null);
-              setTab("shop");
-              void loadCatalog();
-            }}
-          >
-            Browse without a kid
-          </button>
-        </p>
-      )}
-      <div className="sheet-actions">
-        <button className="btn ghost" type="button" onClick={onClose}>
-          Back to the farm
-        </button>
-      </div>
-      {confirm && (
-        <div className="store-confirm" role="dialog" aria-label="Confirm store request">
-          <p>
-            Ask a grown-up for {confirm.emoji} <strong>{confirm.title}</strong>?
-          </p>
-          <p>
-            We'll keep <strong>{confirm.starCost}★</strong> set aside while they decide. If they say yes, it's yours to
-            use later. If they say no, you get the stars back.
-          </p>
-          <div className="sheet-actions">
-            <button className="btn primary" type="button" disabled={busy} onClick={() => void requestSku(confirm)}>
-              {busy ? "Asking…" : "Ask a grown-up"}
-            </button>
-            <button className="btn ghost" type="button" onClick={() => setConfirm(null)}>
-              Not now
-            </button>
-          </div>
         </div>
       )}
     </Sheet>

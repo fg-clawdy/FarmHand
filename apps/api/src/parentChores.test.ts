@@ -100,3 +100,50 @@ test("week stats count claims, approvals, denials per kid", () => {
   assert.equal(finn.approvals, 0);
   assert.equal(finn.series[finn.series.length - 1]?.claims, 1);
 });
+
+test("claim window parses as minutes, clears, and rejects matching bounds", () => {
+  const parsed = parseParentChoreWrite(
+    { title: "Brush teeth", claimWindowStart: 960, claimWindowEnd: 1320 },
+    "create",
+  );
+  assert.equal(parsed.claimWindowStart, 960);
+  assert.equal(parsed.claimWindowEnd, 1320);
+
+  const cleared = parseParentChoreWrite(
+    { title: "Brush teeth", claimWindowStart: null, claimWindowEnd: null },
+    "patch",
+  );
+  assert.equal(cleared.claimWindowStart, null);
+  assert.equal(cleared.claimWindowEnd, null);
+
+  assert.throws(
+    () => parseParentChoreWrite({ title: "Brush teeth", claimWindowStart: 600, claimWindowEnd: 600 }, "create"),
+    /can't start and end at the same time/,
+  );
+  assert.throws(
+    () => parseParentChoreWrite({ title: "Brush teeth", claimWindowStart: -5 }, "create"),
+    /Pick a valid available-from time/,
+  );
+  assert.throws(
+    () => parseParentChoreWrite({ title: "Brush teeth", claimWindowEnd: 1441 }, "create"),
+    /Pick a valid must-claim-by time/,
+  );
+});
+
+test("activeDays and playbookIds parse, sort, and dedupe", () => {
+  const parsed = parseParentChoreWrite(
+    { title: "Brush teeth", activeDays: [1, 2, 1, 5], playbookIds: ["a", "b", "a"] },
+    "create",
+  );
+  assert.deepEqual(parsed.activeDays, [1, 2, 5]);
+  assert.deepEqual(parsed.playbookIds, ["a", "b"]);
+
+  assert.throws(
+    () => parseParentChoreWrite({ title: "X", activeDays: [0] }, "create"),
+    /Pick the days/,
+  );
+  assert.throws(
+    () => parseParentChoreWrite({ title: "X", playbookIds: [42] }, "create"),
+    /Pick the playbooks/,
+  );
+});

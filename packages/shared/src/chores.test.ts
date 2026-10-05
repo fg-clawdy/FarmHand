@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  claimWindowLabel,
+  claimWindowOpen,
+  formatClockTime,
   formatJobBoardReward,
   formatSeedRewardChip,
   formatWantedSeedLabel,
@@ -42,4 +45,47 @@ test("PRD bands: difficulty 2 (shoes) pays 1 seed, not 2", () => {
   assert.equal(resolveSeedReward({ difficulty: 2, seedReward: null }, DEFAULT_GAME_CONFIG), 1);
   assert.equal(resolveSeedReward({ difficulty: 4, seedReward: null }, DEFAULT_GAME_CONFIG), 2);
   assert.equal(resolveSeedReward({ difficulty: 9, seedReward: null }, DEFAULT_GAME_CONFIG), 5);
+});
+
+test("formatClockTime renders friendly 12-hour labels", () => {
+  assert.equal(formatClockTime(0), "12:00 AM");
+  assert.equal(formatClockTime(390), "6:30 AM");
+  assert.equal(formatClockTime(660), "11:00 AM");
+  assert.equal(formatClockTime(720), "12:00 PM");
+  assert.equal(formatClockTime(960), "4:00 PM");
+  assert.equal(formatClockTime(1320), "10:00 PM");
+});
+
+test("claim window opens only before a morning cutoff", () => {
+  // start null (from midnight) until 11:00 AM (660)
+  assert.equal(claimWindowOpen(null, 660, 0), true);
+  assert.equal(claimWindowOpen(null, 660, 659), true);
+  assert.equal(claimWindowOpen(null, 660, 660), false);
+  assert.equal(claimWindowOpen(null, 660, 720), false);
+});
+
+test("claim window opens after a start time through midnight", () => {
+  // 4:00 PM (960) through midnight (end null)
+  assert.equal(claimWindowOpen(960, null, 959), false);
+  assert.equal(claimWindowOpen(960, null, 960), true);
+  assert.equal(claimWindowOpen(960, null, 1439), true);
+});
+
+test("overnight claim windows wrap past midnight", () => {
+  // 10:00 PM (1320) to 6:00 AM (360)
+  assert.equal(claimWindowOpen(1320, 360, 1380), true);
+  assert.equal(claimWindowOpen(1320, 360, 100), true);
+  assert.equal(claimWindowOpen(1320, 360, 600), false);
+});
+
+test("no claim window is always open", () => {
+  assert.equal(claimWindowOpen(null, null, 500), true);
+});
+
+test("claim window labels read naturally", () => {
+  assert.equal(claimWindowLabel(null, 660), "before 11:00 AM");
+  assert.equal(claimWindowLabel(960, null), "after 4:00 PM");
+  assert.equal(claimWindowLabel(960, 1320), "between 4:00 PM and 10:00 PM");
+  assert.equal(claimWindowLabel(1320, 360), "from 10:00 PM to 6:00 AM");
+  assert.equal(claimWindowLabel(null, null), null);
 });

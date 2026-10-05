@@ -91,6 +91,25 @@ export type PublicChore = {
   flyerUrl?: string;
   /** Farm-wide HEAT 0–100 from ChoreHeat (optional). */
   heatScore?: number;
+  /** Per-chore claim window (minutes since midnight, family timezone). */
+  claimWindowStart?: number | null;
+  claimWindowEnd?: number | null;
+  windowLabel?: string | null;
+  /** ISO weekday 1=Mon..7=Sun the chore runs on; empty = every day. */
+  activeDays: number[];
+};
+
+export type ActivePlaybook = {
+  id: string;
+  slug: string;
+  title: string;
+  emoji: string;
+  description: string;
+  windowLabel: string | null;
+  completedCount: number;
+  totalCount: number;
+  allDone: boolean;
+  items: Array<{ chore: PublicChore; claimed: boolean }>;
 };
 
 export type FamilyJob = {
@@ -151,7 +170,7 @@ export type AccoladeUnlock = {
   slug: string;
   kind: "seasonal" | "lifetime";
   seasonKey: string | null;
-  medal: "bronze" | "silver" | "gold" | null;
+  medal: "basic" | "bronze" | "silver" | "gold" | null;
   title: string;
   emoji: string;
   blurb: string;
@@ -172,6 +191,7 @@ export type AccoladeLedger = {
       count: number;
       next: { medal: string | null; at: number; remaining: number; done: boolean };
       medals: Array<string | null>;
+      steps: Array<{ medal: string; at: number }> | null;
     }>;
     unlocks: AccoladeUnlock[];
   };
@@ -199,12 +219,15 @@ export type StoreSku = {
   description: string;
   starCost: number;
   isActive: boolean;
+  /** Set on confirmed Amazon-wishlist items; null on regular catalog SKUs. */
+  wishlistItemId?: string | null;
+  imageUrl?: string | null;
   affordable?: boolean;
 };
 
 export type StoreRedemption = {
   id: string;
-  skuId: string;
+  skuId: string | null;
   slug: string;
   status: "pending" | "owned" | "redeemed" | "denied" | "fulfilled";
   title: string;
@@ -357,9 +380,17 @@ export const api = {
     }>("/api/selfie", { method: "POST", body: JSON.stringify({ image }) }),
   accolades: () => request<AccoladeLedger>("/api/accolades"),
   chores: () =>
-    request<{ chores: PublicChore[]; timezone: string; player: GardenPlayer }>("/api/chores"),
+    request<{ chores: PublicChore[]; timezone: string; player: GardenPlayer; activePlaybooks: ActivePlaybook[] }>(
+      "/api/chores",
+    ),
   claimChore: (id: string, body?: { image?: string }) =>
-    request<{ player: GardenPlayer; claim: { id: string; status: string; slot: number | null }; unlocks?: AccoladeUnlock[]; seedsGranted?: number }>(
+    request<{
+      player: GardenPlayer;
+      claim: { id: string; status: string; slot: number | null };
+      unlocks?: AccoladeUnlock[];
+      seedsGranted?: number;
+      playbookComplete?: Array<{ slug: string; title: string; emoji: string }>;
+    }>(
       `/api/chores/${id}/claim`,
       {
         method: "POST",
@@ -382,10 +413,10 @@ export const api = {
   prune: (slot: number) => request<{ player: GardenPlayer }>(`/api/plots/${slot}/prune`, { method: "POST" }),
   store: () => request<PlayerStore>("/api/store"),
   storeCatalog: () => request<{ catalog: StoreSku[] }>("/api/store/catalog"),
-  requestStore: (skuId: string) =>
+  requestStore: (subject: { skuId?: string; wishlistItemId?: string }) =>
     request<PlayerStore & { ok: boolean; redemption: { id: string; title: string; emoji: string; starCost: number } }>(
       "/api/store/request",
-      { method: "POST", body: JSON.stringify({ skuId }) },
+      { method: "POST", body: JSON.stringify(subject) },
     ),
   profile: () => request<KidProfile>("/api/profile"),
   setAvatar: (

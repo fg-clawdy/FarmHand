@@ -5,6 +5,7 @@ import InboxPage from "./pages/InboxPage";
 import LoginPage from "./pages/LoginPage";
 import ChoresPage from "./pages/ChoresPage";
 import ChoreEditPage from "./pages/ChoreEditPage";
+import PlaybooksPage from "./pages/PlaybooksPage";
 import ActivityPage from "./pages/ActivityPage";
 import StorePage from "./pages/StorePage";
 import SharedGoalsPage from "./pages/SharedGoalsPage";
@@ -43,6 +44,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
           Approvals
         </NavLink>
         <NavLink to="/chores">Chores</NavLink>
+        <NavLink to="/playbooks">Playbooks</NavLink>
         <NavLink to="/kids">Kids</NavLink>
         <NavLink to="/store">Store</NavLink>
         <a className="nav-secondary" href="/admin/">
@@ -72,6 +74,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
           <Route path="/approvals" element={<InboxPage />} />
           <Route path="/chores" element={<ChoresPage />} />
           <Route path="/chores/:id" element={<ChoreEditPage />} />
+          <Route path="/playbooks" element={<PlaybooksPage />} />
           <Route path="/kids" element={<ActivityPage />} />
           <Route path="/store" element={<StorePage />} />
           <Route path="/goals" element={<SharedGoalsPage />} />

@@ -12,6 +12,14 @@ import {
   updateParentChore,
 } from "../parentChores.js";
 import type { ParentChoreBody } from "../parentChoreWrite.js";
+import {
+  createParentPlaybook,
+  deleteParentPlaybook,
+  getParentPlaybook,
+  listParentPlaybooks,
+  updateParentPlaybook,
+  type PlaybookBody,
+} from "../playbooks.js";
 import type { ParentSkuBody } from "../parentStoreWrite.js";
 import { buildParentStats, parseParentStatsRange, statsLookbackStart } from "../parentStats.js";
 import { farmAccoladeLedgers } from "../accolades.js";
@@ -26,6 +34,17 @@ import {
   redeemRedemption,
 } from "../store.js";
 import { parseSkuCreate, parseSkuPatch } from "../parentStoreWrite.js";
+import {
+  confirmWishlistItem,
+  createManualWishlistItem,
+  hideWishlistItem,
+  linkWishlistForPlayer,
+  parentWishlistPayload,
+  publicWishlistItem,
+  syncAllWishlists,
+  unhideWishlistItem,
+  unlinkWishlistForPlayer,
+} from "../wishlist.js";
 import {
   actorFromActionToken,
   adminHasPushSubscription,
@@ -162,6 +181,61 @@ export async function parentRoutes(app: FastifyInstance) {
     const session = await requireAdmin(request, reply);
     if (!session) return;
     return { kids: await parentKidsOverview() };
+  });
+
+  app.get("/api/parent/playbooks", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    return { playbooks: await listParentPlaybooks() };
+  });
+
+  app.get("/api/parent/playbooks/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    try {
+      return { playbook: await getParentPlaybook(id) };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.post("/api/parent/playbooks", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    try {
+      const playbook = await createParentPlaybook((request.body ?? {}) as PlaybookBody);
+      return reply.code(201).send({ playbook });
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.patch("/api/parent/playbooks/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    try {
+      return { playbook: await updateParentPlaybook(id, (request.body ?? {}) as PlaybookBody) };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.delete("/api/parent/playbooks/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    try {
+      await deleteParentPlaybook(id);
+      return { ok: true };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
   });
 
   app.get("/api/parent/accolades", async (request, reply) => {
@@ -323,6 +397,126 @@ export async function parentRoutes(app: FastifyInstance) {
       const patch = parseSkuPatch((request.body ?? {}) as ParentSkuBody);
       const row = await prisma.storeSku.update({ where: { id }, data: patch });
       return { sku: publicSku(row) };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.get("/api/parent/wishlist", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    return parentWishlistPayload();
+  });
+
+  app.post("/api/parent/wishlist/sync", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    try {
+      return await syncAllWishlists();
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.post("/api/parent/wishlist/link", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const body = (request.body ?? {}) as {
+      playerId?: unknown;
+      url?: unknown;
+      mode?: unknown;
+      thresholdCents?: unknown;
+    };
+    try {
+      const mode = body.mode === "over" || body.mode === "accept" ? body.mode : "review";
+      const result = await linkWishlistForPlayer(
+        typeof body.playerId === "string" ? body.playerId : "",
+        typeof body.url === "string" ? body.url : "",
+        mode,
+        body.thresholdCents == null || body.thresholdCents === "" ? null : Number(body.thresholdCents),
+      );
+      return result;
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.post("/api/parent/wishlist/:playerId/unlink", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { playerId } = request.params as { playerId: string };
+    try {
+      await unlinkWishlistForPlayer(playerId);
+      return { ok: true };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.post("/api/parent/wishlist", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const body = (request.body ?? {}) as {
+      playerId?: unknown;
+      title?: unknown;
+      priceCents?: unknown;
+      productUrl?: unknown;
+    };
+    try {
+      const item = await createManualWishlistItem({
+        playerId: typeof body.playerId === "string" ? body.playerId : "",
+        title: typeof body.title === "string" ? body.title : "",
+        priceCents: body.priceCents == null || body.priceCents === "" ? null : Number(body.priceCents),
+        productUrl: typeof body.productUrl === "string" ? body.productUrl : null,
+      });
+      return { item: publicWishlistItem(item) };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.post("/api/parent/wishlist/:id/confirm", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    const body = (request.body ?? {}) as { priceCents?: unknown };
+    try {
+      const item = await confirmWishlistItem(
+        id,
+        typeof body.priceCents === "number" ? body.priceCents : Number(body.priceCents),
+      );
+      return { item: publicWishlistItem(item) };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.post("/api/parent/wishlist/:id/hide", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    try {
+      const item = await hideWishlistItem(id);
+      return { item: publicWishlistItem(item) };
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.post("/api/parent/wishlist/:id/unhide", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    try {
+      const item = await unhideWishlistItem(id);
+      return { item: publicWishlistItem(item) };
     } catch (err) {
       const e = err as Error & { statusCode?: number };
       return reply.code(e.statusCode ?? 400).send({ error: e.message });

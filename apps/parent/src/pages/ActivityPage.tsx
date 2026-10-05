@@ -12,6 +12,7 @@ function dayLabel(day: string, index: number, total: number): string {
 }
 
 function medalGlyph(medal: string | null) {
+  if (medal === "basic") return "🔰";
   if (medal === "bronze") return "🥉";
   if (medal === "silver") return "🥈";
   if (medal === "gold") return "🥇";

@@ -14,6 +14,8 @@ export function choreClaimGate(opts: {
   hasAssignment: boolean;
   alreadyClaimedByPlayer: boolean;
   raceTaken: boolean;
+  windowOpen?: boolean;
+  windowReason?: string;
 }): ClaimGate {
   if (!opts.isActive) return { ok: false, reason: "That chore is turned off." };
   if (!opts.periodEligible) return { ok: false, reason: "Not today for that chore." };
@@ -26,7 +28,47 @@ export function choreClaimGate(opts: {
   if (opts.assignmentMode === "RACE" && opts.raceTaken) {
     return { ok: false, reason: "Someone already claimed that chore." };
   }
+  if (opts.windowOpen === false) {
+    return { ok: false, reason: opts.windowReason ?? "That chore isn't open right now." };
+  }
   return { ok: true };
+}
+
+/** 12-hour clock label for a minute-of-day value, e.g. 660 -> "11:00 AM". */
+export function formatClockTime(minutes: number): string {
+  const m = ((Math.floor(minutes) % 1440) + 1440) % 1440;
+  const hour24 = Math.floor(m / 60);
+  const minute = m % 60;
+  const suffix = hour24 < 12 ? "AM" : "PM";
+  const hour = hour24 % 12 === 0 ? 12 : hour24 % 12;
+  return minute === 0 ? `${hour}:00 ${suffix}` : `${hour}:${String(minute).padStart(2, "0")} ${suffix}`;
+}
+
+/** Kid-facing phrase for a claim window (null when the chore is claimable anytime). */
+export function claimWindowLabel(start: number | null, end: number | null): string | null {
+  if (start == null && end == null) return null;
+  const s = start ?? 0;
+  const e = end ?? 1440;
+  if (s === e) return null;
+  if (start == null) return `before ${formatClockTime(e)}`;
+  if (end == null) return `after ${formatClockTime(s)}`;
+  if (s < e) return `between ${formatClockTime(s)} and ${formatClockTime(e)}`;
+  return `from ${formatClockTime(s)} to ${formatClockTime(e)}`;
+}
+
+/**
+ * True when the current minute of day falls inside a chore's claim window.
+ * A null bound is open (start null = from midnight, end null = until midnight).
+ * End < start wraps overnight; 1440 means "through midnight".
+ */
+export function claimWindowOpen(start: number | null, end: number | null, minuteOfDay: number): boolean {
+  if (start == null && end == null) return true;
+  const s = start ?? 0;
+  const e = end ?? 1440;
+  if (s === e) return true;
+  const m = ((Math.floor(minuteOfDay) % 1440) + 1440) % 1440;
+  if (s < e) return m >= s && m < e;
+  return m >= s || m < e;
 }
 
 /** True when at least one active kid could still claim this chore this period. */

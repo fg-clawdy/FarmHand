@@ -29,6 +29,10 @@ export type ParentChoreBody = {
   isActive?: unknown;
   assignmentMode?: unknown;
   assignedPlayerIds?: unknown;
+  claimWindowStart?: unknown;
+  claimWindowEnd?: unknown;
+  activeDays?: unknown;
+  playbookIds?: unknown;
 };
 
 export function slugifyTitle(title: string): string {
@@ -75,10 +79,37 @@ function readOptionalMinutes(value: unknown): number | null | undefined {
   return n;
 }
 
+function readOptionalClockMinute(value: unknown, label: string, allowEndOfDay = false): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  const max = allowEndOfDay ? 24 * 60 : 24 * 60 - 1;
+  if (!Number.isInteger(n) || n < 0 || n > max) {
+    fail(`Pick a valid ${label}.`);
+  }
+  return n;
+}
+
 function readPlayerIds(value: unknown): string[] | undefined {
   if (value === undefined) return undefined;
   if (!Array.isArray(value) || value.some((id) => typeof id !== "string" || !id)) {
     fail("Pick the kids from the list.");
+  }
+  return [...new Set(value as string[])];
+}
+
+function readActiveDays(value: unknown): number[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.some((d) => typeof d !== "number" || !Number.isInteger(d) || d < 1 || d > 7)) {
+    fail("Pick the days for this chore.");
+  }
+  return [...new Set(value as number[])].sort((a, b) => a - b);
+}
+
+function readPlaybookIds(value: unknown): string[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.some((id) => typeof id !== "string" || !id)) {
+    fail("Pick the playbooks from the list.");
   }
   return [...new Set(value as string[])];
 }
@@ -111,6 +142,10 @@ export type ParsedChoreWrite = {
   isActive?: boolean;
   assignmentMode?: ChoreAssignmentMode;
   assignedPlayerIds?: string[];
+  claimWindowStart?: number | null;
+  claimWindowEnd?: number | null;
+  activeDays?: number[];
+  playbookIds?: string[];
 };
 
 export function parseParentChoreWrite(body: ParentChoreBody, mode: "create" | "patch"): ParsedChoreWrite {
@@ -173,5 +208,18 @@ export function parseParentChoreWrite(body: ParentChoreBody, mode: "create" | "p
   else if (assignmentMode !== undefined) parsed.assignmentMode = assignmentMode;
   const assigned = readPlayerIds(body.assignedPlayerIds);
   if (assigned !== undefined) parsed.assignedPlayerIds = assigned;
+  const claimWindowStart = readOptionalClockMinute(body.claimWindowStart, "available-from time");
+  const claimWindowEnd = readOptionalClockMinute(body.claimWindowEnd, "must-claim-by time", true);
+  if (claimWindowStart !== undefined) parsed.claimWindowStart = claimWindowStart;
+  if (claimWindowEnd !== undefined) parsed.claimWindowEnd = claimWindowEnd;
+  const resolvedStart = claimWindowStart ?? null;
+  const resolvedEnd = claimWindowEnd ?? null;
+  if (resolvedStart != null && resolvedEnd != null && resolvedStart === resolvedEnd) {
+    fail("The claim window can't start and end at the same time.");
+  }
+  const activeDays = readActiveDays(body.activeDays);
+  if (activeDays !== undefined) parsed.activeDays = activeDays;
+  const playbookIds = readPlaybookIds(body.playbookIds);
+  if (playbookIds !== undefined) parsed.playbookIds = playbookIds;
   return parsed;
 }

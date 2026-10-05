@@ -2,6 +2,7 @@ import { prisma } from "./db.js";
 import type { Prisma } from "@prisma/client";
 import {
   DEFAULT_GAME_CONFIG,
+  DEFAULT_GIVE_CEILING,
   getTier,
   mergeGameConfig,
   parentNotifyGate,
@@ -317,7 +318,7 @@ export function publicPlayer(player: {
     hasPin: Boolean(player.pinHash),
     isActive: player.isActive,
     givingEnabled: player.givingEnabled !== false,
-    giveCeiling: player.giveCeiling ?? 20,
+    giveCeiling: player.giveCeiling ?? DEFAULT_GIVE_CEILING,
     familyJarCoach: player.familyJarCoachSeenAt == null,
     unlocked,
     selfie: {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type ParentKid, type ParentRedemption, type ParentStoreSku, type SkuWrite } from "../api";
 import SharedGoalsPage from "./SharedGoalsPage";
+import WishlistSection from "../components/WishlistSection";
 
 type SkuForm = {
   title: string;
@@ -164,6 +165,8 @@ export default function StorePage() {
         </>
       )}
 
+      <WishlistSection />
+
       <h3>Waiting for you</h3>
       {pending.length === 0 && <p className="card">No store requests right now.</p>}
       <div className="claim-list">
@@ -176,6 +179,13 @@ export default function StorePage() {
                 <p>
                   {row.player.name} · {row.starCost}★ set aside
                 </p>
+                {row.productUrl && (
+                  <p>
+                    <a href={row.productUrl} target="_blank" rel="noreferrer">
+                      Buy it ↗
+                    </a>
+                  </p>
+                )}
               </div>
             </div>
             <div className="row">
@@ -212,6 +222,13 @@ export default function StorePage() {
                 <p>
                   {row.player.name} · owned
                 </p>
+                {row.productUrl && (
+                  <p>
+                    <a href={row.productUrl} target="_blank" rel="noreferrer">
+                      Buy it ↗
+                    </a>
+                  </p>
+                )}
               </div>
             </div>
             <div className="row">

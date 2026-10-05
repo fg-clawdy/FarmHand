@@ -10,6 +10,7 @@ import {
   starsHeldForPlayer,
 } from "./stars.js";
 import { withSerializableRetry } from "./locks.js";
+import { confirmedWishlistCatalog } from "./wishlist.js";
 
 type Tx = Prisma.TransactionClient;
 
@@ -71,16 +72,20 @@ export function publicRedemption(row: {
   approvedAt?: Date | null;
   deniedAt?: Date | null;
   redeemedAt?: Date | null;
-  skuId: string;
+  skuId: string | null;
   playerId: string;
   player?: { id: string; name: string; mascot: string };
-  sku?: { slug: string };
+  sku?: { slug: string } | null;
+  source?: string;
+  productUrl?: string | null;
 }) {
   const status = row.status.toLowerCase();
   return {
     id: row.id,
     skuId: row.skuId,
     slug: row.sku?.slug ?? "",
+    source: row.source ?? "catalog",
+    productUrl: row.productUrl ?? null,
     status: (status === "fulfilled" ? "owned" : status) as "pending" | "owned" | "redeemed" | "denied",
     title: row.title,
     emoji: row.emoji,
@@ -123,18 +128,24 @@ async function listRewards(playerId: string, status: "PENDING" | "OWNED" | "REDE
 }
 
 export async function playerStore(playerId: string) {
-  const [catalog, wallet, pending, owned] = await Promise.all([
+  const wallet = await playerWallet(playerId);
+  const [catalog, wishlist, pending, owned] = await Promise.all([
     listActiveCatalog(),
-    playerWallet(playerId),
+    confirmedWishlistCatalog(playerId, wallet.currentStars, wallet.heldStars),
     listRewards(playerId, "PENDING"),
     listRewards(playerId, "OWNED"),
   ]);
-  return {
-    ...publicWallet(wallet),
-    catalog: catalog.map((sku) => ({
+  const mergedCatalog = [
+    ...catalog.map((sku) => ({
       ...sku,
+      wishlistItemId: null as string | null,
       affordable: canAfford(wallet.currentStars, wallet.heldStars, sku.starCost),
     })),
+    ...wishlist,
+  ];
+  return {
+    ...publicWallet(wallet),
+    catalog: mergedCatalog,
     pending,
     owned,
   };
@@ -255,6 +266,63 @@ export async function requestStoreSku(playerId: string, skuId: string) {
   );
 }
 
+export async function requestWishlistReward(playerId: string, wishlistItemId: string) {
+  return withSerializableRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const item = await tx.wishlistItem.findUnique({ where: { id: wishlistItemId } });
+      if (!item || item.playerId !== playerId || item.status !== "CONFIRMED") {
+        throw httpError("That wish isn't ready to ask for yet.");
+      }
+      const starCost = item.starCost ?? 0;
+      if (starCost < 1) throw httpError("That wish isn't priced yet.");
+      const player = await tx.player.findUniqueOrThrow({ where: { id: playerId } });
+      const held = await starsHeldForPlayer(playerId, tx);
+      if (!canAfford(player.points, held, starCost)) {
+        throw httpError("Not enough stars yet. Harvest plants to earn more.");
+      }
+      const row = await tx.storeRedemption.create({
+        data: {
+          playerId,
+          skuId: null,
+          wishlistItemId: item.id,
+          source: "wishlist",
+          productUrl: item.productUrl,
+          status: "PENDING",
+          title: item.title,
+          emoji: "🎁",
+          description: "",
+          starCost,
+          starsHeld: starCost,
+        },
+        include: redemptionInclude,
+      });
+      await appendStarEvent(tx, {
+        playerId,
+        kind: "HOLD_REWARD",
+        amount: starCost,
+        idempotencyKey: `hold:${row.id}`,
+        redemptionId: row.id,
+        source: "wishlist_request",
+        meta: { wishlistItemId: item.id },
+      });
+      await appendRewardEvent(tx, {
+        redemptionId: row.id,
+        fromStatus: null,
+        toStatus: "PENDING",
+        note: "wishlist requested",
+      });
+      await tx.activityLog.create({
+        data: {
+          playerId,
+          action: "store_request",
+          details: { wishlistItemId: item.id, title: item.title, starsHeld: starCost, redemptionId: row.id },
+        },
+      });
+      return { redemption: row, playerName: player.name, skuTitle: item.title };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 12_000 }),
+  );
+}
+
 export async function approveRedemption(redemptionId: string, adminId: string) {
   return withSerializableRetry(() =>
     prisma.$transaction(async (tx) => {
@@ -274,7 +342,7 @@ export async function approveRedemption(redemptionId: string, adminId: string) {
         idempotencyKey: `spend:${row.id}`,
         redemptionId: row.id,
         source: "store_approve",
-        meta: { slug: row.sku.slug },
+        meta: { slug: row.sku?.slug ?? "" },
       });
       const updated = await tx.storeRedemption.update({
         where: { id: row.id },
@@ -298,7 +366,7 @@ export async function approveRedemption(redemptionId: string, adminId: string) {
         data: {
           playerId: row.playerId,
           action: "store_approve",
-          details: { redemptionId: row.id, slug: row.sku.slug, stars: row.starCost },
+          details: { redemptionId: row.id, slug: row.sku?.slug ?? "", stars: row.starCost },
         },
       });
       await tx.auditLog.create({
@@ -360,7 +428,7 @@ export async function denyRedemption(redemptionId: string, adminId: string, reas
         data: {
           playerId: row.playerId,
           action: "store_deny",
-          details: { redemptionId: row.id, slug: row.sku.slug, stars: row.starCost },
+          details: { redemptionId: row.id, slug: row.sku?.slug ?? "", stars: row.starCost },
         },
       });
       await tx.auditLog.create({
@@ -407,7 +475,7 @@ export async function redeemRedemption(redemptionId: string, adminId: string) {
         data: {
           playerId: row.playerId,
           action: "store_redeem",
-          details: { redemptionId: row.id, slug: row.sku.slug, stars: row.starCost },
+          details: { redemptionId: row.id, slug: row.sku?.slug ?? "", stars: row.starCost },
         },
       });
       await tx.auditLog.create({

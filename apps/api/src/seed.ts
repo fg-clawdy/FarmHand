@@ -3,6 +3,7 @@ import { DEFAULT_GAME_CONFIG, mergeGameConfig } from "@farmhand/shared";
 import { hashSecret } from "./auth.js";
 import type { Mascot } from "@prisma/client";
 import { seedChoreCatalog } from "./chores.js";
+import { seedPlaybooks } from "./playbooks.js";
 import { backfillStarLedgers, seedStoreCatalog } from "./store.js";
 import { recordOpeningBalance } from "./stars.js";
 import { syncAllPlayerPlots } from "./game.js";
@@ -65,6 +66,7 @@ export async function seedIfEmpty() {
   }
 
   await seedChoreCatalog();
+  await seedPlaybooks();
   await seedStoreCatalog();
   await backfillStarLedgers();
 }

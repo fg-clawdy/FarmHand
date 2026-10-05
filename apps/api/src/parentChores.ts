@@ -1,5 +1,5 @@
 import { compareChoresForParent, DEFAULT_GAME_CONFIG, formatWantedSeedLabel, resolveSeedReward, type GameConfig } from "@farmhand/shared";
-import { Prisma, type Chore, type ChoreAssignment, type Player } from "@prisma/client";
+import { Prisma, type Chore, type ChoreAssignment, type ChorePlaybookItem, type Player } from "@prisma/client";
 import { prisma } from "./db.js";
 import { httpError } from "./chores.js";
 import { loadConfig } from "./game.js";
@@ -13,10 +13,12 @@ import { generateWantedFlyer, wantedFlyerPublicUrl } from "./wantedFlyer.js";
 
 const choreInclude = {
   assignments: { include: { player: true }, orderBy: { createdAt: "asc" as const } },
+  playbookItems: { orderBy: { sortOrder: "asc" as const } },
 };
 
 type ChoreWithKids = Chore & {
   assignments: Array<ChoreAssignment & { player: Player }>;
+  playbookItems?: ChorePlaybookItem[];
 };
 
 export function serializeParentChore(chore: ChoreWithKids, config = DEFAULT_GAME_CONFIG) {
@@ -45,9 +47,13 @@ export function serializeParentChore(chore: ChoreWithKids, config = DEFAULT_GAME
     difficulty: chore.difficulty,
     seedReward: chore.seedReward,
     seedGrant: resolveSeedReward(chore, config),
+    claimWindowStart: chore.claimWindowStart,
+    claimWindowEnd: chore.claimWindowEnd,
     flyerUrl: wantedFlyerPublicUrl(chore.slug),
     assignments,
     assignedPlayerIds: assignments.map((row) => row.playerId),
+    activeDays: chore.activeDays,
+    playbookIds: (chore.playbookItems ?? []).map((row) => row.playbookId),
   };
 }
 
@@ -110,16 +116,24 @@ export async function createParentChore(body: ParentChoreBody) {
         requiresApproval: parsed.requiresApproval ?? true,
         requiresSelfie: parsed.requiresSelfie ?? false,
         allowsSkip: parsed.allowsSkip ?? false,
+        claimWindowStart: parsed.claimWindowStart ?? null,
+        claimWindowEnd: parsed.claimWindowEnd ?? null,
         isGlobal: isGlobalForMode(assignmentMode),
         includeInPath: parsed.includeInPath ?? true,
         isActive: parsed.isActive ?? true,
         assignmentMode,
         sortOrder: (maxOrder._max.sortOrder ?? 0) + 1,
+        activeDays: parsed.activeDays ?? [],
       },
     });
     if (assignmentMode === "SPECIFIC") {
       await tx.choreAssignment.createMany({
         data: assignedPlayerIds.map((playerId) => ({ choreId: row.id, playerId })),
+      });
+    }
+    if ((parsed.playbookIds ?? []).length) {
+      await tx.chorePlaybookItem.createMany({
+        data: parsed.playbookIds!.map((playbookId, sortOrder) => ({ choreId: row.id, playbookId, sortOrder })),
       });
     }
     return tx.chore.findUniqueOrThrow({ where: { id: row.id }, include: choreInclude });
@@ -160,6 +174,9 @@ export async function updateParentChore(id: string, body: ParentChoreBody) {
   if (parsed.allowsSkip !== undefined) data.allowsSkip = parsed.allowsSkip;
   if (parsed.includeInPath !== undefined) data.includeInPath = parsed.includeInPath;
   if (parsed.isActive !== undefined) data.isActive = parsed.isActive;
+  if (parsed.claimWindowStart !== undefined) data.claimWindowStart = parsed.claimWindowStart;
+  if (parsed.claimWindowEnd !== undefined) data.claimWindowEnd = parsed.claimWindowEnd;
+  if (parsed.activeDays !== undefined) data.activeDays = parsed.activeDays;
   data.assignmentMode = assignmentMode;
   data.isGlobal = isGlobalForMode(assignmentMode);
 
@@ -171,6 +188,14 @@ export async function updateParentChore(id: string, body: ParentChoreBody) {
       if (assignmentMode === "SPECIFIC" && assignedPlayerIds.length) {
         await tx.choreAssignment.createMany({
           data: assignedPlayerIds.map((playerId) => ({ choreId: id, playerId })),
+        });
+      }
+    }
+    if (parsed.playbookIds !== undefined) {
+      await tx.chorePlaybookItem.deleteMany({ where: { choreId: id } });
+      if (parsed.playbookIds.length) {
+        await tx.chorePlaybookItem.createMany({
+          data: parsed.playbookIds.map((playbookId, sortOrder) => ({ choreId: id, playbookId, sortOrder })),
         });
       }
     }

@@ -1,6 +1,6 @@
 import type { CropKind } from "./types.js";
 
-export const ACCOLADE_MEDALS = ["bronze", "silver", "gold"] as const;
+export const ACCOLADE_MEDALS = ["basic", "bronze", "silver", "gold"] as const;
 export type AccoladeMedal = (typeof ACCOLADE_MEDALS)[number];
 
 export const LIFETIME_SEASON_KEY = "lifetime";
@@ -18,6 +18,20 @@ export const CROP_EXPLORER_STEPS: Array<{ medal: AccoladeMedal; at: number }> = 
   { medal: "gold", at: 3 },
 ];
 
+/** The seeded Morning playbook slug — completing it counts toward Morning Person. */
+export const MORNING_PLAYBOOK_SLUG = "morning";
+
+/**
+ * Morning Person: finish the Morning playbook on a day. Basic at 1, bronze at 5,
+ * silver at 15, gold at 30 — non-consecutive days across the season.
+ */
+export const MORNING_PERSON_STEPS: Array<{ medal: AccoladeMedal; at: number }> = [
+  { medal: "basic", at: 1 },
+  { medal: "bronze", at: 5 },
+  { medal: "silver", at: 15 },
+  { medal: "gold", at: 30 },
+];
+
 export type AccoladeKind = "seasonal" | "lifetime";
 
 export type AccoladeDef = {
@@ -26,7 +40,7 @@ export type AccoladeDef = {
   title: string;
   emoji: string;
   blurb: string;
-  counter: "harvests" | "waterings" | "plantings" | "selfies" | "camera" | "crops" | "activeDays";
+  counter: "harvests" | "waterings" | "plantings" | "selfies" | "camera" | "crops" | "activeDays" | "morningPlaybooks";
   steps: Array<{ medal: AccoladeMedal; at: number }> | null;
   lifetimeAt?: number;
 };
@@ -85,6 +99,15 @@ export const SEASONAL_TRACKS: AccoladeDef[] = [
     blurb: "Distinct Chicago days you harvested, watered, planted, or took a selfie/photo.",
     counter: "activeDays",
     steps: MEDAL_STEPS,
+  },
+  {
+    slug: "morning-person",
+    kind: "seasonal",
+    title: "Morning Person",
+    emoji: "☀️",
+    blurb: "Finish the Morning playbook. Basic at 1, bronze at 5, silver at 15, gold at 30 this season.",
+    counter: "morningPlaybooks",
+    steps: MORNING_PERSON_STEPS,
   },
 ];
 
@@ -206,6 +229,7 @@ export type AccoladeCounters = {
   chorePhotos: number;
   cropsMask: number;
   activeDays: number;
+  morningPlaybooks: number;
 };
 
 function countFor(def: AccoladeDef, counters: AccoladeCounters): number {

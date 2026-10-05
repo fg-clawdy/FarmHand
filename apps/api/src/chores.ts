@@ -1,7 +1,10 @@
 import {
   assignmentModeForSeed,
   choreClaimGate,
+  choreMinuteOfDay,
   choreOpenForFamily,
+  claimWindowLabel,
+  claimWindowOpen,
   closedPeriodKey,
   compareChoresForKid,
   compareChoresForParent,
@@ -147,11 +150,14 @@ export function publicChore(
   },
 ) {
   const now = opts.now ?? new Date();
-  const period = chorePeriod(chore.recurrence, opts.timezone, now);
+  const period = chorePeriod(chore.recurrence, opts.timezone, now, chore.activeDays);
   const periodClaimKey = `${chore.id}:${period.key}`;
   const alreadyClaimedByPlayer = opts.claimedPeriodKeys.has(periodClaimKey);
   const raceTaken = opts.raceTakenKeys.has(periodClaimKey);
   const hasAssignment = (chore.assignments ?? []).some((row) => row.playerId === opts.playerId);
+  const minute = choreMinuteOfDay(now, opts.timezone);
+  const windowOpen = claimWindowOpen(chore.claimWindowStart, chore.claimWindowEnd, minute);
+  const windowLabel = claimWindowLabel(chore.claimWindowStart, chore.claimWindowEnd);
   const gate = choreClaimGate({
     isActive: chore.isActive,
     periodEligible: period.eligible,
@@ -159,6 +165,8 @@ export function publicChore(
     hasAssignment,
     alreadyClaimedByPlayer,
     raceTaken,
+    windowOpen,
+    windowReason: windowLabel ? `That chore can only be claimed ${windowLabel}.` : undefined,
   });
   return {
     id: chore.id,
@@ -178,6 +186,10 @@ export function publicChore(
     isActive: chore.isActive,
     assignmentMode: chore.assignmentMode,
     sortOrder: chore.sortOrder,
+    activeDays: chore.activeDays,
+    claimWindowStart: chore.claimWindowStart,
+    claimWindowEnd: chore.claimWindowEnd,
+    windowLabel,
     periodKey: period.key,
     periodEligible: period.eligible,
     eligible: gate.ok,
@@ -240,7 +252,7 @@ export async function listFamilyOpenChores(timezone: string, now = new Date()): 
   const raceTakenKeys = new Set(raceSlots.map((row) => `${row.choreId}:${row.periodKey}`));
   const jobs: FamilyOpenJob[] = [];
   for (const chore of chores) {
-    const period = chorePeriod(chore.recurrence, timezone, now);
+    const period = chorePeriod(chore.recurrence, timezone, now, chore.activeDays);
     const claimedPlayerIdsThisPeriod = claims
       .filter((row) => row.choreId === chore.id && row.periodKey === period.key)
       .map((row) => row.playerId);
@@ -273,6 +285,59 @@ export async function listFamilyOpenChores(timezone: string, now = new Date()): 
   return jobs.sort(compareChoresForParent);
 }
 
+type CompletedPlaybook = { id: string; slug: string; title: string; emoji: string };
+
+/**
+ * After a claim, find any active, currently-broadcasting playbook whose chores
+ * are all now claimed by this player for their current period. Returns the newly
+ * completed playbooks plus the accolade unlocks fired for them (Morning Person).
+ */
+async function detectPlaybookCompletions(
+  tx: Tx,
+  opts: { playerId: string; timezone: string; now: Date; triggeredChoreId: string },
+): Promise<{ playbooks: CompletedPlaybook[]; unlocks: Awaited<ReturnType<typeof recordAccoladeEvent>> }> {
+  const memberships = await tx.chorePlaybookItem.findMany({
+    where: { choreId: opts.triggeredChoreId },
+    select: { playbookId: true },
+  });
+  if (memberships.length === 0) return { playbooks: [], unlocks: [] };
+
+  const playbooks = await tx.chorePlaybook.findMany({
+    where: { id: { in: memberships.map((m) => m.playbookId) }, isActive: true },
+    include: { items: { include: { chore: true }, orderBy: { sortOrder: "asc" } } },
+  });
+  const minute = choreMinuteOfDay(opts.now, opts.timezone);
+  const completed: CompletedPlaybook[] = [];
+  const unlocks: Awaited<ReturnType<typeof recordAccoladeEvent>> = [];
+
+  for (const playbook of playbooks) {
+    if (playbook.items.length === 0) continue;
+    if (!claimWindowOpen(playbook.windowStart, playbook.windowEnd, minute)) continue;
+    const claimed = await tx.choreClaim.findMany({
+      where: {
+        playerId: opts.playerId,
+        choreId: { in: playbook.items.map((item) => item.choreId) },
+      },
+      select: { choreId: true, periodKey: true },
+    });
+    const claimedKeys = new Set(claimed.map((row) => `${row.choreId}:${row.periodKey}`));
+    const allDone = playbook.items.every((item) => {
+      const period = chorePeriod(item.chore.recurrence, opts.timezone, opts.now, item.chore.activeDays);
+      return claimedKeys.has(`${item.chore.id}:${period.key}`);
+    });
+    if (!allDone) continue;
+    completed.push({ id: playbook.id, slug: playbook.slug, title: playbook.title, emoji: playbook.emoji });
+    unlocks.push(
+      ...(await recordAccoladeEvent(tx, {
+        playerId: opts.playerId,
+        timezone: opts.timezone,
+        event: { type: "playbook_complete", playbookSlug: playbook.slug },
+      })),
+    );
+  }
+  return { playbooks: completed, unlocks };
+}
+
 export async function claimChore(opts: {
   playerId: string;
   choreId: string;
@@ -293,7 +358,7 @@ export async function claimChore(opts: {
           include: { assignments: true },
         });
         if (!chore) throw httpError("That chore isn't on the list.", 404);
-        const period = chorePeriod(chore.recurrence, opts.timezone, now);
+        const period = chorePeriod(chore.recurrence, opts.timezone, now, chore.activeDays);
         const hasAssignment = chore.assignments.some((row) => row.playerId === opts.playerId);
         const existing = await tx.choreClaim.findUnique({
           where: {
@@ -307,6 +372,9 @@ export async function claimChore(opts: {
         const race = await tx.choreRaceSlot.findUnique({
           where: { choreId_periodKey: { choreId: chore.id, periodKey: period.key } },
         });
+        const minute = choreMinuteOfDay(now, opts.timezone);
+        const windowOpen = claimWindowOpen(chore.claimWindowStart, chore.claimWindowEnd, minute);
+        const windowLabel = claimWindowLabel(chore.claimWindowStart, chore.claimWindowEnd);
         const gate = choreClaimGate({
           isActive: chore.isActive,
           periodEligible: period.eligible,
@@ -314,6 +382,8 @@ export async function claimChore(opts: {
           hasAssignment,
           alreadyClaimedByPlayer: Boolean(existing),
           raceTaken: Boolean(race),
+          windowOpen,
+          windowReason: windowLabel ? `That chore can only be claimed ${windowLabel}.` : undefined,
         });
         if (!gate.ok) throw httpError(gate.reason ?? "You can't claim that chore.");
         if (chore.requiresSelfie && !opts.proofPath && !opts.hasProof) {
@@ -368,7 +438,22 @@ export async function claimChore(opts: {
           });
         }
 
-        return { claim, chore, playerId: opts.playerId, unlocks, seedsGranted: jobSeedReward };
+        const completion = await detectPlaybookCompletions(tx, {
+          playerId: opts.playerId,
+          timezone: opts.timezone,
+          now,
+          triggeredChoreId: chore.id,
+        });
+        unlocks = [...unlocks, ...completion.unlocks];
+
+        return {
+          claim,
+          chore,
+          playerId: opts.playerId,
+          unlocks,
+          seedsGranted: jobSeedReward,
+          completedPlaybooks: completion.playbooks,
+        };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 12_000 },
     );

@@ -4,6 +4,7 @@ import { httpError } from "./chores.js";
 import { appendStarEvent, playerWallet } from "./stars.js";
 import { withSerializableRetry, withLockedPlayer } from "./locks.js";
 import {
+  DEFAULT_GIVE_CEILING,
   PUT_BACK_WINDOW_SECONDS,
   buildJarArtPrompt,
   tintIndexFor,
@@ -388,7 +389,7 @@ export async function pourSharedGoal(opts: {
       if (player.givingEnabled === false) {
         throw httpError("You can watch the jar fill.", 403);
       }
-      const giveCeiling = player.giveCeiling ?? 20;
+      const giveCeiling = player.giveCeiling ?? DEFAULT_GIVE_CEILING;
 
       const fill = await goalFill(goalId, tx);
       const room = Math.max(0, goal.targetStars - fill);
@@ -637,7 +638,7 @@ export async function parentSharedGoals(): Promise<{
         mascot: p.mascot,
         netGiven: net,
         givingEnabled: p.givingEnabled !== false,
-        giveCeiling: p.giveCeiling ?? 20,
+        giveCeiling: p.giveCeiling ?? DEFAULT_GIVE_CEILING,
       };
     });
 
@@ -670,7 +671,7 @@ export async function parentSharedGoals(): Promise<{
     mascot: p.mascot,
     netGiven: 0,
     givingEnabled: p.givingEnabled !== false,
-    giveCeiling: p.giveCeiling ?? 20,
+    giveCeiling: p.giveCeiling ?? DEFAULT_GIVE_CEILING,
   }));
 
   const onFarm = (

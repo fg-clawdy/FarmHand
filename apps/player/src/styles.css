@@ -628,6 +628,15 @@ button.who.profile-entry:active {
   box-shadow: 0 4px 0 #7a5a3a;
 }
 .store-card-emoji { font-size: 48px; line-height: 1; }
+.store-card-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 0 rgba(80, 40, 10, 0.15);
+}
+.sheet--crate .store-card.off .store-card-thumb { filter: grayscale(0.55); opacity: 0.8; }
 .store-card-cost {
   background: linear-gradient(#ffe56a, #f0b429);
   color: #2a1608;
@@ -2409,40 +2418,131 @@ button.who.profile-entry:active {
 .tube-wallet {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  background: #6b4428;
+  gap: 10px;
+  background: linear-gradient(160deg, #7a4e2c, #5c3a1e);
   color: #fff8e6;
-  border-radius: 16px;
-  padding: 10px 14px;
-  box-shadow: inset 0 0 0 3px rgba(255, 220, 150, 0.25);
+  border: 2px solid rgba(255, 220, 150, 0.35);
+  border-radius: 18px;
+  padding: 12px 16px;
+  box-shadow: inset 0 0 0 3px rgba(255, 220, 150, 0.18), 0 4px 0 rgba(40, 24, 8, 0.35);
 }
-.tube-wallet-amt { font-size: 28px; font-weight: 800; }
-.tube-chip-stack { display: flex; flex-direction: column; gap: 8px; }
+.tube-wallet-star {
+  font-size: 22px;
+  color: #ffd968;
+  text-shadow: 0 2px 0 rgba(90, 50, 20, 0.4);
+}
+.tube-wallet-amt { font-size: 28px; font-weight: 800; line-height: 1; }
+.tube-wallet-label {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #f3dfae;
+}
+.tube-chip-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tube-chip-label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #f3dfae;
+  text-shadow: 0 2px 0 rgba(90, 50, 20, 0.25);
+}
+.tube-chip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
 .tube-chip {
-  min-height: 58px;
+  min-height: 62px;
   border: 0;
-  border-radius: 14px;
+  border-radius: 18px;
   color: #fffdf6;
   font: inherit;
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 800;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   box-shadow: 0 5px 0 rgba(40, 24, 8, 0.35);
+  transition: transform 90ms ease-out, box-shadow 90ms ease-out;
 }
-.tube-chip.tone-1 { background: linear-gradient(#6ea2e8, #3d74c4); }
-.tube-chip.tone-5 { background: linear-gradient(#8bc56a, #4f8f3a); }
-.tube-chip.tone-10 { background: linear-gradient(#b08ad4, #7a56a8); }
+.tube-chip-star {
+  font-size: 18px;
+  opacity: 0.9;
+  text-shadow: 0 1px 0 rgba(40, 24, 8, 0.3);
+}
+.tube-chip:hover:not(:disabled) { transform: translateY(-1px); }
+.tube-chip:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 3px 0 rgba(40, 24, 8, 0.35);
+}
+.tube-chip.tone-5 { background: linear-gradient(160deg, #8bc56a, #4f8f3a); }
+.tube-chip.tone-10 { background: linear-gradient(160deg, #6ea2e8, #3d74c4); }
+.tube-chip.tone-25 { background: linear-gradient(160deg, #b08ad4, #7a56a8); }
+.tube-chip.tone-50 { background: linear-gradient(160deg, #f0975a, #d06a2c); }
+.tube-chip.tone-100 {
+  background: linear-gradient(160deg, #ffe08a, #e8a63d);
+  color: #5c3a1e;
+  border: 2px solid #fff2c0;
+}
+.tube-chip.tone-100 .tube-chip-star { text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4); }
+.tube-chip.chip-max {
+  grid-column: 1 / -1;
+  min-height: 66px;
+  font-size: 30px;
+  box-shadow: 0 5px 0 #a06a1a, 0 0 24px rgba(255, 214, 110, 0.4);
+}
 .tube-chip.is-on { outline: 4px solid #ffe08a; transform: translateY(-1px); }
+.tube-chip.chip-max.is-on { outline-color: #fff6c8; }
 .tube-chip:disabled { opacity: 0.45; }
 .tube-preview-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
   background: #4e3018;
   color: #fff6d8;
-  border-radius: 14px;
-  padding: 10px 12px;
-  font-weight: 800;
+  border: 2px solid rgba(255, 220, 150, 0.25);
+  border-radius: 16px;
+  padding: 12px 14px;
+  box-shadow: inset 0 0 0 3px rgba(255, 220, 150, 0.12);
 }
-.tube-preview-card p { margin: 0; color: #fff6d8; text-shadow: none; }
+.tube-preview-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tube-preview-k {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #e9cf9d;
+}
+.tube-preview-v { font-size: 17px; font-weight: 700; color: #fff6d8; }
+.tube-preview-v strong { color: #ffd968; font-size: 20px; font-weight: 800; }
+.tube-preview-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(30, 17, 6, 0.55);
+  overflow: hidden;
+}
+.tube-preview-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e8c15a, #ffd968);
+  box-shadow: 0 0 8px rgba(255, 217, 104, 0.6);
+  transition: width 250ms ease-out;
+}
 .tube-add, .tube-dismiss { width: 100%; min-height: 58px; font-size: 26px; }
 .tube-dismiss {
   background: linear-gradient(#a56b3c, #7a4a22);
@@ -2629,7 +2729,7 @@ button.who.profile-entry:active {
   .tube-hero-count strong { font-size: 32px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tube-fill { transition: none; }
+  .tube-fill, .tube-preview-fill { transition: none; }
   .tube-ghost, .tube-lens, .tube-burst { animation: none; opacity: 0; }
 }
 
@@ -2840,3 +2940,537 @@ button.who.profile-entry:active {
     width: min(150px, 46%);
   }
 }
+
+/* =====================================================================
+   "Crate" modal system (Sheet variant="crate"). First user: Farm Store.
+   Wood plank header, pinned subhead/footer, paper body, hanging price tags.
+   Everything is scoped under .sheet--crate / .sheet-backdrop--crate so the
+   classic wood sheets are unaffected until they are migrated.
+   ===================================================================== */
+.sheet-backdrop--crate {
+  background: rgba(34, 20, 10, 0.55);
+  animation: crateFade 0.18s ease-out both;
+}
+.sheet.sheet--crate {
+  --crate-wood: #7a451c;
+  --crate-wood-dark: #4d2a12;
+  --crate-paper: #fff8e6;
+  --crate-paper-2: #f8e6bd;
+  --crate-edge: #e2c48b;
+  --crate-gold: #f0b429;
+  --crate-gold-dark: #c47a10;
+  --crate-ok: #2f7a2c;
+  --crate-bad: #9b2c1f;
+  --crate-focus: #2f7fa8;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(760px, 100%);
+  padding: 0;
+  overflow: hidden;
+  max-height: 88vh;
+  max-height: 88dvh;
+  /* Steady height so switching tabs doesn't make the crate jump. */
+  min-height: min(620px, 88vh);
+  min-height: min(620px, 88dvh);
+  text-align: left;
+  background: var(--crate-paper);
+  border: 6px solid var(--crate-wood);
+  border-radius: 28px;
+  box-shadow:
+    0 12px 0 var(--crate-wood-dark),
+    0 24px 44px rgba(0, 0, 0, 0.35);
+  text-shadow: none;
+  animation: crateRise 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+.sheet.sheet--crate:focus { outline: none; }
+.sheet.sheet--crate :is(h3, h4, p, strong, b) { text-shadow: none; }
+.sheet--crate .crate-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Header: a wooden plank with two nails. */
+.sheet--crate .crate-head {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 14px 14px 16px;
+  min-height: 78px;
+  color: var(--cream);
+  background:
+    linear-gradient(180deg, rgba(255, 236, 190, 0.28), rgba(40, 20, 8, 0.22)),
+    url("/art/wood_grain.jpg") center / 320px,
+    linear-gradient(#a8622f, #7a451c);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.32),
+    0 5px 0 var(--crate-wood-dark);
+  z-index: 2;
+}
+.sheet--crate .crate-head::before,
+.sheet--crate .crate-head::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #e8e2d6, #6d675c 70%);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+.sheet--crate .crate-head::before { left: 9px; }
+.sheet--crate .crate-head::after { right: 9px; }
+.sheet--crate .crate-head-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: linear-gradient(#fff8e6, #f0d7a0);
+  border: 3px solid var(--crate-wood-dark);
+  box-shadow: 0 3px 0 var(--crate-wood-dark);
+  transform: rotate(-4deg);
+  overflow: hidden;
+}
+.sheet--crate .crate-head-icon .store-preview {
+  width: 92%;
+  height: auto;
+  margin: 0;
+}
+.sheet--crate .crate-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: clamp(24px, 5.2vw, 32px);
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #fff6e4;
+  text-shadow: 0 2px 0 var(--crate-wood-dark), 0 0 10px rgba(40, 20, 8, 0.35);
+}
+.sheet--crate .crate-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 3px solid var(--crate-wood-dark);
+  border-radius: 50%;
+  color: var(--crate-wood-dark);
+  background: linear-gradient(#fff8e6, #ecd09a);
+  box-shadow: 0 4px 0 var(--crate-wood-dark);
+  cursor: pointer;
+}
+.sheet--crate .crate-close svg { width: 22px; height: 22px; }
+.sheet--crate .crate-close:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--crate-wood-dark); }
+@media (pointer: coarse) {
+  .sheet--crate .crate-close { width: 54px; height: 54px; }
+}
+
+/* Subhead (wallet + tabs). */
+.sheet--crate .crate-subhead {
+  flex: none;
+  display: grid;
+  gap: 10px;
+  padding: 16px 16px 12px;
+  background: linear-gradient(#f6e2b4, #f1d9a2);
+  border-bottom: 3px solid var(--crate-edge);
+}
+.sheet--crate .store-wallet {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sheet--crate .store-wallet-star { flex: none; width: 36px; height: 36px; filter: drop-shadow(0 2px 0 rgba(168, 101, 12, 0.5)); }
+.sheet--crate .store-balance {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.sheet--crate .store-wallet-name { font-weight: 600; opacity: 0.85; }
+.sheet--crate .store-wallet-count strong { font-size: 24px; font-weight: 800; }
+.sheet--crate .store-wallet-held {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #6b4a1f;
+}
+.sheet--crate .store-wallet-held svg { width: 16px; height: 16px; }
+
+/* Tabs as a recessed segmented control. */
+.sheet--crate .store-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 4px;
+  flex-wrap: nowrap;
+  justify-content: stretch;
+  border-radius: 18px;
+  background: rgba(92, 50, 24, 0.16);
+  box-shadow: inset 0 2px 3px rgba(60, 30, 10, 0.25);
+}
+.sheet--crate .store-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 48px;
+  padding: 6px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  box-shadow: none;
+  color: #4d2a12;
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.sheet--crate .store-tab svg { width: 20px; height: 20px; flex: none; }
+.sheet--crate .store-tab.on {
+  background: linear-gradient(#ffe56a, var(--crate-gold));
+  box-shadow: 0 3px 0 var(--crate-gold-dark), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transform: translateY(-1px);
+}
+
+
+/* Body: scrolls on its own so header, tabs and footer stay pinned. */
+.sheet--crate .crate-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 16px 18px;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(122, 69, 28, 0.06) 31px 32px),
+    var(--crate-paper);
+}
+.sheet--crate .crate-body > p { margin: 0 0 12px; }
+.sheet--crate .store-note {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  opacity: 0.8;
+}
+.sheet--crate .store-toast,
+.sheet--crate .store-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.sheet--crate .store-toast svg,
+.sheet--crate .store-error svg { flex: none; width: 24px; height: 24px; margin-top: -1px; }
+.sheet--crate .store-toast { color: var(--crate-ok); background: #e3f3d6; border: 2px solid #9fcf8a; }
+.sheet--crate .store-error { color: var(--crate-bad); background: #fde6df; border: 2px solid #e8a495; }
+
+/* Shop grid: each reward is a crate with a hanging paper price tag. */
+.sheet--crate .store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 18px 14px;
+  margin: 4px 0 0;
+}
+.sheet--crate .store-card {
+  position: relative;
+  min-height: 196px;
+  padding: 18px 12px 34px;
+  gap: 6px;
+  border: 3px solid var(--crate-wood);
+  border-radius: 20px;
+  background: linear-gradient(180deg, #fffdf4, var(--crate-paper-2));
+  box-shadow: 0 6px 0 var(--crate-wood-dark), 0 12px 14px rgba(80, 40, 10, 0.12);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.sheet--crate .store-card:not(:disabled):hover { transform: translateY(-2px); }
+.sheet--crate .store-card:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--crate-wood-dark);
+}
+.sheet--crate .store-card:disabled { cursor: progress; }
+.sheet--crate .store-card.off {
+  opacity: 1;
+  filter: none;
+  background: linear-gradient(180deg, #f3ead6, #e6d6b2);
+  border-color: #a98a63;
+  box-shadow: 0 4px 0 #7a5a3a;
+}
+.sheet--crate .store-card.off .store-card-emoji { filter: grayscale(0.55); opacity: 0.8; }
+.sheet--crate .store-card-emoji { font-size: 52px; line-height: 1; }
+.sheet--crate .store-card-title { font-size: 18px; font-weight: 700; line-height: 1.15; }
+.sheet--crate .store-card-copy { font-size: 14px; font-weight: 600; line-height: 1.25; opacity: 0.78; }
+.sheet--crate .store-card-need {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--crate-bad);
+  margin-top: 2px;
+}
+/* The design risk: a paper tag that hangs off the bottom edge. */
+.sheet--crate .store-card-cost {
+  position: absolute;
+  left: 50%;
+  bottom: -14px;
+  transform: translateX(-50%) rotate(-3deg);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 14px 5px 12px;
+  white-space: nowrap;
+  font-size: 18px;
+  font-weight: 800;
+  color: #2a1608;
+  background: linear-gradient(#fff3b0, #ffd95a);
+  border: 2px solid var(--crate-gold-dark);
+  border-radius: 6px 14px 14px 6px;
+  box-shadow: 0 3px 0 var(--crate-gold-dark);
+}
+.sheet--crate .store-card-cost::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-right: 2px;
+  border-radius: 50%;
+  background: #7a451c;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.6);
+}
+.sheet--crate .store-card-cost svg { width: 20px; height: 20px; }
+.sheet--crate .store-card.off .store-card-cost {
+  background: linear-gradient(#f1e7cf, #ddcca2);
+  border-color: #a98a63;
+  box-shadow: 0 3px 0 #a98a63;
+  color: #5a4a30;
+}
+
+/* Waiting / Owned lists. */
+.sheet--crate .store-pending {
+  padding: 4px 0 0;
+  background: none;
+  border-radius: 0;
+  margin: 0;
+}
+.sheet--crate .store-pending h3 {
+  margin: 0 0 10px;
+  font-size: 20px;
+  font-weight: 700;
+}
+.sheet--crate .store-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  min-height: 60px;
+  border: 2px solid var(--crate-edge);
+  border-radius: 16px;
+  background: #fffdf4;
+  box-shadow: 0 3px 0 var(--crate-edge);
+}
+.sheet--crate .store-row-emoji { flex: none; font-size: 34px; line-height: 1; }
+.sheet--crate .store-row-title { flex: 1 1 auto; min-width: 0; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
+.sheet--crate .store-tag {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #6b4a1f;
+  background: #ffe9a3;
+  border: 2px solid #e6b94a;
+}
+.sheet--crate .store-tag svg { width: 18px; height: 18px; }
+.sheet--crate .store-tag--owned { color: var(--crate-ok); background: #e3f3d6; border-color: #9fcf8a; }
+
+
+/* Footer: pinned, one row on wide screens, stacked full-width on phones. */
+.sheet--crate .crate-foot {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(#f6e2b4, #f1d9a2);
+  border-top: 3px solid var(--crate-edge);
+}
+.sheet--crate .crate-foot .btn { min-height: 56px; flex: 0 1 auto; }
+
+/* Confirm step: a note card over a dimmed crate (the crate behind is inert). */
+.sheet--crate .store-confirm-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(34, 20, 10, 0.55);
+  animation: crateFade 0.16s ease-out both;
+}
+.sheet--crate .store-confirm {
+  position: relative;
+  bottom: auto;
+  z-index: auto;
+  width: min(440px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  margin: 0;
+  padding: 24px 20px 18px;
+  text-align: center;
+  background: linear-gradient(#fffdf4, var(--crate-paper-2));
+  border: 4px solid var(--crate-wood);
+  border-radius: 24px;
+  box-shadow: 0 8px 0 var(--crate-wood-dark), 0 18px 30px rgba(0, 0, 0, 0.3);
+  animation: cratePop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+.sheet--crate .store-confirm-emoji {
+  display: block;
+  font-size: 56px;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.sheet--crate .store-confirm p { margin: 0 0 10px; }
+.sheet--crate .store-confirm-title { font-size: 22px; font-weight: 700; line-height: 1.2; }
+.sheet--crate .store-confirm-copy { font-size: 16px; font-weight: 600; line-height: 1.35; }
+.sheet--crate .store-confirm .sheet-actions { justify-content: center; margin-top: 14px; }
+
+/* Keyboard focus: one obvious ring across the whole system. */
+.sheet--crate :is(button, a, input, select, textarea):focus-visible {
+  outline: 4px solid var(--crate-focus);
+  outline-offset: 2px;
+}
+
+@keyframes crateFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes crateRise {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cratePop {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (max-width: 520px) {
+  .sheet-backdrop--crate { padding: 10px; align-items: flex-end; }
+  .sheet.sheet--crate { max-height: 94vh; max-height: 94dvh; border-radius: 24px; }
+  .sheet--crate .crate-head-icon { width: 54px; height: 54px; }
+  .sheet--crate .store-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 10px; }
+  .sheet--crate .store-card { min-height: 188px; padding-inline: 8px; }
+  .sheet--crate .store-tab { font-size: 15px; gap: 4px; padding-inline: 4px; }
+  .sheet--crate .crate-foot { flex-wrap: nowrap; gap: 8px; padding-inline: 12px; }
+  .sheet--crate .crate-foot .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 52px;
+    padding: 0 8px;
+    font-size: 15px;
+    line-height: 1.1;
+    text-align: center;
+  }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .sheet.sheet--crate { max-height: 96vh; max-height: 96dvh; }
+  .sheet.sheet--crate { min-height: 0; border-width: 5px; }
+  .sheet--crate .crate-head { min-height: 54px; padding-block: 6px; }
+  .sheet--crate .crate-head-icon { width: 42px; height: 42px; border-radius: 12px; }
+  .sheet--crate .crate-title { font-size: 24px; }
+  .sheet--crate .crate-close { width: 44px; height: 44px; }
+  .sheet--crate .crate-subhead { padding-block: 6px; gap: 6px; }
+  .sheet--crate .store-wallet-star { width: 28px; height: 28px; }
+  .sheet--crate .store-tab { min-height: 44px; }
+  .sheet--crate .store-note { display: none; }
+  .sheet--crate .crate-foot { padding-block: 8px; }
+  .sheet--crate .crate-foot .btn { min-height: 48px; }
+  .sheet--crate .crate-body { padding-block: 10px 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet-backdrop--crate,
+  .sheet.sheet--crate,
+  .sheet--crate .store-confirm-scrim,
+  .sheet--crate .store-confirm { animation: none; }
+  .sheet--crate .store-card { transition: none; }
+}
+
+
+/* Playbook missions (Job Board hero + checklist sheet) */
+.job-grid-playbooks {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.playbook-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.playbook-card.done {
+  opacity: 0.85;
+}
+.playbook-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0;
+}
+.playbook-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 2px solid var(--cream);
+  border-radius: 14px;
+  background: #fffdf6;
+}
+.playbook-row.done {
+  opacity: 0.65;
+}
+.playbook-check {
+  font-size: 20px;
+}
+.playbook-emoji {
+  font-size: 26px;
+}
+.playbook-title {
+  flex: 1;
+  font-weight: 700;
+}
+.playbook-row .job-reason {
+  flex-basis: 100%;
+  margin-left: 46px;
+}
+.playbook-complete-banner {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--sage);
+  margin: 8px 0;
+}
+

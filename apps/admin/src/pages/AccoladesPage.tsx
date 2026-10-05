@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 
 function medalGlyph(medal: string | null) {
+  if (medal === "basic") return "🔰";
   if (medal === "bronze") return "🥉";
   if (medal === "silver") return "🥈";
   if (medal === "gold") return "🥇";

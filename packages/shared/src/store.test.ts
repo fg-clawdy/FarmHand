@@ -4,7 +4,10 @@ import {
   STARTER_STORE_CATALOG,
   availableStars,
   canAfford,
+  priceBreakdown,
+  roundUpTo50,
   spendHeldStars,
+  starCostForPriceCents,
   walletFromLedger,
 } from "./store.js";
 
@@ -115,4 +118,32 @@ test("wallet current stars never go negative from over-spend lines", () => {
   assert.equal(wallet.currentStars, 0);
   assert.equal(wallet.availableStars, 0);
   assert.equal(wallet.lifetimeSpent, 500);
+});
+
+test("roundUpTo50 rounds up to the nearest 50 cents", () => {
+  assert.equal(roundUpTo50(0), 0);
+  assert.equal(roundUpTo50(1), 50);
+  assert.equal(roundUpTo50(49), 50);
+  assert.equal(roundUpTo50(50), 50);
+  assert.equal(roundUpTo50(51), 100);
+  assert.equal(roundUpTo50(100), 100);
+  assert.equal(roundUpTo50(2474), 2500);
+});
+
+test("star cost = price + 10% tax rounded up to 50c, 1 star = 1 cent", () => {
+  assert.equal(starCostForPriceCents(2299), 2550);
+  assert.equal(starCostForPriceCents(0), 0);
+  assert.equal(starCostForPriceCents(1), 50);
+  assert.equal(starCostForPriceCents(49), 100);
+  assert.equal(starCostForPriceCents(50), 100);
+  assert.equal(starCostForPriceCents(100), 150);
+});
+
+test("price breakdown totals match the star cost", () => {
+  const b = priceBreakdown(2299);
+  assert.equal(b.priceCents, 2299);
+  assert.equal(b.taxCents, 230);
+  assert.equal(b.totalCents, 2529);
+  assert.equal(b.starCost, 2550);
+  assert.equal(b.starCost, starCostForPriceCents(b.priceCents));
 });

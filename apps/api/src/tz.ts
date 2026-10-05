@@ -32,16 +32,25 @@ export function chorePeriod(
   recurrence: "DAILY" | "WEEKLY" | "WEEKDAYS" | "NONE",
   timezone: string,
   at = new Date(),
+  activeDays: number[] = [],
 ): { key: string; eligible: boolean } {
   const zoned = DateTime.fromJSDate(at).setZone(timezone);
-  if (recurrence === "NONE") return { key: "open", eligible: true };
+  if (recurrence === "NONE") {
+    return { key: "open", eligible: activeDays.length === 0 || activeDays.includes(zoned.weekday) };
+  }
   if (recurrence === "WEEKLY") {
     const monday = zoned.startOf("week");
-    return { key: `${monday.toFormat("yyyy-LL-dd")}-week`, eligible: true };
+    return {
+      key: `${monday.toFormat("yyyy-LL-dd")}-week`,
+      eligible: activeDays.length === 0 || activeDays.includes(zoned.weekday),
+    };
   }
   const key = zoned.toFormat("yyyy-LL-dd");
   if (recurrence === "WEEKDAYS") {
-    return { key, eligible: zoned.weekday <= 5 };
+    // activeDays (backfilled to [1..5] for seeded WEEKDAYS) is authoritative;
+    // fall back to the legacy weekday<=5 rule when a parent cleared it.
+    const eligible = activeDays.length > 0 ? activeDays.includes(zoned.weekday) : zoned.weekday <= 5;
+    return { key, eligible };
   }
-  return { key, eligible: true };
+  return { key, eligible: activeDays.length === 0 || activeDays.includes(zoned.weekday) };
 }

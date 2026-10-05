@@ -1,4 +1,3 @@
-import { CROP_EXPLORER_STEPS, MEDAL_STEPS, type AccoladeMedal } from "@farmhand/shared";
 import type { AccoladeLedger } from "../api";
 import { BadgePatch, type BadgePatchState } from "./BadgePatch";
 
@@ -6,7 +5,8 @@ export type SelectedBadge =
   | { kind: "seasonal"; track: AccoladeLedger["seasonal"]["tracks"][number] }
   | { kind: "lifetime"; legend: AccoladeLedger["lifetime"]["legends"][number] };
 
-function medalGlyph(medal: AccoladeMedal) {
+function medalGlyph(medal: string) {
+  if (medal === "basic") return "🔰";
   if (medal === "bronze") return "🥉";
   if (medal === "silver") return "🥈";
   return "🥇";
@@ -28,7 +28,7 @@ export default function BadgeInfoModal({
   const count = isSeasonal ? selected.track.count : selected.legend.count;
   const complete = isSeasonal ? selected.track.next.done : selected.legend.earned;
   const patchState: BadgePatchState = complete ? "complete" : count > 0 ? "progress" : "locked";
-  const steps = isSeasonal ? (selected.track.slug === "crops" ? CROP_EXPLORER_STEPS : MEDAL_STEPS) : null;
+  const steps = isSeasonal ? selected.track.steps : null;
   const earnedMedals = isSeasonal ? selected.track.medals : [];
 
   return (

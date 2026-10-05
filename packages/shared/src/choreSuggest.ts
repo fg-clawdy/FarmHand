@@ -37,6 +37,8 @@ export type SuggestableChore = {
   sortOrder?: number;
   /** Optional 0–100 farm-wide heat from API (ChoreHeat.heatScore). */
   heatScore?: number | null;
+  /** ISO weekday 1=Mon..7=Sun the chore runs on; empty = every day. */
+  activeDays?: readonly number[];
 };
 
 export type ChoreSuggestPartition<T> = {
@@ -84,6 +86,24 @@ export function choreClockParts(now: Date, timeZone: string): ChoreClock {
   return { hour, weekday: map[wd] ?? 1 };
 }
 
+/** Read minute-of-day (0–1439) in a named IANA timezone (no luxon dependency). */
+export function choreMinuteOfDay(now: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    minute: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const hourRaw = parts.find((p) => p.type === "hour")?.value ?? "0";
+  const minuteRaw = parts.find((p) => p.type === "minute")?.value ?? "0";
+  let hour = Number(hourRaw);
+  if (!Number.isFinite(hour)) hour = 0;
+  // Some engines emit "24" for midnight with hourCycle h23 — normalize.
+  if (hour === 24) hour = 0;
+  const minute = Number(minuteRaw);
+  return hour * 60 + (Number.isFinite(minute) ? minute : 0);
+}
+
 export function currentChoreTimeOfDay(hour: number): Exclude<ChoreTimeOfDay, "ANYTIME"> {
   const h = ((Math.floor(hour) % 24) + 24) % 24;
   if (h >= CHORE_TIME_WINDOWS.MORNING.startHour && h < CHORE_TIME_WINDOWS.MORNING.endHour) return "MORNING";
@@ -95,6 +115,11 @@ export function currentChoreTimeOfDay(hour: number): Exclude<ChoreTimeOfDay, "AN
 
 export function isWeekendWeekday(weekday: number): boolean {
   return weekday === 6 || weekday === 7;
+}
+
+/** True when a chore runs today: empty activeDays = every day. */
+export function activeDayOk(activeDays: readonly number[] | undefined, weekday: number): boolean {
+  return !activeDays || activeDays.length === 0 || activeDays.includes(weekday);
 }
 
 /** Kid-facing label for the suggested strip. */
@@ -197,7 +222,7 @@ export function partitionEligibleChoresForNow<T extends SuggestableChore>(
   const clock = choreClockParts(opts.now ?? new Date(), opts.timeZone);
   const max = Math.max(1, opts.maxSuggested ?? JOB_BOARD_RIGHT_NOW_MAX);
   const heatByChoreId = opts.heatByChoreId;
-  const eligible = chores.filter((c) => c.eligible);
+  const eligible = chores.filter((c) => c.eligible && activeDayOk(c.activeDays, clock.weekday));
   const ranked = [...eligible].sort((a, b) => {
     const ds = scoreChoreForNow(b, clock, heatByChoreId) - scoreChoreForNow(a, clock, heatByChoreId);
     if (ds !== 0) return ds;

@@ -129,3 +129,37 @@ export function walletFromLedger(lines: StarLedgerLine[], heldStars: number): St
     adjustNet,
   };
 }
+
+// ---- Amazon Wishlist pricing ----
+
+export type WishlistItemStatus = "PENDING" | "CONFIRMED" | "HIDDEN" | "PURCHASED";
+
+/** Round a cents amount up to the nearest $0.50 (50¢). */
+export function roundUpTo50(cents: number): number {
+  if (!Number.isFinite(cents)) return 0;
+  return Math.ceil(Math.ceil(cents) / 50) * 50;
+}
+
+/**
+ * Item price + 10% tax, rounded up to the nearest 50¢, as stars (1★ = 1¢).
+ * $22.99 (2299¢) -> 2299 + 230 tax = 2529 -> 2550★.
+ */
+export function starCostForPriceCents(priceCents: number): number {
+  const subtotal = Math.ceil(priceCents);
+  const taxCents = Math.ceil(subtotal * 0.1);
+  return roundUpTo50(subtotal + taxCents);
+}
+
+export type WishlistPriceBreakdown = {
+  priceCents: number;
+  taxCents: number;
+  totalCents: number;
+  starCost: number;
+};
+
+export function priceBreakdown(priceCents: number): WishlistPriceBreakdown {
+  const priceCentsCeil = Math.ceil(priceCents);
+  const taxCents = Math.ceil(priceCentsCeil * 0.1);
+  const totalCents = priceCentsCeil + taxCents;
+  return { priceCents: priceCentsCeil, taxCents, totalCents, starCost: roundUpTo50(totalCents) };
+}

@@ -17,8 +17,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export type ParentRedemption = {
   id: string;
-  skuId: string;
+  skuId: string | null;
   slug: string;
+  source?: string;
+  productUrl?: string | null;
   status: "pending" | "owned" | "redeemed" | "denied" | "fulfilled";
   title: string;
   emoji: string;
@@ -133,8 +135,12 @@ export type ParentChore = {
   assignmentMode: "ALL" | "SPECIFIC" | "RACE" | string;
   sortOrder: number;
   seedGrant: number;
+  claimWindowStart: number | null;
+  claimWindowEnd: number | null;
+  activeDays: number[];
   assignments: { playerId: string; name: string }[];
   assignedPlayerIds: string[];
+  playbookIds: string[];
 };
 
 export type ChoreWrite = {
@@ -152,6 +158,35 @@ export type ChoreWrite = {
   isActive?: boolean;
   assignmentMode?: string;
   assignedPlayerIds?: string[];
+  claimWindowStart?: number | null;
+  claimWindowEnd?: number | null;
+  activeDays?: number[];
+  playbookIds?: string[];
+};
+
+export type ParentPlaybook = {
+  id: string;
+  slug: string;
+  title: string;
+  emoji: string;
+  description: string;
+  windowStart: number | null;
+  windowEnd: number | null;
+  windowLabel: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  choreIds: string[];
+  chores: Array<{ choreId: string; title: string; emoji: string; sortOrder: number }>;
+};
+
+export type PlaybookWrite = {
+  title?: string;
+  emoji?: string;
+  description?: string;
+  windowStart?: number | null;
+  windowEnd?: number | null;
+  isActive?: boolean;
+  choreIds?: string[];
 };
 
 export type KidActivity = {
@@ -219,6 +254,47 @@ export type FarmAccolades = {
   kids: KidAccolades[];
 };
 
+export type ParentWishlistItem = {
+  id: string;
+  playerId: string;
+  retailer: string;
+  asin: string | null;
+  title: string;
+  productUrl: string | null;
+  imageUrl: string | null;
+  priceCents: number | null;
+  starCost: number | null;
+  status: "PENDING" | "CONFIRMED" | "HIDDEN" | "PURCHASED";
+  needsAttention: boolean;
+  lastSeenAt: string | null;
+};
+
+export type ParentWishlistKid = {
+  id: string;
+  name: string;
+  mascot: string;
+  wishlistUrl: string | null;
+  syncedAt: string | null;
+  items: ParentWishlistItem[];
+};
+
+export type ParentWishlistPayload = {
+  kids: ParentWishlistKid[];
+  urlsConfigured: boolean;
+};
+
+export type WishlistSyncResult = {
+  results: Array<{ playerId: string; ok: boolean; skipped?: string; items?: number; error?: string }>;
+};
+
+export type WishlistLinkResult = {
+  playerId: string;
+  linked: boolean;
+  ok: boolean;
+  items?: number;
+  error?: string;
+};
+
 export const api = {
   login: (username: string, password: string) =>
     request<{ admin: { username: string } }>("/api/admin/login", {
@@ -254,6 +330,40 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
+  wishlist: () => request<ParentWishlistPayload>("/api/parent/wishlist"),
+  syncWishlist: () =>
+    request<WishlistSyncResult>("/api/parent/wishlist/sync", { method: "POST" }),
+  linkWishlist: (body: {
+    playerId: string;
+    url: string;
+    mode: "review" | "over" | "accept";
+    thresholdCents?: number | null;
+  }) =>
+    request<WishlistLinkResult>("/api/parent/wishlist/link", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  unlinkWishlist: (playerId: string) =>
+    request<{ ok: boolean }>(`/api/parent/wishlist/${playerId}/unlink`, { method: "POST" }),
+  createWishlistItem: (body: {
+    playerId: string;
+    title: string;
+    priceCents?: number | null;
+    productUrl?: string | null;
+  }) =>
+    request<{ item: ParentWishlistItem }>("/api/parent/wishlist", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  confirmWishlistItem: (id: string, priceCents: number) =>
+    request<{ item: ParentWishlistItem }>(`/api/parent/wishlist/${id}/confirm`, {
+      method: "POST",
+      body: JSON.stringify({ priceCents }),
+    }),
+  hideWishlistItem: (id: string) =>
+    request<{ item: ParentWishlistItem }>(`/api/parent/wishlist/${id}/hide`, { method: "POST" }),
+  unhideWishlistItem: (id: string) =>
+    request<{ item: ParentWishlistItem }>(`/api/parent/wishlist/${id}/unhide`, { method: "POST" }),
   approveRedemption: (id: string) =>
     request<{ ok: boolean; claims: InboxClaim[]; redemptions: ParentRedemption[] }>(
       `/api/parent/redemptions/${id}/approve`,
@@ -292,6 +402,13 @@ export const api = {
     request<{ chore: ParentChore }>("/api/parent/chores", { method: "POST", body: JSON.stringify(body) }),
   updateChore: (id: string, body: ChoreWrite) =>
     request<{ chore: ParentChore }>(`/api/parent/chores/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  playbooks: () => request<{ playbooks: ParentPlaybook[] }>("/api/parent/playbooks"),
+  playbook: (id: string) => request<{ playbook: ParentPlaybook }>(`/api/parent/playbooks/${id}`),
+  createPlaybook: (body: PlaybookWrite) =>
+    request<{ playbook: ParentPlaybook }>("/api/parent/playbooks", { method: "POST", body: JSON.stringify(body) }),
+  updatePlaybook: (id: string, body: PlaybookWrite) =>
+    request<{ playbook: ParentPlaybook }>(`/api/parent/playbooks/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deletePlaybook: (id: string) => request<{ ok: boolean }>(`/api/parent/playbooks/${id}`, { method: "DELETE" }),
   kids: () => request<{ kids: ParentKid[] }>("/api/parent/kids"),
   stats: (range: "week" | "month") => request<ParentStats>(`/api/parent/stats?range=${range}`),
   accolades: () => request<FarmAccolades>("/api/parent/accolades"),

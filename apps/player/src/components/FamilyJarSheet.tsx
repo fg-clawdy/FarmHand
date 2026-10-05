@@ -1,5 +1,6 @@
 import {
   GIVE_CHIP_AMOUNTS,
+  MAX_GIVE_CHIP,
   PUT_BACK_WINDOW_SECONDS,
   SHARED_GOAL_COPY,
   compactJarTitle,
@@ -447,42 +448,66 @@ function PourBody({
             </>
           )}
           {givingOff && <p>{SHARED_GOAL_COPY.givingOff}</p>}
-          {signedIn && !givingOff && !ready && wallet === 0 && <p>{SHARED_GOAL_COPY.noStars}</p>}
+          {signedIn && !givingOff && !ready && wallet != null && wallet < GIVE_CHIP_AMOUNTS[0] && (
+            <p>{SHARED_GOAL_COPY.noStars}</p>
+          )}
           {signedIn && !givingOff && wallet != null && (
             <div className="tube-wallet">
-              <span className="tube-wallet-amt">{wallet} ★</span>
-              <span>Kid Wallet</span>
+              <span className="tube-wallet-star" aria-hidden="true">
+                ★
+              </span>
+              <span className="tube-wallet-amt">{wallet.toLocaleString()}</span>
+              <span className="tube-wallet-label">Kid Wallet</span>
             </div>
           )}
-          {!ready && room > 0 && room < GIVE_CHIP_AMOUNTS[GIVE_CHIP_AMOUNTS.length - 1]! && (
+          {!ready && room > 0 && room < MAX_GIVE_CHIP && (
             <p>{fill(SHARED_GOAL_COPY.roomLeft, { n: room })}</p>
           )}
           {error && <p className="error">{error}</p>}
 
           {!coachOn && !givingOff && !ready && signedIn && chips.length > 0 && !pour && !gift && (
             <div className="tube-chip-stack">
-              {chips.map((amount) => (
-                <button
-                  key={amount}
-                  className={`tube-chip tone-${amount}${pending === amount ? " is-on" : ""}`}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setPending(amount)}
-                >
-                  +{amount}
-                </button>
-              ))}
+              <p className="tube-chip-label">{SHARED_GOAL_COPY.pickAmount}</p>
+              <div className="tube-chip-grid" role="group" aria-label={SHARED_GOAL_COPY.pickAmount}>
+                {chips.map((amount) => (
+                  <button
+                    key={amount}
+                    className={`tube-chip tone-${amount}${amount === MAX_GIVE_CHIP ? " chip-max" : ""}${pending === amount ? " is-on" : ""}`}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setPending(amount)}
+                  >
+                    +{amount} <span className="tube-chip-star" aria-hidden="true">★</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
           {previewMath && nextWallet != null && wallet != null && !pour && !gift && (
             <div className="tube-preview-card">
-              <p>
-                {previewMath.fromFilled.toLocaleString()} → {previewMath.toFilled.toLocaleString()} / {jar.targetStars.toLocaleString()}
-              </p>
-              <p>
-                Kid Wallet: {wallet} ★ → {nextWallet} ★
-              </p>
+              <div className="tube-preview-row">
+                <span className="tube-preview-k">{SHARED_GOAL_COPY.farmLabel}</span>
+                <span className="tube-preview-v">
+                  {previewMath.fromFilled.toLocaleString()} <span aria-hidden="true">→</span>{" "}
+                  <strong>{previewMath.toFilled.toLocaleString()}</strong> / {jar.targetStars.toLocaleString()}
+                </span>
+              </div>
+              <div className="tube-preview-bar" aria-hidden="true">
+                <div
+                  className="tube-preview-fill"
+                  style={{
+                    width: `${Math.round(tubeFillRatio(previewMath.toFilled, jar.targetStars) * 1000) / 10}%`,
+                  }}
+                />
+              </div>
+              <div className="tube-preview-row">
+                <span className="tube-preview-k">Kid Wallet</span>
+                <span className="tube-preview-v">
+                  {wallet.toLocaleString()} ★ <span aria-hidden="true">→</span>{" "}
+                  <strong>{nextWallet.toLocaleString()} ★</strong>
+                </span>
+              </div>
             </div>
           )}
 

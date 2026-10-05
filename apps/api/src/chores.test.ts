@@ -34,6 +34,13 @@ test("NONE uses a reusable open slot", () => {
   assert.equal(period.eligible, true);
 });
 
+test("activeDays gates eligibility (empty = every day)", () => {
+  const saturday = new Date("2026-09-12T18:00:00.000Z"); // Chicago Saturday
+  assert.equal(chorePeriod("DAILY", "America/Chicago", saturday, [1, 2, 3, 4, 5]).eligible, false);
+  assert.equal(chorePeriod("DAILY", "America/Chicago", saturday, [6]).eligible, true);
+  assert.equal(chorePeriod("DAILY", "America/Chicago", saturday, []).eligible, true);
+});
+
 test("race taken blocks a second kid", () => {
   const gate = choreClaimGate({
     isActive: true,

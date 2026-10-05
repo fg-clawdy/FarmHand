@@ -14,6 +14,8 @@ export function choreSkipGate(opts: {
   hasAssignment: boolean;
   alreadyClaimedByPlayer: boolean;
   raceTaken: boolean;
+  windowOpen?: boolean;
+  windowReason?: string;
 }): { ok: true } | { ok: false; reason: string } {
   if (!opts.allowsSkip) {
     return { ok: false, reason: "That chore can't be cleared as not needed." };
@@ -29,6 +31,8 @@ export function choreSkipGate(opts: {
     hasAssignment: opts.hasAssignment,
     alreadyClaimedByPlayer: opts.alreadyClaimedByPlayer,
     raceTaken: opts.raceTaken,
+    windowOpen: opts.windowOpen,
+    windowReason: opts.windowReason,
   });
   if (!gate.ok) {
     return { ok: false, reason: gate.reason ?? "You can't clear that chore right now." };

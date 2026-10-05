@@ -68,6 +68,13 @@ enum StoreRedemptionStatus {
   DENIED
 }
 
+enum WishlistItemStatus {
+  PENDING
+  CONFIRMED
+  HIDDEN
+  PURCHASED
+}
+
 enum StarLedgerKind {
   EARN_HARVEST
   EARN_GRANT
@@ -131,8 +138,10 @@ model Player {
   selfieSeedGrantDate     String?
   isActive                Boolean         @default(true)
   givingEnabled           Boolean?        @default(true)
-  giveCeiling             Int?            @default(20)
+  giveCeiling             Int?            @default(100)
   familyJarCoachSeenAt    DateTime?
+  amazonWishlistUrl       String?
+  wishlistSyncedAt        DateTime?
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
   plots                   Plot[]
@@ -150,6 +159,7 @@ model Player {
   choreHeats              ChoreHeat[]
   basketItems             BasketItem[]
   sharedGoalEvents        SharedGoalEvent[]
+  wishlistItems           WishlistItem[]
 }
 
 /// Produce picked but not yet sold. Stars stay here until Farmers Market sale.
@@ -212,8 +222,12 @@ model Chore {
   legacyPoints     Int?
   difficulty       Int?
   seedReward       Int?
+  claimWindowStart Int?
+  claimWindowEnd   Int?
   assignmentMode   ChoreAssignmentMode
   sortOrder        Int                 @default(0)
+  /// ISO weekday 1=Mon..7=Sun. Empty = every day. Backfilled from WEEKDAYS -> [1..5].
+  activeDays       Int[]               @default([])
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
   assignments      ChoreAssignment[]
@@ -221,6 +235,7 @@ model Chore {
   raceSlots        ChoreRaceSlot[]
   boardEvents     ChoreBoardEvent[]
   heats           ChoreHeat[]
+  playbookItems    ChorePlaybookItem[]
 }
 
 model ChoreAssignment {
@@ -232,6 +247,38 @@ model ChoreAssignment {
   createdAt DateTime @default(now())
 
   @@unique([choreId, playerId])
+}
+
+/// A bundled chore mission with a broadcast window (e.g. "Morning", "Bedtime").
+model ChorePlaybook {
+  id          String              @id @default(uuid())
+  slug        String              @unique
+  title       String
+  emoji       String
+  description String              @default("")
+  /// Broadcast window start (minutes since midnight, family tz). Null = open.
+  windowStart Int?
+  /// Broadcast window end (minutes since midnight, family tz). Null = open.
+  windowEnd   Int?
+  isActive    Boolean             @default(true)
+  sortOrder   Int                 @default(0)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  items       ChorePlaybookItem[]
+}
+
+/// Many-to-many: one chore can belong to multiple playbooks, in a fixed order.
+model ChorePlaybookItem {
+  id         String        @id @default(uuid())
+  playbookId String
+  playbook   ChorePlaybook @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+  choreId    String
+  chore      Chore         @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  sortOrder  Int           @default(0)
+  createdAt  DateTime      @default(now())
+
+  @@unique([playbookId, choreId])
+  @@index([choreId])
 }
 
 model ChoreRaceSlot {
@@ -355,17 +402,18 @@ model AuditLog {
 }
 
 model AccoladeCounter {
-  id          String   @id @default(uuid())
-  playerId    String
-  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  seasonKey   String
-  harvests    Int      @default(0)
-  waterings   Int      @default(0)
-  plantings   Int      @default(0)
-  selfies     Int      @default(0)
-  chorePhotos Int      @default(0)
-  cropsMask   Int      @default(0)
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(uuid())
+  playerId       String
+  player         Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  seasonKey      String
+  harvests       Int      @default(0)
+  waterings      Int      @default(0)
+  plantings      Int      @default(0)
+  selfies        Int      @default(0)
+  chorePhotos    Int      @default(0)
+  cropsMask      Int      @default(0)
+  morningPlaybooks Int    @default(0)
+  updatedAt      DateTime @updatedAt
 
   @@unique([playerId, seasonKey])
 }
@@ -395,12 +443,39 @@ model StoreSku {
   redemptions  StoreRedemption[]
 }
 
+/// A single row of a child's Amazon wishlist, scraped weekly.
+model WishlistItem {
+  id             String             @id @default(uuid())
+  playerId       String
+  player         Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  retailer       String             @default("amazon")
+  asin           String?
+  title          String
+  productUrl     String?
+  imageUrl       String?
+  priceCents     Int?
+  starCost       Int?
+  status         WishlistItemStatus @default(PENDING)
+  needsAttention Boolean            @default(false)
+  lastSeenAt     DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  redemptions    StoreRedemption[]
+
+  @@index([playerId, status])
+  @@index([playerId, retailer, asin])
+}
+
 model StoreRedemption {
   id                String                @id @default(uuid())
   playerId          String
   player            Player                @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  skuId             String
-  sku               StoreSku              @relation(fields: [skuId], references: [id], onDelete: Restrict)
+  skuId             String?
+  sku               StoreSku?             @relation(fields: [skuId], references: [id], onDelete: SetNull)
+  wishlistItemId    String?
+  wishlistItem      WishlistItem?         @relation(fields: [wishlistItemId], references: [id], onDelete: SetNull)
+  source            String                @default("catalog")
+  productUrl        String?
   status            StoreRedemptionStatus @default(PENDING)
   title             String
   emoji             String

@@ -32,6 +32,7 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:farmhand@localhost}
+      WISHLIST_URLS: ${WISHLIST_URLS:-}
     volumes:
       - ${SELFIE_DROP_DIR:-./data/selfies}:/data/selfies
       - ${WANTED_FLYER_DIR:-./data/wanted-flyers}:/data/wanted-flyers

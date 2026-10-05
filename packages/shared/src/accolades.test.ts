@@ -11,6 +11,7 @@ import {
   unlockKey,
   CROP_EXPLORER_STEPS,
   MEDAL_STEPS,
+  MORNING_PERSON_STEPS,
   LIFETIME_SEASON_KEY,
 } from "./accolades.js";
 
@@ -22,6 +23,7 @@ const empty = {
   chorePhotos: 0,
   cropsMask: 0,
   activeDays: 0,
+  morningPlaybooks: 0,
 };
 
 test("season key is a Chicago calendar quarter", () => {
@@ -141,4 +143,37 @@ test("next medal remaining math", () => {
   assert.deepEqual(medalsEarned(10, MEDAL_STEPS), ["bronze"]);
   assert.equal(nextStep(10, MEDAL_STEPS).remaining, 40);
   assert.equal(nextStep(3, CROP_EXPLORER_STEPS).done, true);
+});
+
+test("Morning Person ladders basic(1) bronze(5) silver(15) gold(30), no platinum", () => {
+  assert.deepEqual(MORNING_PERSON_STEPS.map((s) => s.medal), ["basic", "bronze", "silver", "gold"]);
+
+  const basic = evaluateUnlocks({
+    seasonKey: "2026-Q3",
+    seasonal: { ...empty, morningPlaybooks: 1 },
+    lifetime: empty,
+    existingKeys: [],
+  });
+  assert.ok(basic.some((u) => u.slug === "morning-person" && u.medal === "basic"));
+  assert.equal(basic.some((u) => u.slug === "morning-person" && u.medal === "bronze"), false);
+
+  const bronze = evaluateUnlocks({
+    seasonKey: "2026-Q3",
+    seasonal: { ...empty, morningPlaybooks: 5 },
+    lifetime: empty,
+    existingKeys: [],
+  });
+  assert.ok(bronze.some((u) => u.slug === "morning-person" && u.medal === "basic"));
+  assert.ok(bronze.some((u) => u.slug === "morning-person" && u.medal === "bronze"));
+  assert.equal(bronze.some((u) => u.slug === "morning-person" && u.medal === "silver"), false);
+
+  const gold = evaluateUnlocks({
+    seasonKey: "2026-Q3",
+    seasonal: { ...empty, morningPlaybooks: 30 },
+    lifetime: empty,
+    existingKeys: [],
+  });
+  assert.ok(gold.some((u) => u.slug === "morning-person" && u.medal === "gold"));
+  assert.equal(MORNING_PERSON_STEPS.length, 4); // no platinum tier
+  assert.equal(nextStep(30, MORNING_PERSON_STEPS).done, true);
 });

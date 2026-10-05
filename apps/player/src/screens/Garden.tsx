@@ -5,7 +5,7 @@ import {
 } from "@farmhand/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, type AccoladeUnlock, type BasketItem, type GardenPlayer, type HarvestReward, type PublicChore } from "../api";
+import { api, type AccoladeUnlock, type ActivePlaybook, type BasketItem, type GardenPlayer, type HarvestReward, type PublicChore } from "../api";
 import { AcornArt, BackArrow, SceneShell, StarIcon } from "../art";
 import HarvestCelebration from "../components/HarvestCelebration";
 import HarvestBasketSheet, { MARKET_TRUCK_DRIVE_MS } from "../components/HarvestBasketSheet";
@@ -13,6 +13,7 @@ import AcornPour from "../components/AcornPour";
 import { kidSeedRewardCount } from "../kidSeedReward";
 import AccoladeCelebration from "../components/AccoladeCelebration";
 import AccoladePanel from "../components/AccoladePanel";
+import PlaybookCelebration, { type PlaybookComplete } from "../components/PlaybookCelebration";
 import AvatarPicker from "../components/AvatarPicker";
 import KidAvatar from "../components/KidAvatar";
 import JobBoard, { NeedJobsNudge } from "../components/JobBoard";
@@ -262,6 +263,8 @@ function GardenPlay({
   const [shownSeeds, setShownSeeds] = useState(player.seeds + player.provisionalSeeds);
   const [chores, setChores] = useState<PublicChore[]>([]);
   const [choreTimezone, setChoreTimezone] = useState("America/Chicago");
+  const [activePlaybooks, setActivePlaybooks] = useState<ActivePlaybook[]>([]);
+  const [playbookCelebrate, setPlaybookCelebrate] = useState<PlaybookComplete | null>(null);
 
   function celebrateClaimSeeds(
     seedsGranted: number,
@@ -307,11 +310,18 @@ function GardenPlay({
   }, [badgeQueue]);
 
   useEffect(() => {
+    if (!playbookCelebrate) return;
+    const t = window.setTimeout(() => setPlaybookCelebrate(null), 4200);
+    return () => window.clearTimeout(t);
+  }, [playbookCelebrate]);
+
+  useEffect(() => {
     if (overlay?.type !== "chores") return;
     void api
       .chores()
       .then((data) => {
         setChores(data.chores);
+        setActivePlaybooks(data.activePlaybooks);
         if (data.timezone) setChoreTimezone(data.timezone);
         applyGarden(data.player);
       })
@@ -623,15 +633,18 @@ function GardenPlay({
           busy={busy}
           onClose={() => setOverlay(null)}
           timezone={choreTimezone}
+          activePlaybooks={activePlaybooks}
           onClaim={async (chore) => {
             const before = player.seeds + player.provisionalSeeds;
             const data = await api.claimChore(chore.id);
             const granted = data.seedsGranted ?? chore.rewardSeedCount ?? 1;
             applyGarden(data.player);
             noteUnlocks(data.unlocks);
+            if (data.playbookComplete?.length) setPlaybookCelebrate(data.playbookComplete[0]);
             // Stay on chore chart for more claims; only Close dismisses.
             void api.chores().then((board) => {
               setChores(board.chores);
+              setActivePlaybooks(board.activePlaybooks);
               if (board.timezone) setChoreTimezone(board.timezone);
             });
             celebrateClaimSeeds(granted, null, before);
@@ -656,6 +669,7 @@ function GardenPlay({
             const data = await api.claimChore(overlay.chore.id, {
               image,
             });
+            if (data.playbookComplete?.length) setPlaybookCelebrate(data.playbookComplete[0]);
             return { player: data.player, unlocks: data.unlocks };
           }}
           onSuccess={(next, _reward, unlocks) => {
@@ -666,6 +680,7 @@ function GardenPlay({
             setOverlay({ type: "chores" });
             void api.chores().then((board) => {
               setChores(board.chores);
+              setActivePlaybooks(board.activePlaybooks);
               if (board.timezone) setChoreTimezone(board.timezone);
             });
             celebrateClaimSeeds(granted, null, before);
@@ -751,6 +766,7 @@ function GardenPlay({
       )}
       {/* Sell stars are Pixi-native (nested under the basket rim). */}
       {badgeQueue[0] && <AccoladeCelebration unlock={badgeQueue[0]} />}
+      {playbookCelebrate && <PlaybookCelebration playbook={playbookCelebrate} />}
       {overlay?.type === "badges" && <AccoladePanel onClose={() => setOverlay(null)} />}
       {overlay?.type === "profile" && (
         <ProfileSheet

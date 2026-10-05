@@ -3,6 +3,7 @@ import {
   LIFETIME_LEGENDS,
   LIFETIME_SEASON_KEY,
   medalsEarned,
+  MORNING_PLAYBOOK_SLUG,
   nextStep,
   seasonLabel,
   SEASONAL_TRACKS,
@@ -21,7 +22,8 @@ export type AccoladeEvent =
   | { type: "watering" }
   | { type: "planting" }
   | { type: "selfie" }
-  | { type: "chore_photo" };
+  | { type: "chore_photo" }
+  | { type: "playbook_complete"; playbookSlug: string };
 
 const emptyCounters = {
   harvests: 0,
@@ -30,6 +32,7 @@ const emptyCounters = {
   selfies: 0,
   chorePhotos: 0,
   cropsMask: 0,
+  morningPlaybooks: 0,
 };
 
 function cropBit(kind: "corn" | "strawberry" | "cotton"): number {
@@ -65,12 +68,15 @@ async function bump(tx: Tx, playerId: string, seasonKeyValue: string, event: Acc
     where: { playerId_seasonKey: { playerId, seasonKey: seasonKeyValue } },
   });
   const bit = event.type === "harvest" ? cropBit(event.cropKind) : 0;
+  const morning =
+    event.type === "playbook_complete" && event.playbookSlug === MORNING_PLAYBOOK_SLUG ? 1 : 0;
   const inc = {
     harvests: event.type === "harvest" ? 1 : 0,
     waterings: event.type === "watering" ? 1 : 0,
     plantings: event.type === "planting" ? 1 : 0,
     selfies: event.type === "selfie" ? 1 : 0,
     chorePhotos: event.type === "chore_photo" ? 1 : 0,
+    morningPlaybooks: morning,
   };
   if (!existing) {
     return tx.accoladeCounter.create({
@@ -83,6 +89,7 @@ async function bump(tx: Tx, playerId: string, seasonKeyValue: string, event: Acc
         selfies: inc.selfies,
         chorePhotos: inc.chorePhotos,
         cropsMask: bit,
+        morningPlaybooks: inc.morningPlaybooks,
       },
     });
   }
@@ -95,6 +102,7 @@ async function bump(tx: Tx, playerId: string, seasonKeyValue: string, event: Acc
       selfies: { increment: inc.selfies },
       chorePhotos: { increment: inc.chorePhotos },
       cropsMask: existing.cropsMask | bit,
+      morningPlaybooks: { increment: inc.morningPlaybooks },
     },
   });
 }
@@ -107,6 +115,7 @@ function toCounters(
     selfies: number;
     chorePhotos: number;
     cropsMask: number;
+    morningPlaybooks: number;
   } | null,
   activeDays: number,
 ): AccoladeCounters {
@@ -218,6 +227,7 @@ export async function playerAccoladeLedger(playerId: string, timezone: string, n
           count,
           next,
           medals: def.steps ? medalsEarned(count, def.steps) : [],
+          steps: def.steps,
         };
       }),
       unlocks: unlocks.filter((u) => u.kind === "seasonal" && u.seasonKey === currentSeason),

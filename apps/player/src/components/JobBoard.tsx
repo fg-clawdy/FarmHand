@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { partitionEligibleChoresForNow } from "@farmhand/shared";
-import type { GardenPlayer, PublicChore } from "../api";
+import type { ActivePlaybook, GardenPlayer, PublicChore } from "../api";
 import { recordBoardEvent } from "../choreBoardEvents";
 import ChoreConfirmHero from "./ChoreConfirmHero";
 import JobCoach from "./JobCoach";
+import PlaybookSheet from "./PlaybookSheet";
 import Sheet from "./Sheet";
 import { kidSeedRewardLabel } from "../kidSeedReward";
 
@@ -30,6 +31,7 @@ export default function JobBoard({
   kidName,
   initialChoreId,
   timezone = "America/Chicago",
+  activePlaybooks = [],
 }: {
   chores: PublicChore[];
   busy: boolean;
@@ -42,12 +44,16 @@ export default function JobBoard({
   initialChoreId?: string | null;
   /** Family timezone for Right now scoring (from /api/chores). */
   timezone?: string;
+  /** Active playbooks (mission bundles) from /api/chores. */
+  activePlaybooks?: ActivePlaybook[];
 }) {
   const [picked, setPicked] = useState<PublicChore | null>(null);
+  const [pickedPlaybookId, setPickedPlaybookId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [showMore, setShowMore] = useState(false);
   const done = chores.filter((chore) => !chore.eligible);
+  const pickedPlaybook = activePlaybooks.find((p) => p.id === pickedPlaybookId) ?? null;
 
   const heatByChoreId = useMemo(() => {
     const map: Record<string, number> = {};
@@ -151,6 +157,27 @@ export default function JobBoard({
             </button>
           </header>
           <div className="job-board-body">
+            {activePlaybooks.length > 0 && (
+              <section className="job-section job-section--playbooks">
+                <h3>Missions</h3>
+                <div className="job-grid job-grid-playbooks">
+                  {activePlaybooks.map((playbook) => (
+                    <button
+                      key={playbook.id}
+                      type="button"
+                      className={`job-card playbook-card ${playbook.allDone ? "done" : ""}`}
+                      onClick={() => setPickedPlaybookId(playbook.id)}
+                    >
+                      <span className="job-card-emoji">{playbook.emoji}</span>
+                      <b className="job-card-title">{playbook.title}</b>
+                      <span className="job-chip">
+                        {playbook.completedCount}/{playbook.totalCount} done
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
             {chores.length === 0 && <p className="job-board-empty">Looking for jobs…</p>}
             {chores.length > 0 && suggested.length === 0 && more.length === 0 && done.length === 0 && (
               <p className="job-board-empty">No open jobs right now. Check back soon.</p>
@@ -197,6 +224,7 @@ export default function JobBoard({
             title={picked.title}
             rewardLabel={kidSeedRewardLabel(picked.rewardSeedCount, picked.rewardSeedKind)}
           />
+          {picked.windowLabel && <p className="muted">{picked.windowLabel}</p>}
           {error && <p className="error">{error}</p>}
           {toast && (
             <p className="chore-confirm-toast" role="status" aria-live="polite">
@@ -228,6 +256,15 @@ export default function JobBoard({
             </button>
           </div>
         </Sheet>
+      )}
+      {pickedPlaybook && (
+        <PlaybookSheet
+          playbook={pickedPlaybook}
+          busy={busy}
+          onClose={() => setPickedPlaybookId(null)}
+          onClaim={onClaim}
+          onNeedPhoto={onNeedPhoto}
+        />
       )}
     </>
   );

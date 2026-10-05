@@ -1,4 +1,5 @@
 import { choreSkipGate, SKIP_SHARD_REWARD } from "@farmhand/shared";
+import { choreMinuteOfDay, claimWindowLabel, claimWindowOpen } from "@farmhand/shared";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./db.js";
 import { httpError, isPrismaUnique } from "./chores.js";
@@ -28,7 +29,7 @@ export async function skipChore(opts: {
           });
           if (!chore) throw httpError("That chore isn't on the list.", 404);
 
-          const period = chorePeriod(chore.recurrence, opts.timezone, now);
+          const period = chorePeriod(chore.recurrence, opts.timezone, now, chore.activeDays);
           const hasAssignment = chore.assignments.some((row) => row.playerId === opts.playerId);
           const existing = await tx.choreClaim.findUnique({
             where: {
@@ -43,6 +44,9 @@ export async function skipChore(opts: {
             where: { choreId_periodKey: { choreId: chore.id, periodKey: period.key } },
           });
 
+          const minute = choreMinuteOfDay(now, opts.timezone);
+          const windowOpen = claimWindowOpen(chore.claimWindowStart, chore.claimWindowEnd, minute);
+          const windowLabel = claimWindowLabel(chore.claimWindowStart, chore.claimWindowEnd);
           const gate = choreSkipGate({
             allowsSkip: chore.allowsSkip,
             isActive: chore.isActive,
@@ -51,6 +55,8 @@ export async function skipChore(opts: {
             hasAssignment,
             alreadyClaimedByPlayer: Boolean(existing),
             raceTaken: Boolean(race),
+            windowOpen,
+            windowReason: windowLabel ? `That chore can only be claimed ${windowLabel}.` : undefined,
           });
           if (!gate.ok) throw httpError(gate.reason);
 
