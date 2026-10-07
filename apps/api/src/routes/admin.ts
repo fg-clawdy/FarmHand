@@ -14,10 +14,11 @@ import {
 } from "../auth.js";
 import { loadConfig, publicPlayer, saveConfig } from "../game.js";
 import { farmAccoladeLedgers } from "../accolades.js";
-import { grantEarnedStars } from "../store.js";
-import { appendStarEvent, playerWallet, publicWallet, recordOpeningBalance, starsHeldForPlayer } from "../stars.js";
+import { grantEarnedPoints } from "../store.js";
+import { appendPointEvent, playerWallet, publicWallet, recordOpeningBalance, pointsHeldForPlayer } from "../points.js";
 import { chicagoDayKeys, startOfDaysAgo, startOfToday, todayKey } from "../tz.js";
 import { recomputeAllChoreHeat } from "../choreHeat.js";
+import { reconcileAllActivePlayers } from "../pointsReconciliation.js";
 import {
   balanceKnobs,
   cropMixFromPlots,
@@ -267,7 +268,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
     // F-006 guard: refuse to set points below outstanding PENDING holds
     if (nextPoints < existing.points) {
-      const held = await starsHeldForPlayer(id);
+      const held = await pointsHeldForPlayer(id);
       if (nextPoints < held) {
         return reply.code(400).send({
           error: `Cannot set points below outstanding holds. The player has ${held}★ held in pending rewards. Release those holds first, or set points to at least ${held}.`,
@@ -290,7 +291,7 @@ export async function adminRoutes(app: FastifyInstance) {
         include: { plots: { orderBy: { slot: "asc" } } },
       });
       if (delta !== 0) {
-        await appendStarEvent(tx, {
+        await appendPointEvent(tx, {
           playerId: id,
           kind: "ADJUST_ADMIN",
           amount: delta,
@@ -341,7 +342,7 @@ export async function adminRoutes(app: FastifyInstance) {
     };
   });
 
-  app.post("/api/admin/players/:id/grant-stars", async (request, reply) => {
+  app.post("/api/admin/players/:id/grant-points", async (request, reply) => {
     const session = await requireAdmin(request, reply);
     if (!session) return;
     const { id } = request.params as { id: string };
@@ -355,12 +356,12 @@ export async function adminRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: "requestId is required (generate a UUID once and reuse for retries)." });
     }
     try {
-      const wallet = await grantEarnedStars(id, Number(body.amount), body.reason || "admin grant", requestId);
+      const wallet = await grantEarnedPoints(id, Number(body.amount), body.reason || "admin grant", requestId);
       await prisma.auditLog.create({
         data: {
           adminId: session.adminId,
           targetPlayerId: id,
-          action: "grant_stars",
+          action: "grant_points",
           details: { amount: Number(body.amount), reason: body.reason || "admin grant", requestId },
         },
       });
@@ -611,6 +612,66 @@ export async function adminRoutes(app: FastifyInstance) {
     if (!session) return;
     const result = await recomputeAllChoreHeat();
     return { ok: true, ...result };
+  });
+
+  app.get("/api/admin/system-alerts", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const alerts = await prisma.systemAlert.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      include: { player: { select: { name: true } } },
+    });
+    return {
+      alerts: alerts.map((alert) => ({
+        id: alert.id,
+        kind: alert.kind,
+        severity: alert.severity,
+        message: alert.message,
+        details: alert.details,
+        playerId: alert.playerId,
+        playerName: alert.player?.name ?? null,
+        status: alert.status,
+        createdAt: alert.createdAt,
+        resolvedAt: alert.resolvedAt,
+      })),
+    };
+  });
+
+  app.post("/api/admin/system-alerts/:id/resolve", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    const existing = await prisma.systemAlert.findUnique({ where: { id } });
+    if (!existing) return reply.code(404).send({ error: "Alert not found." });
+    if (existing.status === "RESOLVED") {
+      return { ok: true, alert: { id: existing.id, status: existing.status, resolvedAt: existing.resolvedAt } };
+    }
+    const updated = await prisma.systemAlert.update({
+      where: { id },
+      data: { status: "RESOLVED", resolvedAt: new Date() },
+    });
+    await prisma.auditLog.create({
+      data: {
+        adminId: session.adminId,
+        targetPlayerId: existing.playerId ?? null,
+        action: "resolve_system_alert",
+        details: { alertId: id, kind: existing.kind },
+      },
+    });
+    return { ok: true, alert: { id: updated.id, status: updated.status, resolvedAt: updated.resolvedAt } };
+  });
+
+  app.post("/api/admin/reconcile-points", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const body = (request.body ?? {}) as { repair?: unknown };
+    const repair = body.repair === true;
+    const summary = await reconcileAllActivePlayers({ repair });
+    await prisma.auditLog.create({
+      data: { adminId: session.adminId, action: "reconcile_points", details: { repair, ...summary } },
+    });
+    return { ok: true, ...summary };
   });
 
 }

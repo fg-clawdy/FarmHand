@@ -1,5 +1,15 @@
 import type { ParentGoalContribution, ParentSharedGoal, PublicSharedGoal } from "@farmhand/shared";
 
+let authExpiredHandler: (() => void) | null = null;
+
+/** Register a callback fired when any API call returns 401 (session expired). */
+export function onAuthExpired(handler: () => void): () => void {
+  authExpiredHandler = handler;
+  return () => {
+    if (authExpiredHandler === handler) authExpiredHandler = null;
+  };
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const hasBody = init?.body !== undefined;
   const res = await fetch(path, {
@@ -11,7 +21,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   const data = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  if (!res.ok) {
+    if (res.status === 401) authExpiredHandler?.();
+    throw new Error(data.error || `Request failed (${res.status})`);
+  }
   return data;
 }
 
@@ -25,8 +38,8 @@ export type ParentRedemption = {
   title: string;
   emoji: string;
   description?: string;
-  starCost: number;
-  starsHeld: number;
+  pointCost: number;
+  pointsHeld: number;
   requestedAt: string;
   resolvedAt: string | null;
   approvedAt?: string | null;
@@ -36,13 +49,16 @@ export type ParentRedemption = {
 };
 
 export type ParentWallet = {
-  currentStars: number;
   points: number;
-  heldStars: number;
-  starsHeld: number;
-  availableStars: number;
+  heldPoints: number;
+  availablePoints: number;
   lifetimeEarned: number;
+  lifetimeEarnedHarvest: number;
+  lifetimeEarnedGrant: number;
+  lifetimeEarnedLegacy: number;
   lifetimeSpent: number;
+  lifetimeGiven: number;
+  adjustNet: number;
 };
 
 export type ParentKid = {
@@ -64,7 +80,7 @@ export type ParentStoreSku = {
   title: string;
   emoji: string;
   description: string;
-  starCost: number;
+  pointCost: number;
   isActive: boolean;
   sortOrder: number;
 };
@@ -73,7 +89,7 @@ export type SkuWrite = {
   title?: string;
   emoji?: string;
   description?: string;
-  starCost?: number;
+  pointCost?: number;
   isActive?: boolean;
   sortOrder?: number;
 };
@@ -85,8 +101,8 @@ export type InboxClaim = {
   plantTier: number | null;
   periodKey: string;
   claimedAt: string;
-  /** Local day (in the family timezone) the claim was made. */
-  claimedDay?: string;
+  /** Local date and time (in the family timezone) the claim was made. */
+  claimedWhen?: string;
   hasPhoto: boolean;
   priority: string;
   chore: {
@@ -263,7 +279,7 @@ export type ParentWishlistItem = {
   productUrl: string | null;
   imageUrl: string | null;
   priceCents: number | null;
-  starCost: number | null;
+  pointCost: number | null;
   status: "PENDING" | "CONFIRMED" | "HIDDEN" | "PURCHASED";
   needsAttention: boolean;
   lastSeenAt: string | null;
@@ -416,7 +432,7 @@ export const api = {
   createSharedGoal: (body: {
     title: string;
     emoji: string;
-    targetStars: number;
+    targetPoints: number;
     artNotes?: string;
     generateArt?: boolean;
     queue?: boolean;
@@ -425,7 +441,7 @@ export const api = {
   removeSharedGoal: (id: string) => request<{ ok: boolean }>(`/api/parent/shared-goal/${id}`, { method: "DELETE" }),
   patchSharedGoal: (
     id: string,
-    body: { title?: string; emoji?: string; targetStars?: number; sortOrder?: number },
+    body: { title?: string; emoji?: string; targetPoints?: number; sortOrder?: number },
   ) => request(`/api/parent/shared-goal/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   happenSharedGoal: (id: string) => request(`/api/parent/shared-goal/${id}/happen`, { method: "POST", body: "{}" }),
   cancelSharedGoal: (id: string) => request(`/api/parent/shared-goal/${id}/cancel`, { method: "POST", body: "{}" }),

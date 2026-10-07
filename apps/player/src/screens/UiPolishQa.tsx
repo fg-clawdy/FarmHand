@@ -7,15 +7,15 @@ import StoreSheet from "../components/StoreSheet";
  * Modal design QA. `/qa/ui?sheet=store` mounts the real StoreSheet against a stubbed
  * `fetch` (no API needed). Extra params:
  *   kid=1         session already identified (wallet + affordability visible)
- *   poor=1        kid has too few stars (shows the "need more stars" state)
- *   held=1        some stars held, one request pending, one owned
+ *   poor=1        kid has too few points (shows the "need more stars" state)
+ *   held=1        some points held, one request pending, one owned
  *   steps=a,b,c   click `.sheet--crate` buttons whose text contains each step, in order
  */
 const CATALOG = [
-  { id: "s1", slug: "movie-night", title: "Movie night", emoji: "🎬", description: "Pick a movie and watch it together.", starCost: 200, isActive: true },
-  { id: "s2", slug: "ice-cream", title: "Ice cream", emoji: "🍦", description: "A real ice cream treat.", starCost: 500, isActive: true },
-  { id: "s3", slug: "date-night", title: "Date night with a grown-up", emoji: "🍕", description: "Dinner out, just the two of you.", starCost: 2100, isActive: true },
-  { id: "s4", slug: "late-bed", title: "Stay up 30 minutes late", emoji: "🌙", description: "", starCost: 150, isActive: true },
+  { id: "s1", slug: "movie-night", title: "Movie night", emoji: "🎬", description: "Pick a movie and watch it together.", pointCost: 200, isActive: true },
+  { id: "s2", slug: "ice-cream", title: "Ice cream", emoji: "🍦", description: "A real ice cream treat.", pointCost: 500, isActive: true },
+  { id: "s3", slug: "date-night", title: "Date night with a grown-up", emoji: "🍕", description: "Dinner out, just the two of you.", pointCost: 2100, isActive: true },
+  { id: "s4", slug: "late-bed", title: "Stay up 30 minutes late", emoji: "🌙", description: "", pointCost: 150, isActive: true },
 ];
 
 const PLAYERS = [
@@ -34,21 +34,19 @@ export default function UiPolishQa() {
   const [open, setOpen] = useState(true);
 
   const personal = useMemo(() => {
-    const stars = poor ? 120 : 600;
-    const availableStars = held ? stars - 100 : stars;
+    const points = poor ? 120 : 600;
+    const availablePoints = held ? points - 100 : points;
     const redemption = (id: string, sku: (typeof CATALOG)[number]) => ({
-      id, skuId: sku.id, slug: sku.slug, title: sku.title, emoji: sku.emoji, starCost: sku.starCost,
+      id, skuId: sku.id, slug: sku.slug, title: sku.title, emoji: sku.emoji, pointCost: sku.pointCost,
     });
     return {
-      currentStars: stars,
-      points: stars,
-      heldStars: held ? 100 : 0,
-      starsHeld: held ? 100 : 0,
-      availableStars,
+      points,
+      heldPoints: held ? 100 : 0,
+      availablePoints,
       lifetimeEarned: 900,
       lifetimeEarnedHarvest: 900,
       lifetimeEarnedGrant: 0,
-      catalog: CATALOG.map((s) => ({ ...s, affordable: s.starCost <= availableStars })),
+      catalog: CATALOG.map((s) => ({ ...s, affordable: s.pointCost <= availablePoints })),
       pending: held ? [redemption("r1", CATALOG[3])] : [],
       owned: held ? [redemption("r2", CATALOG[1])] : [],
     };
@@ -62,7 +60,7 @@ export default function UiPolishQa() {
       const url = typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url;
       if (url.includes("/api/store/catalog")) return json({ catalog: CATALOG });
       if (url.includes("/api/store/request")) {
-        return json({ ...personal, ok: true, redemption: { id: "rx", title: "x", emoji: "x", starCost: 1 } });
+        return json({ ...personal, ok: true, redemption: { id: "rx", title: "x", emoji: "x", pointCost: 1 } });
       }
       if (url.includes("/api/store")) return json(personal);
       if (url.includes("/api/session")) return json({ player: kid ? PLAYERS[0] : null });

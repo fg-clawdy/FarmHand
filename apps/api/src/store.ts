@@ -1,14 +1,14 @@
-import { STARTER_STORE_CATALOG, canAfford, spendHeldStars } from "@farmhand/shared";
+import { STARTER_STORE_CATALOG, canAfford, spendHeldPoints } from "@farmhand/shared";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./db.js";
 import { httpError } from "./chores.js";
 import {
   appendRewardEvent,
-  appendStarEvent,
+  appendPointEvent,
   playerWallet,
   publicWallet,
-  starsHeldForPlayer,
-} from "./stars.js";
+  pointsHeldForPlayer,
+} from "./points.js";
 import { withSerializableRetry } from "./locks.js";
 import { confirmedWishlistCatalog } from "./wishlist.js";
 
@@ -29,7 +29,7 @@ export async function seedStoreCatalog() {
         title: row.title,
         emoji: row.emoji,
         description: row.description,
-        starCost: row.starCost,
+        pointCost: row.pointCost,
         isActive: true,
         sortOrder: row.sortOrder,
       },
@@ -43,7 +43,7 @@ export function publicSku(row: {
   title: string;
   emoji: string;
   description: string;
-  starCost: number;
+  pointCost: number;
   isActive: boolean;
   sortOrder: number;
 }) {
@@ -53,7 +53,7 @@ export function publicSku(row: {
     title: row.title,
     emoji: row.emoji,
     description: row.description,
-    starCost: row.starCost,
+    pointCost: row.pointCost,
     isActive: row.isActive,
     sortOrder: row.sortOrder,
   };
@@ -65,8 +65,8 @@ export function publicRedemption(row: {
   title: string;
   emoji: string;
   description?: string;
-  starCost: number;
-  starsHeld: number;
+  pointCost: number;
+  pointsHeld: number;
   requestedAt: Date;
   resolvedAt: Date | null;
   approvedAt?: Date | null;
@@ -90,8 +90,8 @@ export function publicRedemption(row: {
     title: row.title,
     emoji: row.emoji,
     description: row.description ?? "",
-    starCost: row.starCost,
-    starsHeld: row.starsHeld,
+    pointCost: row.pointCost,
+    pointsHeld: row.pointsHeld,
     requestedAt: row.requestedAt.toISOString(),
     resolvedAt: row.resolvedAt?.toISOString() ?? null,
     approvedAt: row.approvedAt?.toISOString() ?? null,
@@ -131,7 +131,7 @@ export async function playerStore(playerId: string) {
   const wallet = await playerWallet(playerId);
   const [catalog, wishlist, pending, owned] = await Promise.all([
     listActiveCatalog(),
-    confirmedWishlistCatalog(playerId, wallet.currentStars, wallet.heldStars),
+    confirmedWishlistCatalog(playerId, wallet.points, wallet.heldPoints),
     listRewards(playerId, "PENDING"),
     listRewards(playerId, "OWNED"),
   ]);
@@ -139,7 +139,7 @@ export async function playerStore(playerId: string) {
     ...catalog.map((sku) => ({
       ...sku,
       wishlistItemId: null as string | null,
-      affordable: canAfford(wallet.currentStars, wallet.heldStars, sku.starCost),
+      affordable: canAfford(wallet.points, wallet.heldPoints, sku.pointCost),
     })),
     ...wishlist,
   ];
@@ -220,11 +220,11 @@ export async function requestStoreSku(playerId: string, skuId: string) {
     prisma.$transaction(async (tx) => {
       const sku = await tx.storeSku.findUnique({ where: { id: skuId } });
       if (!sku || !sku.isActive) throw httpError("That reward isn't on the shelf right now.");
-      if (sku.starCost < 1) throw httpError("That reward isn't priced yet.");
+      if (sku.pointCost < 1) throw httpError("That reward isn't priced yet.");
       const player = await tx.player.findUniqueOrThrow({ where: { id: playerId } });
-      const held = await starsHeldForPlayer(playerId, tx);
-      if (!canAfford(player.points, held, sku.starCost)) {
-        throw httpError("Not enough stars yet. Harvest plants to earn more.");
+      const held = await pointsHeldForPlayer(playerId, tx);
+      if (!canAfford(player.points, held, sku.pointCost)) {
+        throw httpError("Not enough points yet. Harvest plants to earn more.");
       }
       const row = await tx.storeRedemption.create({
         data: {
@@ -234,15 +234,15 @@ export async function requestStoreSku(playerId: string, skuId: string) {
           title: sku.title,
           emoji: sku.emoji,
           description: sku.description,
-          starCost: sku.starCost,
-          starsHeld: sku.starCost,
+          pointCost: sku.pointCost,
+          pointsHeld: sku.pointCost,
         },
         include: redemptionInclude,
       });
-      await appendStarEvent(tx, {
+      await appendPointEvent(tx, {
         playerId,
         kind: "HOLD_REWARD",
-        amount: sku.starCost,
+        amount: sku.pointCost,
         idempotencyKey: `hold:${row.id}`,
         redemptionId: row.id,
         source: "store_request",
@@ -258,7 +258,7 @@ export async function requestStoreSku(playerId: string, skuId: string) {
         data: {
           playerId,
           action: "store_request",
-          details: { skuId: sku.id, slug: sku.slug, starsHeld: sku.starCost, redemptionId: row.id },
+          details: { skuId: sku.id, slug: sku.slug, pointsHeld: sku.pointCost, redemptionId: row.id },
         },
       });
       return { redemption: row, playerName: player.name, skuTitle: sku.title };
@@ -273,12 +273,12 @@ export async function requestWishlistReward(playerId: string, wishlistItemId: st
       if (!item || item.playerId !== playerId || item.status !== "CONFIRMED") {
         throw httpError("That wish isn't ready to ask for yet.");
       }
-      const starCost = item.starCost ?? 0;
-      if (starCost < 1) throw httpError("That wish isn't priced yet.");
+      const pointCost = item.pointCost ?? 0;
+      if (pointCost < 1) throw httpError("That wish isn't priced yet.");
       const player = await tx.player.findUniqueOrThrow({ where: { id: playerId } });
-      const held = await starsHeldForPlayer(playerId, tx);
-      if (!canAfford(player.points, held, starCost)) {
-        throw httpError("Not enough stars yet. Harvest plants to earn more.");
+      const held = await pointsHeldForPlayer(playerId, tx);
+      if (!canAfford(player.points, held, pointCost)) {
+        throw httpError("Not enough points yet. Harvest plants to earn more.");
       }
       const row = await tx.storeRedemption.create({
         data: {
@@ -291,15 +291,15 @@ export async function requestWishlistReward(playerId: string, wishlistItemId: st
           title: item.title,
           emoji: "🎁",
           description: "",
-          starCost,
-          starsHeld: starCost,
+          pointCost,
+          pointsHeld: pointCost,
         },
         include: redemptionInclude,
       });
-      await appendStarEvent(tx, {
+      await appendPointEvent(tx, {
         playerId,
         kind: "HOLD_REWARD",
-        amount: starCost,
+        amount: pointCost,
         idempotencyKey: `hold:${row.id}`,
         redemptionId: row.id,
         source: "wishlist_request",
@@ -315,7 +315,7 @@ export async function requestWishlistReward(playerId: string, wishlistItemId: st
         data: {
           playerId,
           action: "store_request",
-          details: { wishlistItemId: item.id, title: item.title, starsHeld: starCost, redemptionId: row.id },
+          details: { wishlistItemId: item.id, title: item.title, pointsHeld: pointCost, redemptionId: row.id },
         },
       });
       return { redemption: row, playerName: player.name, skuTitle: item.title };
@@ -333,12 +333,12 @@ export async function approveRedemption(redemptionId: string, adminId: string) {
       if (!row) throw httpError("That store request is gone.", 404);
       if (row.status !== "PENDING") throw httpError("A grown-up already handled that one.");
       const now = new Date();
-      const nextPoints = spendHeldStars(row.player.points, row.starsHeld);
+      const nextPoints = spendHeldPoints(row.player.points, row.pointsHeld);
       await tx.player.update({ where: { id: row.playerId }, data: { points: nextPoints } });
-      await appendStarEvent(tx, {
+      await appendPointEvent(tx, {
         playerId: row.playerId,
         kind: "SPEND_REWARD",
-        amount: row.starsHeld,
+        amount: row.pointsHeld,
         idempotencyKey: `spend:${row.id}`,
         redemptionId: row.id,
         source: "store_approve",
@@ -351,7 +351,7 @@ export async function approveRedemption(redemptionId: string, adminId: string) {
           resolvedAt: now,
           approvedAt: now,
           resolvedByAdminId: adminId,
-          starsHeld: 0,
+          pointsHeld: 0,
         },
         include: redemptionInclude,
       });
@@ -366,7 +366,7 @@ export async function approveRedemption(redemptionId: string, adminId: string) {
         data: {
           playerId: row.playerId,
           action: "store_approve",
-          details: { redemptionId: row.id, slug: row.sku?.slug ?? "", stars: row.starCost },
+          details: { redemptionId: row.id, slug: row.sku?.slug ?? "", points: row.pointCost },
         },
       });
       await tx.auditLog.create({
@@ -374,7 +374,7 @@ export async function approveRedemption(redemptionId: string, adminId: string) {
           adminId,
           targetPlayerId: row.playerId,
           action: "store_approve",
-          details: { redemptionId: row.id, title: row.title, stars: row.starCost },
+          details: { redemptionId: row.id, title: row.title, points: row.pointCost },
         },
       });
       return updated;
@@ -397,10 +397,10 @@ export async function denyRedemption(redemptionId: string, adminId: string, reas
       if (!row) throw httpError("That store request is gone.", 404);
       if (row.status !== "PENDING") throw httpError("A grown-up already handled that one.");
       const now = new Date();
-      await appendStarEvent(tx, {
+      await appendPointEvent(tx, {
         playerId: row.playerId,
         kind: "RELEASE_REWARD",
-        amount: row.starsHeld,
+        amount: row.pointsHeld,
         idempotencyKey: `release:${row.id}`,
         redemptionId: row.id,
         source: "store_deny",
@@ -413,7 +413,7 @@ export async function denyRedemption(redemptionId: string, adminId: string, reas
           deniedAt: now,
           denyReason: reason,
           resolvedByAdminId: adminId,
-          starsHeld: 0,
+          pointsHeld: 0,
         },
         include: redemptionInclude,
       });
@@ -428,7 +428,7 @@ export async function denyRedemption(redemptionId: string, adminId: string, reas
         data: {
           playerId: row.playerId,
           action: "store_deny",
-          details: { redemptionId: row.id, slug: row.sku?.slug ?? "", stars: row.starCost },
+          details: { redemptionId: row.id, slug: row.sku?.slug ?? "", points: row.pointCost },
         },
       });
       await tx.auditLog.create({
@@ -436,7 +436,7 @@ export async function denyRedemption(redemptionId: string, adminId: string, reas
           adminId,
           targetPlayerId: row.playerId,
           action: "store_deny",
-          details: { redemptionId: row.id, title: row.title, stars: row.starCost },
+          details: { redemptionId: row.id, title: row.title, points: row.pointCost },
         },
       });
       return updated;
@@ -475,7 +475,7 @@ export async function redeemRedemption(redemptionId: string, adminId: string) {
         data: {
           playerId: row.playerId,
           action: "store_redeem",
-          details: { redemptionId: row.id, slug: row.sku?.slug ?? "", stars: row.starCost },
+          details: { redemptionId: row.id, slug: row.sku?.slug ?? "", points: row.pointCost },
         },
       });
       await tx.auditLog.create({
@@ -483,7 +483,7 @@ export async function redeemRedemption(redemptionId: string, adminId: string) {
           adminId,
           targetPlayerId: row.playerId,
           action: "store_redeem",
-          details: { redemptionId: row.id, title: row.title, stars: row.starCost },
+          details: { redemptionId: row.id, title: row.title, points: row.pointCost },
         },
       });
       return updated;
@@ -491,18 +491,18 @@ export async function redeemRedemption(redemptionId: string, adminId: string) {
   );
 }
 
-export async function grantEarnedStars(
+export async function grantEarnedPoints(
   playerId: string,
   amount: number,
   reason: string,
   requestId: string,
 ) {
-  if (!Number.isInteger(amount) || amount < 1) throw httpError("Grant a whole number of stars.");
+  if (!Number.isInteger(amount) || amount < 1) throw httpError("Grant a whole number of points.");
   if (!requestId || typeof requestId !== "string") throw httpError("requestId is required.");
   const key = `grant:${playerId}:${requestId}`;
   return prisma.$transaction(async (tx) => {
     await tx.player.update({ where: { id: playerId }, data: { points: { increment: amount } } });
-    await appendStarEvent(tx, {
+    await appendPointEvent(tx, {
       playerId,
       kind: "EARN_GRANT",
       amount,
@@ -514,12 +514,12 @@ export async function grantEarnedStars(
   });
 }
 
-export async function backfillStarLedgers() {
+export async function backfillPointLedgers() {
   const players = await prisma.player.findMany({
     include: { storeRedemptions: { include: { sku: true } } },
   });
   for (const player of players) {
-    const existing = await prisma.starLedgerEvent.count({ where: { playerId: player.id } });
+    const existing = await prisma.pointLedgerEvent.count({ where: { playerId: player.id } });
     if (existing > 0) continue;
     const harvests = await prisma.activityLog.findMany({
       where: { playerId: player.id, action: "harvest" },
@@ -531,7 +531,7 @@ export async function backfillStarLedgers() {
         const pts = Number((log.details as { points?: number } | null)?.points ?? 0);
         if (pts < 1) continue;
         harvestTotal += pts;
-        await appendStarEvent(tx, {
+        await appendPointEvent(tx, {
           playerId: player.id,
           kind: "EARN_HARVEST",
           amount: pts,
@@ -544,10 +544,10 @@ export async function backfillStarLedgers() {
       for (const row of player.storeRedemptions) {
         const status = row.status;
         if (status === "PENDING") {
-          await appendStarEvent(tx, {
+          await appendPointEvent(tx, {
             playerId: player.id,
             kind: "HOLD_REWARD",
-            amount: row.starsHeld || row.starCost,
+            amount: row.pointsHeld || row.pointCost,
             idempotencyKey: `hold:${row.id}`,
             redemptionId: row.id,
             source: "backfill",
@@ -559,18 +559,18 @@ export async function backfillStarLedgers() {
             note: "backfill",
           });
         } else if (status === "DENIED") {
-          await appendStarEvent(tx, {
+          await appendPointEvent(tx, {
             playerId: player.id,
             kind: "HOLD_REWARD",
-            amount: row.starCost,
+            amount: row.pointCost,
             idempotencyKey: `hold:${row.id}`,
             redemptionId: row.id,
             source: "backfill",
           });
-          await appendStarEvent(tx, {
+          await appendPointEvent(tx, {
             playerId: player.id,
             kind: "RELEASE_REWARD",
-            amount: row.starCost,
+            amount: row.pointCost,
             idempotencyKey: `release:${row.id}`,
             redemptionId: row.id,
             source: "backfill",
@@ -582,11 +582,11 @@ export async function backfillStarLedgers() {
             note: "backfill",
           });
         } else if (status === "OWNED" || status === "REDEEMED") {
-          spent += row.starCost;
-          await appendStarEvent(tx, {
+          spent += row.pointCost;
+          await appendPointEvent(tx, {
             playerId: player.id,
             kind: "SPEND_REWARD",
-            amount: row.starCost,
+            amount: row.pointCost,
             idempotencyKey: `spend:${row.id}`,
             redemptionId: row.id,
             source: "backfill",
@@ -609,21 +609,21 @@ export async function backfillStarLedgers() {
       }
       const opening = player.points + spent - harvestTotal;
       if (opening > 0) {
-        await appendStarEvent(tx, {
+        await appendPointEvent(tx, {
           playerId: player.id,
           kind: "OPENING_BALANCE",
           amount: opening,
           idempotencyKey: `opening:${player.id}`,
           source: "backfill:legacy-opening",
           meta: {
-            note: "Unknown provenance before the star ledger. Not a dated harvest.",
+            note: "Unknown provenance before the point ledger. Not a dated harvest.",
             points: player.points,
             reconstructedHarvests: harvestTotal,
             reconstructedSpend: spent,
           },
         });
       } else if (opening < 0) {
-        await appendStarEvent(tx, {
+        await appendPointEvent(tx, {
           playerId: player.id,
           kind: "ADJUST_ADMIN",
           amount: opening,

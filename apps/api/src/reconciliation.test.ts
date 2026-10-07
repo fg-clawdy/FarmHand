@@ -1,10 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { Prisma } from "@prisma/client";
+import { computePointsFromLedger } from "@farmhand/shared";
 
 /**
  * Stage 1 reconciliation test: verify that Player.points always equals
- * the wallet balance computed from the StarLedger.
+ * the wallet balance computed from the PointLedger.
  *
  * This test runs against the real database — it requires a running
  * Postgres with the migration applied.
@@ -12,51 +13,22 @@ import { Prisma } from "@prisma/client";
  * Run with: npx tsx --test src/reconciliation.test.ts
  */
 
-// Lightweight wallet computation that mirrors stars.ts playerWallet
-// but stays independent so a bug in stars.ts doesn't mask a reconciliation
-// failure.
+// Canonical wallet computed directly from the ledger via the shared
+// single source of truth (computePointsFromLedger). Kept independent of
+// points.ts's playerWallet so a drift in Player.points that disagrees with
+// the ledger is caught by the assertion below.
 async function walletFromLedger(
   tx: Prisma.TransactionClient,
   playerId: string,
-): Promise<{ currentStars: number }> {
-  const events = await tx.starLedgerEvent.findMany({
+): Promise<{ points: number }> {
+  const lines = await tx.pointLedgerEvent.findMany({
     where: { playerId },
-    orderBy: { createdAt: "asc" },
+    select: { kind: true, amount: true },
   });
-
-  // Each event's amount reflects the delta for that kind.
-  // EARN_HARVEST / EARN_GRANT / OPENING_BALANCE: +amount
-  // HOLD_REWARD: -amount (held, not yet spent)
-  // RELEASE_REWARD: +amount (hold released back)
-  // SPEND_REWARD: spent — hold was already deducted at request time,
-  //   so this does not change currentStars (the hold already reduced it)
-  // ADJUST_ADMIN: +amount (can be negative)
-  let currentStars = 0;
-  for (const ev of events) {
-    switch (ev.kind) {
-      case "EARN_HARVEST":
-      case "EARN_GRANT":
-      case "OPENING_BALANCE":
-        currentStars += ev.amount;
-        break;
-      case "HOLD_REWARD":
-        currentStars -= ev.amount;
-        break;
-      case "RELEASE_REWARD":
-        currentStars += ev.amount;
-        break;
-      case "SPEND_REWARD":
-        // Hold was already deducted; no further change to currentStars.
-        break;
-      case "ADJUST_ADMIN":
-        currentStars += ev.amount;
-        break;
-    }
-  }
-  return { currentStars };
+  return { points: computePointsFromLedger(lines) };
 }
 
-describe("Star reconciliation", () => {
+describe("Point reconciliation", () => {
   it("Player.points equals walletFromLedger for every active player", { skip: !process.env.DATABASE_URL }, async () => {
     // This test is skipped unless DATABASE_URL is set, since it
     // requires a running database. In CI, connect to the test DB.
@@ -70,11 +42,11 @@ describe("Star reconciliation", () => {
         walletFromLedger(tx, player.id),
       );
 
-      const delta = Math.abs(player.points - wallet.currentStars);
+      const delta = Math.abs(player.points - wallet.points);
       assert.equal(
         player.points,
-        wallet.currentStars,
-        `Player ${player.name} (${player.id}): points=${player.points} but ledger=${wallet.currentStars} (delta=${delta}). Ledger events may be out of sync.`,
+        wallet.points,
+        `Player ${player.name} (${player.id}): points=${player.points} but ledger=${wallet.points} (delta=${delta}). Ledger events may be out of sync.`,
       );
     }
   });

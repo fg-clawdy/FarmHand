@@ -89,7 +89,7 @@ export async function withLockedPlayer<T>(
  */
 export async function withLockedClaim<T>(
   claimId: string,
-  fn: (tx: Tx, claim: { id: string; status: string; playerId: string; choreId: string; slot: number | null; plantTier: number | null; periodKey: string; proofJpegPath: string | null }) => Promise<T>,
+  fn: (tx: Tx, claim: { id: string; status: string; playerId: string; choreId: string; slot: number | null; plantTier: number | null; periodKey: string; proofJpegPath: string | null; seedsGranted: number; seedsPlanted: number }) => Promise<T>,
 ): Promise<T> {
   return withSerializableRetry(() =>
     prisma.$transaction(

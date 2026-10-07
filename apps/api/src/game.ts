@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import {
   DEFAULT_GAME_CONFIG,
   DEFAULT_GIVE_CEILING,
+  DEFAULT_KID_COLOR,
   getTier,
   mergeGameConfig,
   parentNotifyGate,
@@ -243,6 +244,7 @@ export function publicPlayer(player: {
   avatarKind?: string | null;
   avatarPreset?: string | null;
   avatarSelfieFile?: string | null;
+  color?: string | null;
   seeds: number;
   provisionalSeeds: number;
   points: number;
@@ -302,6 +304,7 @@ export function publicPlayer(player: {
     name: player.name,
     mascot: player.mascot,
     ...avatarFieldsPublic(player),
+    color: player.color ?? DEFAULT_KID_COLOR,
     seeds: player.seeds,
     provisionalSeeds: player.provisionalSeeds,
     points: player.points,
@@ -337,8 +340,7 @@ export function publicPlayer(player: {
         selfieOn &&
         (serialized.state === "growing" || serialized.state === "purgatory") &&
         !serialized.ready &&
-        pw.canWater &&
-        serialized.state !== "wilted";
+        pw.canWater;
       const pendingChores = (plot.claimLinks ?? [])
         .filter((link) => link.claim.status === "PENDING")
         .map((link) => ({

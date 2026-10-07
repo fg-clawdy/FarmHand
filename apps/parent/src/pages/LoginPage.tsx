@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 
-export default function LoginPage({ onLogin }: { onLogin: () => void }) {
+export default function LoginPage({ onLogin, expired = false }: { onLogin: () => void; expired?: boolean }) {
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -23,6 +23,11 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
         }}
       >
         <h1>FarmHand parent</h1>
+        {expired && (
+          <p className="notice" role="status">
+            Your session timed out — sign in again to keep working.
+          </p>
+        )}
         <p className="muted">Approve chores, edit the list, see how the kids are doing.</p>
         <label className="field">
           Username

@@ -1,4 +1,4 @@
-import { walletFromLedger, type StarLedgerKind, type StarWallet } from "@farmhand/shared";
+import { computePointsFromLedger, walletFromLedger, type PointLedgerKind, type PointWallet } from "@farmhand/shared";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./db.js";
 
@@ -6,7 +6,7 @@ type Db = Prisma.TransactionClient | typeof prisma;
 
 export type LedgerWrite = {
   playerId: string;
-  kind: StarLedgerKind;
+  kind: PointLedgerKind;
   amount: number;
   idempotencyKey: string;
   redemptionId?: string | null;
@@ -14,9 +14,9 @@ export type LedgerWrite = {
   meta?: Prisma.InputJsonValue;
 };
 
-export async function appendStarEvent(tx: Db, row: LedgerWrite) {
+export async function appendPointEvent(tx: Db, row: LedgerWrite) {
   try {
-    return await tx.starLedgerEvent.create({
+    return await tx.pointLedgerEvent.create({
       data: {
         playerId: row.playerId,
         kind: row.kind,
@@ -29,50 +29,58 @@ export async function appendStarEvent(tx: Db, row: LedgerWrite) {
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return tx.starLedgerEvent.findUniqueOrThrow({ where: { idempotencyKey: row.idempotencyKey } });
+      return tx.pointLedgerEvent.findUniqueOrThrow({ where: { idempotencyKey: row.idempotencyKey } });
     }
     throw err;
   }
 }
 
-export async function starsHeldForPlayer(playerId: string, tx: Db = prisma) {
+export async function pointsHeldForPlayer(playerId: string, tx: Db = prisma) {
   const agg = await tx.storeRedemption.aggregate({
     where: { playerId, status: "PENDING" },
-    _sum: { starsHeld: true },
+    _sum: { pointsHeld: true },
   });
-  return agg._sum.starsHeld ?? 0;
+  return agg._sum.pointsHeld ?? 0;
 }
 
-export async function playerWallet(playerId: string, tx: Db = prisma): Promise<StarWallet> {
+/** Canonical points for a player, computed from the append-only ledger. */
+export async function computePointsForPlayer(tx: Db, playerId: string): Promise<number> {
+  const rows = await tx.pointLedgerEvent.findMany({
+    where: { playerId },
+    select: { kind: true, amount: true },
+  });
+  return computePointsFromLedger(rows);
+}
+
+export async function playerWallet(playerId: string, tx: Db = prisma): Promise<PointWallet> {
   const [lines, held] = await Promise.all([
-    tx.starLedgerEvent.findMany({
+    tx.pointLedgerEvent.findMany({
       where: { playerId },
       select: { kind: true, amount: true },
     }),
-    starsHeldForPlayer(playerId, tx),
+    pointsHeldForPlayer(playerId, tx),
   ]);
   return walletFromLedger(lines, held);
 }
 
-export function publicWallet(wallet: StarWallet) {
+export function publicWallet(wallet: PointWallet) {
   return {
-    currentStars: wallet.currentStars,
-    points: wallet.currentStars,
-    heldStars: wallet.heldStars,
-    starsHeld: wallet.heldStars,
-    availableStars: wallet.availableStars,
+    points: wallet.points,
+    heldPoints: wallet.heldPoints,
+    availablePoints: wallet.availablePoints,
     lifetimeEarned: wallet.lifetimeEarned,
     lifetimeEarnedHarvest: wallet.lifetimeEarnedHarvest,
     lifetimeEarnedGrant: wallet.lifetimeEarnedGrant,
     lifetimeEarnedLegacy: wallet.lifetimeEarnedLegacy,
     lifetimeSpent: wallet.lifetimeSpent,
+    lifetimeGiven: wallet.lifetimeGiven,
     adjustNet: wallet.adjustNet,
   };
 }
 
 export async function recordOpeningBalance(tx: Db, playerId: string, amount: number, source = "create_player") {
   if (!Number.isInteger(amount) || amount < 1) return null;
-  return appendStarEvent(tx, {
+  return appendPointEvent(tx, {
     playerId,
     kind: "OPENING_BALANCE",
     amount,

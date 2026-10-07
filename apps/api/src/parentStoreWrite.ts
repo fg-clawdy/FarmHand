@@ -8,7 +8,7 @@ export type ParentSkuBody = {
   title?: unknown;
   emoji?: unknown;
   description?: unknown;
-  starCost?: unknown;
+  pointCost?: unknown;
   isActive?: unknown;
   sortOrder?: unknown;
   slug?: unknown;
@@ -26,10 +26,10 @@ function readBool(value: unknown, label: string): boolean {
   return value;
 }
 
-function readStarCost(value: unknown): number {
+function readPointCost(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isInteger(n) || n < 1 || n > 1_000_000) {
-    fail("Star cost should be a whole number of at least 1.");
+    fail("Point cost should be a whole number of at least 1.");
   }
   return n;
 }
@@ -38,7 +38,7 @@ export function parseSkuCreate(body: ParentSkuBody) {
   const title = readString(body.title, "title");
   const emoji = readString(body.emoji ?? "⭐", "emoji") || "⭐";
   const description = typeof body.description === "string" ? body.description.trim() : "";
-  const starCost = readStarCost(body.starCost);
+  const pointCost = readPointCost(body.pointCost);
   const isActive = body.isActive === undefined ? true : readBool(body.isActive, "On the shelf");
   const sortOrder =
     body.sortOrder === undefined || body.sortOrder === null || body.sortOrder === ""
@@ -46,7 +46,7 @@ export function parseSkuCreate(body: ParentSkuBody) {
       : Number(body.sortOrder);
   if (!Number.isInteger(sortOrder) || sortOrder < 0) fail("Sort order should be a whole number.");
   const slug = body.slug ? slugifyTitle(String(body.slug)) : slugifyTitle(title);
-  return { title, emoji, description, starCost, isActive, sortOrder, slug };
+  return { title, emoji, description, pointCost, isActive, sortOrder, slug };
 }
 
 export function parseSkuPatch(body: ParentSkuBody) {
@@ -54,7 +54,7 @@ export function parseSkuPatch(body: ParentSkuBody) {
     title?: string;
     emoji?: string;
     description?: string;
-    starCost?: number;
+    pointCost?: number;
     isActive?: boolean;
     sortOrder?: number;
   } = {};
@@ -63,7 +63,7 @@ export function parseSkuPatch(body: ParentSkuBody) {
   if (body.description !== undefined) {
     patch.description = typeof body.description === "string" ? body.description.trim() : "";
   }
-  if (body.starCost !== undefined) patch.starCost = readStarCost(body.starCost);
+  if (body.pointCost !== undefined) patch.pointCost = readPointCost(body.pointCost);
   if (body.isActive !== undefined) patch.isActive = readBool(body.isActive, "On the shelf");
   if (body.sortOrder !== undefined && body.sortOrder !== null && body.sortOrder !== "") {
     const sortOrder = Number(body.sortOrder);

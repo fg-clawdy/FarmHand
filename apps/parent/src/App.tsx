@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Route, Routes, useNavigate } from "react-router-dom";
-import { api } from "./api";
+import { api, onAuthExpired } from "./api";
 import InboxPage from "./pages/InboxPage";
 import LoginPage from "./pages/LoginPage";
 import ChoresPage from "./pages/ChoresPage";
@@ -12,19 +12,62 @@ import SharedGoalsPage from "./pages/SharedGoalsPage";
 
 export default function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [expired, setExpired] = useState(false);
+  const authedRef = useRef(authed);
+  authedRef.current = authed;
 
   useEffect(() => {
     api
       .me()
       .then(() => setAuthed(true))
       .catch(() => setAuthed(false));
+    return onAuthExpired(() => {
+      // Only flag "session expired" if we believed we were already signed in.
+      if (authedRef.current === true) setExpired(true);
+      setAuthed(false);
+    });
   }, []);
+
+  useEffect(() => {
+    if (!authed) return;
+    let cancelled = false;
+    const probe = () => {
+      if (cancelled) return;
+      // A 401 here is handled globally by onAuthExpired.
+      void api.me().catch(() => {});
+    };
+    const onVisible = () => {
+      if (!document.hidden) probe();
+    };
+    window.addEventListener("focus", probe);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", probe);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [authed]);
 
   if (authed === null) return <div className="main">Opening parent home…</div>;
 
   return (
     <Routes>
-      <Route path="/login" element={authed ? <Navigate to="/" replace /> : <LoginPage onLogin={() => setAuthed(true)} />} />
+      <Route
+        path="/login"
+        element={
+          authed ? (
+            <Navigate to="/" replace />
+          ) : (
+            <LoginPage
+              expired={expired}
+              onLogin={() => {
+                setExpired(false);
+                setAuthed(true);
+              }}
+            />
+          )
+        }
+      />
       <Route
         path="/*"
         element={authed ? <Shell onLogout={() => setAuthed(false)} /> : <Navigate to="/login" replace />}

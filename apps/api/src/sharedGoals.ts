@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "./db.js";
 import { httpError } from "./chores.js";
-import { appendStarEvent, playerWallet } from "./stars.js";
+import { appendPointEvent, playerWallet } from "./points.js";
 import { withSerializableRetry, withLockedPlayer } from "./locks.js";
 import {
   DEFAULT_GIVE_CEILING,
@@ -23,7 +23,7 @@ export function publicSharedGoal(row: {
   id: string;
   title: string;
   emoji: string;
-  targetStars: number;
+  targetPoints: number;
   status: string;
   tintIndex?: number;
   artUrl?: string | null;
@@ -35,8 +35,8 @@ export function publicSharedGoal(row: {
     id: row.id,
     title: row.title,
     emoji: row.emoji,
-    targetStars: row.targetStars,
-    filledStars: Math.min(fill, row.targetStars),
+    targetPoints: row.targetPoints,
+    filledPoints: Math.min(fill, row.targetPoints),
     status: row.status as PublicSharedGoal["status"],
     tintIndex: row.tintIndex ?? 0,
     artUrl: row.artUrl ?? null,
@@ -78,7 +78,7 @@ async function assertWaitingCountUnderLimit(tx: Tx) {
 export async function createSharedGoal(opts: {
   title: string;
   emoji: string;
-  targetStars: number;
+  targetPoints: number;
   artNotes?: string;
   /** Background lid paint. Default pastel art is saved either way. */
   generateArt?: boolean;
@@ -89,8 +89,8 @@ export async function createSharedGoal(opts: {
   const emoji = opts.emoji.trim();
   if (!title) throw httpError("Please give the jar a name.");
   if (!emoji) throw httpError("Please pick an emoji.");
-  if (!Number.isInteger(opts.targetStars) || opts.targetStars < 1) {
-    throw httpError("Target should be a whole number of stars, at least 1.");
+  if (!Number.isInteger(opts.targetPoints) || opts.targetPoints < 1) {
+    throw httpError("Target should be a whole number of points, at least 1.");
   }
 
   const artNotes = clipNotes(opts.artNotes);
@@ -121,7 +121,7 @@ export async function createSharedGoal(opts: {
           data: {
             title,
             emoji,
-            targetStars: opts.targetStars,
+            targetPoints: opts.targetPoints,
             status: "WAITING",
             sortOrder: (maxSort._max.sortOrder ?? 0) + 1,
             ...art,
@@ -134,7 +134,7 @@ export async function createSharedGoal(opts: {
         data: {
           title,
           emoji,
-          targetStars: opts.targetStars,
+          targetPoints: opts.targetPoints,
           status: "OPEN",
           ...art,
         },
@@ -217,7 +217,7 @@ export async function cancelSharedGoal(goalId: string) {
         });
         if (existing) continue; // Already returned — idempotent
 
-        await appendStarEvent(tx, {
+        await appendPointEvent(tx, {
           playerId,
           kind: "RETURN_SHARED",
           amount: net,
@@ -249,7 +249,7 @@ export async function cancelSharedGoal(goalId: string) {
 
 export async function patchSharedGoal(
   goalId: string,
-  patch: { title?: string; emoji?: string; targetStars?: number; sortOrder?: number },
+  patch: { title?: string; emoji?: string; targetPoints?: number; sortOrder?: number },
 ) {
   return withSerializableRetry(() =>
     prisma.$transaction(async (tx) => {
@@ -259,18 +259,18 @@ export async function patchSharedGoal(
 
       if (patch.title !== undefined || patch.emoji !== undefined) {
         if (fill > 0 && goal.status !== "WAITING") {
-          throw httpError("Cannot rename a jar that already has stars. Put it away and create a new one.", 409);
+          throw httpError("Cannot rename a jar that already has points. Put it away and create a new one.", 409);
         }
         if (patch.title !== undefined) data.title = patch.title.trim();
         if (patch.emoji !== undefined) data.emoji = patch.emoji.trim();
       }
 
-      if (patch.targetStars !== undefined) {
-        if (!Number.isInteger(patch.targetStars) || patch.targetStars < 1) {
-          throw httpError("Target should be a whole number of stars, at least 1.");
+      if (patch.targetPoints !== undefined) {
+        if (!Number.isInteger(patch.targetPoints) || patch.targetPoints < 1) {
+          throw httpError("Target should be a whole number of points, at least 1.");
         }
-        data.targetStars = patch.targetStars;
-        if (goal.status === "OPEN" && patch.targetStars <= fill) {
+        data.targetPoints = patch.targetPoints;
+        if (goal.status === "OPEN" && patch.targetPoints <= fill) {
           data.status = "READY";
           data.readyAt = new Date();
         }
@@ -345,7 +345,7 @@ export async function pourSharedGoal(opts: {
   const { playerId, goalId, amount, requestId } = opts;
 
   if (!Number.isInteger(amount) || amount < 1) {
-    throw httpError("Please pick a number of stars to add.");
+    throw httpError("Please pick a number of points to add.");
   }
 
   const idempotencyKey = `give:${goalId}:${playerId}:${requestId}`;
@@ -369,11 +369,11 @@ export async function pourSharedGoal(opts: {
         const fillNow = await goalFill(goalId, tx);
         const walletNow = await playerWallet(playerId, tx);
         return {
-          availableStars: walletNow.availableStars,
-          currentStars: walletNow.currentStars,
-          filledStars: Math.min(fillNow, current.targetStars),
+          availablePoints: walletNow.availablePoints,
+          points: walletNow.points,
+          filledPoints: Math.min(fillNow, current.targetPoints),
           status: current.status,
-          targetStars: current.targetStars,
+          targetPoints: current.targetPoints,
           title: current.title,
           giveKey: idempotencyKey,
           amount: existingGive.amount,
@@ -382,7 +382,7 @@ export async function pourSharedGoal(opts: {
 
       const goal = await tx.sharedGoal.findUniqueOrThrow({ where: { id: goalId } });
       if (goal.status !== "OPEN") {
-        throw httpError("This jar isn't taking stars right now.", 409);
+        throw httpError("This jar isn't taking points right now.", 409);
       }
 
       const player = await tx.player.findUniqueOrThrow({ where: { id: playerId } });
@@ -392,7 +392,7 @@ export async function pourSharedGoal(opts: {
       const giveCeiling = player.giveCeiling ?? DEFAULT_GIVE_CEILING;
 
       const fill = await goalFill(goalId, tx);
-      const room = Math.max(0, goal.targetStars - fill);
+      const room = Math.max(0, goal.targetPoints - fill);
       if (room <= 0) {
         throw httpError("The jar is full.", 409);
       }
@@ -403,12 +403,12 @@ export async function pourSharedGoal(opts: {
       }
 
       if (clampedAmount > giveCeiling) {
-        throw httpError(`You can add up to ${giveCeiling} stars at a time.`, 409);
+        throw httpError(`You can add up to ${giveCeiling} points at a time.`, 409);
       }
 
       const walletNow = await playerWallet(playerId, tx);
-      if (walletNow.availableStars < clampedAmount) {
-        throw httpError("Not enough stars to add.", 409);
+      if (walletNow.availablePoints < clampedAmount) {
+        throw httpError("Not enough points to add.", 409);
       }
 
       await tx.player.update({
@@ -416,7 +416,7 @@ export async function pourSharedGoal(opts: {
         data: { points: { decrement: clampedAmount } },
       });
 
-      await appendStarEvent(tx, {
+      await appendPointEvent(tx, {
         playerId,
         kind: "GIVE_SHARED",
         amount: clampedAmount,
@@ -435,7 +435,7 @@ export async function pourSharedGoal(opts: {
       });
 
       const newFill = fill + clampedAmount;
-      const newStatus = newFill >= goal.targetStars ? "READY" : "OPEN";
+      const newStatus = newFill >= goal.targetPoints ? "READY" : "OPEN";
       if (newStatus === "READY") {
         await tx.sharedGoal.update({
           where: { id: goalId },
@@ -446,11 +446,11 @@ export async function pourSharedGoal(opts: {
       const newWallet = await playerWallet(playerId, tx);
 
       return {
-        availableStars: newWallet.availableStars,
-        currentStars: newWallet.currentStars,
-        filledStars: Math.min(newFill, goal.targetStars),
+        availablePoints: newWallet.availablePoints,
+        points: newWallet.points,
+        filledPoints: Math.min(newFill, goal.targetPoints),
         status: newStatus,
-        targetStars: goal.targetStars,
+        targetPoints: goal.targetPoints,
         title: goal.title,
         giveKey: idempotencyKey,
         amount: clampedAmount,
@@ -483,12 +483,12 @@ export async function putBackSharedGoal(opts: {
         throw httpError("Nothing to put back.", 404);
       }
       if (giveEvent.playerId !== playerId) {
-        throw httpError("You can only put back your own stars.", 403);
+        throw httpError("You can only put back your own points.", 403);
       }
 
       const elapsed = Date.now() - giveEvent.createdAt.getTime();
       if (elapsed > PUT_BACK_WINDOW_SECONDS * 1000) {
-        throw httpError("Too late to put those stars back.", 409);
+        throw httpError("Too late to put those points back.", 409);
       }
 
       const putbackKey = `putback:${giveKey}`;
@@ -500,11 +500,11 @@ export async function putBackSharedGoal(opts: {
         const fill = await goalFill(goalId, tx);
         const wallet = await playerWallet(playerId, tx);
         return {
-          availableStars: wallet.availableStars,
-          currentStars: wallet.currentStars,
-          filledStars: Math.min(fill, goal.targetStars),
+          availablePoints: wallet.availablePoints,
+          points: wallet.points,
+          filledPoints: Math.min(fill, goal.targetPoints),
           status: goal.status,
-          targetStars: goal.targetStars,
+          targetPoints: goal.targetPoints,
           title: goal.title,
         };
       }
@@ -517,7 +517,7 @@ export async function putBackSharedGoal(opts: {
         data: { points: { increment: amount } },
       });
 
-      await appendStarEvent(tx, {
+      await appendPointEvent(tx, {
         playerId,
         kind: "RETURN_SHARED",
         amount,
@@ -531,7 +531,7 @@ export async function putBackSharedGoal(opts: {
 
       const newFill = await goalFill(goalId, tx);
       let newStatus = goal.status;
-      if (goal.status === "READY" && newFill < goal.targetStars) {
+      if (goal.status === "READY" && newFill < goal.targetPoints) {
         newStatus = "OPEN";
         await tx.sharedGoal.update({
           where: { id: goalId },
@@ -541,11 +541,11 @@ export async function putBackSharedGoal(opts: {
 
       const wallet = await playerWallet(playerId, tx);
       return {
-        availableStars: wallet.availableStars,
-        currentStars: wallet.currentStars,
-        filledStars: Math.min(newFill, goal.targetStars),
+        availablePoints: wallet.availablePoints,
+        points: wallet.points,
+        filledPoints: Math.min(newFill, goal.targetPoints),
         status: newStatus,
-        targetStars: goal.targetStars,
+        targetPoints: goal.targetPoints,
         title: goal.title,
       };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 12_000 }),
@@ -646,8 +646,8 @@ export async function parentSharedGoals(): Promise<{
       id: goal.id,
       title: goal.title,
       emoji: goal.emoji,
-      targetStars: goal.targetStars,
-      filledStars: Math.min(fill, goal.targetStars),
+      targetPoints: goal.targetPoints,
+      filledPoints: Math.min(fill, goal.targetPoints),
       status: goal.status as ParentSharedGoal["status"],
       sortOrder: goal.sortOrder,
       createdAt: goal.createdAt.toISOString(),
@@ -655,8 +655,8 @@ export async function parentSharedGoals(): Promise<{
       happenedAt: goal.happenedAt?.toISOString() ?? null,
       cancelledAt: goal.cancelledAt?.toISOString() ?? null,
       contributions,
-      usdTarget: (goal.targetStars / 100).toFixed(2),
-      usdFilled: (Math.min(fill, goal.targetStars) / 100).toFixed(2),
+      usdTarget: (goal.targetPoints / 100).toFixed(2),
+      usdFilled: (Math.min(fill, goal.targetPoints) / 100).toFixed(2),
       tintIndex: goal.tintIndex,
       artUrl: goal.artUrl,
       artStatus: goal.artStatus,
@@ -707,7 +707,7 @@ export async function patchPlayerGiving(
   if (typeof patch.givingEnabled === "boolean") data.givingEnabled = patch.givingEnabled;
   if (patch.giveCeiling !== undefined) {
     if (!Number.isInteger(patch.giveCeiling) || patch.giveCeiling < 1) {
-      throw httpError("Ceiling should be a whole number of stars, at least 1.");
+      throw httpError("Ceiling should be a whole number of points, at least 1.");
     }
     data.giveCeiling = patch.giveCeiling;
   }

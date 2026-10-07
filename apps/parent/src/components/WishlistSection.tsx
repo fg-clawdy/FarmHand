@@ -1,4 +1,4 @@
-import { priceBreakdown } from "@farmhand/shared";
+import { formatPoints, priceBreakdown } from "@farmhand/shared";
 import { useEffect, useState } from "react";
 import { api, type ParentWishlistItem, type ParentWishlistPayload } from "../api";
 
@@ -314,7 +314,7 @@ export default function WishlistSection() {
                     {preview && (
                       <p className="muted">
                         {dollarLabel(preview.priceCents)} + {dollarLabel(preview.taxCents)} tax →{" "}
-                        <strong>{preview.starCost}★</strong>
+                        <strong>{formatPoints(preview.pointCost)}</strong>
                       </p>
                     )}
                   </div>
@@ -360,7 +360,7 @@ export default function WishlistSection() {
                 <div>
                   <h3>{item.title}</h3>
                   <p>
-                    {item.starCost}★ · live in {payload.kids.find((k) => k.id === item.playerId)?.name ?? "a child's"} shop
+                    {item.pointCost != null ? formatPoints(item.pointCost) : ""} · live in {payload.kids.find((k) => k.id === item.playerId)?.name ?? "a child's"} shop
                   </p>
                   {item.productUrl && (
                     <a href={item.productUrl} target="_blank" rel="noreferrer">

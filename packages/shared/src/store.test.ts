@@ -2,29 +2,29 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   STARTER_STORE_CATALOG,
-  availableStars,
+  availablePoints,
   canAfford,
   priceBreakdown,
   roundUpTo50,
-  spendHeldStars,
-  starCostForPriceCents,
+  spendHeldPoints,
+  pointCostForPriceCents,
   walletFromLedger,
 } from "./store.js";
 
-test("starter catalog is five real-world SKUs at the locked star prices", () => {
+test("starter catalog is five real-world SKUs at the locked point prices", () => {
   assert.equal(STARTER_STORE_CATALOG.length, 5);
   const bySlug = Object.fromEntries(STARTER_STORE_CATALOG.map((row) => [row.slug, row]));
-  assert.equal(bySlug["movie-night"]?.starCost, 200);
-  assert.equal(bySlug["ice-cream"]?.starCost, 500);
-  assert.equal(bySlug["netflix-month"]?.starCost, 1000);
-  assert.equal(bySlug["amazon-gift-card"]?.starCost, 1000);
-  assert.equal(bySlug["date-night"]?.starCost, 2000);
+  assert.equal(bySlug["movie-night"]?.pointCost, 200);
+  assert.equal(bySlug["ice-cream"]?.pointCost, 500);
+  assert.equal(bySlug["netflix-month"]?.pointCost, 1000);
+  assert.equal(bySlug["amazon-gift-card"]?.pointCost, 1000);
+  assert.equal(bySlug["date-night"]?.pointCost, 2000);
 });
 
-test("available stars are current unspent minus holds", () => {
-  assert.equal(availableStars(800, 500), 300);
-  assert.equal(availableStars(500, 500), 0);
-  assert.equal(availableStars(100, 500), 0);
+test("available points are current unspent minus holds", () => {
+  assert.equal(availablePoints(800, 500), 300);
+  assert.equal(availablePoints(500, 500), 0);
+  assert.equal(availablePoints(100, 500), 0);
 });
 
 test("a 500★ ice cream request is rejected when available is under 500", () => {
@@ -34,16 +34,16 @@ test("a 500★ ice cream request is rejected when available is under 500", () =>
 });
 
 test("approve spends the hold and never goes negative", () => {
-  assert.equal(spendHeldStars(2100, 2000), 100);
-  assert.equal(spendHeldStars(200, 500), 0);
+  assert.equal(spendHeldPoints(2100, 2000), 100);
+  assert.equal(spendHeldPoints(200, 500), 0);
 });
 
 test("lifetime earned stays put across hold, spend, and later harvest", () => {
   const earned = [{ kind: "EARN_HARVEST" as const, amount: 2100 }];
   const afterHold = walletFromLedger(earned, 2000);
   assert.equal(afterHold.lifetimeEarned, 2100);
-  assert.equal(afterHold.availableStars, 100);
-  assert.equal(afterHold.currentStars, 2100);
+  assert.equal(afterHold.availablePoints, 100);
+  assert.equal(afterHold.points, 2100);
   assert.equal(afterHold.lifetimeSpent, 0);
 
   const afterApprove = walletFromLedger(
@@ -51,8 +51,8 @@ test("lifetime earned stays put across hold, spend, and later harvest", () => {
     0,
   );
   assert.equal(afterApprove.lifetimeEarned, 2100);
-  assert.equal(afterApprove.availableStars, 100);
-  assert.equal(afterApprove.currentStars, 100);
+  assert.equal(afterApprove.availablePoints, 100);
+  assert.equal(afterApprove.points, 100);
   assert.equal(afterApprove.lifetimeSpent, 2000);
 
   const afterMoreEarn = walletFromLedger(
@@ -64,7 +64,7 @@ test("lifetime earned stays put across hold, spend, and later harvest", () => {
     0,
   );
   assert.equal(afterMoreEarn.lifetimeEarned, 2200);
-  assert.equal(afterMoreEarn.availableStars, 200);
+  assert.equal(afterMoreEarn.availablePoints, 200);
 
   const afterMovie = walletFromLedger(
     [
@@ -75,7 +75,7 @@ test("lifetime earned stays put across hold, spend, and later harvest", () => {
     ],
     0,
   );
-  assert.equal(afterMovie.availableStars, 0);
+  assert.equal(afterMovie.availablePoints, 0);
   assert.equal(afterMovie.lifetimeEarned, 2200);
   assert.equal(afterMovie.lifetimeSpent, 2200);
 });
@@ -90,24 +90,24 @@ test("admin adjustments are not gameplay-earned", () => {
   );
   assert.equal(wallet.lifetimeEarnedHarvest, 250);
   assert.equal(wallet.lifetimeEarned, 250);
-  assert.equal(wallet.currentStars, 800);
-  assert.equal(wallet.availableStars, 800);
+  assert.equal(wallet.points, 800);
+  assert.equal(wallet.availablePoints, 800);
 });
 
-test("cannot redeem when short even by one star against catalog prices", () => {
+test("cannot redeem when short even by one point against catalog prices", () => {
   for (const sku of STARTER_STORE_CATALOG) {
-    assert.equal(canAfford(sku.starCost, 0, sku.starCost), true);
-    assert.equal(canAfford(sku.starCost - 1, 0, sku.starCost), false);
-    assert.equal(canAfford(sku.starCost, 1, sku.starCost), false);
+    assert.equal(canAfford(sku.pointCost, 0, sku.pointCost), true);
+    assert.equal(canAfford(sku.pointCost - 1, 0, sku.pointCost), false);
+    assert.equal(canAfford(sku.pointCost, 1, sku.pointCost), false);
   }
 });
 
-test("zero or negative star costs are never affordable", () => {
+test("zero or negative point costs are never affordable", () => {
   assert.equal(canAfford(1000, 0, 0), false);
   assert.equal(canAfford(1000, 0, -200), false);
 });
 
-test("wallet current stars never go negative from over-spend lines", () => {
+test("wallet current points never go negative from over-spend lines", () => {
   const wallet = walletFromLedger(
     [
       { kind: "EARN_HARVEST", amount: 100 },
@@ -115,8 +115,8 @@ test("wallet current stars never go negative from over-spend lines", () => {
     ],
     0,
   );
-  assert.equal(wallet.currentStars, 0);
-  assert.equal(wallet.availableStars, 0);
+  assert.equal(wallet.points, 0);
+  assert.equal(wallet.availablePoints, 0);
   assert.equal(wallet.lifetimeSpent, 500);
 });
 
@@ -130,20 +130,20 @@ test("roundUpTo50 rounds up to the nearest 50 cents", () => {
   assert.equal(roundUpTo50(2474), 2500);
 });
 
-test("star cost = price + 10% tax rounded up to 50c, 1 star = 1 cent", () => {
-  assert.equal(starCostForPriceCents(2299), 2550);
-  assert.equal(starCostForPriceCents(0), 0);
-  assert.equal(starCostForPriceCents(1), 50);
-  assert.equal(starCostForPriceCents(49), 100);
-  assert.equal(starCostForPriceCents(50), 100);
-  assert.equal(starCostForPriceCents(100), 150);
+test("point cost = price + 10% tax rounded up to 50c, 1 point = 1 cent", () => {
+  assert.equal(pointCostForPriceCents(2299), 2550);
+  assert.equal(pointCostForPriceCents(0), 0);
+  assert.equal(pointCostForPriceCents(1), 50);
+  assert.equal(pointCostForPriceCents(49), 100);
+  assert.equal(pointCostForPriceCents(50), 100);
+  assert.equal(pointCostForPriceCents(100), 150);
 });
 
-test("price breakdown totals match the star cost", () => {
+test("price breakdown totals match the point cost", () => {
   const b = priceBreakdown(2299);
   assert.equal(b.priceCents, 2299);
   assert.equal(b.taxCents, 230);
   assert.equal(b.totalCents, 2529);
-  assert.equal(b.starCost, 2550);
-  assert.equal(b.starCost, starCostForPriceCents(b.priceCents));
+  assert.equal(b.pointCost, 2550);
+  assert.equal(b.pointCost, pointCostForPriceCents(b.priceCents));
 });

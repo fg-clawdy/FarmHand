@@ -3474,3 +3474,194 @@ button.who.profile-entry:active {
   margin: 8px 0;
 }
 
+/* ===== Playbook Coach — bold, auto-open mission nudge ===== */
+.playbook-coach-pill {
+  position: fixed;
+  left: 50%;
+  top: 96px;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border: 3px solid #5c3218;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffe56a, #f0b429);
+  color: #2b1a10;
+  font: inherit;
+  font-weight: 800;
+  font-size: 17px;
+  cursor: pointer;
+  box-shadow: 0 6px 0 #5c3218, 0 12px 22px rgba(20, 30, 10, 0.35);
+  animation: playbookCoachPulse 1.6s ease-in-out infinite;
+}
+.playbook-coach-pill:hover { transform: translateX(-50%) translateY(-2px); }
+.playbook-coach-pill-emoji { font-size: 26px; line-height: 1; }
+.playbook-coach-pill-label { line-height: 1.1; }
+@keyframes playbookCoachPulse {
+  0%, 100% { box-shadow: 0 6px 0 #5c3218, 0 12px 22px rgba(20, 30, 10, 0.35); }
+  50% { box-shadow: 0 6px 0 #5c3218, 0 12px 26px rgba(240, 180, 41, 0.85); }
+}
+
+.playbook-coach-hero {
+  font-size: 36px;
+  line-height: 1;
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.18));
+}
+
+.playbook-coach-foot {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+.playbook-coach-foot .btn { flex: 1; }
+
+.playbook-coach-mission {
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 3px solid var(--crate-wood);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(240, 180, 41, 0.14), transparent 42%),
+    linear-gradient(180deg, #fffdf4, var(--crate-paper-2));
+  box-shadow: 0 5px 0 var(--crate-wood-dark);
+}
+.playbook-coach-mission-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.playbook-coach-mission-emoji,
+.playbook-coach-kid {
+  flex: none;
+  font-size: 34px;
+  line-height: 1;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--gold);
+  box-shadow: 0 3px 0 var(--crate-wood-dark);
+}
+.playbook-coach-kid { background: #bfe3a8; }
+.playbook-coach-mission-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.playbook-coach-mission-title { font-size: 18px; font-weight: 800; color: var(--ink); }
+.playbook-coach-mission-desc { font-size: 14px; color: #6b4b26; }
+.playbook-coach-window {
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8a5a12;
+  background: #ffe9b8;
+  border: 1px solid #e2c48b;
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+.playbook-coach-count {
+  flex: none;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--wood-dark);
+  background: #fff;
+  border: 2px solid var(--crate-edge);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+.playbook-coach-track {
+  height: 16px;
+  margin: 10px 0 12px;
+  border-radius: 999px;
+  background: #f0e2c4;
+  border: 2px solid var(--crate-edge);
+  overflow: hidden;
+}
+.playbook-coach-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7ac24c, #3f8a3a);
+  transition: width 0.35s ease;
+}
+
+.playbook-coach-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.playbook-coach-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 2px solid #efdcb4;
+  border-radius: 12px;
+  background: #fffdf4;
+}
+.playbook-coach-row.done { opacity: 0.62; background: #eef6e6; }
+.playbook-coach-check { font-size: 20px; line-height: 1; }
+.playbook-coach-chore-emoji { font-size: 22px; line-height: 1; }
+.playbook-coach-chore-title { flex: 1; font-weight: 700; font-size: 16px; color: var(--ink); }
+.playbook-coach-row.done .playbook-coach-chore-title { text-decoration: line-through; }
+.playbook-coach-row .job-chip { flex: none; }
+.playbook-coach-row .btn { flex: none; min-height: 40px; }
+.playbook-coach-row .job-reason { flex-basis: 100%; color: var(--barn); }
+
+.playbook-coach-go {
+  margin-top: 10px;
+  width: 100%;
+  font-weight: 800;
+  font-size: 17px;
+}
+
+/* Kid-friendly farm mission cards: one colored row per child. */
+.playbook-coach-mission--farm {
+  border: 3px solid #efdcb4;
+  border-radius: 16px;
+  padding: 12px;
+  transition: transform 0.12s ease;
+}
+.playbook-coach-avatar {
+  flex: none;
+  border: 3px solid #fff;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
+}
+.playbook-coach-cheer {
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.92;
+}
+.playbook-coach-mission--farm .playbook-coach-count {
+  font-size: 22px;
+  min-width: 74px;
+  text-align: center;
+}
+
+/* Favorite-color picker (profile). */
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.color-swatch {
+  aspect-ratio: 1;
+  border: 3px solid #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.color-swatch.active {
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.22);
+  border-color: #fff8e7;
+}
+.color-swatch-check {
+  font-size: 26px;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}

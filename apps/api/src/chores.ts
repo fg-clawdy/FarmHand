@@ -519,10 +519,6 @@ export async function approveClaim(claimId: string, adminId: string, now = new D
         });
       }
     }
-    if (!plot) {
-      plot = null;
-    }
-
     await tx.activityLog.create({
       data: {
         playerId: lockedClaim.playerId,
@@ -788,7 +784,7 @@ export async function listParentInbox() {
 
   const rows = claims
     .map((claim) => {
-      const claimedDay = DateTime.fromJSDate(claim.claimedAt).setZone(tz).toFormat("EEE, LLL d");
+      const claimedWhen = DateTime.fromJSDate(claim.claimedAt).setZone(tz).toFormat("EEE, LLL d, h:mm a");
       const plots = (plotsByClaim.get(claim.id) ?? []).map(({ link, plot }) => {
         const others = (pendingByPlot.get(plot.id) ?? []).filter((seed) => seed.claimId !== claim.id);
         // Maturity is computed server-side so the parent view never trusts a client clock.
@@ -827,7 +823,7 @@ export async function listParentInbox() {
         plantTier: claim.plantTier,
         periodKey: claim.periodKey,
         claimedAt: claim.claimedAt,
-        claimedDay,
+        claimedWhen,
         hasPhoto: Boolean(claim.proofJpegPath),
         priority: claim.chore.priority as ChorePriority,
         chore: {

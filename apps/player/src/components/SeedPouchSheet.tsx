@@ -1,4 +1,4 @@
-import type { GameConfig } from "@farmhand/shared";
+import { CURRENCY_DISPLAY, formatPoints, type GameConfig } from "@farmhand/shared";
 import { AcornArt, StarIcon } from "../art";
 import type { GardenPlayer } from "../api";
 import { cheapestSeedCost } from "../pixi/gardenLayout";
@@ -71,14 +71,14 @@ export default function SeedPouchSheet({
       </section>
 
       <section className="profile-section">
-        <h3>Stars & plants</h3>
+        <h3>{CURRENCY_DISPLAY.noun[0].toUpperCase() + CURRENCY_DISPLAY.noun.slice(1)} & plants</h3>
         <div className="profile-wallet">
           <p>
-            <StarIcon className="inline-art" /> <strong>{player.points}</strong> stars in your wallet
+            <StarIcon className="inline-art" /> <strong>{player.points}</strong> {CURRENCY_DISPLAY.noun} in your wallet
           </p>
           {best ? (
             <p>
-              Biggest plant you can afford: <strong>{best.name}</strong> ({best.seedCost} seeds → {best.points}★)
+              Biggest plant you can afford: <strong>{best.name}</strong> ({best.seedCost} seeds → {formatPoints(best.points)})
             </p>
           ) : (
             <p className="muted">You need more seeds before you can plant.</p>

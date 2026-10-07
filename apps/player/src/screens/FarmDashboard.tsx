@@ -1,10 +1,11 @@
 import { compactJarTitle, jarProgressLabel, type FarmPlayerCard, type PublicSharedGoal } from "@farmhand/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api";
+import { api, type FarmPlaybookMission } from "../api";
 import AvatarPicker from "../components/AvatarPicker";
 import FamilyJarSheet from "../components/FamilyJarSheet";
 import PinPad from "../components/PinPad";
+import PlaybookCoach, { type CoachMission } from "../components/PlaybookCoach";
 import Sheet from "../components/Sheet";
 import StoreSheet from "../components/StoreSheet";
 import { familyJarVisible, libraryWindow } from "../pixi/libraryShelfLayout";
@@ -20,6 +21,7 @@ export default function FarmDashboard() {
   const [error, setError] = useState("");
   const [pinPlayer, setPinPlayer] = useState<{ id: string; name: string; after?: "garden" | "avatar" } | null>(null);
   const [avatarKid, setAvatarKid] = useState<FarmPlayerCard | null>(null);
+  const [missions, setMissions] = useState<FarmPlaybookMission[]>([]);
 
   async function ensureEntered(id: string, after: "garden" | "avatar") {
     const player = players.find((p) => p.id === id);
@@ -117,12 +119,14 @@ export default function FarmDashboard() {
         const incoming = (farm.familyJars ?? (farm.familyJar ? [farm.familyJar] : [])).filter(familyJarVisible);
         return incoming.map((jar) => {
           const old = prev.find((item) => item.id === jar.id);
-          if (old && old.filledStars > jar.filledStars && old.status === jar.status) {
-            return { ...jar, filledStars: old.filledStars };
+          if (old && old.filledPoints > jar.filledPoints && old.status === jar.status) {
+            return { ...jar, filledPoints: old.filledPoints };
           }
           return jar;
         });
       });
+      const coach = await api.farmPlaybooks();
+      setMissions(coach.missions);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load the farm.");
     }
@@ -154,6 +158,17 @@ export default function FarmDashboard() {
 
   const selectedJar = familyJars.find((jar) => jar.id === jarId) ?? null;
 
+  const coachMissions: CoachMission[] = missions.map((mission) => ({
+    playerId: mission.playerId,
+    kidName: mission.playerName,
+    mascot: mission.mascot,
+    avatarKind: mission.avatarKind,
+    avatarPreset: mission.avatarPreset,
+    avatarUrl: mission.avatarUrl,
+    color: mission.color,
+    playbook: mission.playbook,
+  }));
+
   return (
     <div className="scene farm-hybrid">
       <div className="pixi-host" ref={hostRef} />
@@ -171,7 +186,7 @@ export default function FarmDashboard() {
                   setJarId(jar.id);
                 }}
               >
-                {jar.emoji} {compactJarTitle(jar.title, 22)} · {jarProgressLabel(jar.filledStars, jar.targetStars, jar.status)}
+                {jar.emoji} {compactJarTitle(jar.title, 22)} · {jarProgressLabel(jar.filledPoints, jar.targetPoints, jar.status)}
               </button>
             ))}
           </div>
@@ -222,6 +237,11 @@ export default function FarmDashboard() {
           onSubmit={handlePinSubmit}
         />
       )}
+      <PlaybookCoach
+        missions={coachMissions}
+        mode="farm"
+        onOpenGarden={(id) => void handlePlayerTap(id)}
+      />
       {error && <div className="toast">{error}</div>}
     </div>
   );

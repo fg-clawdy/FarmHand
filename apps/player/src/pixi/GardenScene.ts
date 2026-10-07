@@ -1,4 +1,4 @@
-import { cropKindForTier, formatCountdown, PLOTS_PER_GARDEN, type CropKind, type PublicPlot } from "@farmhand/shared";
+import { cropKindForTier, formatCountdown, formatPointsNoun, PLOTS_PER_GARDEN, type CropKind, type PublicPlot } from "@farmhand/shared";
 import { Container, Ellipse, Graphics, Sprite, Text, type Application } from "pixi.js";
 import { STAR_FLIGHT_S, starLaunchDelay } from "../components/starPourPace";
 import type { Atlas } from "./atlas";
@@ -232,7 +232,7 @@ export class GardenScene {
 
   private floatPoints(x: number, y: number, points: number) {
     const text = new Text({
-      text: `+ ${points} points`,
+      text: `+ ${formatPointsNoun(points)}`,
       style: {
         fontFamily: "Fredoka, sans-serif",
         fontSize: 40,

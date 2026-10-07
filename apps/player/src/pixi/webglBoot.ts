@@ -3,7 +3,7 @@
  *
  * The grass clear color is #3d8a32 — the same green as the page background.
  * A garden that "loads" but only clears that color looks like an empty green
- * div: HUD (profile, stars, seeds, tools) is DOM, so it keeps working.
+ * div: HUD (profile, points, seeds, tools) is DOM, so it keeps working.
  *
  * PixiJS 8 on WebGL1 sorts attribute names, calls bindAttribLocation, and
  * links the program a second time. On Adreno/ANGLE (typical kid-tablet GPUs,

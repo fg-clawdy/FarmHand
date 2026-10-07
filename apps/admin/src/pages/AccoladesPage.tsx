@@ -1,4 +1,4 @@
-import { MASCOT_EMOJI, type Mascot } from "@farmhand/shared";
+import { CURRENCY_DISPLAY, MASCOT_EMOJI, type Mascot } from "@farmhand/shared";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 
@@ -29,7 +29,7 @@ export default function AccoladesPage() {
       <h1>Accolades</h1>
       <p className="muted">
         Same kid ledger as the garden badges and Parent Kids tab. Season {data.seasonLabel} in {data.timezone}.
-        Badges do not grant stars or seeds.
+        Badges do not grant {CURRENCY_DISPLAY.noun} or seeds.
       </p>
       {data.kids.map((kid) => (
         <article className="card" key={kid.id} style={{ marginBottom: 12 }}>

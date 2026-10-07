@@ -13,8 +13,8 @@ export type AdminPlayer = {
   plots: PublicPlot[];
   activeSessions?: number;
   wallet?: {
-    availableStars: number;
-    heldStars: number;
+    availablePoints: number;
+    heldPoints: number;
     lifetimeEarned: number;
     lifetimeSpent: number;
     lifetimeEarnedHarvest: number;
@@ -49,6 +49,16 @@ export type BalanceSnapshot = {
   };
 };
 
+let authExpiredHandler: (() => void) | null = null;
+
+/** Register a callback fired when any API call returns 401 (session expired). */
+export function onAuthExpired(handler: () => void): () => void {
+  authExpiredHandler = handler;
+  return () => {
+    if (authExpiredHandler === handler) authExpiredHandler = null;
+  };
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const hasBody = init?.body !== undefined;
   const res = await fetch(path, {
@@ -60,7 +70,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   const data = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  if (!res.ok) {
+    if (res.status === 401) authExpiredHandler?.();
+    throw new Error(data.error || `Request failed (${res.status})`);
+  }
   return data;
 }
 

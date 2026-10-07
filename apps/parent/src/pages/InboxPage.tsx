@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { formatCountdown } from "@farmhand/shared";
+import { CURRENCY_DISPLAY, formatCountdown, formatPoints } from "@farmhand/shared";
 import { api, type InboxClaim, type InboxPlot, type ParentRedemption } from "../api";
 import PushSettings from "../components/PushSettings";
 
@@ -134,7 +134,7 @@ export default function InboxPage() {
       <h2>Inbox</h2>
       <p className="muted">
         Dog chores are listed first. Approve starts the plant growing. Deny wilts it — the kid prunes, no seed back.
-        Store requests hold stars until you Approve (kid owns it) or Deny (stars come back). Notifications are optional; this
+        Store requests hold {CURRENCY_DISPLAY.noun} until you Approve (kid owns it) or Deny ({CURRENCY_DISPLAY.noun} come back). Notifications are optional; this
         inbox is the fallback if push is off or a tap is stale.
       </p>
       <PushSettings />
@@ -157,7 +157,7 @@ export default function InboxPage() {
                   <div>
                     <h3>{row.title}</h3>
                     <p>
-                      {row.player.name} · {row.starCost}★ held
+                      {row.player.name} · {formatPoints(row.pointCost)} held
                     </p>
                   </div>
                 </div>
@@ -210,7 +210,7 @@ export default function InboxPage() {
                     </h3>
                     <p>
                       {claim.player.name}
-                      {claim.claimedDay ? ` · claimed ${claim.claimedDay}` : ""}
+                      {claim.claimedWhen ? ` · claimed ${claim.claimedWhen}` : ""}
                       {claim.hasPhoto ? " · photo attached" : ""}
                     </p>
                   </div>

@@ -10,6 +10,7 @@ import {
   unlockKey,
   type AccoladeCounters,
   type AccoladeMedal,
+  type CropKind,
 } from "@farmhand/shared";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./db.js";
@@ -18,7 +19,7 @@ import { seasonKey, todayKey } from "./tz.js";
 type Tx = Prisma.TransactionClient;
 
 export type AccoladeEvent =
-  | { type: "harvest"; cropKind: "corn" | "strawberry" | "cotton" }
+  | { type: "harvest"; cropKind: CropKind }
   | { type: "watering" }
   | { type: "planting" }
   | { type: "selfie" }
@@ -35,7 +36,7 @@ const emptyCounters = {
   morningPlaybooks: 0,
 };
 
-function cropBit(kind: "corn" | "strawberry" | "cotton"): number {
+function cropBit(kind: CropKind): number {
   if (kind === "corn") return 1;
   if (kind === "strawberry") return 2;
   return 4;

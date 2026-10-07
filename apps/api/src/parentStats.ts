@@ -1,3 +1,4 @@
+import type { ChoreClaimStatus } from "@farmhand/shared";
 import { chicagoDayKeys, startOfDaysAgo, todayKey } from "./tz.js";
 
 export type ParentStatsRange = "week" | "month";
@@ -7,7 +8,7 @@ export type ParentClaimRow = {
   choreId: string;
   choreTitle: string;
   choreEmoji: string;
-  status: "PENDING" | "APPROVED" | "DENIED";
+  status: ChoreClaimStatus;
   claimedAt: Date;
   resolvedAt: Date | null;
 };

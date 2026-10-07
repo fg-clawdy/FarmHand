@@ -1,15 +1,17 @@
+import { DEFAULT_KID_COLOR } from "@farmhand/shared";
 import { prisma } from "./db.js";
 import { playerAccoladeLedger } from "./accolades.js";
 import { loadConfig } from "./game.js";
 import { listPlayerSelfies } from "./selfie.js";
-import { playerWallet, publicWallet } from "./stars.js";
+import { playerWallet, publicWallet } from "./points.js";
 import { playerRewardHistory } from "./store.js";
 import { avatarFieldsPublic } from "./avatar.js";
+import { reconcilePointsForPlayer, withPointsTransaction } from "./pointsReconciliation.js";
 
 const ACTIVITY_ACTIONS = ["harvest", "store_approve", "store_redeem", "chore_approve"] as const;
 
 function activityLabel(action: string, details: unknown) {
-  const d = (details ?? {}) as { points?: number; title?: string; stars?: number };
+  const d = (details ?? {}) as { points?: number; title?: string };
   if (action === "harvest") return `Harvested a plant${d.points ? ` · ${d.points}★` : ""}`;
   if (action === "store_approve") return "A grown-up said yes to a reward";
   if (action === "store_redeem") return "Used a reward in real life";
@@ -31,12 +33,16 @@ export async function playerProfile(playerId: string) {
       take: 8,
     }),
   ]);
+  // Reconcile-before-publish gate: detect (and alert on) any drift between the
+  // stored Player.points and the canonical ledger before publishing the wallet.
+  await withPointsTransaction((tx) => reconcilePointsForPlayer(tx, playerId));
   return {
     player: {
       id: player.id,
       name: player.name,
       mascot: player.mascot,
       ...avatarFieldsPublic(player),
+      color: player.color ?? DEFAULT_KID_COLOR,
       garden: `${player.name}'s garden`,
     },
     wallet: publicWallet(wallet),

@@ -1,3 +1,4 @@
+import { CURRENCY_DISPLAY } from "@farmhand/shared";
 import { useEffect, useState } from "react";
 import { api, type AccoladeLedger } from "../api";
 import BadgeInfoModal, { type SelectedBadge } from "./BadgeInfoModal";
@@ -56,7 +57,7 @@ export function AccoladeLedgerBody({ ledger }: { ledger: AccoladeLedger }) {
           );
         })}
       </div>
-      <p className="badge-footnote">Badges do not give extra stars or seeds.</p>
+      <p className="badge-footnote">Badges do not give extra {CURRENCY_DISPLAY.noun} or seeds.</p>
       {selected && (
         <BadgeInfoModal selected={selected} seasonLabel={ledger.seasonLabel} onClose={() => setSelected(null)} />
       )}

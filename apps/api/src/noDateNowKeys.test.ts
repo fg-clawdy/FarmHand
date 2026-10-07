@@ -78,15 +78,15 @@ describe("Idempotency key hygiene", () => {
     }
   });
 
-  it("Date.now() is not used in any star ledger key construction", () => {
-    // Broader scan: any file that imports appendStarEvent and also uses Date.now()
+  it("Date.now() is not used in any point ledger key construction", () => {
+    // Broader scan: any file that imports appendPointEvent and also uses Date.now()
     const hits = grepFiles(/Date\.now\(\)/);
     const starFiles = hits.filter((hit) => {
       const [filePath] = hit.split(":");
       if (!filePath) return false;
       try {
         const content = readFileSync(filePath, "utf-8");
-        return content.includes("appendStarEvent") || content.includes("StarLedgerEvent");
+        return content.includes("appendPointEvent") || content.includes("PointLedgerEvent");
       } catch {
         return false;
       }
@@ -94,8 +94,8 @@ describe("Idempotency key hygiene", () => {
 
     if (starFiles.length > 0) {
       assert.fail(
-        `Found ${starFiles.length} file(s) that reference star ledger AND use Date.now():\n${starFiles.join("\n")}\n\n` +
-        "All star ledger idempotency keys must be stable.",
+        `Found ${starFiles.length} file(s) that reference point ledger AND use Date.now():\n${starFiles.join("\n")}\n\n` +
+        "All point ledger idempotency keys must be stable.",
       );
     }
   });

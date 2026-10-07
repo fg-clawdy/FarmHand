@@ -101,7 +101,7 @@ export async function sharedGoalRoutes(app: FastifyInstance) {
     const body = (request.body ?? {}) as {
       title?: string;
       emoji?: string;
-      targetStars?: number;
+      targetPoints?: number;
       artNotes?: string;
       generateArt?: boolean;
       queue?: boolean;
@@ -110,7 +110,7 @@ export async function sharedGoalRoutes(app: FastifyInstance) {
       return await createSharedGoal({
         title: String(body.title ?? ""),
         emoji: String(body.emoji ?? ""),
-        targetStars: Number(body.targetStars ?? 0),
+        targetPoints: Number(body.targetPoints ?? 0),
         artNotes: body.artNotes,
         generateArt: body.generateArt === true,
         queue: body.queue === true,
@@ -155,14 +155,14 @@ export async function sharedGoalRoutes(app: FastifyInstance) {
     const body = (request.body ?? {}) as {
       title?: string;
       emoji?: string;
-      targetStars?: number;
+      targetPoints?: number;
       sortOrder?: number;
     };
     try {
       const goal = await patchSharedGoal(id, {
         title: body.title,
         emoji: body.emoji,
-        targetStars: body.targetStars !== undefined ? Number(body.targetStars) : undefined,
+        targetPoints: body.targetPoints !== undefined ? Number(body.targetPoints) : undefined,
         sortOrder: body.sortOrder !== undefined ? Number(body.sortOrder) : undefined,
       });
       return { goal };

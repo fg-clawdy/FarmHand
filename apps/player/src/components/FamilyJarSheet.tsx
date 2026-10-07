@@ -3,6 +3,9 @@ import {
   MAX_GIVE_CHIP,
   PUT_BACK_WINDOW_SECONDS,
   SHARED_GOAL_COPY,
+  CURRENCY_DISPLAY,
+  formatPoints,
+  formatPointsNoun,
   compactJarTitle,
   giftGhostBand,
   jarProgressLabel,
@@ -34,9 +37,9 @@ function ceilingFrom(message: string) {
 function applyPour(jar: PublicSharedGoal, result: SharedGoalPour): PublicSharedGoal {
   return {
     ...jar,
-    filledStars: result.filledStars,
+    filledPoints: result.filledPoints,
     status: result.status,
-    targetStars: result.targetStars,
+    targetPoints: result.targetPoints,
   };
 }
 
@@ -52,7 +55,7 @@ export default function FamilyJarSheet({
   onClose: () => void;
   onUpdated: (jar: PublicSharedGoal) => void;
   /** QA only. Skips the session call and can play the pour celebration locally. */
-  preview?: { availableStars: number; celebrate?: number };
+  preview?: { availablePoints: number; celebrate?: number };
 }) {
   const [kid, setKid] = useState<GardenPlayer | null>(null);
   const [checking, setChecking] = useState(true);
@@ -85,7 +88,7 @@ export default function FamilyJarSheet({
   if (identifying) {
     return (
       <WhoseKidPicker
-        title="Whose stars?"
+        title={`Whose ${CURRENCY_DISPLAY.noun}?`}
         copy={fill(SHARED_GOAL_COPY.sheetPrompt, { title: jar.title })}
         players={players}
         onCancel={() => setIdentifying(false)}
@@ -143,7 +146,7 @@ function TubeGlass({
         ref={glassRef}
         aria-hidden="true"
         data-solid={solidPct}
-        data-count={jarProgressLabel(countFilled, jar.targetStars, jar.status)}
+        data-count={jarProgressLabel(countFilled, jar.targetPoints, jar.status)}
         style={{ background: tint.glass, borderColor: tint.rim }}
       >
         <div className="tube-fill" style={{ height: `${solidPct}%`, background: tint.fill }}>
@@ -164,7 +167,7 @@ function TubeGlass({
           <p className="tube-title" style={{ color: tint.rim }}>
             {compactJarTitle(jar.title, 18)}
           </p>
-          <p className="tube-count">{jarProgressLabel(countFilled, jar.targetStars, jar.status)}</p>
+          <p className="tube-count">{jarProgressLabel(countFilled, jar.targetPoints, jar.status)}</p>
         </>
       )}
     </div>
@@ -181,7 +184,7 @@ function PourBody({
 }: {
   jar: PublicSharedGoal;
   kid: GardenPlayer | null;
-  preview?: { availableStars: number; celebrate?: number };
+  preview?: { availablePoints: number; celebrate?: number };
   onClose: () => void;
   onUpdated: (jar: PublicSharedGoal) => void;
   onIdentify: () => void;
@@ -198,15 +201,15 @@ function PourBody({
   const [error, setError] = useState("");
   const [live, setLive] = useState("");
   const [pour, setPour] = useState<{ amount: number; from: { x: number; y: number }; to: { x: number; y: number } } | null>(null);
-  const [solid, setSolid] = useState(() => tubeFillRatio(jar.filledStars, jar.targetStars));
-  const [countFilled, setCountFilled] = useState(jar.filledStars);
+  const [solid, setSolid] = useState(() => tubeFillRatio(jar.filledPoints, jar.targetPoints));
+  const [countFilled, setCountFilled] = useState(jar.filledPoints);
   const [gift, setGift] = useState<{ bottom: number; height: number } | null>(null);
   const [burst, setBurst] = useState<number | null>(null);
   const [lens, setLens] = useState(false);
   const [putBack, setPutBack] = useState<{ giveKey: string; until: number } | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [forcedReady, setForcedReady] = useState(jar.status === "READY");
-  const pouredFrom = useRef(jar.filledStars);
+  const pouredFrom = useRef(jar.filledPoints);
 
   useEffect(() => {
     setCoachOn(kid?.familyJarCoach === true);
@@ -223,10 +226,10 @@ function PourBody({
     api
       .store()
       .then((store) => {
-        if (!dead) setAvailable(store.availableStars);
+        if (!dead) setAvailable(store.availablePoints);
       })
       .catch((err: Error) => {
-        if (!dead) setError(err.message || "Could not check your stars.");
+        if (!dead) setError(err.message || `Could not check your ${CURRENCY_DISPLAY.noun}.`);
       });
     return () => {
       dead = true;
@@ -246,13 +249,13 @@ function PourBody({
 
   useEffect(() => {
     if (celebrating.current) return;
-    setSolid(tubeFillRatio(jar.filledStars, jar.targetStars));
-    setCountFilled(jar.filledStars);
-  }, [jar.id, jar.filledStars, jar.targetStars]);
+    setSolid(tubeFillRatio(jar.filledPoints, jar.targetPoints));
+    setCountFilled(jar.filledPoints);
+  }, [jar.id, jar.filledPoints, jar.targetPoints]);
 
   function playCelebration(fromFilled: number, toFilled: number, amount: number, origin?: { x: number; y: number }) {
-    const from = tubeFillRatio(fromFilled, jar.targetStars);
-    const to = tubeFillRatio(toFilled, jar.targetStars);
+    const from = tubeFillRatio(fromFilled, jar.targetPoints);
+    const to = tubeFillRatio(toFilled, jar.targetPoints);
     const band = giftGhostBand(from, to);
     celebrating.current = true;
     setCountFilled(toFilled);
@@ -290,17 +293,17 @@ function PourBody({
   useEffect(() => {
     if (!preview?.celebrate || preview.celebrate <= 0) return;
     const amount = preview.celebrate;
-    const toFilled = Math.min(jar.targetStars, jar.filledStars + amount);
-    const timer = window.setTimeout(() => playCelebration(jar.filledStars, toFilled, amount), 280);
+    const toFilled = Math.min(jar.targetPoints, jar.filledPoints + amount);
+    const timer = window.setTimeout(() => playCelebration(jar.filledPoints, toFilled, amount), 280);
     return () => window.clearTimeout(timer);
     // Play the QA celebration once when this sheet opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jar.id, preview?.celebrate]);
 
   const ready = jar.status === "READY" || forcedReady;
-  const room = Math.max(0, jar.targetStars - jar.filledStars);
+  const room = Math.max(0, jar.targetPoints - jar.filledPoints);
   const cap = ceiling ?? Number.POSITIVE_INFINITY;
-  const wallet = preview ? preview.availableStars : available;
+  const wallet = preview ? preview.availablePoints : available;
   const signedIn = Boolean(kid) || Boolean(preview);
   const chips =
     signedIn && !givingOff && !coachOn && !ready && wallet != null
@@ -326,8 +329,8 @@ function PourBody({
     if (pending == null || busy) return;
     if (preview && !kid) {
       const amount = pending;
-      const fromFilled = jar.filledStars;
-      const toFilled = Math.min(jar.targetStars, fromFilled + amount);
+      const fromFilled = jar.filledPoints;
+      const toFilled = Math.min(jar.targetPoints, fromFilled + amount);
       const originEl = document.querySelector<HTMLButtonElement>("[data-pour-origin]");
       const origin = originEl?.getBoundingClientRect();
       setPending(null);
@@ -337,7 +340,7 @@ function PourBody({
         amount,
         origin ? { x: origin.left + origin.width / 2, y: origin.top + origin.height / 2 } : undefined,
       );
-      onUpdated({ ...jar, filledStars: toFilled, status: toFilled >= jar.targetStars ? "READY" : jar.status });
+      onUpdated({ ...jar, filledPoints: toFilled, status: toFilled >= jar.targetPoints ? "READY" : jar.status });
       return;
     }
     if (!kid) return;
@@ -351,14 +354,14 @@ function PourBody({
         onIdentify();
         return;
       }
-      const fromFilled = jar.filledStars;
-      const result = await api.giveStars({ goalId: jar.id, amount: pending, requestId });
+      const fromFilled = jar.filledPoints;
+      const result = await api.givePoints({ goalId: jar.id, amount: pending, requestId });
       const next = applyPour(jar, result);
-      const half = jar.targetStars / 2;
-      const crossed = pouredFrom.current < half && next.filledStars >= half && next.status === "OPEN";
-      pouredFrom.current = next.filledStars;
+      const half = jar.targetPoints / 2;
+      const crossed = pouredFrom.current < half && next.filledPoints >= half && next.status === "OPEN";
+      pouredFrom.current = next.filledPoints;
       onUpdated(next);
-      setAvailable(result.availableStars);
+      setAvailable(result.availablePoints);
       setPending(null);
       const amount = result.amount ?? pending;
       const giveKey = result.giveKey ?? `give:${jar.id}:${kid.id}:${requestId}`;
@@ -370,12 +373,12 @@ function PourBody({
       const origin = fromEl?.getBoundingClientRect();
       playCelebration(
         fromFilled,
-        next.filledStars,
+        next.filledPoints,
         amount,
         origin ? { x: origin.left + origin.width / 2, y: origin.top + origin.height / 2 } : undefined,
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not add those stars.";
+      const message = err instanceof Error ? err.message : `Could not add those ${CURRENCY_DISPLAY.noun}.`;
       if (message.toLowerCase().includes("watch the jar")) setGivingOff(true);
       const parsed = ceilingFrom(message);
       if (parsed != null) setCeiling(parsed);
@@ -390,11 +393,11 @@ function PourBody({
     setBusy(true);
     setError("");
     try {
-      const result = await api.putBackStars({ goalId: jar.id, giveKey: putBack.giveKey });
+      const result = await api.putBackPoints({ goalId: jar.id, giveKey: putBack.giveKey });
       const next = applyPour(jar, result);
-      pouredFrom.current = next.filledStars;
+      pouredFrom.current = next.filledPoints;
       onUpdated(next);
-      setAvailable(result.availableStars);
+      setAvailable(result.availablePoints);
       setPutBack(null);
       setForcedReady(next.status === "READY");
       setLive("");
@@ -402,17 +405,17 @@ function PourBody({
       setGift(null);
       setBurst(null);
       setLens(false);
-      setSolid(tubeFillRatio(next.filledStars, next.targetStars));
-      setCountFilled(next.filledStars);
+      setSolid(tubeFillRatio(next.filledPoints, next.targetPoints));
+      setCountFilled(next.filledPoints);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not put those stars back.");
+      setError(err instanceof Error ? err.message : `Could not put those ${CURRENCY_DISPLAY.noun} back.`);
       setPutBack(null);
     } finally {
       setBusy(false);
     }
   }
 
-  const previewMath = pending != null ? pourPreview(jar.filledStars, jar.targetStars, pending) : null;
+  const previewMath = pending != null ? pourPreview(jar.filledPoints, jar.targetPoints, pending) : null;
   const spent = previewMath ? previewMath.toFilled - previewMath.fromFilled : 0;
   const nextWallet = wallet != null ? Math.max(0, wallet - spent) : null;
 
@@ -433,7 +436,7 @@ function PourBody({
           />
           <p className="tube-hero-count">
             <strong>{countFilled.toLocaleString()}</strong>
-            <span> / {jar.targetStars.toLocaleString()} stars</span>
+            <span> / {formatPointsNoun(jar.targetPoints)}</span>
           </p>
         </div>
         <div className="tube-hero-side">
@@ -490,22 +493,22 @@ function PourBody({
                 <span className="tube-preview-k">{SHARED_GOAL_COPY.farmLabel}</span>
                 <span className="tube-preview-v">
                   {previewMath.fromFilled.toLocaleString()} <span aria-hidden="true">→</span>{" "}
-                  <strong>{previewMath.toFilled.toLocaleString()}</strong> / {jar.targetStars.toLocaleString()}
+                  <strong>{previewMath.toFilled.toLocaleString()}</strong> / {jar.targetPoints.toLocaleString()}
                 </span>
               </div>
               <div className="tube-preview-bar" aria-hidden="true">
                 <div
                   className="tube-preview-fill"
                   style={{
-                    width: `${Math.round(tubeFillRatio(previewMath.toFilled, jar.targetStars) * 1000) / 10}%`,
+                    width: `${Math.round(tubeFillRatio(previewMath.toFilled, jar.targetPoints) * 1000) / 10}%`,
                   }}
                 />
               </div>
               <div className="tube-preview-row">
                 <span className="tube-preview-k">Kid Wallet</span>
                 <span className="tube-preview-v">
-                  {wallet.toLocaleString()} ★ <span aria-hidden="true">→</span>{" "}
-                  <strong>{nextWallet.toLocaleString()} ★</strong>
+                  {formatPoints(wallet)} <span aria-hidden="true">→</span>{" "}
+                  <strong>{formatPoints(nextWallet)}</strong>
                 </span>
               </div>
             </div>

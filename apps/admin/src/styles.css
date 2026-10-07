@@ -120,6 +120,7 @@ th, td { border-bottom: 1px solid var(--rule); padding: 10px 8px; text-align: le
   box-shadow: 8px 8px 0 #2b1a10;
 }
 .muted { opacity: 0.7; }
+.notice { color: var(--wood); background: #fff3d6; border: 2px solid var(--gold); border-radius: 8px; padding: 8px 10px; font-weight: 700; }
 .error { color: var(--stamp); font-weight: 700; }
 .accolade-legends { list-style: none; padding: 0; margin: 8px 0 0; }
 .accolade-legends li {
