@@ -1,4 +1,11 @@
-/* FarmHand Parent service worker — Web Push Approve | Deny for chores and store + clear-across-parents. */
+/* FarmHand Parent service worker — Web Push Approve | Deny, and dismiss-on-resolve. */
+import {
+  closeLeftoverClearNotifications,
+  closeMatching,
+  dismissClearPush,
+  mustPresentClearNotification,
+} from "./push-clear.js";
+
 const INBOX = "/parent/";
 const APPROVALS = "/parent/approvals";
 const STORE = "/parent/store";
@@ -8,7 +15,12 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    (async () => {
+      await self.clients.claim();
+      await closeLeftoverClearNotifications(self.registration);
+    })(),
+  );
 });
 
 self.addEventListener("push", (event) => {
@@ -18,11 +30,26 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const data = event.notification.data || {};
+  const dismiss = closeMatching(self.registration, {
+    tag: event.notification.tag,
+    kind: data.kind,
+    subjectId: data.subjectId,
+  });
   if (event.action === "approve" || event.action === "deny" || event.action === "fulfill") {
-    event.waitUntil(actFromNotification(data, event.action));
+    event.waitUntil(
+      (async () => {
+        await dismiss;
+        await actFromNotification(data, event.action);
+      })(),
+    );
     return;
   }
-  event.waitUntil(openParent(data));
+  event.waitUntil(
+    (async () => {
+      await dismiss;
+      await openParent(data);
+    })(),
+  );
 });
 
 async function handlePush(event) {
@@ -33,21 +60,18 @@ async function handlePush(event) {
     payload.body = event.data ? event.data.text() : payload.body;
   }
 
-  const existing = await self.registration.getNotifications({ tag: payload.tag });
-  existing.forEach((note) => note.close());
-
   if (payload.type === "clear") {
-    await self.registration.showNotification(payload.title || "Taken care of", {
-      body: payload.body || "Another grown-up already handled this.",
-      tag: payload.tag,
-      data: payload,
-      silent: true,
-      icon: "/parent/icon.svg",
+    const nav = self.navigator;
+    await dismissClearPush(self.registration, payload, {
+      presentStandIn: mustPresentClearNotification(nav?.userAgent || "", {
+        maxTouchPoints: nav?.maxTouchPoints || 0,
+      }),
     });
-    const shown = await self.registration.getNotifications({ tag: payload.tag });
-    shown.forEach((note) => note.close());
     return;
   }
+
+  const existing = await self.registration.getNotifications({ tag: payload.tag });
+  existing.forEach((note) => note.close());
 
   if (payload.type === "info") {
     await self.registration.showNotification(payload.title || "FarmHand", {

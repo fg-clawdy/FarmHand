@@ -16,7 +16,7 @@ export function isSecurePushContext() {
 
 export async function registerParentSW() {
   if (!("serviceWorker" in navigator)) return null;
-  return navigator.serviceWorker.register("/parent/sw.js", { scope: "/parent/" });
+  return navigator.serviceWorker.register("/parent/sw.js", { scope: "/parent/", type: "module" });
 }
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -60,4 +60,32 @@ export async function disableParentPush() {
   const endpoint = sub?.endpoint ?? null;
   await sub?.unsubscribe();
   return endpoint;
+}
+
+export type ApprovalSubject = {
+  kind: "chore_claim" | "store_redemption";
+  subjectId: string;
+};
+
+export function pendingApprovalSubjects(inbox: {
+  claims?: { id: string }[] | null;
+  redemptions?: { id: string }[] | null;
+}): ApprovalSubject[] {
+  return [
+    ...(inbox.claims ?? []).map((row) => ({ kind: "chore_claim" as const, subjectId: row.id })),
+    ...(inbox.redemptions ?? []).map((row) => ({ kind: "store_redemption" as const, subjectId: row.id })),
+  ];
+}
+
+/** Close shade entries for requests that are no longer waiting on a grown-up. */
+export async function syncApprovalNotifications(pending: ApprovalSubject[]) {
+  try {
+    if (!("serviceWorker" in navigator)) return;
+    const reg = await navigator.serviceWorker.getRegistration("/parent/");
+    if (!reg || typeof reg.getNotifications !== "function") return;
+    const { closeStaleApprovalNotifications } = await import("../public/push-clear.js");
+    await closeStaleApprovalNotifications(reg, pending);
+  } catch {
+    // Push is optional. The inbox still works when notifications are unavailable.
+  }
 }

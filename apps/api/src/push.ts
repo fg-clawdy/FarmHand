@@ -100,14 +100,15 @@ export function buildRequestPayload(opts: {
   };
 }
 
+/** Dismiss signal. Subscribed devices close the tagged notification; title and body are unused. */
 export function buildClearPayload(kind: ApprovalKind, subjectId: string): PushPayload {
   return {
     type: "clear",
     kind,
     subjectId,
     tag: approvalTag(kind, subjectId),
-    title: "Taken care of",
-    body: "Another grown-up already approved or denied this.",
+    title: "",
+    body: "",
     url: "/parent/",
   };
 }

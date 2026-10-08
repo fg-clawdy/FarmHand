@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { formatCountdown } from "@farmhand/shared";
 import { api, type InboxClaim, type InboxPlot, type ParentRedemption } from "../api";
 import PushSettings from "../components/PushSettings";
+import { pendingApprovalSubjects, syncApprovalNotifications } from "../push";
 
 /** Muted, light per-child background colors (hex). One per child, in section order. */
 const CHILD_COLORS = [
@@ -54,10 +55,14 @@ export default function InboxPage() {
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  async function refresh() {
-    const data = await api.inbox();
+  function applyInbox(data: { claims: InboxClaim[]; redemptions?: ParentRedemption[] }) {
     setClaims(data.claims);
     setRedemptions(data.redemptions ?? []);
+    void syncApprovalNotifications(pendingApprovalSubjects(data));
+  }
+
+  async function refresh() {
+    applyInbox(await api.inbox());
   }
 
   useEffect(() => {
@@ -71,8 +76,7 @@ export default function InboxPage() {
     setError("");
     try {
       const data = action === "approve" ? await api.approve(id) : await api.deny(id);
-      setClaims(data.claims);
-      setRedemptions(data.redemptions ?? []);
+      applyInbox(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn't work.");
       await refresh().catch(() => undefined);
@@ -86,8 +90,7 @@ export default function InboxPage() {
     setError("");
     try {
       const data = action === "approve" ? await api.approveRedemption(id) : await api.denyRedemption(id);
-      setClaims(data.claims);
-      setRedemptions(data.redemptions ?? []);
+      applyInbox(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn't work.");
       await refresh().catch(() => undefined);

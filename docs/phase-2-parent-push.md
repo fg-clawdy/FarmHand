@@ -10,7 +10,7 @@ Chore claim rules and the in-app inbox are unchanged. Push is an extra path onto
 2. **VAPID Web Push.** Parent devices subscribe after login. Subscriptions are stored per admin user / device endpoint.
 3. **Actionable notifications** on chore claims: **Approve | Deny**. Tapping an action calls `POST /api/parent/claims/:id/approve|deny` with a short-lived action token (Bearer). The inbox uses the same routes with the `fh_admin` cookie.
 4. **CRITICAL dog chores** use distinctive copy (`Dog chore — …`) and `requireInteraction`.
-5. **Multi-parent clear:** the first successful approve/deny wins. A `clear` push with the same notification `tag` (`approval:chore_claim:<claimId>`) replaces/dismisses the live actions on other subscribed devices. A second tap gets “already handled” or “stale — open the inbox.”
+5. **Multi-parent clear:** the first successful approve/deny wins. A `clear` push with the same notification `tag` (`approval:chore_claim:<claimId>` or `approval:store_redemption:<id>`) closes that notification on every subscribed device. It does not post a replacement banner. A second tap gets “already handled” or “stale — open the inbox.”
 6. **Inbox remains the fallback** if permission is denied, the SW is missing, the payload is stale, or VAPID keys are unset.
 
 ## Environment
@@ -69,7 +69,7 @@ Use two Parent sessions. Same account on two browsers is enough to prove dismiss
 2. As a kid (Willow `1111`), claim a chore from the Job Board so a grey WAITING plant appears. Prefer a **CRITICAL** dog chore if it is still open.
 3. Both devices should show an Approve | Deny notification (dog chores say **Dog chore —**).
 4. On device A, tap **Approve** (or Approve in the inbox). The plant starts growing.
-5. Device B: the live Approve | Deny notification is replaced/dismissed. Tapping a leftover action should not double-resolve (`A grown-up already handled that one.` / stale token → inbox).
+5. Device B: the Approve | Deny notification is removed, and the shade has nothing left for that request. Tapping a leftover action should not double-resolve (`A grown-up already handled that one.` / stale token → inbox).
 6. Deny path: claim another chore, **Deny** from the other device → wilt → kid prunes, no seed return.
 7. Turn off notifications, or use a browser with push blocked: the inbox still lists the pending row and the same buttons work.
 
@@ -79,4 +79,4 @@ Use two Parent sessions. Same account on two browsers is enough to prove dismiss
 
 - URL: `/parent/sw.js` (scope `/parent/`).
 - nginx sends `Content-Type: application/javascript`, `Cache-Control: no-cache`, and `Service-Worker-Allowed: /parent/`.
-- Notification `tag` is `approval:<kind>:<id>` so a later `clear` payload collapses the same claim or `store_redemption`.
+- Notification `tag` is `approval:<kind>:<id>`. A later `clear` payload closes that claim or `store_redemption` instead of replacing it. Opening the Parent app also closes notifications for requests that are no longer pending.
