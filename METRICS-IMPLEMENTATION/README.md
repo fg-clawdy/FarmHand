@@ -23,9 +23,14 @@ counted *exactly once*.
 | 3 | `03-phase-3-api-backend.md` | `stars.ts` → `points.ts`, all helpers/routes/seed/tests, `computePointsFromLedger()` | 2 |
 | 4 | `04-phase-4-frontends.md` | Frontend API types + route all currency display through `CURRENCY_DISPLAY` | 3 |
 | 5 | `05-phase-5-metrics-sanitizer.md` | Reconcile-before-publish gate + watermark + `SystemAlert` | 3 (independent of 4, can run in parallel) |
+| 6 | `06-phase-6-balance-agent.md` | Venice balance agent: read-only recommendations + parent review/apply workflow | 5 (capstone; needs the full metrics pipeline) |
 
 Phases 1–3 are a hard dependency chain (a rename in one layer breaks the next layer).
 Phases 4 and 5 are independent of each other once 3 is done.
+Phase 6 is the capstone: it reads the metrics built by 1–5, proposes tuning deltas via Venice AI
+(the Jev decision model + a reasoning LLM), and stages them for parent review/apply. The agent is
+**read-only** with respect to game data — it writes only its own append-only recommendation tables,
+and all real config changes still flow through `saveConfig`.
 
 ## Canonical terminology (shared by every phase)
 

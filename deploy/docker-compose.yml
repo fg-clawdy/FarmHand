@@ -37,6 +37,10 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:farmhand@localhost}
+      METRICS_VENICE_API_KEY: ${METRICS_VENICE_API_KEY:-}
+      METRICS_VENICE_DECISION_MODEL: ${METRICS_VENICE_DECISION_MODEL:-jev-latest}
+      METRICS_VENICE_TEXT_MODEL: ${METRICS_VENICE_TEXT_MODEL:-deepseek-v4-pro}
+      METRICS_VENICE_EXPLAIN_MODEL: ${METRICS_VENICE_EXPLAIN_MODEL:-deepseek-v4-flash}
     volumes:
       - /home/sensei/farmhand/data/selfies:/data/selfies
       - /home/sensei/farmhand/data/wanted-flyers:/data/wanted-flyers

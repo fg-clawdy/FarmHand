@@ -2,6 +2,7 @@
 const INBOX = "/parent/";
 const APPROVALS = "/parent/approvals";
 const STORE = "/parent/store";
+const RECOMMENDATIONS = "/parent/recommendations";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -105,9 +106,11 @@ async function actFromNotification(data, action) {
 async function openParent(data) {
   const dest = data?.kind === "store_redemption" || (data?.url || "").includes("/store")
     ? STORE
-    : (data?.url || "").includes("/approvals")
-      ? APPROVALS
-      : INBOX;
+    : (data?.url || "").includes("/recommendations")
+      ? RECOMMENDATIONS
+      : (data?.url || "").includes("/approvals")
+        ? APPROVALS
+        : INBOX;
   const url = new URL(data?.url || dest, self.location.origin).href;
   const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
   const existing = windows.find((client) => client.url.startsWith(new URL("/parent/", self.location.origin).href));

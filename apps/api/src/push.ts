@@ -282,6 +282,34 @@ export async function notifySharedGoalReady(goalId: string, title: string): Prom
   return result;
 }
 
+export function recommendationsReadyPayload(setId: string, count: number): InfoPushPayload {
+  return {
+    type: "info",
+    kind: "shared_goal", // reuse the info kind; only `type` + `url` drive UI
+    subjectId: setId,
+    tag: `recommendations:${setId}`,
+    title: "Balance suggestions ready",
+    body:
+      count === 1
+        ? "1 suggested tuning change is ready to review."
+        : `${count} suggested tuning changes are ready to review.`,
+    url: `/parent/recommendations/${setId}`,
+  };
+}
+
+/** Informational (no action buttons) push that a new suggestion set is ready. */
+export async function notifyRecommendationsReady(setId: string, count: number): Promise<PushSendResult> {
+  const result: PushSendResult = { sent: 0, failed: 0, dropped: 0 };
+  if (!configureWebPush()) return result;
+  const payload = recommendationsReadyPayload(setId, count);
+  const subscriptions = await prisma.pushSubscription.findMany();
+  for (const sub of subscriptions) {
+    const outcome = await sendToSubscription(sub, payload, "normal");
+    result[outcome] += 1;
+  }
+  return result;
+}
+
 export async function upsertPushSubscription(opts: {
   adminId: string;
   endpoint: string;

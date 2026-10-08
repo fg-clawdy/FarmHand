@@ -694,3 +694,57 @@ model PointsReconciliationRun {
 
   @@index([playerId, createdAt])
 }
+enum RecommendationSetStatus {
+  OPEN
+  RESOLVED
+  SUPERSEDED
+}
+
+enum TuningChangeStatus {
+  PENDING
+  APPLIED
+  DISMISSED
+  SUPERSEDED
+}
+
+/// One balance-agent run. `snapshot` is the immutable window the model saw (for
+/// review/discuss). Settings transition OPEN -> RESOLVED/SUPERSEDED only.
+model RecommendationSet {
+  id         String                  @id @default(uuid())
+  status     RecommendationSetStatus @default(OPEN)
+  snapshot   Json                    // balanceKnobs + 7d/30d windows + balanceGoals fingerprint
+  modelIds   Json                    // { decision, text, explain }
+  summary    String                  // plain-language headline
+  notifiedAt DateTime?
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+
+  changes TuningChange[]
+
+  @@index([status, createdAt])
+}
+
+/// A single proposed knob delta, addressed by JSON path into GameConfigRow.data.
+/// Values are JSON-encoded strings so they round-trip exactly and are only
+/// evaluated/bound when a parent applies (or overrides) them.
+model TuningChange {
+  id              String            @id @default(uuid())
+  setId           String
+  path            String
+  label           String
+  unit            String
+  baselineValue   String
+  proposedValue   String
+  appliedValue    String?
+  rationale       String
+  status          TuningChangeStatus @default(PENDING)
+  sortOrder       Int               @default(0)
+  appliedAt       DateTime?
+  appliedByAdminId String?
+  createdAt       DateTime          @default(now())
+
+  set RecommendationSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+
+  @@index([setId, status, sortOrder])
+  @@index([setId, status])
+}

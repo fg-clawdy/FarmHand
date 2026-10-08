@@ -311,6 +311,53 @@ export type WishlistLinkResult = {
   error?: string;
 };
 
+export type RecommendationSummary = {
+  id: string;
+  status: "OPEN" | "RESOLVED" | "SUPERSEDED";
+  summary: string;
+  createdAt: string;
+  notifiedAt: string | null;
+  changeCount: number;
+};
+
+export type RecommendationChange = {
+  id: string;
+  path: string;
+  label: string;
+  unit: string;
+  baseline: unknown;
+  proposed: unknown;
+  applied: unknown;
+  current: unknown;
+  rationale: string;
+  status: string;
+  sortOrder: number;
+  createdAt: string;
+};
+
+export type RecommendationSet = {
+  id: string;
+  status: string;
+  summary: string;
+  snapshot: unknown;
+  modelIds: unknown;
+  createdAt: string;
+  notifiedAt: string | null;
+};
+
+export type RecommendationList = { sets: RecommendationSummary[]; pendingChanges: number };
+export type RecommendationDetail = { set: RecommendationSet; changes: RecommendationChange[] };
+export type RecommendationApplyResult = {
+  outcome: { ok: boolean; applied?: number; skipped?: Array<{ id: string; reason: string }>; reason?: string };
+  set: { id: string; status: string } | null;
+  changes: RecommendationChange[];
+};
+export type RecommendationDiscussResult = {
+  reply: string;
+  revised: Array<{ changeId: string; path: string; proposedValue: number; rationale: string; label: string; unit: string }>;
+  changes: RecommendationChange[];
+};
+
 export const api = {
   login: (username: string, password: string) =>
     request<{ admin: { username: string } }>("/api/admin/login", {
@@ -454,4 +501,21 @@ export const api = {
       `/api/parent/players/${playerId}/giving`,
       { method: "PATCH", body: JSON.stringify(body) },
     ),
+  recommendations: () => request<RecommendationList>("/api/parent/recommendations"),
+  recommendation: (id: string) => request<RecommendationDetail>(`/api/parent/recommendations/${id}`),
+  applyRecommendations: (id: string, force?: boolean) =>
+    request<RecommendationApplyResult>(`/api/parent/recommendations/${id}/apply`, {
+      method: "POST",
+      body: JSON.stringify({ force: Boolean(force) }),
+    }),
+  applyRecommendationChange: (id: string, changeId: string, body?: { force?: boolean; override?: number }) =>
+    request<RecommendationApplyResult>(`/api/parent/recommendations/${id}/changes/${changeId}/apply`, {
+      method: "POST",
+      body: JSON.stringify(body ?? {}),
+    }),
+  discussRecommendation: (id: string, message: string) =>
+    request<RecommendationDiscussResult>(`/api/parent/recommendations/${id}/discuss`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
 };
