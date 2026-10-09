@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { requirePlayer } from "../auth.js";
 import { requireAdmin } from "../auth.js";
 import {
@@ -19,6 +19,22 @@ import {
   regenerateSharedGoalArt,
 } from "../sharedGoals.js";
 import { notifySharedGoalReady } from "../push.js";
+import {
+  DONATE_PLAYER_MISMATCH,
+  DONATE_PLAYER_REQUIRED,
+  donatePlayerMatchesSession,
+  explicitDonatePlayerId,
+} from "../donatePlayer.js";
+
+/** Body must name the donor before we look at the session cookie. No default child. */
+function explicitDonor(body: { playerId?: unknown }, reply: FastifyReply) {
+  const playerId = explicitDonatePlayerId(body.playerId);
+  if (!playerId) {
+    reply.code(400).send({ error: DONATE_PLAYER_REQUIRED });
+    return null;
+  }
+  return playerId;
+}
 
 export async function sharedGoalRoutes(app: FastifyInstance) {
   // ---- Kid / farm routes ----
@@ -36,16 +52,22 @@ export async function sharedGoalRoutes(app: FastifyInstance) {
   });
 
   app.post("/api/shared-goal/give", async (request, reply) => {
-    const session = await requirePlayer(request, reply);
-    if (!session) return;
     const body = (request.body ?? {}) as {
+      playerId?: unknown;
       goalId?: string;
       amount?: number;
       requestId?: string;
     };
+    const playerId = explicitDonor(body, reply);
+    if (!playerId) return;
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    if (!donatePlayerMatchesSession(playerId, session.playerId)) {
+      return reply.code(403).send({ error: DONATE_PLAYER_MISMATCH });
+    }
     try {
       const result = await pourSharedGoal({
-        playerId: session.playerId,
+        playerId,
         goalId: String(body.goalId ?? ""),
         amount: Number(body.amount ?? 0),
         requestId: String(body.requestId ?? ""),
@@ -63,15 +85,21 @@ export async function sharedGoalRoutes(app: FastifyInstance) {
   });
 
   app.post("/api/shared-goal/put-back", async (request, reply) => {
-    const session = await requirePlayer(request, reply);
-    if (!session) return;
     const body = (request.body ?? {}) as {
+      playerId?: unknown;
       goalId?: string;
       giveKey?: string;
     };
+    const playerId = explicitDonor(body, reply);
+    if (!playerId) return;
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    if (!donatePlayerMatchesSession(playerId, session.playerId)) {
+      return reply.code(403).send({ error: DONATE_PLAYER_MISMATCH });
+    }
     try {
       return await putBackSharedGoal({
-        playerId: session.playerId,
+        playerId,
         goalId: String(body.goalId ?? ""),
         giveKey: String(body.giveKey ?? ""),
       });

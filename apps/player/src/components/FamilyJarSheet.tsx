@@ -1,4 +1,5 @@
 import {
+  DEFAULT_GIVE_CEILING,
   GIVE_CHIP_AMOUNTS,
   MAX_GIVE_CHIP,
   PUT_BACK_WINDOW_SECONDS,
@@ -16,10 +17,39 @@ import {
   type PublicSharedGoal,
 } from "@farmhand/shared";
 import { useEffect, useRef, useState, type Ref } from "react";
-import { api, type GardenPlayer, type SharedGoalPour } from "../api";
+import { api, type SharedGoalPour } from "../api";
+import KidAvatar from "./KidAvatar";
 import Sheet from "./Sheet";
 import StarPour from "./StarPour";
 import WhoseKidPicker from "./WhoseKidPicker";
+
+/** Kid shown on the donate sheet. A garden session player satisfies this. */
+export type JarDonor = {
+  id: string;
+  name: string;
+  mascot: FarmPlayerCard["mascot"];
+  avatarKind?: string | null;
+  avatarPreset?: string | null;
+  avatarUrl?: string | null;
+  familyJarCoach?: boolean;
+  giveCeiling?: number;
+  givingEnabled?: boolean;
+};
+
+/** QA preview donor. Real spends still go through the PIN / session claim step. */
+export function jarDonorFromCard(card: FarmPlayerCard): JarDonor {
+  return {
+    id: card.id,
+    name: card.name,
+    mascot: card.mascot,
+    avatarKind: card.avatarKind ?? null,
+    avatarPreset: card.avatarPreset ?? null,
+    avatarUrl: card.avatarUrl ?? null,
+    familyJarCoach: false,
+    givingEnabled: true,
+    giveCeiling: DEFAULT_GIVE_CEILING,
+  };
+}
 
 function fill(template: string, vars: Record<string, string | number>) {
   return template.replace(/\{(\w+)\}/g, (_, key: string) => String(vars[key] ?? ""));
@@ -49,49 +79,47 @@ export default function FamilyJarSheet({
   onClose,
   onUpdated,
   preview,
+  sessionPlayer = null,
 }: {
   jar: PublicSharedGoal;
   players: FarmPlayerCard[];
   onClose: () => void;
   onUpdated: (jar: PublicSharedGoal) => void;
-  /** QA only. Skips the session call and can play the pour celebration locally. */
+  /**
+   * QA only. Skips the network pour and can play the celebration locally.
+   * Still asks who is adding stars unless `sessionPlayer` is set.
+   */
   preview?: { availablePoints: number; celebrate?: number };
+  /**
+   * Set only when this sheet is opened inside that kid's garden.
+   * The farm overview must leave this empty: a leftover tablet session is not a choice.
+   */
+  sessionPlayer?: JarDonor | null;
 }) {
-  const [kid, setKid] = useState<GardenPlayer | null>(null);
-  const [checking, setChecking] = useState(true);
-  const [identifying, setIdentifying] = useState(false);
-
-  useEffect(() => {
-    let dead = false;
-    api
-      .session()
-      .then((session) => {
-        if (!dead && session.player) setKid(session.player);
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        if (!dead) setChecking(false);
-      });
-    return () => {
-      dead = true;
-    };
-  }, []);
-
-  if (!preview && checking) {
-    return (
-      <Sheet title={SHARED_GOAL_COPY.farmLabel} onClose={onClose}>
-        <p>Opening…</p>
-      </Sheet>
-    );
-  }
+  const [kid, setKid] = useState<JarDonor | null>(sessionPlayer);
+  const [identifying, setIdentifying] = useState(() => sessionPlayer == null);
 
   if (identifying) {
     return (
       <WhoseKidPicker
-        title={`Whose ${CURRENCY_DISPLAY.noun}?`}
-        copy={fill(SHARED_GOAL_COPY.sheetPrompt, { title: jar.title })}
+        className="jar-who-sheet"
+        large
+        title={SHARED_GOAL_COPY.whoAdding}
+        copy={SHARED_GOAL_COPY.whoAddingHint}
+        cancelLabel={SHARED_GOAL_COPY.buttonNotNow}
         players={players}
-        onCancel={() => setIdentifying(false)}
+        localPick={
+          preview
+            ? (card) => {
+                setKid(jarDonorFromCard(card));
+                setIdentifying(false);
+              }
+            : undefined
+        }
+        onCancel={() => {
+          if (kid) setIdentifying(false);
+          else onClose();
+        }}
         onIdentified={(player) => {
           setKid(player);
           setIdentifying(false);
@@ -183,12 +211,12 @@ function PourBody({
   onKid,
 }: {
   jar: PublicSharedGoal;
-  kid: GardenPlayer | null;
+  kid: JarDonor | null;
   preview?: { availablePoints: number; celebrate?: number };
   onClose: () => void;
   onUpdated: (jar: PublicSharedGoal) => void;
   onIdentify: () => void;
-  onKid: (kid: GardenPlayer) => void;
+  onKid: (kid: JarDonor) => void;
 }) {
   const glassRef = useRef<HTMLDivElement>(null);
   const celebrating = useRef(false);
@@ -217,11 +245,13 @@ function PourBody({
     setCeiling(typeof kid?.giveCeiling === "number" ? kid.giveCeiling : null);
     setAvailable(null);
     setPending(null);
+    setPutBack(null);
     setError("");
   }, [kid?.id, kid?.familyJarCoach, kid?.givingEnabled, kid?.giveCeiling]);
 
+  const previewOnly = preview != null;
   useEffect(() => {
-    if (!kid || givingOff || coachOn || jar.status !== "OPEN") return;
+    if (!kid || previewOnly || givingOff || coachOn || jar.status !== "OPEN") return;
     let dead = false;
     api
       .store()
@@ -234,7 +264,7 @@ function PourBody({
     return () => {
       dead = true;
     };
-  }, [kid, givingOff, coachOn, jar.status]);
+  }, [kid, previewOnly, givingOff, coachOn, jar.status]);
 
   useEffect(() => {
     if (!putBack) return;
@@ -304,7 +334,7 @@ function PourBody({
   const room = Math.max(0, jar.targetPoints - jar.filledPoints);
   const cap = ceiling ?? Number.POSITIVE_INFINITY;
   const wallet = preview ? preview.availablePoints : available;
-  const signedIn = Boolean(kid) || Boolean(preview);
+  const signedIn = Boolean(kid);
   const chips =
     signedIn && !givingOff && !coachOn && !ready && wallet != null
       ? GIVE_CHIP_AMOUNTS.filter((amount) => amount <= wallet && amount <= cap && amount <= room)
@@ -327,7 +357,7 @@ function PourBody({
 
   async function confirmAdd() {
     if (pending == null || busy) return;
-    if (preview && !kid) {
+    if (preview) {
       const amount = pending;
       const fromFilled = jar.filledPoints;
       const toFilled = Math.min(jar.targetPoints, fromFilled + amount);
@@ -355,7 +385,7 @@ function PourBody({
         return;
       }
       const fromFilled = jar.filledPoints;
-      const result = await api.givePoints({ goalId: jar.id, amount: pending, requestId });
+      const result = await api.givePoints({ goalId: jar.id, amount: pending, requestId, playerId: kid.id });
       const next = applyPour(jar, result);
       const half = jar.targetPoints / 2;
       const crossed = pouredFrom.current < half && next.filledPoints >= half && next.status === "OPEN";
@@ -389,11 +419,11 @@ function PourBody({
   }
 
   async function undo() {
-    if (!putBack || busy) return;
+    if (!putBack || busy || !kid) return;
     setBusy(true);
     setError("");
     try {
-      const result = await api.putBackPoints({ goalId: jar.id, giveKey: putBack.giveKey });
+      const result = await api.putBackPoints({ goalId: jar.id, giveKey: putBack.giveKey, playerId: kid.id });
       const next = applyPour(jar, result);
       pouredFrom.current = next.filledPoints;
       onUpdated(next);
@@ -451,17 +481,27 @@ function PourBody({
             </>
           )}
           {givingOff && <p>{SHARED_GOAL_COPY.givingOff}</p>}
+          {kid && (
+            <div className="tube-wallet" data-qa="jar-wallet" data-donor={kid.name}>
+              <KidAvatar
+                className="tube-wallet-avatar"
+                size="lg"
+                name={kid.name}
+                mascot={kid.mascot}
+                avatarKind={kid.avatarKind}
+                avatarPreset={kid.avatarPreset}
+                avatarUrl={kid.avatarUrl}
+                decorative
+              />
+              <span className="tube-wallet-name">{`${kid.name}'s wallet`}</span>
+              {wallet != null && <span className="tube-wallet-amt">{formatPoints(wallet)}</span>}
+              <button className="tube-wallet-switch" type="button" disabled={busy} onClick={onIdentify}>
+                {SHARED_GOAL_COPY.buttonSwitch}
+              </button>
+            </div>
+          )}
           {signedIn && !givingOff && !ready && wallet != null && wallet < GIVE_CHIP_AMOUNTS[0] && (
             <p>{SHARED_GOAL_COPY.noStars}</p>
-          )}
-          {signedIn && !givingOff && wallet != null && (
-            <div className="tube-wallet">
-              <span className="tube-wallet-star" aria-hidden="true">
-                ★
-              </span>
-              <span className="tube-wallet-amt">{wallet.toLocaleString()}</span>
-              <span className="tube-wallet-label">Kid Wallet</span>
-            </div>
           )}
           {!ready && room > 0 && room < MAX_GIVE_CHIP && (
             <p>{fill(SHARED_GOAL_COPY.roomLeft, { n: room })}</p>
@@ -471,7 +511,7 @@ function PourBody({
           {!coachOn && !givingOff && !ready && signedIn && chips.length > 0 && !pour && !gift && (
             <div className="tube-chip-stack">
               <p className="tube-chip-label">{SHARED_GOAL_COPY.pickAmount}</p>
-              <div className="tube-chip-grid" role="group" aria-label={SHARED_GOAL_COPY.pickAmount}>
+              <div className="tube-chip-grid" role="group" aria-label={SHARED_GOAL_COPY.pickAmount} data-qa="jar-amounts">
                 {chips.map((amount) => (
                   <button
                     key={amount}
@@ -505,7 +545,7 @@ function PourBody({
                 />
               </div>
               <div className="tube-preview-row">
-                <span className="tube-preview-k">Kid Wallet</span>
+                <span className="tube-preview-k">{kid ? `${kid.name}'s wallet` : "Wallet"}</span>
                 <span className="tube-preview-v">
                   {formatPoints(wallet)} <span aria-hidden="true">→</span>{" "}
                   <strong>{formatPoints(nextWallet)}</strong>
@@ -514,11 +554,6 @@ function PourBody({
             </div>
           )}
 
-          {jar.status === "OPEN" && !kid && !preview && !coachOn && (
-            <button className="btn gold tube-add" type="button" onClick={onIdentify}>
-              {SHARED_GOAL_COPY.buttonAdd}
-            </button>
-          )}
           {coachOn && kid && jar.status === "OPEN" && (
             <button className="btn gold tube-add" type="button" disabled={busy} onClick={() => void dismissCoach()}>
               Okay

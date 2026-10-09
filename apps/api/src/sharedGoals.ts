@@ -13,6 +13,7 @@ import {
   type ParentGoalContribution,
   type SharedGoalArtStatus,
 } from "@farmhand/shared";
+import { DONATE_PLAYER_REQUIRED, explicitDonatePlayerId } from "./donatePlayer.js";
 import { enqueueJarArt, planJarArt } from "./jarArt.js";
 
 type Tx = Prisma.TransactionClient;
@@ -342,7 +343,9 @@ export async function pourSharedGoal(opts: {
   amount: number;
   requestId: string;
 }) {
-  const { playerId, goalId, amount, requestId } = opts;
+  const playerId = explicitDonatePlayerId(opts.playerId);
+  if (!playerId) throw httpError(DONATE_PLAYER_REQUIRED, 400);
+  const { goalId, amount, requestId } = opts;
 
   if (!Number.isInteger(amount) || amount < 1) {
     throw httpError("Please pick a number of points to add.");
@@ -467,7 +470,9 @@ export async function putBackSharedGoal(opts: {
   goalId: string;
   giveKey: string;
 }) {
-  const { playerId, goalId, giveKey } = opts;
+  const playerId = explicitDonatePlayerId(opts.playerId);
+  if (!playerId) throw httpError(DONATE_PLAYER_REQUIRED, 400);
+  const { goalId, giveKey } = opts;
 
   const parts = giveKey.split(":");
   if (parts.length < 4 || parts[0] !== "give") {
