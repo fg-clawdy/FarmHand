@@ -294,7 +294,7 @@ export async function parentRoutes(app: FastifyInstance) {
     if (!actor) return;
     try {
       await approveClaim(id, actor.adminId);
-      void notifyChoreClaimResolved(id).catch((err) => app.log.warn({ err }, "push clear failed"));
+      void notifyChoreClaimResolved(id, actor.adminId).catch((err) => app.log.warn({ err }, "push clear failed"));
       return { ok: true, status: "APPROVED", claims: await listParentInbox(), redemptions: await listPendingRedemptions() };
     } catch (err) {
       const e = err as Error & { statusCode?: number };
@@ -308,7 +308,7 @@ export async function parentRoutes(app: FastifyInstance) {
     if (!actor) return;
     try {
       await denyClaim(id, actor.adminId);
-      void notifyChoreClaimResolved(id).catch((err) => app.log.warn({ err }, "push clear failed"));
+      void notifyChoreClaimResolved(id, actor.adminId).catch((err) => app.log.warn({ err }, "push clear failed"));
       return { ok: true, status: "DENIED", claims: await listParentInbox(), redemptions: await listPendingRedemptions() };
     } catch (err) {
       const e = err as Error & { statusCode?: number };
@@ -531,7 +531,7 @@ export async function parentRoutes(app: FastifyInstance) {
     if (!actor) return;
     try {
       await approveRedemption(id, actor.adminId);
-      void notifyStoreRedemptionResolved(id).catch((err) => app.log.warn({ err }, "store push clear failed"));
+      void notifyStoreRedemptionResolved(id, actor.adminId).catch((err) => app.log.warn({ err }, "store push clear failed"));
       return {
         ok: true,
         status: "OWNED",
@@ -550,7 +550,7 @@ export async function parentRoutes(app: FastifyInstance) {
     if (!actor) return;
     try {
       await fulfillRedemption(id, actor.adminId);
-      void notifyStoreRedemptionResolved(id).catch((err) => app.log.warn({ err }, "store push clear failed"));
+      void notifyStoreRedemptionResolved(id, actor.adminId).catch((err) => app.log.warn({ err }, "store push clear failed"));
       return {
         ok: true,
         status: "OWNED",
@@ -569,7 +569,7 @@ export async function parentRoutes(app: FastifyInstance) {
     if (!actor) return;
     try {
       await denyRedemption(id, actor.adminId);
-      void notifyStoreRedemptionResolved(id).catch((err) => app.log.warn({ err }, "store push clear failed"));
+      void notifyStoreRedemptionResolved(id, actor.adminId).catch((err) => app.log.warn({ err }, "store push clear failed"));
       return {
         ok: true,
         status: "DENIED",

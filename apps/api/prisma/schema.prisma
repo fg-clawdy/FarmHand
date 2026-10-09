@@ -363,17 +363,40 @@ model ActivityLog {
 }
 
 model PushSubscription {
-  id        String   @id @default(uuid())
-  adminId   String
-  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
-  endpoint  String   @unique
-  p256dh    String
-  auth      String
-  userAgent String   @default("")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String         @id @default(uuid())
+  adminId        String
+  admin          Admin          @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  endpoint       String         @unique
+  p256dh         String
+  auth           String
+  userAgent      String         @default("")
+  /// Epoch-ms timestamps of silent clear pushes accepted for this device. Pruned to 24h on write.
+  silentClearAts Json           @default("[]")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deliveries     PushDelivery[]
 
   @@index([adminId])
+}
+
+/// One row per device that accepted an actionable approval push.
+/// Used to aim silent clears, and to piggyback tags we chose not to push.
+model PushDelivery {
+  id             String              @id @default(uuid())
+  subscriptionId String
+  subscription   PushSubscription    @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  tag            String
+  kind           ApprovalSubjectKind
+  subjectId      String
+  sentAt         DateTime            @default(now())
+  /// Set once we have decided the fate of this request (silent queue or skip).
+  deferredAt     DateTime?
+  /// Set once the device was told to close it (silent clear or a later visible push).
+  clearedAt      DateTime?
+
+  @@unique([subscriptionId, tag])
+  @@index([tag, clearedAt, deferredAt])
+  @@index([subscriptionId, deferredAt, clearedAt])
 }
 
 model PushActionToken {

@@ -1,4 +1,12 @@
-/* FarmHand Parent service worker — Web Push Approve | Deny for chores and store + clear-across-parents. */
+/* FarmHand Parent service worker — Web Push Approve | Deny, and dismiss-on-resolve. */
+import {
+  closeLeftoverClearNotifications,
+  closeMatching,
+  closeResolvedTags,
+  dismissClearPush,
+  mustPresentClearNotification,
+} from "./push-clear.js";
+
 const INBOX = "/parent/";
 const APPROVALS = "/parent/approvals";
 const STORE = "/parent/store";
@@ -9,7 +17,12 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    (async () => {
+      await self.clients.claim();
+      await closeLeftoverClearNotifications(self.registration);
+    })(),
+  );
 });
 
 self.addEventListener("push", (event) => {
@@ -19,11 +32,26 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const data = event.notification.data || {};
+  const dismiss = closeMatching(self.registration, {
+    tag: event.notification.tag,
+    kind: data.kind,
+    subjectId: data.subjectId,
+  });
   if (event.action === "approve" || event.action === "deny" || event.action === "fulfill") {
-    event.waitUntil(actFromNotification(data, event.action));
+    event.waitUntil(
+      (async () => {
+        await dismiss;
+        await actFromNotification(data, event.action);
+      })(),
+    );
     return;
   }
-  event.waitUntil(openParent(data));
+  event.waitUntil(
+    (async () => {
+      await dismiss;
+      await openParent(data);
+    })(),
+  );
 });
 
 async function handlePush(event) {
@@ -34,34 +62,29 @@ async function handlePush(event) {
     payload.body = event.data ? event.data.text() : payload.body;
   }
 
+  if (payload.type === "clear") {
+    const nav = self.navigator;
+    await dismissClearPush(self.registration, payload, {
+      presentStandIn: mustPresentClearNotification(nav?.userAgent || "", {
+        maxTouchPoints: nav?.maxTouchPoints || 0,
+      }),
+    });
+    return;
+  }
+
+  await showVisible(payload, payload.type === "info" ? {} : {
+    requireInteraction: Boolean(payload.critical),
+    actions: [
+      { action: "approve", title: "Approve" },
+      { action: "deny", title: "Deny" },
+    ],
+  });
+}
+
+async function showVisible(payload, extra) {
+  await closeResolvedTags(self.registration, payload.resolvedTags);
   const existing = await self.registration.getNotifications({ tag: payload.tag });
   existing.forEach((note) => note.close());
-
-  if (payload.type === "clear") {
-    await self.registration.showNotification(payload.title || "Taken care of", {
-      body: payload.body || "Another grown-up already handled this.",
-      tag: payload.tag,
-      data: payload,
-      silent: true,
-      icon: "/parent/icon.svg",
-    });
-    const shown = await self.registration.getNotifications({ tag: payload.tag });
-    shown.forEach((note) => note.close());
-    return;
-  }
-
-  if (payload.type === "info") {
-    await self.registration.showNotification(payload.title || "FarmHand", {
-      body: payload.body,
-      tag: payload.tag,
-      data: payload,
-      icon: "/parent/icon.svg",
-      badge: "/parent/icon.svg",
-      renotify: true,
-    });
-    return;
-  }
-
   await self.registration.showNotification(payload.title || "FarmHand", {
     body: payload.body,
     tag: payload.tag,
@@ -69,12 +92,9 @@ async function handlePush(event) {
     icon: "/parent/icon.svg",
     badge: "/parent/icon.svg",
     renotify: true,
-    requireInteraction: Boolean(payload.critical),
-    actions: [
-      { action: "approve", title: "Approve" },
-      { action: "deny", title: "Deny" },
-    ],
+    ...extra,
   });
+  await closeResolvedTags(self.registration, payload.resolvedTags, payload.tag);
 }
 
 async function actFromNotification(data, action) {

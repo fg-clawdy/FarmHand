@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host --port 5175",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
-    "preview": "vite preview --host --port 5175"
+    "preview": "vite preview --host --port 5175",
+    "test": "node --test src/pushClear.test.mjs"
   },
   "dependencies": {
     "@farmhand/shared": "*",

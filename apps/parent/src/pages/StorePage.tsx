@@ -1,6 +1,7 @@
 import { CURRENCY_DISPLAY, formatPoints } from "@farmhand/shared";
 import { useEffect, useState } from "react";
 import { api, type ParentKid, type ParentRedemption, type ParentStoreSku, type SkuWrite } from "../api";
+import { pendingApprovalSubjects, syncApprovalNotifications } from "../push";
 import SharedGoalsPage from "./SharedGoalsPage";
 import WishlistSection from "../components/WishlistSection";
 
@@ -70,8 +71,8 @@ export default function StorePage() {
     setBusyId(id);
     setError("");
     try {
-      if (action === "approve") await api.approveRedemption(id);
-      else await api.denyRedemption(id);
+      const data = action === "approve" ? await api.approveRedemption(id) : await api.denyRedemption(id);
+      void syncApprovalNotifications(pendingApprovalSubjects(data));
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn't work.");

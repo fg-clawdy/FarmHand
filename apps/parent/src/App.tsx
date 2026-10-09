@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { api, onAuthExpired } from "./api";
+import { pendingApprovalSubjects, syncApprovalNotifications } from "./push";
 import InboxPage from "./pages/InboxPage";
 import LoginPage from "./pages/LoginPage";
 import ChoresPage from "./pages/ChoresPage";
@@ -98,6 +99,25 @@ function Shell({ onLogout }: { onLogout: () => void }) {
       cancelled = true;
       window.removeEventListener("focus", probe);
       document.removeEventListener("visibilitychange", probe);
+    };
+  }, []);
+
+  useEffect(() => {
+    let stopped = false;
+    const run = () => {
+      if (stopped || document.visibilityState === "hidden") return;
+      void api
+        .inbox()
+        .then((data) => syncApprovalNotifications(pendingApprovalSubjects(data)))
+        .catch(() => undefined);
+    };
+    run();
+    document.addEventListener("visibilitychange", run);
+    window.addEventListener("pageshow", run);
+    return () => {
+      stopped = true;
+      document.removeEventListener("visibilitychange", run);
+      window.removeEventListener("pageshow", run);
     };
   }, []);
 
