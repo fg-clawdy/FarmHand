@@ -127,7 +127,7 @@ function card(id: string, name: string, plots: PublicPlot[]): FarmPlayerCard {
     seedShards: 0,
     canWater: true,
     plots,
-    hasPin: false,
+    hasPin: id === "l",
     unlocked: true,
     isActive: true,
   };

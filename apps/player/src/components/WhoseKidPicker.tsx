@@ -15,19 +15,25 @@ export default function WhoseKidPicker({
   className,
   cancelLabel = "Back",
   large = false,
+  freshPin = false,
   localPick,
 }: {
   title: string;
   copy: string;
   players: FarmPlayerCard[];
   onCancel: () => void;
-  onIdentified: (player: GardenPlayer) => void | Promise<void>;
+  onIdentified: (player: GardenPlayer, pin?: string) => void | Promise<void>;
   className?: string;
   cancelLabel?: string;
   /** Bigger pastel tiles for shared-tablet choices a young kid can read. */
   large?: boolean;
-  /** QA preview only. Skips session and PIN. Real spends must leave this unset. */
-  localPick?: (kid: FarmPlayerCard) => void | Promise<void>;
+  /**
+   * Donate sheet. A kid with a PIN always sees the pad, even if a garden
+   * session is already on the tablet. Kids with no PIN skip it.
+   */
+  freshPin?: boolean;
+  /** QA preview only. Resolves the tapped kid without the network. Real spends leave this unset. */
+  localPick?: (kid: FarmPlayerCard, pin?: string) => void | Promise<void>;
 }) {
   const [pinKid, setPinKid] = useState<FarmPlayerCard | null>(null);
   const [error, setError] = useState("");
@@ -39,7 +45,7 @@ export default function WhoseKidPicker({
     try {
       const data = await api.enter(kid.id, pin);
       setPinKid(null);
-      await onIdentified(data.player);
+      await onIdentified(data.player, pin);
     } catch (err) {
       setError(err instanceof Error ? err.message : "That PIN didn't work.");
       throw err;
@@ -49,9 +55,26 @@ export default function WhoseKidPicker({
   }
 
   async function pickKid(kid: FarmPlayerCard) {
+    setError("");
+    if (freshPin) {
+      if (kid.hasPin) {
+        setPinKid(kid);
+        return;
+      }
+      if (localPick) {
+        setBusy(true);
+        try {
+          await localPick(kid);
+        } finally {
+          setBusy(false);
+        }
+        return;
+      }
+      void enterKid(kid).catch(() => undefined);
+      return;
+    }
     if (localPick) {
       setBusy(true);
-      setError("");
       try {
         await localPick(kid);
       } finally {
@@ -59,7 +82,6 @@ export default function WhoseKidPicker({
       }
       return;
     }
-    setError("");
     try {
       const session = await api.session();
       if (session.player?.id === kid.id) {
@@ -78,7 +100,18 @@ export default function WhoseKidPicker({
 
   if (pinKid) {
     return (
-      <PinPad name={pinKid.name} onCancel={() => setPinKid(null)} onSubmit={(pin) => enterKid(pinKid, pin)} />
+      <PinPad
+        name={pinKid.name}
+        onCancel={() => setPinKid(null)}
+        onSubmit={async (pin) => {
+          if (localPick && freshPin) {
+            setPinKid(null);
+            await localPick(pinKid, pin);
+            return;
+          }
+          await enterKid(pinKid, pin);
+        }}
+      />
     );
   }
 

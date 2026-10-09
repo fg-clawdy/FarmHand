@@ -3,7 +3,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import { SHARED_GOAL_COPY, type FarmPlayerCard, type PublicPlot, type PublicSharedGoal } from "@farmhand/shared";
-import FamilyJarSheet, { jarDonorFromCard } from "./FamilyJarSheet";
+import FamilyJarSheet, { jarDonorFromCard, jarSpendGate } from "./FamilyJarSheet";
 
 function plot(): PublicPlot {
   return {
@@ -20,7 +20,7 @@ function plot(): PublicPlot {
   };
 }
 
-function card(id: string, name: string): FarmPlayerCard {
+function card(id: string, name: string, hasPin = false): FarmPlayerCard {
   return {
     id,
     name,
@@ -35,7 +35,7 @@ function card(id: string, name: string): FarmPlayerCard {
     seedShards: 0,
     canWater: true,
     plots: [plot()],
-    hasPin: true,
+    hasPin,
     unlocked: true,
     isActive: true,
   };
@@ -53,7 +53,7 @@ const jar: PublicSharedGoal = {
   artStatus: "DEFAULT",
 };
 
-const players = [card("willow", "Willow"), card("finn", "Finn")];
+const players = [card("willow", "Willow", true), card("finn", "Finn", false)];
 
 function html(node: ReturnType<typeof createElement>) {
   return renderToString(node)
@@ -80,9 +80,10 @@ test("farm-page jar tap shows the kid picker before amount chips", () => {
   assert.doesNotMatch(markup, /data-qa="jar-wallet"/);
   assert.doesNotMatch(markup, /tube-chip/);
   assert.doesNotMatch(markup, /Kid Wallet/);
+  assert.doesNotMatch(markup, /Enter your 4-digit PIN/);
 });
 
-test("a garden session preselects that kid and shows their name on the wallet", () => {
+test("a PIN kid must see the pad before amount chips", () => {
   const markup = html(
     createElement(FamilyJarSheet, {
       jar,
@@ -93,13 +94,40 @@ test("a garden session preselects that kid and shows their name on the wallet", 
       onUpdated: () => undefined,
     }),
   );
+  assert.match(markup, /Enter your 4-digit PIN/);
+  assert.match(markup, /aria-label="WILLOW"/);
+  assert.doesNotMatch(markup, /data-qa="jar-amounts"/);
+  assert.doesNotMatch(markup, /data-qa="jar-wallet"/);
+  assert.doesNotMatch(markup, /Finn/);
+});
+
+test("a kid with no PIN can reach the wallet without the pad", () => {
+  const markup = html(
+    createElement(FamilyJarSheet, {
+      jar,
+      players,
+      sessionPlayer: jarDonorFromCard(players[1]!),
+      preview: { availablePoints: 570 },
+      onClose: () => undefined,
+      onUpdated: () => undefined,
+    }),
+  );
   assert.match(markup, /data-qa="jar-wallet"/);
-  assert.match(markup, /data-donor="Willow"/);
-  assert.match(markup, /Willow's wallet/);
+  assert.match(markup, /data-donor="Finn"/);
+  assert.match(markup, /Finn's wallet/);
   assert.match(markup, /570★/);
   assert.match(markup, /data-qa="jar-amounts"/);
   assert.match(markup, />Switch</);
   assert.doesNotMatch(markup, /data-qa="jar-who"/);
-  assert.doesNotMatch(markup, /Finn/);
+  assert.doesNotMatch(markup, /Enter your 4-digit PIN/);
+  assert.doesNotMatch(markup, /Willow/);
   assert.doesNotMatch(markup, /Kid Wallet/);
+});
+
+test("switching a PIN kid clears verification and a no-PIN kid does not need it", () => {
+  assert.equal(jarSpendGate({ picked: false, hasPin: true, pinVerified: false }), "pick");
+  assert.equal(jarSpendGate({ picked: true, hasPin: true, pinVerified: false }), "pin");
+  assert.equal(jarSpendGate({ picked: true, hasPin: true, pinVerified: true }), "spend");
+  assert.equal(jarSpendGate({ picked: true, hasPin: true, pinVerified: false }), "pin");
+  assert.equal(jarSpendGate({ picked: true, hasPin: false, pinVerified: false }), "spend");
 });

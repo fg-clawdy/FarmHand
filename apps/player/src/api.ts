@@ -452,7 +452,7 @@ export const api = {
     request<{ presets: Array<{ id: string; emoji: string; label: string }> }>("/api/avatar/presets"),
   familyJar: () =>
     request<{ familyJar: PublicSharedGoal | null; familyJars?: PublicSharedGoal[] }>("/api/shared-goal/active"),
-  givePoints: (body: { goalId: string; amount: number; requestId: string; playerId: string }) =>
+  givePoints: (body: { goalId: string; amount: number; requestId: string; playerId: string; pin?: string }) =>
     request<SharedGoalPour>("/api/shared-goal/give", { method: "POST", body: JSON.stringify(body) }),
   putBackPoints: (body: { goalId: string; giveKey: string; playerId: string }) =>
     request<SharedGoalPour>("/api/shared-goal/put-back", { method: "POST", body: JSON.stringify(body) }),

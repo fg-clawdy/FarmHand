@@ -19,6 +19,7 @@ import {
 import { useEffect, useRef, useState, type Ref } from "react";
 import { api, type SharedGoalPour } from "../api";
 import KidAvatar from "./KidAvatar";
+import PinPad from "./PinPad";
 import Sheet from "./Sheet";
 import StarPour from "./StarPour";
 import WhoseKidPicker from "./WhoseKidPicker";
@@ -31,10 +32,18 @@ export type JarDonor = {
   avatarKind?: string | null;
   avatarPreset?: string | null;
   avatarUrl?: string | null;
+  hasPin?: boolean;
   familyJarCoach?: boolean;
   giveCeiling?: number;
   givingEnabled?: boolean;
 };
+
+/** Pick, then PIN when that kid has one, then the amount sheet. Switching clears pinVerified. */
+export function jarSpendGate(opts: { picked: boolean; hasPin: boolean; pinVerified: boolean }): "pick" | "pin" | "spend" {
+  if (!opts.picked) return "pick";
+  if (opts.hasPin && !opts.pinVerified) return "pin";
+  return "spend";
+}
 
 /** QA preview donor. Real spends still go through the PIN / session claim step. */
 export function jarDonorFromCard(card: FarmPlayerCard): JarDonor {
@@ -45,6 +54,7 @@ export function jarDonorFromCard(card: FarmPlayerCard): JarDonor {
     avatarKind: card.avatarKind ?? null,
     avatarPreset: card.avatarPreset ?? null,
     avatarUrl: card.avatarUrl ?? null,
+    hasPin: card.hasPin,
     familyJarCoach: false,
     givingEnabled: true,
     giveCeiling: DEFAULT_GIVE_CEILING,
@@ -97,22 +107,34 @@ export default function FamilyJarSheet({
   sessionPlayer?: JarDonor | null;
 }) {
   const [kid, setKid] = useState<JarDonor | null>(sessionPlayer);
+  const [spendPin, setSpendPin] = useState<string | null>(null);
   const [identifying, setIdentifying] = useState(() => sessionPlayer == null);
 
-  if (identifying) {
+  function chooseDonor(next: JarDonor, pin?: string) {
+    setKid(next);
+    setSpendPin(next.hasPin ? pin ?? null : null);
+    setIdentifying(false);
+  }
+
+  function switchKid() {
+    setSpendPin(null);
+    setIdentifying(true);
+  }
+
+  if (identifying || kid == null) {
     return (
       <WhoseKidPicker
         className="jar-who-sheet"
         large
+        freshPin
         title={SHARED_GOAL_COPY.whoAdding}
         copy={SHARED_GOAL_COPY.whoAddingHint}
         cancelLabel={SHARED_GOAL_COPY.buttonNotNow}
         players={players}
         localPick={
           preview
-            ? (card) => {
-                setKid(jarDonorFromCard(card));
-                setIdentifying(false);
+            ? (card, pin) => {
+                chooseDonor(jarDonorFromCard(card), pin);
               }
             : undefined
         }
@@ -120,9 +142,27 @@ export default function FamilyJarSheet({
           if (kid) setIdentifying(false);
           else onClose();
         }}
-        onIdentified={(player) => {
-          setKid(player);
-          setIdentifying(false);
+        onIdentified={(player, pin) => {
+          chooseDonor(player, pin);
+        }}
+      />
+    );
+  }
+
+  const gate = jarSpendGate({
+    picked: true,
+    hasPin: Boolean(kid.hasPin),
+    pinVerified: spendPin != null,
+  });
+
+  if (gate === "pin") {
+    return (
+      <PinPad
+        name={kid.name}
+        onCancel={onClose}
+        onSubmit={async (pin) => {
+          if (!preview) await api.enter(kid.id, pin);
+          setSpendPin(pin);
         }}
       />
     );
@@ -132,10 +172,11 @@ export default function FamilyJarSheet({
     <PourBody
       jar={jar}
       kid={kid}
+      spendPin={spendPin}
       preview={preview}
       onClose={onClose}
       onUpdated={onUpdated}
-      onIdentify={() => setIdentifying(true)}
+      onIdentify={switchKid}
       onKid={(next) => setKid(next)}
     />
   );
@@ -204,6 +245,7 @@ function TubeGlass({
 function PourBody({
   jar,
   kid,
+  spendPin,
   preview,
   onClose,
   onUpdated,
@@ -212,6 +254,7 @@ function PourBody({
 }: {
   jar: PublicSharedGoal;
   kid: JarDonor | null;
+  spendPin: string | null;
   preview?: { availablePoints: number; celebrate?: number };
   onClose: () => void;
   onUpdated: (jar: PublicSharedGoal) => void;
@@ -385,7 +428,13 @@ function PourBody({
         return;
       }
       const fromFilled = jar.filledPoints;
-      const result = await api.givePoints({ goalId: jar.id, amount: pending, requestId, playerId: kid.id });
+      const result = await api.givePoints({
+        goalId: jar.id,
+        amount: pending,
+        requestId,
+        playerId: kid.id,
+        ...(kid.hasPin && spendPin ? { pin: spendPin } : {}),
+      });
       const next = applyPour(jar, result);
       const half = jar.targetPoints / 2;
       const crossed = pouredFrom.current < half && next.filledPoints >= half && next.status === "OPEN";

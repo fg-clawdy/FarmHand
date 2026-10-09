@@ -19,9 +19,11 @@ import {
   regenerateSharedGoalArt,
 } from "../sharedGoals.js";
 import { notifySharedGoalReady } from "../push.js";
+import { verifySecret } from "../auth.js";
 import {
   DONATE_PLAYER_MISMATCH,
   DONATE_PLAYER_REQUIRED,
+  authorizeDonatePin,
   donatePlayerMatchesSession,
   explicitDonatePlayerId,
 } from "../donatePlayer.js";
@@ -57,6 +59,7 @@ export async function sharedGoalRoutes(app: FastifyInstance) {
       goalId?: string;
       amount?: number;
       requestId?: string;
+      pin?: unknown;
     };
     const playerId = explicitDonor(body, reply);
     if (!playerId) return;
@@ -65,6 +68,12 @@ export async function sharedGoalRoutes(app: FastifyInstance) {
     if (!donatePlayerMatchesSession(playerId, session.playerId)) {
       return reply.code(403).send({ error: DONATE_PLAYER_MISMATCH });
     }
+    const pinOk = await authorizeDonatePin({
+      hasPin: Boolean(session.player.pinHash),
+      pin: body.pin,
+      verifyPin: (pin) => verifySecret(pin, session.player.pinHash ?? ""),
+    });
+    if (!pinOk.ok) return reply.code(pinOk.statusCode).send({ error: pinOk.error });
     try {
       const result = await pourSharedGoal({
         playerId,
