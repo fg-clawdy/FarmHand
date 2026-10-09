@@ -39,6 +39,29 @@ const FARM_LIBRARY_HIT = { u0: 0.3021, v0: 0.1475, u1: 0.3887, v1: 0.3906 } as c
 
 export const PLAYFIELD_TEXTURE = { width: 1536, height: 1024 } as const;
 
+/**
+ * Painted produce stand on the v3 playfield (striped awning, tomato / carrot /
+ * corn crates, wooden counter). Pixels of `PLAYFIELD_TEXTURE`, the same space
+ * as the background sprite — not screen pixels.
+ *
+ * Cover-fit scales the whole playfield, so the Farm Store hitbox is this rect
+ * converted to UV and back. `blockers.stand` is a larger cow footprint: it also
+ * covers the barrel, crate, and trees to the right of the awning, and must not
+ * be used as the tap target.
+ */
+export const STAND_ART_PX = { x0: 943, y0: 8, x1: 1272, y1: 343 } as const;
+
+export function standArtUv(
+  art: { x0: number; y0: number; x1: number; y1: number } = STAND_ART_PX,
+): UvRect {
+  return {
+    u0: art.x0 / PLAYFIELD_TEXTURE.width,
+    v0: art.y0 / PLAYFIELD_TEXTURE.height,
+    u1: art.x1 / PLAYFIELD_TEXTURE.width,
+    v1: art.y1 / PLAYFIELD_TEXTURE.height,
+  };
+}
+
 export const PLAYFIELD_LAYOUT = {
   /** Mouth of the tractor’s vertical exhaust stack (texture px 419, 258). */
   exhaustTip: { u: 0.273, v: 0.252 } satisfies Uv,
@@ -46,7 +69,8 @@ export const PLAYFIELD_LAYOUT = {
   cowStart: { u: 0.475, v: 0.3 } satisfies Uv,
   /** Barn-side corridor — stays above the garden fence. */
   cowRoam: { u0: 0.12, v0: 0.2, u1: 0.49, v1: 0.36 } satisfies UvRect,
-  storeHit: { u0: 0.78, v0: 0.02, u1: 0.98, v1: 0.38 } satisfies UvRect,
+  /** Farm Store tap target. Derived from `STAND_ART_PX`, not screen pixels. */
+  storeHit: standArtUv(),
   /**
    * Little Free Library on the old job-board stake. Open shelves stay up
    * with zero goals. Not the left tube chip and not a WANTED corkboard.
@@ -57,6 +81,7 @@ export const PLAYFIELD_LAYOUT = {
     barn: { u0: 0.0, v0: 0.0, u1: 0.26, v1: 0.26 } satisfies UvRect,
     hay: { u0: 0.0, v0: 0.08, u1: 0.14, v1: 0.28 } satisfies UvRect,
     tractor: { u0: 0.14, v0: 0.1, u1: 0.4, v1: 0.38 } satisfies UvRect,
+    /** Cow blocker only. Wider than the produce stand — includes barrel, crate, and trees. */
     stand: { u0: 0.64, v0: 0.0, u1: 0.99, v1: 0.4 } satisfies UvRect,
     library: FARM_LIBRARY_HIT,
   },

@@ -50,6 +50,7 @@ export class FarmScene {
   private cow: PaintedCow;
   private exhaust: ExhaustPuff;
   private store: Container;
+  private storeOutline: Graphics;
   private library: LittleLibrary;
   private app: Application;
   private onPlayer: (id: string) => void;
@@ -93,7 +94,9 @@ export class FarmScene {
     this.cow = new PaintedCow({ walk: painted.cowWalk, eat: painted.cowEat }, start.x, start.y, roam, forbidden);
     this.playfield.addChild(this.cow.root);
 
-    this.store = this.makeStoreHit(tw, th);
+    const store = this.makeStoreHit(tw, th);
+    this.store = store.root;
+    this.storeOutline = store.outline;
     this.playfield.addChild(this.store);
 
     this.library = new LittleLibrary(
@@ -133,11 +136,22 @@ export class FarmScene {
   }
 
   private makeStoreHit(tw: number, th: number) {
+    // Texture pixels of the painted stand. Parent cover-fit scales this
+    // container with the playfield — do not place the hit in screen pixels.
     const rect = uvRectToLocal(PLAYFIELD_LAYOUT.storeHit, tw, th);
     const root = new Container();
     const hit = new Graphics();
-    hit.rect(rect.x0, rect.y0, rect.x1 - rect.x0, rect.y1 - rect.y0);
+    const w = rect.x1 - rect.x0;
+    const h = rect.y1 - rect.y0;
+    hit.rect(rect.x0, rect.y0, w, h);
     hit.fill({ color: 0xffffff, alpha: 0.001 });
+    const outline = new Graphics();
+    outline.rect(rect.x0, rect.y0, w, h);
+    outline.stroke({ width: 8, color: 0x102006, alpha: 0.95 });
+    outline.rect(rect.x0, rect.y0, w, h);
+    outline.stroke({ width: 4, color: 0x7cff4a });
+    outline.visible = false;
+    outline.eventMode = "none";
     const label = new Text({
       text: "Farm Store",
       style: {
@@ -150,12 +164,12 @@ export class FarmScene {
     });
     label.anchor.set(0.5, 1);
     label.position.set((rect.x0 + rect.x1) / 2, rect.y0 + 18);
-    root.addChild(hit, label);
+    root.addChild(hit, outline, label);
     root.zIndex = 4000;
     root.eventMode = "static";
     root.cursor = "pointer";
     root.on("pointerup", () => this.onStore());
-    return root;
+    return { root, outline };
   }
 
   private onResize: () => void;
@@ -175,6 +189,7 @@ export class FarmScene {
   /** QA only (`/qa/farm?markers=1`). Default off — never drawn on the live farm. */
   setMoundMarkers(on: boolean) {
     this.beds.forEach((bed) => bed.setMoundMarkers(on));
+    this.storeOutline.visible = on;
   }
 
   /** Public so the hook can re-fit after canvas reparent. */

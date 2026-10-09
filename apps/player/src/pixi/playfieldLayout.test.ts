@@ -4,6 +4,7 @@ import { coverFit } from "./draw.ts";
 import {
   PLAYFIELD_LAYOUT,
   PLAYFIELD_TEXTURE,
+  STAND_ART_PX,
   cowBodyHitsForbidden,
   cowForbiddenRects,
   cowRoamAvoidsGardens,
@@ -50,6 +51,51 @@ test("cow blockers include barn, tractor, hay, stand, library, and gardens", () 
   assert.ok(!keys.includes("mamaCow"));
   assert.ok(!keys.includes("jobBoard"));
   assert.equal(cowForbiddenRects(1536, 1024).length, 8);
+});
+
+test("farm store hit is the painted stand, not the barrel and trees", () => {
+  const hit = PLAYFIELD_LAYOUT.storeHit;
+  const local = uvRectToLocal(hit, PLAYFIELD_TEXTURE.width, PLAYFIELD_TEXTURE.height);
+  assert.equal(local.x0, STAND_ART_PX.x0);
+  assert.equal(local.y0, STAND_ART_PX.y0);
+  assert.equal(local.x1, STAND_ART_PX.x1);
+  assert.equal(local.y1, STAND_ART_PX.y1);
+
+  // Crates and awning, measured on the 1536×1024 painting.
+  assert.equal(pointInRect(1050, 220, local), true, "tomato crates");
+  assert.equal(pointInRect(1190, 230, local), true, "corn crate");
+  assert.equal(pointInRect(1100, 80, local), true, "striped awning");
+  assert.equal(pointInRect(1100, 310, local), true, "counter");
+
+  // Old tap target sat on the barrel, crate, and trees (u 0.78–0.98, v 0.02–0.38).
+  const oldHit = uvRectToLocal({ u0: 0.78, v0: 0.02, u1: 0.98, v1: 0.38 }, 1536, 1024);
+  assert.equal(pointInRect(1352, 200, local), false, "barrel");
+  assert.equal(pointInRect(1450, 180, local), false, "trees");
+  assert.equal(pointInRect(1352, 200, oldHit), true);
+  assert.ok(local.x1 < oldHit.x1 - 80, "stand ends left of the old hit's right edge");
+
+  assert.equal(rectsOverlap(hit, PLAYFIELD_LAYOUT.libraryHit), false, "clears the little library");
+  for (const garden of PLAYFIELD_LAYOUT.gardens) {
+    assert.equal(rectsOverlap(hit, garden.hit), false, "clears garden signs");
+    const sign = uvToLocal(garden.sign, 1536, 1024);
+    assert.equal(pointInRect(sign.x, sign.y, local), false, "sign point");
+  }
+  assert.ok(hit.v1 < PLAYFIELD_LAYOUT.gardens[0]!.hit.v0);
+
+  // Same texture pixels at every viewport. Cover-fit must not re-place the hit in screen space.
+  for (const [w, h] of [
+    [2560, 1600],
+    [1920, 1080],
+    [1600, 2560],
+    [1024, 768],
+  ] as const) {
+    const fit = coverFit(w, h, PLAYFIELD_TEXTURE.width, PLAYFIELD_TEXTURE.height);
+    const back = (screen: number, origin: number, tex: number) => (screen - origin) / fit.scale / tex;
+    assert.ok(Math.abs(back(fit.x + local.x0 * fit.scale, fit.x, 1536) - hit.u0) < 1e-9, `u0 ${w}x${h}`);
+    assert.ok(Math.abs(back(fit.y + local.y0 * fit.scale, fit.y, 1024) - hit.v0) < 1e-9, `v0 ${w}x${h}`);
+    assert.ok(Math.abs(back(fit.x + local.x1 * fit.scale, fit.x, 1536) - hit.u1) < 1e-9, `u1 ${w}x${h}`);
+    assert.ok(Math.abs(back(fit.y + local.y1 * fit.scale, fit.y, 1024) - hit.v1) < 1e-9, `v1 ${w}x${h}`);
+  }
 });
 
 test("farm overview shows the little library and not a job board or tube chip", () => {
