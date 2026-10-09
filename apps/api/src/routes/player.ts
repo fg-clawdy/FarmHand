@@ -23,6 +23,7 @@ import {
   requirePlayer,
   verifySecret,
 } from "../auth.js";
+import { pinEnterStep } from "../donatePlayer.js";
 import { claimChore, EMPTY_PLOT_DATA, listPlayerChores, prunePlot, releaseClaimIfNeeded } from "../chores.js";
 import { loadConfig, plotWateringState, publicPlayer, selfieUnlockedOn, syncPlayerPlots } from "../game.js";
 import { recordAccoladeEvent, playerAccoladeLedger } from "../accolades.js";
@@ -94,7 +95,14 @@ export async function playerRoutes(app: FastifyInstance) {
     }
 
     const existing = await getPlayerSession(request);
-    if (existing?.playerId === player.id) {
+    const step = pinEnterStep({
+      existingPlayerId: existing?.playerId ?? null,
+      requestedPlayerId: player.id,
+      hasPin: Boolean(player.pinHash),
+      submittedPin: body.pin,
+    });
+    // Garden re-entry: same kid, no PIN in the body. Donate always submits the PIN.
+    if (step === "skip") {
       const config = await loadConfig();
       await syncPlayerPlots(player.id, config.plotCount);
       const fresh = await prisma.player.findUniqueOrThrow({
@@ -116,6 +124,23 @@ export async function playerRoutes(app: FastifyInstance) {
       if (!/^\d{4}$/.test(pin) || !(await verifySecret(pin, player.pinHash))) {
         return reply.code(401).send(pinError());
       }
+    }
+
+    if (existing?.playerId === player.id) {
+      const config = await loadConfig();
+      await syncPlayerPlots(player.id, config.plotCount);
+      const fresh = await prisma.player.findUniqueOrThrow({
+        where: { id: player.id },
+        include: { plots: {
+              orderBy: { slot: "asc" },
+              include: {
+                claimLinks: {
+                  include: { claim: { include: { chore: true } } },
+                },
+              },
+            }, basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } } },
+      });
+      return { player: publicPlayer(fresh, config, true), config, skippedPin: false };
     }
 
     const config = await loadConfig();
