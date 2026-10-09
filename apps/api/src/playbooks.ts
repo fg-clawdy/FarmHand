@@ -9,6 +9,7 @@ import { prisma } from "./db.js";
 import { httpError, publicChore } from "./chores.js";
 import { loadHeatByChoreId } from "./choreHeat.js";
 import { loadConfig } from "./game.js";
+import { avatarFieldsPublic } from "./avatar.js";
 import { slugifyTitle } from "./parentChoreWrite.js";
 
 type PlaybookWithItems = ChorePlaybook & {
@@ -261,6 +262,104 @@ export async function buildPlaybookView(
     });
   }
   return views;
+}
+
+export type FarmPlaybookMission = {
+  playerId: string;
+  playerName: string;
+  mascot: string;
+  avatarKind?: string | null;
+  avatarPreset?: string | null;
+  avatarUrl?: string | null;
+  color?: string | null;
+  playbook: PlayerPlaybookView;
+};
+
+/**
+ * Incomplete, currently-broadcasting playbooks grouped by kid, for the shared
+ * farm overview. One batched pass keeps a family of N kids at N + O(1) DB
+ * trips rather than N× the work.
+ */
+export async function buildFarmPlaybookMissions(
+  timezone: string,
+  now = new Date(),
+): Promise<FarmPlaybookMission[]> {
+  const players = await prisma.player.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true, mascot: true, avatarKind: true, avatarPreset: true, avatarSelfieFile: true, color: true },
+    orderBy: { createdAt: "asc" },
+  });
+  if (players.length === 0) return [];
+  const playbooks = await prisma.chorePlaybook.findMany({
+    where: { isActive: true },
+    include: {
+      items: { include: { chore: { include: { assignments: true } } }, orderBy: { sortOrder: "asc" } },
+    },
+    orderBy: { sortOrder: "asc" },
+  });
+  if (playbooks.length === 0) return [];
+  const playerIds = players.map((player) => player.id);
+  const [claims, raceSlots, heatByChoreId, config] = await Promise.all([
+    prisma.choreClaim.findMany({
+      where: { playerId: { in: playerIds } },
+      select: { playerId: true, choreId: true, periodKey: true },
+    }),
+    prisma.choreRaceSlot.findMany({ select: { choreId: true, periodKey: true } }),
+    loadHeatByChoreId(),
+    loadConfig(),
+  ]);
+  const raceTakenKeys = new Set(raceSlots.map((row) => `${row.choreId}:${row.periodKey}`));
+  const claimsByPlayer = new Map<string, Set<string>>();
+  for (const row of claims) {
+    let claimed = claimsByPlayer.get(row.playerId);
+    if (!claimed) {
+      claimed = new Set<string>();
+      claimsByPlayer.set(row.playerId, claimed);
+    }
+    claimed.add(`${row.choreId}:${row.periodKey}`);
+  }
+  const minute = choreMinuteOfDay(now, timezone);
+  const missions: FarmPlaybookMission[] = [];
+  for (const player of players) {
+    const claimedPeriodKeys = claimsByPlayer.get(player.id) ?? new Set<string>();
+    for (const playbook of playbooks) {
+      if (!claimWindowOpen(playbook.windowStart, playbook.windowEnd, minute)) continue;
+      const items = playbook.items.map((item) => {
+        const chore = publicChore(item.chore, {
+          playerId: player.id,
+          timezone,
+          now,
+          claimedPeriodKeys,
+          raceTakenKeys,
+          heatByChoreId,
+          config,
+        });
+        return { chore, claimed: chore.claimed };
+      });
+      const completedCount = items.filter((item) => item.claimed).length;
+      if (items.length > 0 && completedCount === items.length) continue;
+      missions.push({
+        playerId: player.id,
+        playerName: player.name,
+        mascot: player.mascot,
+        ...avatarFieldsPublic(player),
+        color: player.color,
+        playbook: {
+          id: playbook.id,
+          slug: playbook.slug,
+          title: playbook.title,
+          emoji: playbook.emoji,
+          description: playbook.description,
+          windowLabel: claimWindowLabel(playbook.windowStart, playbook.windowEnd),
+          completedCount,
+          totalCount: items.length,
+          allDone: false,
+          items,
+        },
+      });
+    }
+  }
+  return missions;
 }
 
 /**

@@ -43,8 +43,8 @@ function fromPlaybook(pb: ParentPlaybook): PlaybookForm {
     title: pb.title,
     emoji: pb.emoji,
     description: pb.description,
-    windowStart: minutesToHHMM(pb.windowStart),
-    windowEnd: minutesToHHMM(pb.windowEnd),
+    windowStart: pb.windowStart === 0 ? "" : minutesToHHMM(pb.windowStart),
+    windowEnd: minutesToHHMM(pb.windowEnd === 1440 ? null : pb.windowEnd),
     isActive: pb.isActive,
     choreIds: pb.choreIds,
   };
@@ -82,12 +82,13 @@ export default function PlaybooksPage() {
   async function save() {
     setBusy(true);
     setError("");
+    const windowEnd = hhmmToMinutes(form.windowEnd);
     const body: PlaybookWrite = {
       title: form.title,
       emoji: form.emoji,
       description: form.description,
       windowStart: hhmmToMinutes(form.windowStart),
-      windowEnd: hhmmToMinutes(form.windowEnd),
+      windowEnd: windowEnd === 0 ? 1440 : windowEnd,
       isActive: form.isActive,
       choreIds: form.choreIds,
     };

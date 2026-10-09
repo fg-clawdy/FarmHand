@@ -1,4 +1,4 @@
-import { MASCOT_EMOJI } from "@farmhand/shared";
+import { CURRENCY_DISPLAY, MASCOT_EMOJI } from "@farmhand/shared";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, type AdminPlayer } from "../api";
@@ -30,7 +30,7 @@ export default function PlayersPage() {
           <tr>
             <th>Kid</th>
             <th>Seeds</th>
-            <th>Stars</th>
+            <th>{CURRENCY_DISPLAY.noun}</th>
             <th>Ready / held</th>
             <th>PIN</th>
             <th>Session</th>
@@ -49,7 +49,7 @@ export default function PlayersPage() {
               <td>{player.points}</td>
               <td>
                 {player.wallet
-                  ? `${player.wallet.availableStars} / ${player.wallet.heldStars}`
+                  ? `${player.wallet.availablePoints} / ${player.wallet.heldPoints}`
                   : "—"}
               </td>
               <td>{player.hasPin ? "Yes" : "Open"}</td>

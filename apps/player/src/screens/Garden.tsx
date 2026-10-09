@@ -17,6 +17,7 @@ import PlaybookCelebration, { type PlaybookComplete } from "../components/Playbo
 import AvatarPicker from "../components/AvatarPicker";
 import KidAvatar from "../components/KidAvatar";
 import JobBoard, { NeedJobsNudge } from "../components/JobBoard";
+import PlaybookCoach, { type CoachMission } from "../components/PlaybookCoach";
 import PinPad from "../components/PinPad";
 import PlantPicker from "../components/PlantPicker";
 import PlotSheet from "../components/PlotSheet";
@@ -266,6 +267,14 @@ function GardenPlay({
   const [activePlaybooks, setActivePlaybooks] = useState<ActivePlaybook[]>([]);
   const [playbookCelebrate, setPlaybookCelebrate] = useState<PlaybookComplete | null>(null);
 
+  const coachMissions = useMemo<CoachMission[]>(
+    () =>
+      activePlaybooks
+        .filter((playbook) => playbook.totalCount > 0 && !playbook.allDone)
+        .map((playbook) => ({ playbook })),
+    [activePlaybooks],
+  );
+
   function celebrateClaimSeeds(
     seedsGranted: number,
     originEl?: Element | null,
@@ -314,6 +323,18 @@ function GardenPlay({
     const t = window.setTimeout(() => setPlaybookCelebrate(null), 4200);
     return () => window.clearTimeout(t);
   }, [playbookCelebrate]);
+
+  useEffect(() => {
+    // Populate playbooks on load so the mission coach can auto-open.
+    void api
+      .chores()
+      .then((data) => {
+        setChores(data.chores);
+        setActivePlaybooks(data.activePlaybooks);
+        if (data.timezone) setChoreTimezone(data.timezone);
+      })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (overlay?.type !== "chores") return;
@@ -764,7 +785,7 @@ function GardenPlay({
           }}
         />
       )}
-      {/* Sell stars are Pixi-native (nested under the basket rim). */}
+      {/* Sell points are Pixi-native (nested under the basket rim). */}
       {badgeQueue[0] && <AccoladeCelebration unlock={badgeQueue[0]} />}
       {playbookCelebrate && <PlaybookCelebration playbook={playbookCelebrate} />}
       {overlay?.type === "badges" && <AccoladePanel onClose={() => setOverlay(null)} />}
@@ -784,6 +805,28 @@ function GardenPlay({
           }}
         />
       )}
+      <PlaybookCoach
+        missions={coachMissions}
+        mode="garden"
+        busy={busy}
+        onClaim={async (chore) => {
+          const before = player.seeds + player.provisionalSeeds;
+          const data = await api.claimChore(chore.id);
+          const granted = data.seedsGranted ?? chore.rewardSeedCount ?? 1;
+          applyGarden(data.player);
+          noteUnlocks(data.unlocks);
+          if (data.playbookComplete?.length) setPlaybookCelebrate(data.playbookComplete[0]);
+          // Refresh the playbook list (and the standard job board) in place.
+          void api.chores().then((board) => {
+            setChores(board.chores);
+            setActivePlaybooks(board.activePlaybooks);
+            if (board.timezone) setChoreTimezone(board.timezone);
+          });
+          celebrateClaimSeeds(granted, null, before);
+          return data.player;
+        }}
+        onNeedPhoto={(chore) => setOverlay({ type: "chore-photo", chore })}
+      />
       {error && <div className="toast">{error}</div>}
       {tool === "water" && !selfieUnlocked && (
         <div className="toast">Take today's selfie to water.</div>

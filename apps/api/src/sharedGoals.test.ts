@@ -9,44 +9,44 @@ describe("Shared Goals — wallet integration", () => {
     walletFromLedger = mod.walletFromLedger;
   });
 
-  it("GIVE_SHARED debits currentStars without affecting lifetimeEarned", () => {
+  it("GIVE_SHARED debits points without affecting lifetimeEarned", () => {
     const wallet = walletFromLedger(
       [
         { kind: "EARN_HARVEST", amount: 100 },
         { kind: "GIVE_SHARED", amount: 30 },
       ], 0);
-    assert.equal(wallet.currentStars, 70);
+    assert.equal(wallet.points, 70);
     assert.equal(wallet.lifetimeEarned, 100);
     assert.equal(wallet.lifetimeGiven, 30);
   });
 
-  it("RETURN_SHARED credits currentStars", () => {
+  it("RETURN_SHARED credits points", () => {
     const wallet = walletFromLedger(
       [
         { kind: "EARN_HARVEST", amount: 100 },
         { kind: "GIVE_SHARED", amount: 30 },
         { kind: "RETURN_SHARED", amount: 30 },
       ], 0);
-    assert.equal(wallet.currentStars, 100);
+    assert.equal(wallet.points, 100);
     assert.equal(wallet.lifetimeGiven, 0);
   });
 
-  it("held stars reduce available for giving", () => {
+  it("held points reduce available for giving", () => {
     const wallet = walletFromLedger(
       [
         { kind: "EARN_HARVEST", amount: 100 },
         { kind: "GIVE_SHARED", amount: 30 },
       ], 20);
-    assert.equal(wallet.availableStars, 50);
+    assert.equal(wallet.availablePoints, 50);
   });
 
-  it("currentStars never goes negative", () => {
+  it("points never goes negative", () => {
     const wallet = walletFromLedger(
       [
         { kind: "EARN_HARVEST", amount: 10 },
         { kind: "GIVE_SHARED", amount: 30 },
       ], 0);
-    assert.equal(wallet.currentStars, 0);
+    assert.equal(wallet.points, 0);
   });
 
   it("lifetimeGiven never goes negative", () => {

@@ -1,3 +1,4 @@
+import { CURRENCY_DISPLAY, formatPoints } from "@farmhand/shared";
 import { useEffect, useState } from "react";
 import { api, type KidAccolades, type KidActivity, type ParentKid, type ParentStats } from "../api";
 
@@ -45,11 +46,11 @@ function KidCard({
       </p>
       {overview?.wallet && (
         <p className="muted">
-          {overview.wallet.availableStars}★ ready
-          {overview.wallet.heldStars > 0 ? ` · ${overview.wallet.heldStars}★ waiting` : ""}
+          {formatPoints(overview.wallet.availablePoints)} ready
+          {overview.wallet.heldPoints > 0 ? ` · ${formatPoints(overview.wallet.heldPoints)} waiting` : ""}
           {" · "}
-          {overview.wallet.lifetimeEarned}★ earned all time
-          {overview.wallet.lifetimeSpent > 0 ? ` · ${overview.wallet.lifetimeSpent}★ spent` : ""}
+          {formatPoints(overview.wallet.lifetimeEarned)} earned all time
+          {overview.wallet.lifetimeSpent > 0 ? ` · ${formatPoints(overview.wallet.lifetimeSpent)} spent` : ""}
         </p>
       )}
       {overview?.rewards && (
@@ -114,7 +115,7 @@ function KidCard({
         <div className="kid-badges">
           <h4>Badges · {badges.seasonLabel}</h4>
           <p className="muted" style={{ marginTop: 0 }}>
-            Same ledger as the kid garden. No extra stars or seeds.
+            Same ledger as the kid garden. No extra {CURRENCY_DISPLAY.noun} or seeds.
           </p>
           <ul className="accolade-tracks">
             {badges.seasonal.tracks.map((track) => (
@@ -190,7 +191,7 @@ export default function ActivityPage() {
       <h2>Kids</h2>
       <p className="muted">
         Who claimed chores, who you approved, and a simple streak (days in a row with at least one approved chore).
-        Chicago time. Star wallets and reward history are read-only here — kids browse the full story on their garden
+        Chicago time. Wallets and reward history are read-only here — kids browse the full story on their garden
         Profile. Seasonal medals and lifetime legends use the same ledger as the garden 🏅 button.
       </p>
       <div className="row range-toggle">

@@ -772,7 +772,7 @@ const iceRow = leftoverStore.data.skus.find((s) => s.slug === "ice-cream");
 if (iceRow) {
   await req(`/api/parent/store/skus/${iceRow.id}`, {
     method: "PATCH",
-    body: { starCost: 500, isActive: true },
+    body: { pointCost: 500, isActive: true },
     cookie: adminCookie,
   });
 }
@@ -781,7 +781,7 @@ const anonCatalog = await req("/api/store/catalog");
 if (!anonCatalog.data.catalog?.some((s) => s.slug === "ice-cream")) {
   throw new Error("anonymous store catalog should list ice cream");
 }
-if (anonCatalog.data.availableStars != null || anonCatalog.data.catalog.some((s) => s.affordable === true)) {
+if (anonCatalog.data.availablePoints != null || anonCatalog.data.catalog.some((s) => s.affordable === true)) {
   throw new Error("anonymous catalog must not include a kid wallet or affordability");
 }
 await reqShouldFail("/api/store", {}, 401, "anonymous GET /api/store");
@@ -792,7 +792,7 @@ await reqShouldFail(
   401,
   "anonymous store request",
 );
-const willowStarsBeforeAnon = (await req("/api/store", { cookie: kidCookie2 })).data.availableStars;
+const willowStarsBeforeAnon = (await req("/api/store", { cookie: kidCookie2 })).data.availablePoints;
 if (typeof willowStarsBeforeAnon !== "number") throw new Error("Willow store session should still work after anonymous browse");
 console.log("anonymous store catalog; spend requires identity");
 
@@ -808,12 +808,12 @@ if (!Array.isArray(parentStore.data.skus) || parentStore.data.skus.length < 5) {
   throw new Error(`starter catalog should have 5 SKUs, got ${parentStore.data.skus?.length}`);
 }
 const ice = parentStore.data.skus.find((s) => s.slug === "ice-cream");
-if (!ice || ice.starCost !== 500) throw new Error("ice cream SKU missing or not 500★");
+if (!ice || ice.pointCost !== 500) throw new Error("ice cream SKU missing or not 500★");
 const storeOpen = await req("/api/store", { cookie: kidCookie2 });
 if (storeOpen.data.points !== 800) {
   throw new Error(`expected 800 points after SET, got ${storeOpen.data.points}`);
 }
-if (storeOpen.data.availableStars !== 800 || storeOpen.data.starsHeld !== 0) {
+if (storeOpen.data.availablePoints !== 800 || storeOpen.data.heldPoints !== 0) {
   throw new Error(`expected 800 available / 0 held, got ${JSON.stringify(storeOpen.data)}`);
 }
 if (storeOpen.data.lifetimeEarnedHarvest !== harvestBeforeSet) {
@@ -830,11 +830,11 @@ const requested = await req("/api/store/request", {
   cookie: kidCookie2,
 });
 if (requested.data.points !== 800) throw new Error("request must not spend points yet");
-if (requested.data.starsHeld !== 500) throw new Error(`held expected 500, got ${requested.data.starsHeld}`);
-if (requested.data.availableStars !== 300) {
-  throw new Error(`available expected 300, got ${requested.data.availableStars}`);
+if (requested.data.heldPoints !== 500) throw new Error(`held expected 500, got ${requested.data.heldPoints}`);
+if (requested.data.availablePoints !== 300) {
+  throw new Error(`available expected 300, got ${requested.data.availablePoints}`);
 }
-if (!requested.data.pending?.some((r) => r.status === "pending" && r.starCost === 500)) {
+if (!requested.data.pending?.some((r) => r.status === "pending" && r.pointCost === 500)) {
   throw new Error("pending ice cream missing after request");
 }
 try {
@@ -858,8 +858,8 @@ await req(`/api/parent/redemptions/${requested.data.redemption.id}/deny`, {
 });
 const afterStoreDeny = await req("/api/store", { cookie: kidCookie2 });
 if (afterStoreDeny.data.points !== 800) throw new Error("deny must not spend points");
-if (afterStoreDeny.data.starsHeld !== 0 || afterStoreDeny.data.availableStars !== 800) {
-  throw new Error(`deny should release the hold, got held=${afterStoreDeny.data.starsHeld} available=${afterStoreDeny.data.availableStars}`);
+if (afterStoreDeny.data.heldPoints !== 0 || afterStoreDeny.data.availablePoints !== 800) {
+  throw new Error(`deny should release the hold, got held=${afterStoreDeny.data.heldPoints} available=${afterStoreDeny.data.availablePoints}`);
 }
 
 const requested2 = await req("/api/store/request", {
@@ -876,7 +876,7 @@ if (afterStoreApprove.data.points !== 300) {
   throw new Error(`approve should spend 500, points 300, got ${afterStoreApprove.data.points}`);
 }
 if (afterStoreApprove.data.points < 0) throw new Error("balance went negative");
-if (afterStoreApprove.data.starsHeld !== 0 || afterStoreApprove.data.availableStars !== 300) {
+if (afterStoreApprove.data.heldPoints !== 0 || afterStoreApprove.data.availablePoints !== 300) {
   throw new Error(`expected 0 held / 300 available after approve, got ${JSON.stringify(afterStoreApprove.data)}`);
 }
 if (!afterStoreApprove.data.owned?.some((r) => r.id === requested2.data.redemption.id && r.status === "owned")) {
@@ -900,8 +900,8 @@ if (willowProfile.data.pouch?.seeds !== willowGarden.data.player.seeds) {
 if (willowProfile.data.pouch?.fertilizer !== willowGarden.data.player.fertilizer) {
   throw new Error("profile pouch fertilizer must match garden HUD");
 }
-if (willowProfile.data.wallet.availableStars !== 300) {
-  throw new Error(`profile available expected 300 after ice cream, got ${willowProfile.data.wallet.availableStars}`);
+if (willowProfile.data.wallet.availablePoints !== 300) {
+  throw new Error(`profile available expected 300 after ice cream, got ${willowProfile.data.wallet.availablePoints}`);
 }
 if (willowProfile.data.wallet.lifetimeEarned !== afterStoreApprove.data.lifetimeEarned) {
   throw new Error("profile lifetime earned should match store wallet");
@@ -947,7 +947,7 @@ for (const row of leftoverFinn.data.pending ?? leftoverFinn.data.redemptions ?? 
 const finnShop = await req(`/api/players/${finn.id}/enter`, { method: "POST", body: { pin: "2222" } });
 const finnCookie = finnShop.cookie;
 const finnBeforeGrant = await req("/api/store", { cookie: finnCookie });
-await req(`/api/admin/players/${finn.id}/grant-stars`, {
+await req(`/api/admin/players/${finn.id}/grant-points`, {
   method: "POST",
   body: { amount: 2100, reason: "smoke lifetime earn", requestId: randomUUID() },
   cookie: adminCookie,
@@ -958,7 +958,7 @@ if (finnAfterGrant.data.lifetimeEarned !== (finnBeforeGrant.data.lifetimeEarned 
     `grant 2100 should bump lifetime earned, ${finnBeforeGrant.data.lifetimeEarned} → ${finnAfterGrant.data.lifetimeEarned}`,
   );
 }
-if (finnAfterGrant.data.availableStars !== (finnBeforeGrant.data.availableStars ?? 0) + 2100) {
+if (finnAfterGrant.data.availablePoints !== (finnBeforeGrant.data.availablePoints ?? 0) + 2100) {
   throw new Error("grant 2100 should add available stars");
 }
 const dateNight = leftoverFinn.data.skus.find((s) => s.slug === "date-night");
@@ -969,8 +969,8 @@ const dateReq = await req("/api/store/request", {
   body: { skuId: dateNight.id },
   cookie: finnCookie,
 });
-if (dateReq.data.starsHeld !== 2000) throw new Error("date night should hold 2000");
-if (dateReq.data.availableStars !== finnAfterGrant.data.availableStars - 2000) {
+if (dateReq.data.heldPoints !== 2000) throw new Error("date night should hold 2000");
+if (dateReq.data.availablePoints !== finnAfterGrant.data.availablePoints - 2000) {
   throw new Error("date night hold should drop available by 2000");
 }
 if (dateReq.data.lifetimeEarned !== finnAfterGrant.data.lifetimeEarned) {
@@ -981,8 +981,8 @@ await req(`/api/parent/redemptions/${dateReq.data.redemption.id}/approve`, {
   cookie: adminCookie,
 });
 const afterDate = await req("/api/store", { cookie: finnCookie });
-if (afterDate.data.availableStars !== finnAfterGrant.data.availableStars - 2000) {
-  throw new Error(`after date night approve, available should be reduced once, got ${afterDate.data.availableStars}`);
+if (afterDate.data.availablePoints !== finnAfterGrant.data.availablePoints - 2000) {
+  throw new Error(`after date night approve, available should be reduced once, got ${afterDate.data.availablePoints}`);
 }
 if (afterDate.data.lifetimeEarned !== finnAfterGrant.data.lifetimeEarned) {
   throw new Error("approve must not change lifetime earned");
@@ -990,7 +990,7 @@ if (afterDate.data.lifetimeEarned !== finnAfterGrant.data.lifetimeEarned) {
 if (!afterDate.data.owned?.some((r) => r.id === dateReq.data.redemption.id && r.status === "owned")) {
   throw new Error("date night should be owned");
 }
-await req(`/api/admin/players/${finn.id}/grant-stars`, {
+await req(`/api/admin/players/${finn.id}/grant-points`, {
   method: "POST",
   body: { amount: 100, reason: "smoke extra earn", requestId: randomUUID() },
   cookie: adminCookie,
@@ -1005,8 +1005,8 @@ await req(`/api/parent/redemptions/${movieReq.data.redemption.id}/approve`, {
   cookie: adminCookie,
 });
 const afterMovie = await req("/api/store", { cookie: finnCookie });
-if (afterMovie.data.availableStars !== afterDate.data.availableStars + 100 - 200) {
-  throw new Error(`after movie, available expected ${afterDate.data.availableStars + 100 - 200}, got ${afterMovie.data.availableStars}`);
+if (afterMovie.data.availablePoints !== afterDate.data.availablePoints + 100 - 200) {
+  throw new Error(`after movie, available expected ${afterDate.data.availablePoints + 100 - 200}, got ${afterMovie.data.availablePoints}`);
 }
 await req(`/api/parent/redemptions/${dateReq.data.redemption.id}/redeem`, {
   method: "POST",
@@ -1029,21 +1029,21 @@ if (
 
 await req(`/api/parent/store/skus/${ice.id}`, {
   method: "PATCH",
-  body: { starCost: 550 },
+  body: { pointCost: 550 },
   cookie: adminCookie,
 });
 const patched = await req("/api/parent/store", { cookie: adminCookie });
-if (patched.data.skus.find((s) => s.id === ice.id)?.starCost !== 550) {
+if (patched.data.skus.find((s) => s.id === ice.id)?.pointCost !== 550) {
   throw new Error("parent SKU patch did not stick");
 }
 await req(`/api/parent/store/skus/${ice.id}`, {
   method: "PATCH",
-  body: { starCost: 500 },
+  body: { pointCost: 500 },
   cookie: adminCookie,
 });
 const createdSku = await req("/api/parent/store/skus", {
   method: "POST",
-  body: { title: "Smoke extra treat", emoji: "🍪", starCost: 50, description: "smoke only", isActive: false },
+  body: { title: "Smoke extra treat", emoji: "🍪", pointCost: 50, description: "smoke only", isActive: false },
   cookie: adminCookie,
 });
 if (!createdSku.data.sku?.id || createdSku.data.sku.isActive !== false) {

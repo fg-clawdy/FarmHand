@@ -1,3 +1,4 @@
+import { CURRENCY_DISPLAY } from "@farmhand/shared";
 import { useEffect, useState, type ReactNode } from "react";
 import { AcornArt, StarIcon } from "../art";
 import { api, type PlayerReview, type ReviewPeriodKey } from "../api";
@@ -71,7 +72,7 @@ export default function PointsReviewSheet({ onClose }: { onClose: () => void }) 
             {period.rangeLabel ? ` · ${period.rangeLabel}` : ""}
           </p>
           <div className="review-grid">
-            <Stat icon={<StarIcon className="inline-art" />} value={period.starsEarned} label="Stars earned" />
+            <Stat icon={<StarIcon className="inline-art" />} value={period.pointsEarned} label={`${CURRENCY_DISPLAY.noun} earned`} />
             <Stat icon="🌾" value={period.harvests} label="Plants harvested" />
             <Stat
               icon={<AcornArt className="inline-art" />}
@@ -87,7 +88,7 @@ export default function PointsReviewSheet({ onClose }: { onClose: () => void }) 
               <Stat icon="📅" value={period.daysPlayed} label="Days you played" />
             )}
           </div>
-          {period.starsEarned === 0 && period.harvests === 0 && period.choresDone === 0 && (
+          {period.pointsEarned === 0 && period.harvests === 0 && period.choresDone === 0 && (
             <p className="muted review-empty">
               {tab === "day"
                 ? "Nothing logged yet today — plant, water, or finish a chore!"

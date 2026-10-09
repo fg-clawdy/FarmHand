@@ -11,6 +11,7 @@ import {
   plotIsEmpty,
   serializePlot,
 } from "@farmhand/shared";
+import { KID_COLORS } from "@farmhand/shared";
 import { prisma } from "../db.js";
 import {
   ADMIN_COOKIE,
@@ -38,7 +39,7 @@ import {
   writeClaimJpeg,
   writeSelfieJpeg,
 } from "../selfie.js";
-import { appendStarEvent } from "../stars.js";
+import { appendPointEvent } from "../points.js";
 import { todayKey } from "../tz.js";
 import { withLockedPlot, withLockedPlayer } from "../locks.js";
 import { recordChoreBoardEvent } from "../choreHeat.js";
@@ -518,7 +519,7 @@ app.post("/api/plots/:slot/water", async (request, reply) => {
         const totalShards = currentShards + (tier.shardRefund ?? 0);
         const seedsFromShards = Math.floor(totalShards / config.shardsPerSeed);
         const remainingShards = totalShards % config.shardsPerSeed;
-        // Stars wait in the basket. Seeds and shards are not produce, so they pay now.
+        // Points wait in the basket. Seeds and shards are not produce, so they pay now.
         await tx.player.update({
           where: { id: session.playerId },
           data: {
@@ -596,7 +597,7 @@ app.post("/api/plots/:slot/water", async (request, reply) => {
 
 
   /**
-   * Convert every held basket item into stars. Idempotent: a retry after the
+   * Convert every held basket item into points. Idempotent: a retry after the
    * rows are marked sold finds nothing held and pays nothing again.
    */
   app.post("/api/basket/sell", async (request, reply) => {
@@ -652,7 +653,7 @@ app.post("/api/plots/:slot/water", async (request, reply) => {
             },
           },
         });
-        await appendStarEvent(tx, {
+        await appendPointEvent(tx, {
           playerId: session.playerId,
           kind: "EARN_HARVEST",
           amount: soldPoints,
@@ -947,7 +948,7 @@ app.post("/api/plots/:slot/water", async (request, reply) => {
           status: "pending",
           title: result.redemption.title,
           emoji: result.redemption.emoji,
-          starCost: result.redemption.starCost,
+          pointCost: result.redemption.pointCost,
         },
         ...store,
       };
@@ -1011,6 +1012,28 @@ app.post("/api/plots/:slot/water", async (request, reply) => {
       const e = err as Error & { statusCode?: number };
       return reply.code(e.statusCode ?? 400).send({ error: e.message });
     }
+  });
+
+  app.post("/api/color", async (request, reply) => {
+    const session = await requirePlayer(request, reply);
+    if (!session) return;
+    const body = (request.body ?? {}) as { color?: string };
+    if (!body.color || !KID_COLORS.some((c) => c.id === body.color)) {
+      return reply.code(400).send({ error: "Pick a color." });
+    }
+    const player = await prisma.player.update({
+      where: { id: session.playerId },
+      data: { color: body.color },
+      include: {
+        plots: {
+          orderBy: { slot: "asc" },
+          include: { claimLinks: { include: { claim: { include: { chore: true } } } } },
+        },
+        basketItems: { where: { status: "held" }, orderBy: { createdAt: "asc" } },
+      },
+    });
+    const config = await loadConfig();
+    return { player: publicPlayer(player, config, true) };
   });
 
   app.get("/api/profile/avatar-selfie/:file", async (request, reply) => {

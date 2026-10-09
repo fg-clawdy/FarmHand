@@ -1,4 +1,4 @@
-import { GARDEN_PLOT_COLS, PLOTS_PER_GARDEN } from "@farmhand/shared";
+import { formatPointsNoun, GARDEN_PLOT_COLS, PLOTS_PER_GARDEN } from "@farmhand/shared";
 
 /**
  * UV anchors on `farmhand_painted_playfield_v3_no_static_cow.jpg` (1536×1024).
@@ -269,7 +269,7 @@ export function gardenSignSeeds(seeds: number) {
 }
 
 export function gardenSignPoints(points: number) {
-  return `${points} points`;
+  return formatPointsNoun(points);
 }
 
 export type GardenSignPlank = {

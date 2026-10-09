@@ -9,6 +9,23 @@ export const MASCOT_EMOJI: Record<Mascot, string> = {
   horse: "🐴",
 };
 
+export const KID_COLORS = [
+  { id: "coral", label: "Coral", hex: "#f2857f", soft: "#fdeae8", ink: "#8a2f2a" },
+  { id: "sunny", label: "Sunny", hex: "#f6c344", soft: "#fff4d6", ink: "#7a5a12" },
+  { id: "grass", label: "Grass", hex: "#7ec24a", soft: "#ecf6da", ink: "#3c5a14" },
+  { id: "sky", label: "Sky", hex: "#59a8e8", soft: "#e2f1fc", ink: "#1f5a80" },
+  { id: "grape", label: "Grape", hex: "#a575d8", soft: "#f1e7fb", ink: "#5a2a80" },
+  { id: "berry", label: "Berry", hex: "#ef7aa6", soft: "#fde3ee", ink: "#8a1f52" },
+  { id: "tangerine", label: "Tangerine", hex: "#f7973f", soft: "#fdebd6", ink: "#8a4a12" },
+  { id: "mint", label: "Mint", hex: "#4fc7b0", soft: "#e0f5ef", ink: "#1a5f50" },
+] as const;
+export type KidColorId = (typeof KID_COLORS)[number]["id"];
+export const DEFAULT_KID_COLOR: KidColorId = "coral";
+/** Resolve a stored color id (or a null/missing one) to a palette entry. */
+export function kidColor(id: string | null | undefined) {
+  return KID_COLORS.find((c) => c.id === id) ?? KID_COLORS[0];
+}
+
 export const INGREDIENT_IDS = ["moonDew", "growGoo", "phoenixAsh"] as const;
 export type IngredientId = (typeof INGREDIENT_IDS)[number];
 
@@ -105,7 +122,7 @@ export type PublicPlot = {
   }>;
   /** Crop seed cost from economy config. */
   seedCost?: number | null;
-  /** Stars/points awarded when harvested/sold. */
+  /** Points awarded when harvested/sold. */
   harvestPoints?: number | null;
   /** Crop display name. */
   cropName?: string | null;
@@ -132,4 +149,6 @@ export type FarmPlayerCard = {
   unlocked: boolean;
   isActive: boolean;
   seedShards: number;
+  /** Kid-picked accent color id (see KID_COLORS). Null until the kid picks one. */
+  color?: string | null;
 };

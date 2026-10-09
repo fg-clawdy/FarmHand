@@ -13,7 +13,7 @@ export type ChoreAssignmentMode = (typeof CHORE_ASSIGNMENT_MODES)[number];
 export const CHORE_CLAIM_STATUSES = ["PENDING", "APPROVED", "DENIED", "SKIPPED"] as const;
 export type ChoreClaimStatus = (typeof CHORE_CLAIM_STATUSES)[number];
 
-/** Honest skip → seed shards only (not stars / not seeds). Tunable. */
+/** Honest skip → seed shards only (not points / not seeds). Tunable. */
 export const SKIP_SHARD_REWARD = 1;
 
 export const CHORE_PRIORITY_RANK: Record<ChorePriority, number> = {

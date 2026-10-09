@@ -109,6 +109,7 @@ fieldset.field {
   box-shadow: 8px 8px 0 #2b1a10;
 }
 .muted { opacity: 0.7; }
+.notice { color: var(--wood); background: #fff3d6; border: 2px solid var(--gold); border-radius: 8px; padding: 8px 10px; font-weight: 700; }
 .error { color: var(--stamp); font-weight: 700; }
 .claim-list { display: grid; gap: 12px; margin-top: 16px; }
 .claim.critical { border-color: var(--stamp); box-shadow: 4px 4px 0 #9b2c1f; }

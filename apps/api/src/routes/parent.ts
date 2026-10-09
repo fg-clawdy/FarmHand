@@ -4,6 +4,8 @@ import { getAdminSession, requireAdmin } from "../auth.js";
 import { prisma } from "../db.js";
 import { approveClaim, denyClaim, listParentInbox } from "../chores.js";
 import { loadConfig, publicPlayer } from "../game.js";
+import { applyTuningChanges, decodeTuningValue } from "../tuning.js";
+import { discussRecommendation, serializeChange } from "../balanceAgent.js";
 import {
   createParentChore,
   getParentChore,
@@ -595,6 +597,159 @@ export async function parentRoutes(app: FastifyInstance) {
     } catch (err) {
       const e = err as Error & { statusCode?: number };
       return reply.code(e.statusCode ?? 400).send({ error: e.message });
+    }
+  });
+
+  app.get("/api/parent/recommendations", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const sets = await prisma.recommendationSet.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { changes: { orderBy: { sortOrder: "asc" } } },
+    });
+    const pendingChanges = sets
+      .filter((set) => set.status === "OPEN")
+      .reduce((sum, set) => sum + set.changes.filter((change) => change.status === "PENDING").length, 0);
+    const order: Record<string, number> = { OPEN: 0, RESOLVED: 1, SUPERSEDED: 2 };
+    sets.sort((a, b) => (order[a.status] ?? 0) - (order[b.status] ?? 0) || b.createdAt.getTime() - a.createdAt.getTime());
+    return {
+      sets: sets.map((set) => ({
+        id: set.id,
+        status: set.status,
+        summary: set.summary,
+        createdAt: set.createdAt.toISOString(),
+        notifiedAt: set.notifiedAt ? set.notifiedAt.toISOString() : null,
+        changeCount: set.changes.filter((change) => change.status === "PENDING").length,
+      })),
+      pendingChanges,
+    };
+  });
+
+  app.get("/api/parent/recommendations/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    const config = await loadConfig();
+    const set = await prisma.recommendationSet.findUnique({
+      where: { id },
+      include: { changes: { orderBy: { sortOrder: "asc" } } },
+    });
+    if (!set) return reply.code(404).send({ error: "Not found." });
+    return {
+      set: {
+        id: set.id,
+        status: set.status,
+        summary: set.summary,
+        snapshot: set.snapshot,
+        modelIds: set.modelIds,
+        createdAt: set.createdAt.toISOString(),
+        notifiedAt: set.notifiedAt ? set.notifiedAt.toISOString() : null,
+      },
+      changes: set.changes
+        .filter((change) => change.status === "PENDING" || change.status === "APPLIED")
+        .map((change) => serializeChange(change, config)),
+    };
+  });
+
+  app.post("/api/parent/recommendations/:id/apply", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    const body = (request.body ?? {}) as { force?: boolean };
+    const set = await prisma.recommendationSet.findUnique({
+      where: { id },
+      include: { changes: true },
+    });
+    if (!set) return reply.code(404).send({ error: "Not found." });
+    const pending = set.changes.filter((change) => change.status === "PENDING");
+    const outcome = await applyTuningChanges(
+      pending.map((change) => ({
+        id: change.id,
+        path: change.path,
+        baselineValue: decodeTuningValue(change.baselineValue),
+        proposedValue: decodeTuningValue(change.proposedValue),
+      })),
+      { force: Boolean(body.force), adminId: session.adminId },
+    );
+    const config = await loadConfig();
+    const reloaded = await prisma.recommendationSet.findUnique({
+      where: { id },
+      include: { changes: { orderBy: { sortOrder: "asc" } } },
+    });
+    return {
+      outcome,
+      set: reloaded ? { id: reloaded.id, status: reloaded.status } : null,
+      changes: reloaded
+        ? reloaded.changes
+            .filter((change) => change.status === "PENDING" || change.status === "APPLIED")
+            .map((change) => serializeChange(change, config))
+        : [],
+    };
+  });
+
+  app.post("/api/parent/recommendations/:id/changes/:changeId/apply", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id, changeId } = request.params as { id: string; changeId: string };
+    const body = (request.body ?? {}) as { force?: boolean; override?: unknown };
+    const change = await prisma.tuningChange.findFirst({ where: { id: changeId, setId: id } });
+    if (!change) return reply.code(404).send({ error: "Change not found." });
+    const hasOverride = body && typeof body === "object" && "override" in body;
+    const proposed = hasOverride ? (body as { override: unknown }).override : decodeTuningValue(change.proposedValue);
+    const force = Boolean(body.force) || hasOverride;
+    const outcome = await applyTuningChanges(
+      [{ id: change.id, path: change.path, baselineValue: decodeTuningValue(change.baselineValue), proposedValue: proposed }],
+      { force, adminId: session.adminId },
+    );
+    if (hasOverride && outcome.ok) {
+      await prisma.tuningChange.update({
+        where: { id: change.id },
+        data: { rationale: `${change.rationale} (manual override)`.trim() },
+      });
+    }
+    const config = await loadConfig();
+    const reloaded = await prisma.recommendationSet.findUnique({
+      where: { id },
+      include: { changes: { orderBy: { sortOrder: "asc" } } },
+    });
+    return {
+      outcome,
+      set: reloaded ? { id: reloaded.id, status: reloaded.status } : null,
+      changes: reloaded
+        ? reloaded.changes
+            .filter((change) => change.status === "PENDING" || change.status === "APPLIED")
+            .map((change) => serializeChange(change, config))
+        : [],
+    };
+  });
+
+  app.post("/api/parent/recommendations/:id/discuss", async (request, reply) => {
+    const session = await requireAdmin(request, reply);
+    if (!session) return;
+    const { id } = request.params as { id: string };
+    const body = (request.body ?? {}) as { message?: unknown };
+    if (typeof body.message !== "string" || !body.message.trim()) {
+      return reply.code(400).send({ error: "message is required." });
+    }
+    try {
+      const outcome = await discussRecommendation(id, body.message.trim());
+      const config = await loadConfig();
+      const reloaded = await prisma.recommendationSet.findUnique({
+        where: { id },
+        include: { changes: { orderBy: { sortOrder: "asc" } } },
+      });
+      return {
+        reply: outcome.reply,
+        revised: outcome.revised,
+        changes: reloaded
+          ? reloaded.changes
+              .filter((change) => change.status === "PENDING" || change.status === "APPLIED")
+              .map((change) => serializeChange(change, config))
+          : [],
+      };
+    } catch (err) {
+      const e = err as Error;
+      return reply.code(500).send({ error: e.message });
     }
   });
 }

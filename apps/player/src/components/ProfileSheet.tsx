@@ -1,4 +1,4 @@
-import { MASCOT_EMOJI } from "@farmhand/shared";
+import { CURRENCY_DISPLAY, formatPoints, KID_COLORS, MASCOT_EMOJI } from "@farmhand/shared";
 import { useEffect, useState } from "react";
 import { api, type GardenPlayer, type KidProfile, type StoreRedemption } from "../api";
 import AvatarPicker from "./AvatarPicker";
@@ -26,7 +26,7 @@ function RewardRow({
         {row.emoji} {row.title}
       </span>
       <span>
-        {row.starCost}★
+        {formatPoints(row.pointCost)}
         {stamp ? ` · ${stamp}` : ""}
       </span>
     </p>
@@ -43,6 +43,7 @@ export default function ProfileSheet({
   const [profile, setProfile] = useState<KidProfile | null>(null);
   const [error, setError] = useState("");
   const [picker, setPicker] = useState(false);
+  const [colorBusy, setColorBusy] = useState(false);
 
   useEffect(() => {
     void api
@@ -50,6 +51,23 @@ export default function ProfileSheet({
       .then(setProfile)
       .catch((err: Error) => setError(err.message));
   }, []);
+
+  async function pickColor(id: string) {
+    if (!profile || colorBusy) return;
+    setColorBusy(true);
+    setError("");
+    try {
+      const data = await api.setColor(id);
+      setProfile((prev) =>
+        prev ? { ...prev, player: { ...prev.player, color: data.player.color ?? null } } : prev,
+      );
+      onPlayerUpdate?.(data.player);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not change your color.");
+    } finally {
+      setColorBusy(false);
+    }
+  }
 
   if (picker && profile) {
     return (
@@ -105,19 +123,46 @@ export default function ProfileSheet({
           </div>
 
           <section className="profile-section">
-            <h3>Stars</h3>
+            <h3>My color</h3>
+            <p className="muted">This paints your spots on the family farm.</p>
+            <div className="color-grid">
+              {KID_COLORS.map((c) => {
+                const active = profile.player.color === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`color-swatch${active ? " active" : ""}`}
+                    style={{ background: c.hex }}
+                    title={c.label}
+                    aria-label={`${c.label}${active ? " (your color)" : ""}`}
+                    onClick={() => void pickColor(c.id)}
+                  >
+                    {active && (
+                      <span className="color-swatch-check" aria-hidden="true">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="profile-section">
+            <h3>{CURRENCY_DISPLAY.noun}</h3>
             <div className="profile-wallet">
               <p>
-                <strong>{profile.wallet.availableStars}★</strong> ready to spend
+                <strong>{formatPoints(profile.wallet.availablePoints)}</strong> ready to spend
               </p>
-              {profile.wallet.heldStars > 0 && (
+              {profile.wallet.heldPoints > 0 && (
                 <p className="muted">
-                  {profile.wallet.heldStars}★ set aside while a grown-up decides
+                  {formatPoints(profile.wallet.heldPoints)} set aside while a grown-up decides
                 </p>
               )}
               <p className="muted">
-                {profile.wallet.lifetimeEarned}★ earned all time
-                {profile.wallet.lifetimeSpent > 0 ? ` · ${profile.wallet.lifetimeSpent}★ spent on rewards` : ""}
+                {formatPoints(profile.wallet.lifetimeEarned)} earned all time
+                {profile.wallet.lifetimeSpent > 0 ? ` · ${formatPoints(profile.wallet.lifetimeSpent)} spent on rewards` : ""}
               </p>
             </div>
           </section>

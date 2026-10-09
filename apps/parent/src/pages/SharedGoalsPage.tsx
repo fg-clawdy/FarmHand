@@ -1,4 +1,6 @@
 import {
+  CURRENCY_DISPLAY,
+  formatPoints,
   SHARED_GOAL_COPY,
   SHARED_GOAL_STARTERS,
   jarTint,
@@ -104,7 +106,7 @@ export default function SharedGoalsPage() {
             busy={busy}
             onHappen={() => void run(() => api.happenSharedGoal(goal.id))}
             onPutAway={() => void run(() => api.cancelSharedGoal(goal.id))}
-            onTarget={(next) => void run(() => api.patchSharedGoal(goal.id, { targetStars: next }))}
+            onTarget={(next) => void run(() => api.patchSharedGoal(goal.id, { targetPoints: next }))}
           />
         ))}
       </div>
@@ -117,7 +119,7 @@ export default function SharedGoalsPage() {
             <h3 style={{ marginTop: 0 }}>
               {goal.emoji} {goal.title}
             </h3>
-            <p className="muted">${goal.usdTarget} · {goal.targetStars}★</p>
+            <p className="muted">${goal.usdTarget} · {formatPoints(goal.targetPoints)}</p>
             <div className="row">
               <button className="btn sage" type="button" disabled={busy} onClick={() => void run(() => api.openSharedGoal(goal.id))}>
                 Open
@@ -147,7 +149,7 @@ export default function SharedGoalsPage() {
             onClick={() => {
               setTitle(starter.title);
               setEmoji(starter.emoji);
-              setTarget(String(starter.targetStars));
+              setTarget(String(starter.targetPoints));
             }}
           >
             {starter.emoji} {starter.title}
@@ -167,7 +169,7 @@ export default function SharedGoalsPage() {
         <input value={emoji} onChange={(e) => setEmoji(e.target.value)} maxLength={8} />
       </label>
       <label className="field">
-        Target stars
+        Target {CURRENCY_DISPLAY.noun}
         <span className="star-step">
           <button
             className="btn"
@@ -217,7 +219,7 @@ export default function SharedGoalsPage() {
             await api.createSharedGoal({
               title: title.trim(),
               emoji: emoji.trim(),
-              targetStars: Number(target),
+              targetPoints: Number(target),
               artNotes: notes.trim() || undefined,
               generateArt,
               queue: later,
@@ -256,7 +258,7 @@ export default function SharedGoalsPage() {
                 disabled={busy}
                 onChange={(e) => void run(() => api.patchGiving(player.playerId, { givingEnabled: e.target.checked }))}
               />
-              Can add stars
+              Can add {CURRENCY_DISPLAY.noun}
             </label>
             <label className="field">
               Most at a time
@@ -303,7 +305,7 @@ export default function SharedGoalsPage() {
 
 function JarPreview({ goal }: { goal: ParentSharedGoal }) {
   const tint = jarTint(goal.tintIndex ?? 0);
-  const ratio = goal.targetStars > 0 ? Math.max(0, Math.min(1, goal.filledStars / goal.targetStars)) : 0;
+  const ratio = goal.targetPoints > 0 ? Math.max(0, Math.min(1, goal.filledPoints / goal.targetPoints)) : 0;
   return (
     <div className="jar-preview" aria-hidden="true">
       <div className="cork">{goal.artUrl ? <img src={goal.artUrl} alt="" /> : goal.emoji}</div>
@@ -325,12 +327,12 @@ function ActiveJarCard({
   busy: boolean;
   onHappen: () => void;
   onPutAway: () => void;
-  onTarget: (targetStars: number) => void;
+  onTarget: (targetPoints: number) => void;
 }) {
   const [confirmPutAway, setConfirmPutAway] = useState(false);
   const [targetDraft, setTargetDraft] = useState("");
   const next = Number(targetDraft);
-  const raising = Number.isInteger(next) && next > goal.targetStars;
+  const raising = Number.isInteger(next) && next > goal.targetPoints;
   return (
     <article className="card">
       <div className="jar-art-row">
@@ -340,14 +342,14 @@ function ActiveJarCard({
             {goal.emoji} {goal.title} <em className="badge">{statusLabel(goal)}</em>
           </h3>
           <p>
-            {dollars(goal)} · {goal.filledStars}★ / {goal.targetStars}★
+            {dollars(goal)} · {formatPoints(goal.filledPoints)} / {formatPoints(goal.targetPoints)}
           </p>
         </div>
       </div>
       <ul>
         {goal.contributions.map((row) => (
           <li key={row.playerId}>
-            {row.playerName}: {row.netGiven}★
+            {row.playerName}: {formatPoints(row.netGiven)}
           </li>
         ))}
       </ul>
@@ -372,8 +374,8 @@ function ActiveJarCard({
         </div>
       )}
       <label className="field">
-        Target stars
-        <input value={targetDraft} placeholder={String(goal.targetStars)} inputMode="numeric" onChange={(e) => setTargetDraft(e.target.value)} />
+        Target {CURRENCY_DISPLAY.noun}
+        <input value={targetDraft} placeholder={String(goal.targetPoints)} inputMode="numeric" onChange={(e) => setTargetDraft(e.target.value)} />
         {raising && <span>This makes the jar take longer.</span>}
         <button className="btn" type="button" disabled={busy || !Number.isInteger(next) || next < 1} onClick={() => onTarget(next)}>
           Save target
@@ -410,7 +412,7 @@ function GoalArtCard({
             {goal.title} <em className="badge">{statusLabel(goal)}</em>
           </h3>
           <p className="muted">
-            {goal.targetStars}★ · {artLabel(goal)}
+            {formatPoints(goal.targetPoints)} · {artLabel(goal)}
           </p>
           <div className="row">
             <button className="btn" type="button" disabled={busy || goal.artStatus === "QUEUED"} onClick={onRegenerate}>
@@ -457,21 +459,21 @@ function WaitingEdit({
 }: {
   goal: ParentSharedGoal;
   busy: boolean;
-  onSave: (body: { title: string; emoji: string; targetStars: number }) => void;
+  onSave: (body: { title: string; emoji: string; targetPoints: number }) => void;
 }) {
   const [title, setTitle] = useState(goal.title);
   const [emoji, setEmoji] = useState(goal.emoji);
-  const [stars, setStars] = useState(String(goal.targetStars));
+  const [points, setPoints] = useState(String(goal.targetPoints));
   return (
     <div className="row">
       <input value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Name" />
       <input value={emoji} onChange={(e) => setEmoji(e.target.value)} aria-label="Emoji" maxLength={8} />
-      <input value={stars} inputMode="numeric" onChange={(e) => setStars(e.target.value)} aria-label="Stars" />
+      <input value={points} inputMode="numeric" onChange={(e) => setPoints(e.target.value)} aria-label={CURRENCY_DISPLAY.noun} />
       <button
         className="btn"
         type="button"
         disabled={busy}
-        onClick={() => onSave({ title: title.trim(), emoji: emoji.trim(), targetStars: Number(stars) })}
+        onClick={() => onSave({ title: title.trim(), emoji: emoji.trim(), targetPoints: Number(points) })}
       >
         Save
       </button>

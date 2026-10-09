@@ -4,8 +4,8 @@ import { hashSecret } from "./auth.js";
 import type { Mascot } from "@prisma/client";
 import { seedChoreCatalog } from "./chores.js";
 import { seedPlaybooks } from "./playbooks.js";
-import { backfillStarLedgers, seedStoreCatalog } from "./store.js";
-import { recordOpeningBalance } from "./stars.js";
+import { backfillPointLedgers, seedStoreCatalog } from "./store.js";
+import { recordOpeningBalance } from "./points.js";
 import { syncAllPlayerPlots } from "./game.js";
 
 const DEMO_KIDS: Array<{ name: string; mascot: Mascot; pin: string }> = [
@@ -68,7 +68,7 @@ export async function seedIfEmpty() {
   await seedChoreCatalog();
   await seedPlaybooks();
   await seedStoreCatalog();
-  await backfillStarLedgers();
+  await backfillPointLedgers();
 }
 
 if (process.argv[1]?.includes("seed")) {

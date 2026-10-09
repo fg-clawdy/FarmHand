@@ -25,7 +25,7 @@ function log(
   };
 }
 
-test("crop mix counts plants and harvests by corn/strawberry/cotton", () => {
+test("crop mix counts plants and harvests by tier->crop (corn/cotton/tomato)", () => {
   const logs = [
     log("plant", "2026-09-01T12:00:00Z", { details: { tier: 1 } }),
     log("plant", "2026-09-01T13:00:00Z", { details: { tier: 1 } }),
@@ -35,18 +35,18 @@ test("crop mix counts plants and harvests by corn/strawberry/cotton", () => {
   const planted = cropMixForAction(logs, "plant");
   assert.equal(planted.total, 3);
   assert.equal(planted.counts.corn, 2);
-  assert.equal(planted.counts.strawberry, 1);
+  assert.equal(planted.counts.cotton, 1);
   assert.equal(planted.pct.corn, 66.7);
   const harvested = cropMixForAction(logs, "harvest");
-  assert.equal(harvested.counts.cotton, 1);
-  assert.equal(harvested.pct.cotton, 100);
+  assert.equal(harvested.counts.tomato, 1);
+  assert.equal(harvested.pct.tomato, 100);
 });
 
 test("in-ground mix uses live plot tiers", () => {
   const mix = cropMixFromPlots([1, 1, 2, null, 3]);
   assert.equal(mix.total, 4);
   assert.equal(mix.counts.corn, 2);
-  assert.equal(mix.counts.strawberry, 1);
+  assert.equal(mix.counts.tomato, 1);
   assert.equal(mix.counts.cotton, 1);
 });
 
@@ -76,9 +76,9 @@ test("economy tracks seed spend vs harvest return", () => {
   ];
   const eco = economyFromLogs(logs, DEFAULT_GAME_CONFIG);
   assert.equal(eco.plants, 2);
-  assert.equal(eco.seedsSpent, 2);
+  assert.equal(eco.seedsSpent, 6);
   assert.equal(eco.seedsReturned, 1);
-  assert.equal(eco.netSeeds, -1);
+  assert.equal(eco.netSeeds, -5);
   assert.equal(eco.pointsAwarded, 2);
   assert.equal(eco.waterings, 1);
   assert.equal(eco.logins, 1);

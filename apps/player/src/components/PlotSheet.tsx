@@ -1,4 +1,4 @@
-import { formatCountdown, type PublicPlot } from "@farmhand/shared";
+import { CURRENCY_DISPLAY, formatCountdown, type PublicPlot } from "@farmhand/shared";
 import type { GardenPlayer } from "../api";
 import { PlantFigure, plantKind } from "../art";
 import Sheet from "./Sheet";
@@ -113,7 +113,7 @@ export default function PlotSheet({
               <dd>{plot.seedCost ?? "—"}</dd>
             </div>
             <div>
-              <dt>Stars on harvest</dt>
+              <dt>{CURRENCY_DISPLAY.noun} on harvest</dt>
               <dd>{plot.harvestPoints ?? "—"}</dd>
             </div>
             <div>

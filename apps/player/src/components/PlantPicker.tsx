@@ -1,4 +1,4 @@
-import { cropKindForTier, formatDuration, type GameConfig } from "@farmhand/shared";
+import { CURRENCY_DISPLAY, cropKindForTier, formatDuration, type GameConfig } from "@farmhand/shared";
 import { AcornArt, ClockIcon, PlantFigure, StarIcon } from "../art";
 import { cheapestSeedCost } from "../pixi/gardenLayout";
 import Sheet from "./Sheet";
@@ -46,7 +46,7 @@ export default function PlantPicker({
               <>
                 You have <AcornArt className="inline-art" /> {totalSeeds} seeds
                 {provisionalSeeds > 0 && <span className="provisional-note"> ({provisionalSeeds} in your bag)</span>}
-                . Bigger plants cost more seeds and earn more stars.
+                . Bigger plants cost more seeds and earn more ${CURRENCY_DISPLAY.noun}.
               </>
             ))}
       </p>

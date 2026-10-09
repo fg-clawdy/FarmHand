@@ -140,11 +140,11 @@ test("sign overlays use the live child name from farm/admin data", () => {
 
 test("garden plaques put one line on each plank", () => {
   assert.equal(gardenSignSeeds(6), "6 seeds");
-  assert.equal(gardenSignPoints(301), "301 points");
+  assert.equal(gardenSignPoints(301), "301 stars");
   assert.equal(gardenSignSeeds(10), "10 seeds");
-  assert.equal(gardenSignPoints(0), "0 points");
+  assert.equal(gardenSignPoints(0), "0 stars");
   assert.equal(gardenSignSeeds(3), "3 seeds");
-  assert.equal(gardenSignPoints(12), "12 points");
+  assert.equal(gardenSignPoints(12), "12 stars");
 });
 
 test("sign lines stay on plank UVs at any browser size", () => {

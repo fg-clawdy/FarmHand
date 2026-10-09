@@ -43,7 +43,7 @@ export default function FarmQa() {
         <FamilyJarSheet
           jar={selected}
           players={qaPlayers(pack)}
-          preview={{ availableStars: 24, celebrate: celebrate > 0 ? celebrate : undefined }}
+          preview={{ availablePoints: 24, celebrate: celebrate > 0 ? celebrate : undefined }}
           onClose={() => setOpenId(null)}
           onUpdated={() => undefined}
         />
@@ -54,15 +54,15 @@ export default function FarmQa() {
 
 function qaJars(mode: string | null): PublicSharedGoal[] {
   const demo: PublicSharedGoal[] = [
-    { id: "qa-movie", title: "Movie", emoji: "🎬", targetStars: 10, filledStars: 3, status: "OPEN", tintIndex: 0, artUrl: null, artStatus: "DEFAULT" },
-    { id: "qa-ice", title: "Ice cream", emoji: "🍦", targetStars: 10, filledStars: 7, status: "OPEN", tintIndex: 1, artUrl: null, artStatus: "DEFAULT" },
-    { id: "qa-game", title: "Game night", emoji: "🎮", targetStars: 10, filledStars: 9, status: "OPEN", tintIndex: 2, artUrl: null, artStatus: "DEFAULT" },
-    { id: "qa-netflix", title: "Netflix", emoji: "📺", targetStars: 10, filledStars: 10, status: "READY", tintIndex: 3, artUrl: null, artStatus: "DEFAULT" },
-    { id: "qa-park", title: "Park day", emoji: "🌳", targetStars: 8, filledStars: 1, status: "OPEN", tintIndex: 4, artUrl: null, artStatus: "DEFAULT" },
-    { id: "qa-books", title: "Books", emoji: "📚", targetStars: 12, filledStars: 4, status: "OPEN", tintIndex: 0, artUrl: null, artStatus: "DEFAULT" },
-    { id: "qa-picnic", title: "Picnic", emoji: "🧺", targetStars: 9, filledStars: 2, status: "OPEN", tintIndex: 1, artUrl: null, artStatus: "DEFAULT" },
-    { id: "qa-zoo", title: "Zoo", emoji: "🦁", targetStars: 20, filledStars: 6, status: "OPEN", tintIndex: 2, artUrl: null, artStatus: "DEFAULT" },
-    { id: "qa-camp", title: "Camp", emoji: "⛺️", targetStars: 15, filledStars: 5, status: "OPEN", tintIndex: 3, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-movie", title: "Movie", emoji: "🎬", targetPoints: 10, filledPoints: 3, status: "OPEN", tintIndex: 0, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-ice", title: "Ice cream", emoji: "🍦", targetPoints: 10, filledPoints: 7, status: "OPEN", tintIndex: 1, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-game", title: "Game night", emoji: "🎮", targetPoints: 10, filledPoints: 9, status: "OPEN", tintIndex: 2, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-netflix", title: "Netflix", emoji: "📺", targetPoints: 10, filledPoints: 10, status: "READY", tintIndex: 3, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-park", title: "Park day", emoji: "🌳", targetPoints: 8, filledPoints: 1, status: "OPEN", tintIndex: 4, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-books", title: "Books", emoji: "📚", targetPoints: 12, filledPoints: 4, status: "OPEN", tintIndex: 0, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-picnic", title: "Picnic", emoji: "🧺", targetPoints: 9, filledPoints: 2, status: "OPEN", tintIndex: 1, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-zoo", title: "Zoo", emoji: "🦁", targetPoints: 20, filledPoints: 6, status: "OPEN", tintIndex: 2, artUrl: null, artStatus: "DEFAULT" },
+    { id: "qa-camp", title: "Camp", emoji: "⛺️", targetPoints: 15, filledPoints: 5, status: "OPEN", tintIndex: 3, artUrl: null, artStatus: "DEFAULT" },
   ];
   if (!mode || mode === "0" || mode === "empty") return [];
   if (mode === "1") return demo.slice(0, 1);

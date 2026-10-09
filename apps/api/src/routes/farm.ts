@@ -1,11 +1,12 @@
 import type { FastifyInstance } from "fastify";
-import { serializePlot } from "@farmhand/shared";
+import { DEFAULT_KID_COLOR, serializePlot } from "@farmhand/shared";
 import { prisma } from "../db.js";
 import { listFamilyOpenChores } from "../chores.js";
 import { ensurePlots, loadConfig, selfieUnlockedOn, syncAllPlayerPlots } from "../game.js";
 import { getPlayerSession } from "../auth.js";
 import { avatarFieldsPublic } from "../avatar.js";
 import { activeSharedGoals } from "../sharedGoals.js";
+import { buildFarmPlaybookMissions } from "../playbooks.js";
 
 export async function farmRoutes(app: FastifyInstance) {
   app.get("/api/farm", async (request) => {
@@ -32,6 +33,7 @@ export async function farmRoutes(app: FastifyInstance) {
           name: player.name,
           mascot: player.mascot,
           ...avatarFieldsPublic(player),
+          color: player.color ?? DEFAULT_KID_COLOR,
           seeds: player.seeds,
           provisionalSeeds: player.provisionalSeeds,
           points: player.points,
@@ -50,5 +52,11 @@ export async function farmRoutes(app: FastifyInstance) {
     const config = await loadConfig();
     const jobs = await listFamilyOpenChores(config.timezone);
     return { timezone: config.timezone, jobs };
+  });
+
+  app.get("/api/farm/playbooks", async () => {
+    const config = await loadConfig();
+    const missions = await buildFarmPlaybookMissions(config.timezone);
+    return { timezone: config.timezone, missions };
   });
 }

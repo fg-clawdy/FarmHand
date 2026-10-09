@@ -8,7 +8,7 @@ export type ReviewPeriodKey = "day" | "week" | "season" | "all";
 export type ReviewKpis = {
   label: string;
   rangeLabel: string;
-  starsEarned: number;
+  pointsEarned: number;
   harvests: number;
   freeSeeds: number;
   plantings: number;
@@ -63,7 +63,7 @@ async function kpisFor(
   const whereTime = createdAt ? { createdAt } : {};
 
   const [
-    starAgg,
+    pointAgg,
     harvestLogs,
     plantCount,
     waterCount,
@@ -72,7 +72,7 @@ async function kpisFor(
     badgeCount,
     daysPlayed,
   ] = await Promise.all([
-    prisma.starLedgerEvent.aggregate({
+    prisma.pointLedgerEvent.aggregate({
       where: {
         playerId,
         kind: { in: ["EARN_HARVEST", "EARN_GRANT"] },
@@ -118,7 +118,7 @@ async function kpisFor(
   return {
     label,
     rangeLabel,
-    starsEarned: starAgg._sum.amount ?? 0,
+    pointsEarned: pointAgg._sum.amount ?? 0,
     harvests: harvestLogs.length,
     freeSeeds,
     plantings: plantCount,

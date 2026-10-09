@@ -314,7 +314,7 @@ class ShelfJar {
       this.lid.texture = Texture.EMPTY;
       this.paintKey = "";
     }
-    const next = tubeFillRatio(jar.filledStars, jar.targetStars);
+    const next = tubeFillRatio(jar.filledPoints, jar.targetPoints);
     if (!same) this.shown = next;
     this.target = next;
     if (this.shown > this.target) this.shown = this.target;

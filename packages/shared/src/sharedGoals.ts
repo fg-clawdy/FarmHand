@@ -1,3 +1,4 @@
+import { CURRENCY_DISPLAY, formatPoints } from "./currencyDisplay.js";
 export type SharedGoalStatus = "WAITING" | "OPEN" | "READY" | "HAPPENED" | "CANCELLED";
 
 /** Cork-badge pipeline. DEFAULT is the instant pastel badge. QUEUED never blocks create or the farm. */
@@ -25,8 +26,8 @@ export type PublicSharedGoal = {
   id: string;
   title: string;
   emoji: string;
-  targetStars: number;
-  filledStars: number;
+  targetPoints: number;
+  filledPoints: number;
   status: SharedGoalStatus;
   tintIndex: number;
   /** Painted cork, when Venice (or a later bake) has finished. Null keeps the emoji lid. */
@@ -39,8 +40,8 @@ export type ParentSharedGoal = {
   id: string;
   title: string;
   emoji: string;
-  targetStars: number;
-  filledStars: number;
+  targetPoints: number;
+  filledPoints: number;
   status: SharedGoalStatus;
   sortOrder: number;
   createdAt: string;
@@ -49,7 +50,7 @@ export type ParentSharedGoal = {
   cancelledAt: string | null;
   /** Per-child net contributions (GIVE minus RETURN). Parent-only. */
   contributions: ParentGoalContribution[];
-  /** Dollar preview: targetStars / 100. */
+  /** Dollar preview: targetPoints / 100. */
   usdTarget: string;
   usdFilled: string;
   tintIndex: number;
@@ -71,44 +72,44 @@ export type ParentGoalContribution = {
 
 /** Suggested starter goals shown to parents when creating. */
 export const SHARED_GOAL_STARTERS = [
-  { title: "Movie night", emoji: "🎬", targetStars: 200 },
-  { title: "Family ice cream", emoji: "🍦", targetStars: 500 },
-  { title: "Family game night", emoji: "🎲", targetStars: 800 },
-  { title: "Netflix month", emoji: "📺", targetStars: 1000 },
+  { title: "Movie night", emoji: "🎬", targetPoints: 200 },
+  { title: "Family ice cream", emoji: "🍦", targetPoints: 500 },
+  { title: "Family game night", emoji: "🎲", targetPoints: 800 },
+  { title: "Netflix month", emoji: "📺", targetPoints: 1000 },
 ] as const;
 
 /** Kid-facing copy deck. Substitutes {title}. */
 export const SHARED_GOAL_COPY = {
   farmLabel: "Family jar",
   coachLine1: "This jar is for all of us.",
-  coachLine2: "You can add stars if you want. You don't have to.",
-  sheetPrompt: "Add your stars. When the jar is full, we all get {title}.",
-  confirm: "Add {n} stars to the {title} jar?",
-  buttonAdd: "Add stars",
+  coachLine2: `You can add ${CURRENCY_DISPLAY.noun} if you want. You don't have to.`,
+  sheetPrompt: `Add your ${CURRENCY_DISPLAY.noun}. When the jar is full, we all get {title}.`,
+  confirm: `Add {n} ${CURRENCY_DISPLAY.noun} to the {title} jar?`,
+  buttonAdd: `Add ${CURRENCY_DISPLAY.noun}`,
   buttonNotNow: "Not now",
   buttonPutBack: "Put back",
   pourLabel: "Into the jar",
   afterPour: "The jar is fuller.",
-  noStars: "No stars to add yet.",
+  noStars: `No ${CURRENCY_DISPLAY.noun} to add yet.`,
   givingOff: "You can watch the jar fill.",
   roomLeft: "Room for {n} more.",
-  pickAmount: "Pick stars to add",
+  pickAmount: `Pick ${CURRENCY_DISPLAY.noun} to add`,
   halfway: "Halfway to {title}.",
   ready: "{title} is ready.",
   readySubline: "A grown-up will make it happen.",
   happened: "{title} happened.",
-  putAway: "The {title} jar was put away. Your stars are back.",
-  putBack: "Put those stars back?",
+  putAway: `The {title} jar was put away. Your ${CURRENCY_DISPLAY.noun} are back.`,
+  putBack: `Put those ${CURRENCY_DISPLAY.noun} back?`,
   parentPushReady: "The {title} jar is full.",
   parentCreateHint:
-    "This is real money. 200★ is $2.00. Start with a jar the family can fill.",
+    `This is real money. ${formatPoints(200)} is $2.00. Start with a jar the family can fill.`,
   parentQueueLabel: "Later",
   parentQueueFull: "Finish or remove one first.",
   parentSwitch:
-    "Stars in this jar are for {title}. To work on something else, put this jar away. Each child's stars come back.",
+    `${CURRENCY_DISPLAY.noun} in this jar are for {title}. To work on something else, put this jar away. Each child's ${CURRENCY_DISPLAY.noun} come back.`,
   parentSharedOnly:
     "Everyone in the family gets this. If only one child would use it, put it in the store.",
-  parentTrayHint: "Open goals stand together on the farm. Kids see the tubes, not who added stars.",
+  parentTrayHint: `Open goals stand together on the farm. Kids see the tubes, not who added ${CURRENCY_DISPLAY.noun}.`,
   trayTitle: "Shared Goals",
   trayEmpty: "0 goals",
   trayComing: "A goal will stand here",

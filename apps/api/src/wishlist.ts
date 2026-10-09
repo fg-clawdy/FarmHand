@@ -13,7 +13,7 @@
  * seam is already here so those slots in as additive providers.
  */
 import { DateTime } from "luxon";
-import { canAfford, starCostForPriceCents } from "@farmhand/shared";
+import { canAfford, pointCostForPriceCents } from "@farmhand/shared";
 import { prisma } from "./db.js";
 import { httpError } from "./chores.js";
 import { loadConfig } from "./game.js";
@@ -277,7 +277,7 @@ async function upsertScrapedItems(
     });
 
     if (!existing) {
-      const starCost = it.priceCents == null ? null : starCostForPriceCents(it.priceCents);
+      const pointCost = it.priceCents == null ? null : pointCostForPriceCents(it.priceCents);
       const status =
         it.priceCents != null && autoConfirmFor(mode, it.priceCents, thresholdCents)
           ? "CONFIRMED"
@@ -291,7 +291,7 @@ async function upsertScrapedItems(
           productUrl: it.productUrl,
           imageUrl: it.imageUrl,
           priceCents: it.priceCents,
-          starCost,
+          pointCost,
           status,
           needsAttention: it.priceCents == null,
           lastSeenAt: now,
@@ -307,13 +307,13 @@ async function upsertScrapedItems(
       imageUrl: string | null;
       lastSeenAt: Date;
       priceCents?: number | null;
-      starCost?: number | null;
+      pointCost?: number | null;
       needsAttention?: boolean;
       status?: "PENDING" | "CONFIRMED";
     } = { title: it.title, productUrl: it.productUrl, imageUrl: it.imageUrl, lastSeenAt: now };
     if (existing.status === "PENDING") {
       data.priceCents = it.priceCents;
-      data.starCost = it.priceCents == null ? null : starCostForPriceCents(it.priceCents);
+      data.pointCost = it.priceCents == null ? null : pointCostForPriceCents(it.priceCents);
       data.needsAttention = it.priceCents == null;
       if (it.priceCents != null && autoConfirmFor(mode, it.priceCents, thresholdCents)) {
         data.status = "CONFIRMED";
@@ -411,7 +411,7 @@ export function publicWishlistItem(row: {
   productUrl: string | null;
   imageUrl: string | null;
   priceCents: number | null;
-  starCost: number | null;
+  pointCost: number | null;
   status: string;
   needsAttention: boolean;
   lastSeenAt: Date | null;
@@ -425,7 +425,7 @@ export function publicWishlistItem(row: {
     productUrl: row.productUrl,
     imageUrl: row.imageUrl,
     priceCents: row.priceCents,
-    starCost: row.starCost,
+    pointCost: row.pointCost,
     status: row.status,
     needsAttention: row.needsAttention,
     lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
@@ -459,7 +459,7 @@ export async function confirmWishlistItem(id: string, priceCents: number) {
   if (!item) throw httpError("That wish isn't here.", 404);
   return prisma.wishlistItem.update({
     where: { id },
-    data: { priceCents: cents, starCost: starCostForPriceCents(cents), status: "CONFIRMED", needsAttention: false },
+    data: { priceCents: cents, pointCost: pointCostForPriceCents(cents), status: "CONFIRMED", needsAttention: false },
   });
 }
 
@@ -497,7 +497,7 @@ export async function createManualWishlistItem(opts: {
       title,
       productUrl: opts.productUrl?.trim() || null,
       priceCents: cents,
-      starCost: cents == null ? null : starCostForPriceCents(cents),
+      pointCost: cents == null ? null : pointCostForPriceCents(cents),
       status: cents == null ? "PENDING" : "CONFIRMED",
       needsAttention: cents == null,
     },
@@ -507,9 +507,9 @@ export async function createManualWishlistItem(opts: {
 // ---- Player-facing: confirmed items merge into the store ----
 
 /** Confirmed wishlist rows, shaped like store catalog rows so the player store can merge them. */
-export async function confirmedWishlistCatalog(playerId: string, currentStars: number, heldStars: number) {
+export async function confirmedWishlistCatalog(playerId: string, points: number, heldPoints: number) {
   const rows = await prisma.wishlistItem.findMany({
-    where: { playerId, status: "CONFIRMED", starCost: { gte: 1 } },
+    where: { playerId, status: "CONFIRMED", pointCost: { gte: 1 } },
     orderBy: { updatedAt: "asc" },
   });
   return rows.map((row, i) => ({
@@ -519,11 +519,11 @@ export async function confirmedWishlistCatalog(playerId: string, currentStars: n
     emoji: "🎁",
     imageUrl: row.imageUrl,
     description: "",
-    starCost: row.starCost ?? 0,
+    pointCost: row.pointCost ?? 0,
     isActive: true,
     sortOrder: 900 + i,
     wishlistItemId: row.id,
-    affordable: canAfford(currentStars, heldStars, row.starCost ?? 0),
+    affordable: canAfford(points, heldPoints, row.pointCost ?? 0),
   }));
 }
 

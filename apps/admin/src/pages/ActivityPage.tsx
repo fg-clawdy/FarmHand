@@ -1,4 +1,4 @@
-import { MASCOT_EMOJI, type Mascot } from "@farmhand/shared";
+import { CURRENCY_DISPLAY, formatPointsNoun, MASCOT_EMOJI, type Mascot } from "@farmhand/shared";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 
@@ -30,7 +30,7 @@ export default function ActivityPage() {
           </h2>
           <p>
             Totals: {row.totals.logins} logins · {row.totals.waterings} waterings · {row.totals.harvests} harvests ·{" "}
-            {row.totals.points} stars
+            {formatPointsNoun(row.totals.points)}
           </p>
           <table>
             <thead>
@@ -39,7 +39,7 @@ export default function ActivityPage() {
                 <th>Logins</th>
                 <th>Waterings</th>
                 <th>Harvests</th>
-                <th>Stars</th>
+                <th>{CURRENCY_DISPLAY.noun}</th>
               </tr>
             </thead>
             <tbody>

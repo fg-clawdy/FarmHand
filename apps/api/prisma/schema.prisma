@@ -75,7 +75,7 @@ enum WishlistItemStatus {
   PURCHASED
 }
 
-enum StarLedgerKind {
+enum PointLedgerKind {
   EARN_HARVEST
   EARN_GRANT
   HOLD_REWARD
@@ -119,6 +119,7 @@ model Player {
   avatarKind               String          @default("mascot")
   avatarPreset             String?
   avatarSelfieFile         String?
+  color                    String?
   pinHash                 String?
   seeds                   Int             @default(10)
   provisionalSeeds        Int             @default(0)
@@ -154,12 +155,14 @@ model Player {
   accoladeDays            AccoladeActiveDay[]
   accoladeUnlocks         AccoladeUnlock[]
   storeRedemptions        StoreRedemption[]
-  starLedger              StarLedgerEvent[]
+  pointLedger             PointLedgerEvent[]
   choreBoardEvents        ChoreBoardEvent[]
   choreHeats              ChoreHeat[]
   basketItems             BasketItem[]
   sharedGoalEvents        SharedGoalEvent[]
   wishlistItems           WishlistItem[]
+  systemAlerts            SystemAlert[]
+  pointsReconciliationRuns PointsReconciliationRun[]
 }
 
 /// Produce picked but not yet sold. Stars stay here until Farmers Market sale.
@@ -458,7 +461,7 @@ model StoreSku {
   title        String
   emoji        String
   description  String            @default("")
-  starCost     Int
+  pointCost    Int
   isActive     Boolean           @default(true)
   sortOrder    Int               @default(0)
   createdAt    DateTime          @default(now())
@@ -477,7 +480,7 @@ model WishlistItem {
   productUrl     String?
   imageUrl       String?
   priceCents     Int?
-  starCost       Int?
+  pointCost      Int?
   status         WishlistItemStatus @default(PENDING)
   needsAttention Boolean            @default(false)
   lastSeenAt     DateTime?
@@ -503,8 +506,8 @@ model StoreRedemption {
   title             String
   emoji             String
   description       String                @default("")
-  starCost          Int
-  starsHeld         Int
+  pointCost         Int
+  pointsHeld        Int
   requestedAt       DateTime              @default(now())
   resolvedAt        DateTime?
   resolvedByAdminId String?
@@ -516,7 +519,7 @@ model StoreRedemption {
   redeemedByAdminId String?
   redeemedBy        Admin?                @relation("StoreRedeemed", fields: [redeemedByAdminId], references: [id], onDelete: SetNull)
   events            StoreRewardEvent[]
-  ledgerEvents      StarLedgerEvent[]
+  ledgerEvents      PointLedgerEvent[]
 
   @@index([playerId, status])
   @@index([status, requestedAt])
@@ -535,11 +538,11 @@ model StoreRewardEvent {
   @@index([redemptionId, createdAt])
 }
 
-model StarLedgerEvent {
+model PointLedgerEvent {
   id              String           @id @default(uuid())
   playerId        String
   player          Player           @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  kind            StarLedgerKind
+  kind            PointLedgerKind
   amount          Int
   idempotencyKey  String           @unique
   redemptionId    String?
@@ -646,7 +649,7 @@ model SharedGoal {
   id           String              @id @default(uuid())
   title        String
   emoji        String
-  targetStars  Int
+  targetPoints Int
   status       SharedGoalStatus    @default(WAITING)
   sortOrder    Int                 @default(0)
   createdAt    DateTime            @default(now())
@@ -677,4 +680,94 @@ model SharedGoalEvent {
 
   @@index([goalId, createdAt])
   @@index([playerId, createdAt])
+}
+enum SystemAlertStatus {
+  OPEN
+  RESOLVED
+}
+
+/// Raised when an invariant is violated (e.g. Player.points != ledger).
+model SystemAlert {
+  id         String            @id @default(uuid())
+  kind       String
+  severity   String            @default("warning") // "info" | "warning" | "critical"
+  message    String
+  details    Json?
+  playerId   String?
+  player     Player?           @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  status     SystemAlertStatus @default(OPEN)
+  resolvedAt DateTime?
+  createdAt  DateTime          @default(now())
+
+  @@index([status, createdAt])
+  @@index([kind, createdAt])
+}
+
+/// Append-only reconciliation run. One row per check. Watermark = ledgerHighWater.
+model PointsReconciliationRun {
+  id              String   @id @default(uuid())
+  playerId        String
+  player          Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  ledgerPoints    Int
+  storedPoints    Int
+  matched         Boolean
+  repaired        Boolean  @default(false)
+  ledgerHighWater String?  // idempotencyKey of the newest ledger row processed
+  createdAt       DateTime @default(now())
+
+  @@index([playerId, createdAt])
+}
+enum RecommendationSetStatus {
+  OPEN
+  RESOLVED
+  SUPERSEDED
+}
+
+enum TuningChangeStatus {
+  PENDING
+  APPLIED
+  DISMISSED
+  SUPERSEDED
+}
+
+/// One balance-agent run. `snapshot` is the immutable window the model saw (for
+/// review/discuss). Settings transition OPEN -> RESOLVED/SUPERSEDED only.
+model RecommendationSet {
+  id         String                  @id @default(uuid())
+  status     RecommendationSetStatus @default(OPEN)
+  snapshot   Json                    // balanceKnobs + 7d/30d windows + balanceGoals fingerprint
+  modelIds   Json                    // { decision, text, explain }
+  summary    String                  // plain-language headline
+  notifiedAt DateTime?
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+
+  changes TuningChange[]
+
+  @@index([status, createdAt])
+}
+
+/// A single proposed knob delta, addressed by JSON path into GameConfigRow.data.
+/// Values are JSON-encoded strings so they round-trip exactly and are only
+/// evaluated/bound when a parent applies (or overrides) them.
+model TuningChange {
+  id              String            @id @default(uuid())
+  setId           String
+  path            String
+  label           String
+  unit            String
+  baselineValue   String
+  proposedValue   String
+  appliedValue    String?
+  rationale       String
+  status          TuningChangeStatus @default(PENDING)
+  sortOrder       Int               @default(0)
+  appliedAt       DateTime?
+  appliedByAdminId String?
+  createdAt       DateTime          @default(now())
+
+  set RecommendationSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+
+  @@index([setId, status, sortOrder])
+  @@index([setId, status])
 }

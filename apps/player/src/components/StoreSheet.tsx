@@ -1,4 +1,4 @@
-import { type FarmPlayerCard } from "@farmhand/shared";
+import { CURRENCY_DISPLAY, formatPoints, type FarmPlayerCard } from "@farmhand/shared";
 import { useEffect, useState } from "react";
 import { api, type PlayerStore, type StoreSku } from "../api";
 import { FarmStoreArt } from "../art";
@@ -61,7 +61,7 @@ export default function StoreSheet({
       const personal = await api.store();
       const fresh = personal.catalog.find((row) => row.id === sku.id);
       if (fresh && fresh.affordable === false) {
-        setError(`Need ${fresh.starCost}★. ${personal.availableStars}★ ready.`);
+        setError(`Need ${formatPoints(fresh.pointCost)}. ${formatPoints(personal.availablePoints)} ready.`);
         setConfirm(null);
         return;
       }
@@ -90,7 +90,7 @@ export default function StoreSheet({
       setStore(data);
       setConfirm(null);
       setTab("waiting");
-      setToast(`Asked a grown-up for ${sku.title}. ${sku.starCost}★ is set aside for now.`);
+      setToast(`Asked a grown-up for ${sku.title}. ${formatPoints(sku.pointCost)} is set aside for now.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn't work.");
     } finally {
@@ -113,8 +113,8 @@ export default function StoreSheet({
   if (identify) {
     return (
       <WhoseKidPicker
-        title="Whose stars?"
-        copy="Pick who is spending or checking rewards. Browse is open to everyone; spending uses that kid's stars."
+        title={`Whose ${CURRENCY_DISPLAY.noun}?`}
+        copy={`Pick who is spending or checking rewards. Browse is open to everyone; spending uses that kid's ${CURRENCY_DISPLAY.noun}.`}
         players={players}
         onCancel={() => setIdentify(null)}
         onIdentified={(player) => void afterIdentified(player.id)}
@@ -136,18 +136,18 @@ export default function StoreSheet({
             <p className="store-balance">
               {shopper && store ? (
                 <>
-                  <span className="store-wallet-name">{shopper.name}'s stars</span>
+                  <span className="store-wallet-name">{shopper.name}'s {CURRENCY_DISPLAY.noun}</span>
                   <span className="store-wallet-count">
-                    <strong>{store.availableStars}★</strong> ready
+                    <strong>{formatPoints(store.availablePoints)}</strong> ready
                   </span>
-                  {store.starsHeld > 0 && (
+                  {store.heldPoints > 0 && (
                     <span className="store-wallet-held">
-                      <ClockIcon /> {store.starsHeld}★ waiting on a grown-up
+                      <ClockIcon /> {formatPoints(store.heldPoints)} waiting on a grown-up
                     </span>
                   )}
                 </>
               ) : (
-                <span className="store-wallet-name">Pick whose stars · catalog is open to browse</span>
+                <span className="store-wallet-name">Pick whose {CURRENCY_DISPLAY.noun} · catalog is open to browse</span>
               )}
             </p>
           </div>
@@ -215,8 +215,8 @@ export default function StoreSheet({
                 Ask a grown-up for {confirm.emoji} <strong>{confirm.title}</strong>?
               </p>
               <p className="store-confirm-copy">
-                We'll keep <strong>{confirm.starCost}★</strong> set aside while they decide. If they say yes, it's yours
-                to use later. If they say no, you get the stars back.
+                We'll keep <strong>{formatPoints(confirm.pointCost)}</strong> set aside while they decide. If they say yes, it's yours
+                to use later. If they say no, you get the {CURRENCY_DISPLAY.noun} back.
               </p>
               <div className="sheet-actions">
                 <button className="btn primary" type="button" disabled={busy} onClick={() => void requestSku(confirm)}>
@@ -232,7 +232,7 @@ export default function StoreSheet({
       }
     >
       <p className="muted store-note">
-        Ask for a reward here. Your Profile keeps the full story — earned stars, used rewards, and badges.
+        Ask for a reward here. Your Profile keeps the full story — earned {CURRENCY_DISPLAY.noun}, used rewards, and badges.
       </p>
       {toast && (
         <p className="store-toast" role="status">
@@ -254,7 +254,7 @@ export default function StoreSheet({
               <span className="store-row-emoji">{row.emoji}</span>
               <span className="store-row-title">{row.title}</span>
               <span className="store-tag">
-                <StarIcon /> {row.starCost}★ set aside
+                <StarIcon /> {formatPoints(row.pointCost)} set aside
               </span>
             </p>
           ))}
@@ -271,7 +271,7 @@ export default function StoreSheet({
               <span className="store-row-emoji">{row.emoji}</span>
               <span className="store-row-title">{row.title}</span>
               <span className="store-tag store-tag--owned">
-                <CheckIcon /> yours · {row.starCost}★
+                <CheckIcon /> yours · {formatPoints(row.pointCost)}
               </span>
             </p>
           ))}
@@ -296,7 +296,7 @@ export default function StoreSheet({
                     return;
                   }
                   if (unaffordable) {
-                    setError(`Need ${sku.starCost}★. You have ${store?.availableStars}★ ready.`);
+                    setError(`Need ${formatPoints(sku.pointCost)}. You have ${formatPoints(store?.availablePoints ?? 0)} ready.`);
                     return;
                   }
                   setConfirm(sku);
@@ -310,9 +310,9 @@ export default function StoreSheet({
                 <strong className="store-card-title">{sku.title}</strong>
                 {sku.description && <span className="store-card-copy">{sku.description}</span>}
                 <span className="store-card-cost">
-                  <StarIcon /> {sku.starCost}★
+                  <StarIcon /> {formatPoints(sku.pointCost)}
                 </span>
-                {unaffordable && <span className="store-card-need">Need more stars</span>}
+                {unaffordable && <span className="store-card-need">Need more {CURRENCY_DISPLAY.noun}</span>}
               </button>
             );
           })}

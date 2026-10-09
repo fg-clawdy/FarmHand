@@ -1,4 +1,4 @@
-import { MASCOT_EMOJI } from "@farmhand/shared";
+import { CURRENCY_DISPLAY, formatPoints, MASCOT_EMOJI } from "@farmhand/shared";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, type AdminPlayer } from "../api";
@@ -50,13 +50,13 @@ export default function PlayerDetailPage() {
       </p>
       {player.wallet && (
         <p className="muted">
-          {player.wallet.availableStars}★ ready
-          {player.wallet.heldStars > 0 ? ` · ${player.wallet.heldStars}★ waiting` : ""}
+          {formatPoints(player.wallet.availablePoints)} ready
+          {player.wallet.heldPoints > 0 ? ` · ${formatPoints(player.wallet.heldPoints)} waiting` : ""}
           {" · "}
-          {player.wallet.lifetimeEarned}★ earned all time
-          {player.wallet.lifetimeSpent > 0 ? ` · ${player.wallet.lifetimeSpent}★ spent` : ""}
+          {formatPoints(player.wallet.lifetimeEarned)} earned all time
+          {player.wallet.lifetimeSpent > 0 ? ` · ${formatPoints(player.wallet.lifetimeSpent)} spent` : ""}
           {typeof player.wallet.lifetimeEarnedHarvest === "number"
-            ? ` · ${player.wallet.lifetimeEarnedHarvest}★ from harvest`
+            ? ` · ${formatPoints(player.wallet.lifetimeEarnedHarvest)} from harvest`
             : ""}
         </p>
       )}
@@ -132,7 +132,7 @@ export default function PlayerDetailPage() {
           {(
             [
               ["seeds", "Seeds"],
-              ["points", "Stars"],
+              ["points", CURRENCY_DISPLAY.noun],
               ["fertilizer", "Fertilizer"],
               ["moonDew", "Moon Dew"],
               ["growGoo", "Grow Goo"],
@@ -154,7 +154,7 @@ export default function PlayerDetailPage() {
           <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="birthday bonus, oops, …" />
         </label>
         <p className="muted">
-          SET stars writes an admin adjustment. It does not count as gameplay-earned. Use grant-stars when you mean
+          SET {CURRENCY_DISPLAY.noun} writes an admin adjustment. It does not count as gameplay-earned. Use grant-points when you mean
           “this kid earned these.”
         </p>
         <button

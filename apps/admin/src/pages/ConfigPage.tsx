@@ -1,4 +1,4 @@
-import { formatDuration, type GameConfig } from "@farmhand/shared";
+import { CURRENCY_DISPLAY, formatDuration, formatPointsNoun, type GameConfig } from "@farmhand/shared";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
@@ -36,7 +36,7 @@ export default function ConfigPage() {
         <h2>A new kid starts with</h2>
         <div className="row">
           <Num label="Starting seeds" hint="Pocket change on day one" value={config.startingSeeds} onChange={(v) => num("startingSeeds", v)} />
-          <Num label="Starting stars" hint="Points, not seeds" value={config.startingPoints} onChange={(v) => num("startingPoints", v)} />
+          <Num label={`Starting ${CURRENCY_DISPLAY.noun}`} hint={`${CURRENCY_DISPLAY.noun}, not seeds`} value={config.startingPoints} onChange={(v) => num("startingPoints", v)} />
           <Num label="Starting fertilizer" hint="Bottles on the shelf" value={config.startingFertilizer} onChange={(v) => num("startingFertilizer", v)} />
         </div>
       </div>
@@ -93,7 +93,7 @@ export default function ConfigPage() {
       <div className="card" style={{ marginTop: 16 }}>
         <h2>Crops — time, cost, and fertilizer</h2>
         <p className="muted">
-          Corn, strawberry, and cotton are the same for now: 1 seed to plant, 24 hours, 25 stars on harvest. Pick by
+          Corn, strawberry, and cotton are the same for now: 1 seed to plant, 24 hours, {formatPointsNoun(25)} on harvest. Pick by
           look, not by a ladder. Fertilizer shave can still differ per crop. Reset to defaults restores this flat table.
         </p>
         <table>
@@ -103,7 +103,7 @@ export default function ConfigPage() {
               <th>Name</th>
               <th>Seeds to plant</th>
               <th>How long until harvest (min)</th>
-              <th>Stars on harvest</th>
+              <th>{CURRENCY_DISPLAY.noun} on harvest</th>
               <th>Fertilizer shaves off (min)</th>
             </tr>
           </thead>

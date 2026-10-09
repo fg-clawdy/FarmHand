@@ -23,6 +23,7 @@ export type GardenPlayer = {
   avatarKind?: string;
   avatarPreset?: string | null;
   avatarUrl?: string | null;
+  color?: string | null;
   seeds: number;
   provisionalSeeds: number;
   notifyParent?: { allowed: boolean; retryAt: string | null; retryInMs: number };
@@ -112,6 +113,18 @@ export type ActivePlaybook = {
   items: Array<{ chore: PublicChore; claimed: boolean }>;
 };
 
+/** An incomplete, currently-open playbook grouped by kid for the farm overview. */
+export type FarmPlaybookMission = {
+  playerId: string;
+  playerName: string;
+  mascot: FarmPlayerCard["mascot"];
+  avatarKind?: string | null;
+  avatarPreset?: string | null;
+  avatarUrl?: string | null;
+  color?: string | null;
+  playbook: ActivePlaybook;
+};
+
 export type FamilyJob = {
   id: string;
   slug: string;
@@ -134,7 +147,7 @@ export type ReviewPeriodKey = "day" | "week" | "season" | "all";
 export type ReviewKpis = {
   label: string;
   rangeLabel: string;
-  starsEarned: number;
+  pointsEarned: number;
   harvests: number;
   freeSeeds: number;
   plantings: number;
@@ -217,7 +230,7 @@ export type StoreSku = {
   title: string;
   emoji: string;
   description: string;
-  starCost: number;
+  pointCost: number;
   isActive: boolean;
   /** Set on confirmed Amazon-wishlist items; null on regular catalog SKUs. */
   wishlistItemId?: string | null;
@@ -233,8 +246,8 @@ export type StoreRedemption = {
   title: string;
   emoji: string;
   description?: string;
-  starCost: number;
-  starsHeld: number;
+  pointCost: number;
+  pointsHeld: number;
   requestedAt: string;
   resolvedAt: string | null;
   approvedAt?: string | null;
@@ -242,29 +255,28 @@ export type StoreRedemption = {
   redeemedAt?: string | null;
 };
 
-export type StarWallet = {
-  currentStars: number;
+export type PointWallet = {
   points: number;
-  heldStars: number;
-  starsHeld: number;
-  availableStars: number;
+  heldPoints: number;
+  availablePoints: number;
   lifetimeEarned: number;
   lifetimeEarnedHarvest: number;
   lifetimeEarnedGrant: number;
   lifetimeEarnedLegacy: number;
   lifetimeSpent: number;
+  lifetimeGiven: number;
   adjustNet: number;
 };
 
-export type PlayerStore = StarWallet & {
+export type PlayerStore = PointWallet & {
   catalog: StoreSku[];
   pending: StoreRedemption[];
   owned: StoreRedemption[];
 };
 
 export type KidProfile = {
-  player: { id: string; name: string; mascot: GardenPlayer["mascot"]; garden: string; avatarKind?: string; avatarPreset?: string | null; avatarUrl?: string | null };
-  wallet: StarWallet;
+  player: { id: string; name: string; mascot: GardenPlayer["mascot"]; garden: string; avatarKind?: string; avatarPreset?: string | null; avatarUrl?: string | null; color?: string | null };
+  wallet: PointWallet;
   pouch: { seeds: number; provisionalSeeds: number; fertilizer: number };
   selfies: Array<{ file: string; url: string }>;
   rewards: {
@@ -312,11 +324,12 @@ export function reportClientError(body: {
 }
 
 export type SharedGoalPour = {
-  availableStars: number;
-  currentStars: number;
-  filledStars: number;
+  availablePoints: number;
+  points: number;
+  filledPoints: number;
   status: PublicSharedGoal["status"];
-  targetStars: number;
+  targetPoints: number;
+  title: string;
   giveKey?: string;
   amount?: number;
 };
@@ -332,6 +345,7 @@ export const api = {
       familyJars?: PublicSharedGoal[];
     }>("/api/farm"),
   farmJobs: () => request<{ jobs: FamilyJob[]; timezone: string }>("/api/farm/jobs"),
+  farmPlaybooks: () => request<{ missions: FarmPlaybookMission[]; timezone: string }>("/api/farm/playbooks"),
   session: () => request<{ player: GardenPlayer | null; config?: GameConfig }>("/api/session"),
   enter: (id: string, pin?: string) =>
     request<{ player: GardenPlayer; config: GameConfig; skippedPin: boolean }>(`/api/players/${id}/enter`, {
@@ -414,7 +428,7 @@ export const api = {
   store: () => request<PlayerStore>("/api/store"),
   storeCatalog: () => request<{ catalog: StoreSku[] }>("/api/store/catalog"),
   requestStore: (subject: { skuId?: string; wishlistItemId?: string }) =>
-    request<PlayerStore & { ok: boolean; redemption: { id: string; title: string; emoji: string; starCost: number } }>(
+    request<PlayerStore & { ok: boolean; redemption: { id: string; title: string; emoji: string; pointCost: number } }>(
       "/api/store/request",
       { method: "POST", body: JSON.stringify(subject) },
     ),
@@ -429,13 +443,18 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  setColor: (color: string) =>
+    request<{ player: GardenPlayer }>("/api/color", {
+      method: "POST",
+      body: JSON.stringify({ color }),
+    }),
   avatarPresets: () =>
     request<{ presets: Array<{ id: string; emoji: string; label: string }> }>("/api/avatar/presets"),
   familyJar: () =>
     request<{ familyJar: PublicSharedGoal | null; familyJars?: PublicSharedGoal[] }>("/api/shared-goal/active"),
-  giveStars: (body: { goalId: string; amount: number; requestId: string }) =>
+  givePoints: (body: { goalId: string; amount: number; requestId: string }) =>
     request<SharedGoalPour>("/api/shared-goal/give", { method: "POST", body: JSON.stringify(body) }),
-  putBackStars: (body: { goalId: string; giveKey: string }) =>
+  putBackPoints: (body: { goalId: string; giveKey: string }) =>
     request<SharedGoalPour>("/api/shared-goal/put-back", { method: "POST", body: JSON.stringify(body) }),
   markFamilyJarCoach: () =>
     request<{ ok: boolean; familyJarCoach: boolean }>("/api/shared-goal/coach-seen", {

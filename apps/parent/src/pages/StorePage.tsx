@@ -1,3 +1,4 @@
+import { CURRENCY_DISPLAY, formatPoints } from "@farmhand/shared";
 import { useEffect, useState } from "react";
 import { api, type ParentKid, type ParentRedemption, type ParentStoreSku, type SkuWrite } from "../api";
 import { pendingApprovalSubjects, syncApprovalNotifications } from "../push";
@@ -8,7 +9,7 @@ type SkuForm = {
   title: string;
   emoji: string;
   description: string;
-  starCost: string;
+  pointCost: string;
   isActive: boolean;
 };
 
@@ -16,7 +17,7 @@ const blankForm: SkuForm = {
   title: "",
   emoji: "⭐",
   description: "",
-  starCost: "100",
+  pointCost: "100",
   isActive: true,
 };
 
@@ -25,7 +26,7 @@ function fromSku(sku: ParentStoreSku): SkuForm {
     title: sku.title,
     emoji: sku.emoji,
     description: sku.description,
-    starCost: String(sku.starCost),
+    pointCost: String(sku.pointCost),
     isActive: sku.isActive,
   };
 }
@@ -35,7 +36,7 @@ function toWrite(form: SkuForm): SkuWrite {
     title: form.title,
     emoji: form.emoji,
     description: form.description,
-    starCost: Number(form.starCost),
+    pointCost: Number(form.pointCost),
     isActive: form.isActive,
   };
 }
@@ -141,8 +142,8 @@ export default function StorePage() {
     <div>
       <h2>Store</h2>
       <p className="muted">
-        Kids spend <strong>stars</strong> on real-world promises (1★ = 1¢). A request sets stars aside.{" "}
-        <strong>Approve</strong> turns the request into an owned reward. <strong>Deny</strong> gives the stars back.
+        Kids spend <strong>{CURRENCY_DISPLAY.noun}</strong> on real-world promises ({formatPoints(1)} = 1¢). A request sets {CURRENCY_DISPLAY.noun} aside.{" "}
+        <strong>Approve</strong> turns the request into an owned reward. <strong>Deny</strong> gives the {CURRENCY_DISPLAY.noun} back.
         Later, <strong>Mark redeemed</strong> when it actually happens. Full history also lives on each kid's Profile.
       </p>
       <SharedGoalsPage />
@@ -150,15 +151,15 @@ export default function StorePage() {
 
       {kids.length > 0 && (
         <>
-          <h3>Star wallets</h3>
+          <h3>{CURRENCY_DISPLAY.nounSingular} wallets</h3>
           <div className="claim-list">
             {kids.map((kid) => (
               <article key={kid.id} className="card">
                 <h3 style={{ marginTop: 0 }}>{kid.name}</h3>
                 <p className="muted" style={{ marginTop: 0 }}>
-                  {kid.wallet?.availableStars ?? "—"}★ ready
-                  {kid.wallet && kid.wallet.heldStars > 0 ? ` · ${kid.wallet.heldStars}★ waiting` : ""}
-                  {kid.wallet ? ` · ${kid.wallet.lifetimeEarned}★ earned all time` : ""}
+                  {kid.wallet ? formatPoints(kid.wallet.availablePoints) : "—"} ready
+                  {kid.wallet && kid.wallet.heldPoints > 0 ? ` · ${formatPoints(kid.wallet.heldPoints)} waiting` : ""}
+                  {kid.wallet ? ` · ${formatPoints(kid.wallet.lifetimeEarned)} earned all time` : ""}
                 </p>
               </article>
             ))}
@@ -178,7 +179,7 @@ export default function StorePage() {
               <div>
                 <h3>{row.title}</h3>
                 <p>
-                  {row.player.name} · {row.starCost}★ set aside
+                  {row.player.name} · {formatPoints(row.pointCost)} set aside
                 </p>
                 {row.productUrl && (
                   <p>
@@ -262,7 +263,7 @@ export default function StorePage() {
       )}
 
       <h3>Catalog</h3>
-      <p className="muted">Change the title, emoji, or star cost here. Turning a reward off hides it from kids. Old requests keep the price they asked at.</p>
+      <p className="muted">Change the title, emoji, or ${CURRENCY_DISPLAY.nounSingular} cost here. Turning a reward off hides it from kids. Old requests keep the price they asked at.</p>
       <div className="row" style={{ marginBottom: 16 }}>
         <button
           className="btn sage"
@@ -302,7 +303,7 @@ export default function StorePage() {
                   )}
                 </h3>
                 <p>
-                  {sku.starCost}★
+                  {formatPoints(sku.pointCost)}
                   {sku.description ? ` · ${sku.description}` : ""}
                 </p>
               </div>
@@ -378,13 +379,13 @@ function SkuEditor({
         <input value={form.emoji} onChange={(e) => setForm({ ...form, emoji: e.target.value })} />
       </label>
       <label className="field">
-        Star cost
+        {CURRENCY_DISPLAY.nounSingular} cost
         <input
           type="number"
           min={1}
           step={1}
-          value={form.starCost}
-          onChange={(e) => setForm({ ...form, starCost: e.target.value })}
+          value={form.pointCost}
+          onChange={(e) => setForm({ ...form, pointCost: e.target.value })}
           required
         />
       </label>
