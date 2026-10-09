@@ -2,6 +2,7 @@
 import {
   closeLeftoverClearNotifications,
   closeMatching,
+  closeResolvedTags,
   dismissClearPush,
   mustPresentClearNotification,
 } from "./push-clear.js";
@@ -70,21 +71,19 @@ async function handlePush(event) {
     return;
   }
 
+  await showVisible(payload, payload.type === "info" ? {} : {
+    requireInteraction: Boolean(payload.critical),
+    actions: [
+      { action: "approve", title: "Approve" },
+      { action: "deny", title: "Deny" },
+    ],
+  });
+}
+
+async function showVisible(payload, extra) {
+  await closeResolvedTags(self.registration, payload.resolvedTags);
   const existing = await self.registration.getNotifications({ tag: payload.tag });
   existing.forEach((note) => note.close());
-
-  if (payload.type === "info") {
-    await self.registration.showNotification(payload.title || "FarmHand", {
-      body: payload.body,
-      tag: payload.tag,
-      data: payload,
-      icon: "/parent/icon.svg",
-      badge: "/parent/icon.svg",
-      renotify: true,
-    });
-    return;
-  }
-
   await self.registration.showNotification(payload.title || "FarmHand", {
     body: payload.body,
     tag: payload.tag,
@@ -92,12 +91,9 @@ async function handlePush(event) {
     icon: "/parent/icon.svg",
     badge: "/parent/icon.svg",
     renotify: true,
-    requireInteraction: Boolean(payload.critical),
-    actions: [
-      { action: "approve", title: "Approve" },
-      { action: "deny", title: "Deny" },
-    ],
+    ...extra,
   });
+  await closeResolvedTags(self.registration, payload.resolvedTags, payload.tag);
 }
 
 async function actFromNotification(data, action) {

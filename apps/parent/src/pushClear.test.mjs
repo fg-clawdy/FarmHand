@@ -7,6 +7,7 @@ import {
   CLEAR_STAND_IN_TITLE,
   approvalIdentity,
   closeLeftoverClearNotifications,
+  closeResolvedTags,
   closeStaleApprovalNotifications,
   dismissClearPush,
   isStaleApprovalNotification,
@@ -294,6 +295,89 @@ test("only WebKit clients must present a stand-in for a clear push", () => {
   );
 });
 
+test("a coalesced clear closes every tag and shows nothing on chromium", async () => {
+  const reg = createRegistration([
+    {
+      title: "Chore A",
+      tag: "approval:chore_claim:a",
+      data: { type: "approval_request", kind: "chore_claim", subjectId: "a" },
+    },
+    {
+      title: "Store B",
+      tag: "approval:store_redemption:b",
+      data: { type: "approval_request", kind: "store_redemption", subjectId: "b" },
+    },
+    {
+      title: "Leave me",
+      tag: "approval:chore_claim:c",
+      data: { type: "approval_request", kind: "chore_claim", subjectId: "c" },
+    },
+  ]);
+  await dismissClearPush(reg, {
+    type: "clear",
+    tag: "approval:chore_claim:a",
+    kind: "chore_claim",
+    subjectId: "a",
+    tags: ["approval:chore_claim:a", "approval:store_redemption:b"],
+    subjects: [
+      { tag: "approval:chore_claim:a", kind: "chore_claim", subjectId: "a" },
+      { tag: "approval:store_redemption:b", kind: "store_redemption", subjectId: "b" },
+    ],
+  }, { presentStandIn: false });
+  assert.equal(reg.showCalls.length, 0);
+  assert.deepEqual((await reg.getNotifications()).map((item) => item.tag), ["approval:chore_claim:c"]);
+});
+
+test("webkit coalesced clear still shows a single blank stand-in", async () => {
+  const reg = createRegistration([
+    { title: "A", tag: "approval:chore_claim:a", data: { type: "approval_request", kind: "chore_claim", subjectId: "a" } },
+    { title: "B", tag: "approval:chore_claim:b", data: { type: "approval_request", kind: "chore_claim", subjectId: "b" } },
+  ]);
+  await dismissClearPush(reg, {
+    type: "clear",
+    tag: "approval:chore_claim:a",
+    kind: "chore_claim",
+    subjectId: "a",
+    subjects: [
+      { tag: "approval:chore_claim:a", kind: "chore_claim", subjectId: "a" },
+      { tag: "approval:chore_claim:b", kind: "chore_claim", subjectId: "b" },
+    ],
+  }, {
+    presentStandIn: true,
+    wait: async () => {
+      for (const item of reg.notes) item.posted = true;
+    },
+  });
+  assert.equal(reg.showCalls.length, 1);
+  assert.equal(reg.showCalls[0].options.silent, true);
+  assert.equal((await reg.getNotifications()).length, 0);
+});
+
+test("a visible push closes piggybacked resolved tags and keeps the new card", async () => {
+  const reg = createRegistration([
+    {
+      title: "Old chore",
+      tag: "approval:chore_claim:old",
+      data: { type: "approval_request", kind: "chore_claim", subjectId: "old", tag: "approval:chore_claim:old" },
+    },
+    {
+      title: "Still waiting",
+      tag: "approval:chore_claim:keep",
+      data: { type: "approval_request", kind: "chore_claim", subjectId: "keep" },
+    },
+  ]);
+  const resolved = ["approval:chore_claim:old", "approval:chore_claim:new"];
+  await closeResolvedTags(reg, resolved);
+  await reg.showNotification("New chore", {
+    tag: "approval:chore_claim:new",
+    data: { type: "approval_request", kind: "chore_claim", subjectId: "new" },
+  });
+  for (const item of reg.notes) item.posted = true;
+  await closeResolvedTags(reg, resolved, "approval:chore_claim:new");
+  const open = await reg.getNotifications();
+  assert.deepEqual(open.map((item) => item.tag).sort(), ["approval:chore_claim:keep", "approval:chore_claim:new"]);
+});
+
 test("service worker clear path does not show the replacement banner", () => {
   const sw = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
   const register = readFileSync(new URL("./push.ts", import.meta.url), "utf8");
@@ -303,4 +387,5 @@ test("service worker clear path does not show the replacement banner", () => {
   assert.doesNotMatch(sw, /Taken care of/);
   assert.doesNotMatch(sw, /Another grown-up/);
   assert.match(register, /type:\s*"module"/);
+  assert.match(sw, /closeResolvedTags/);
 });

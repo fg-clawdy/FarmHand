@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   approvalTag,
   buildClearPayload,
+  buildCoalescedClearPayload,
   buildRequestPayload,
   choreClaimNotificationCopy,
   isGonePushStatus,
@@ -77,6 +78,20 @@ test("clear payload reuses the tag and carries no replacement banner", () => {
   assert.equal(payload.body, "");
   assert.equal(payload.kind, "chore_claim");
   assert.equal(payload.subjectId, "claim-1");
+  assert.deepEqual(payload.tags, ["approval:chore_claim:claim-1"]);
+});
+
+test("a coalesced clear closes every tag in the burst and still has no banner", () => {
+  const payload = buildCoalescedClearPayload([
+    { kind: "chore_claim", subjectId: "a", tag: "approval:chore_claim:a" },
+    { kind: "store_redemption", subjectId: "b", tag: "approval:store_redemption:b" },
+    { kind: "chore_claim", subjectId: "a", tag: "approval:chore_claim:a" },
+  ]);
+  assert.equal(payload.type, "clear");
+  assert.equal(payload.title, "");
+  assert.equal(payload.body, "");
+  assert.deepEqual(payload.tags, ["approval:chore_claim:a", "approval:store_redemption:b"]);
+  assert.equal(payload.subjects?.length, 2);
 });
 
 test("store redemption copy is ready for the same action pattern", () => {

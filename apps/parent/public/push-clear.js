@@ -13,6 +13,10 @@
  * Safari revokes push permission if a push handler never calls
  * showNotification. Those clients show a blank stand-in, wait until the
  * platform has posted it, then close it. A second pass catches a late post.
+ *
+ * The server spends silent clears sparingly. When it skips one, the next
+ * visible push carries `resolvedTags` and this worker closes those cards
+ * before showing the new notification.
  */
 
 export const CLEAR_POST_DELAY_MS = 1000;
@@ -137,26 +141,66 @@ export async function closeStaleApprovalNotifications(registration, pending) {
   return closed;
 }
 
+export function clearRequestsFromPayload(payload) {
+  if (Array.isArray(payload?.subjects) && payload.subjects.length) {
+    return payload.subjects.map((subject) => ({
+      tag: subject.tag || "",
+      kind: subject.kind || "",
+      subjectId: subject.subjectId || "",
+    }));
+  }
+  if (payload?.tag || payload?.subjectId) {
+    return [{ tag: payload.tag || "", kind: payload.kind || "", subjectId: payload.subjectId || "" }];
+  }
+  return [];
+}
+
+/** Close cards whose tag is in `tags`. `exceptTag` is the notification we just showed. */
+export async function closeResolvedTags(registration, tags, exceptTag) {
+  const wanted = new Set((tags || []).filter((tag) => tag && tag !== exceptTag));
+  if (!wanted.size) return 0;
+  const notes = await listedNotifications(registration);
+  let closed = 0;
+  for (const note of notes) {
+    const data = note?.data || {};
+    const tag = note?.tag || data.tag || "";
+    if (!wanted.has(tag) && !wanted.has(data.tag)) continue;
+    try {
+      note.close();
+      closed += 1;
+    } catch {
+      // ignore
+    }
+  }
+  return closed;
+}
+
+async function closeRequests(registration, requests) {
+  for (const request of requests) await closeMatching(registration, request);
+}
+
 export async function dismissClearPush(registration, payload, options = {}) {
   const presentStandIn = options.presentStandIn === true;
   const wait = options.wait ?? delay;
   const postDelayMs = options.postDelayMs ?? CLEAR_POST_DELAY_MS;
   const retryDelayMs = options.retryDelayMs ?? CLEAR_RETRY_DELAY_MS;
+  const requests = clearRequestsFromPayload(payload);
 
-  await closeMatching(registration, payload);
+  await closeRequests(registration, requests);
   if (!presentStandIn) return;
 
+  const primary = requests[0] || { tag: payload.tag, kind: payload.kind, subjectId: payload.subjectId };
   try {
     await registration.showNotification(CLEAR_STAND_IN_TITLE, {
       body: "",
-      tag: payload.tag,
+      tag: primary.tag,
       silent: true,
       renotify: false,
       data: {
         type: "clear",
-        kind: payload.kind,
-        subjectId: payload.subjectId,
-        tag: payload.tag,
+        kind: primary.kind,
+        subjectId: primary.subjectId,
+        tag: primary.tag,
         ephemeral: true,
       },
       icon: "/parent/icon.svg",
@@ -168,7 +212,7 @@ export async function dismissClearPush(registration, payload, options = {}) {
   // Wait until the OS has posted the stand-in. Closing in the same turn as
   // showNotification is dropped on Android and on some iOS builds.
   await wait(postDelayMs);
-  await closeMatching(registration, payload);
+  await closeRequests(registration, requests);
   await wait(retryDelayMs);
-  await closeMatching(registration, payload);
+  await closeRequests(registration, requests);
 }
