@@ -9,6 +9,7 @@ import { useFarmPixi } from "../pixi/usePixi";
  * `?jars=0|1|2|3|8|overflow` previews little-library shelves on the farm overview.
  * `?sheet=<jar id>` opens the donate sheet over that preview.
  * `?who=<name or id>` preselects that kid, the way a garden session would.
+ * `?markers=1` draws mound crosses and a green outline on the Farm Store hitbox.
  */
 export default function FarmQa() {
   const [params] = useSearchParams();
