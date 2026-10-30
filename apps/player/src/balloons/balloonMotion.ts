@@ -1,4 +1,6 @@
 import {
+  BALLOON_HALF_W,
+  BALLOON_TOP,
   bunchPoints,
   clamp01,
   farmBasketAnchor,
@@ -6,6 +8,7 @@ import {
   restScaleFor,
   STARS_PER_BALLOON,
   zoomScaleFor,
+  type BunchPoint,
   type DonationPlan,
   type FillSegment,
 } from "./balloonMath";
@@ -218,27 +221,72 @@ export function restPose(viewW: number, viewH: number, count: number): Pose {
   };
 }
 
+/** Inset so the overshoot (~4%) still leaves the bunch 40px inside the frame. */
+export const ZOOM_MARGIN = 84;
+/** Screen pixels under the basket for the pip row and the star count. */
+export const ZOOM_LABEL_H = 64;
+/** easeOutSettle peaks a little above 1. Fit the settled pose inside that. */
+const ZOOM_OVERSHOOT = 1.04;
+
+function localBunchBounds(points: BunchPoint[]) {
+  let minX = -36;
+  let maxX = 36;
+  let minY = -40;
+  let maxY = 36;
+  for (const point of points) {
+    minX = Math.min(minX, point.x - BALLOON_HALF_W - 14);
+    maxX = Math.max(maxX, point.x + BALLOON_HALF_W + 14);
+    minY = Math.min(minY, point.y - BALLOON_TOP);
+    maxY = Math.max(maxY, point.y + 8);
+  }
+  return { minX, maxX, minY, maxY };
+}
+
 /**
- * The same bunch, brought forward. The balloon being filled is centered
- * and about 45% of the screen tall. The basket and strings travel with it.
+ * The same bunch, brought forward, scaled so every ghost, the string,
+ * the basket, and the label stay inside the frame.
  */
 export function zoomPose(
   viewW: number,
   viewH: number,
   count: number,
-  focusIndex = 0,
+  _focusIndex = 0,
   focusScale = 1,
 ): Pose {
   const points = bunchPoints(Math.max(1, count));
-  const focus = points[Math.min(Math.max(0, focusIndex), points.length - 1)] ?? points[0];
-  const scale = zoomScaleFor(viewH, focusScale);
-  // The QA dock hides during the zoom, so the neck can sit low enough for the string and basket.
-  const neckScreen = viewH * 0.64;
+  const bounds = localBunchBounds(points);
+  const margin = ZOOM_MARGIN;
+  const availW = Math.max(80, viewW - margin * 2);
+  const availH = Math.max(80, viewH - margin * 2 - ZOOM_LABEL_H);
+  const localW = Math.max(1, bounds.maxX - bounds.minX);
+  const localH = Math.max(1, 16 - bounds.minY);
+  const fit = Math.min(availW / localW, availH / localH);
+  const hero = zoomScaleFor(viewH, focusScale);
+  const scale = Math.min(fit, hero) / ZOOM_OVERSHOOT;
+  const extraW = availW - localW * scale;
+  const x = margin + extraW / 2 - bounds.minX * scale;
+  const graphicsH = (bounds.maxY - bounds.minY) * scale;
+  const blockH = graphicsH + ZOOM_LABEL_H;
+  const extraH = Math.max(0, viewH - margin * 2 - blockH);
+  const y = margin + extraH / 2 - bounds.minY * scale;
+  return { x, y, scale, opacity: 1 };
+}
+
+/** Screen box of the settled zoom, including the label under the basket. */
+export function zoomBunchRect(
+  viewW: number,
+  viewH: number,
+  count: number,
+  focusIndex = 0,
+  focusScale = 1,
+) {
+  const pose = zoomPose(viewW, viewH, count, focusIndex, focusScale);
+  const bounds = localBunchBounds(bunchPoints(Math.max(1, count)));
   return {
-    x: viewW / 2 - (focus?.x ?? 0) * scale,
-    y: neckScreen - (focus?.y ?? -198) * scale,
-    scale,
-    opacity: 1,
+    left: pose.x + bounds.minX * pose.scale,
+    top: pose.y + bounds.minY * pose.scale,
+    right: pose.x + bounds.maxX * pose.scale,
+    bottom: pose.y + 16 * pose.scale + ZOOM_LABEL_H,
   };
 }
 

@@ -195,13 +195,13 @@ export default function StarBalloonBunch({
               data-index={slot.index}
               data-ghost={ghost}
             >
-              <path d={BALLOON_PATH} fill="#fffaf4" fillOpacity="0.72" />
-              <path d={BALLOON_PATH} fill={pastel.light} fillOpacity="0.18" />
+              <path d={BALLOON_PATH} fill="#fffdf8" stroke="#fffdf8" strokeWidth="12" />
+              <path d={BALLOON_PATH} fill={pastel.light} fillOpacity="0.2" />
               <path
                 d={BALLOON_PATH}
                 fill="none"
                 stroke="#5c3a22"
-                strokeWidth="5"
+                strokeWidth="4.5"
                 strokeDasharray="11 9"
                 strokeLinecap="round"
               />
@@ -258,9 +258,6 @@ export default function StarBalloonBunch({
                   strokeWidth="2.4"
                   strokeLinejoin="round"
                 />
-                <svg x="-28" y="-168" width="56" height="50" viewBox="0 0 64 56" opacity={bow}>
-                  <TvInner />
-                </svg>
               </g>
 
               <g transform={`translate(${point.x} ${point.y})`} opacity={nub} data-qa="balloon-nub">

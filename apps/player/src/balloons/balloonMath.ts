@@ -236,7 +236,7 @@ const TEX_H = 1024;
  * Open grass between the cow's roam box (u ≤ 0.49) and the market (u ≥ 0.61),
  * above the garden signs (v ≥ 0.40). The basket sits at the bottom of this pocket.
  */
-const GRASS_POCKET = { u0: 0.505, u1: 0.614, v0: 0.055, v1: 0.372 } as const;
+const GRASS_POCKET = { u0: 0.545, u1: 0.602, v0: 0.14, v1: 0.392 } as const;
 
 /** Share of the screen height the balloon being filled occupies while zoomed. */
 export const ZOOM_HEIGHT = 0.45;

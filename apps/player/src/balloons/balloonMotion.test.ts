@@ -19,6 +19,7 @@ import {
   restPose,
   sampleDonation,
   stepAnim,
+  zoomBunchRect,
   zoomPose,
 } from "./balloonMotion.ts";
 
@@ -33,6 +34,24 @@ test("zoom-in settles with a small overshoot and the return is a full glide", ()
   assert.ok(durations.lock >= 0.38 && durations.lock <= 0.48);
   assert.equal(durations.cardDelay, 1.2);
   assert.equal(durations.cardFade, 0.4);
+});
+
+test("a settled zoom keeps the whole bunch inside a 40px margin", () => {
+  const views = [
+    [1280, 800],
+    [1920, 1080],
+    [1024, 768],
+    [2560, 1600],
+  ] as const;
+  for (const [w, h] of views) {
+    for (const count of [1, 6, 15]) {
+      const box = zoomBunchRect(w, h, count);
+      assert.ok(box.top >= 40, `${w}x${h} n=${count} top ${box.top}`);
+      assert.ok(box.left >= 40, `${w}x${h} n=${count} left ${box.left}`);
+      assert.ok(box.right <= w - 40, `${w}x${h} n=${count} right ${box.right}`);
+      assert.ok(box.bottom <= h - 40, `${w}x${h} n=${count} bottom ${box.bottom}`);
+    }
+  }
 });
 
 test("zoom ease is planted at both ends", () => {
