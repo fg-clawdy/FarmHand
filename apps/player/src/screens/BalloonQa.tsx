@@ -28,6 +28,7 @@ import {
   type AnimState,
 } from "../balloons/balloonMotion";
 import StarBalloonBunch from "../balloons/StarBalloonBunch";
+import { FARM_GRASS_PROPS } from "../pixi/playfieldLayout";
 import { useFarmPixi } from "../pixi/usePixi";
 import "../styles.balloons.css";
 
@@ -105,7 +106,7 @@ export default function BalloonQa() {
     if (!scene || !ready) return;
     scene.setPlayers(qaPlayers());
     scene.setFamilyJars([]);
-    scene.setLibraryHouse(false);
+    scene.setGrassProps(FARM_GRASS_PROPS.balloons);
   }, [ready, sceneRef]);
 
   useEffect(() => {
@@ -290,7 +291,11 @@ export default function BalloonQa() {
                   layoutScale={pose.scale}
                   timeSec={nowSec}
                   labelPx={chromeExtent(view.h)}
-                  labelBudget={safeGrassRect(view.w, view.h).right - safeGrassRect(view.w, view.h).left - 8}
+                  labelBudget={
+                    (safeGrassRect(view.w, view.h).right - safeGrassRect(view.w, view.h).left) /
+                      Math.max(1, shownGoals.length) -
+                    12
+                  }
                 />
               </div>
             );

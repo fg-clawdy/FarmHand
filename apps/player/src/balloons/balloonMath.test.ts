@@ -16,7 +16,6 @@ import {
   balloonsFor,
   restClearance,
   solidVisibility,
-  standHeightPx,
   chromeExtent,
   goalOverflow,
   goalSeats,
@@ -229,10 +228,12 @@ test("resting bunches keep 16px of clearance at 1280x800", () => {
   }
   assert.equal(goalSeats(1280, 800, []).length, 0);
   const one = goalSeats(1280, 800, [6], [1])[0]!;
-  const stand = standHeightPx(1280, 800);
   const bounds = arrangementBounds(6, 1);
   const bunchH = bounds.height * one.scale;
-  assert.ok(bunchH > stand * 0.45, `bunch ${bunchH.toFixed(0)} vs stand ${stand.toFixed(0)}`);
+  assert.ok(bunchH >= 200 && bunchH <= 260, `bunch height ${bunchH.toFixed(0)}`);
+  const row = goalSeats(1280, 800, [6, 1, 5], [1, 0, 0]);
+  assert.ok(row[0]!.x < row[1]!.x && row[1]!.x < row[2]!.x);
+  assert.ok(row[1]!.y > row[0]!.y, "the middle basket sits lower on the arc");
   assert.ok(chromeExtent(1600) >= chromeExtent(768));
 });
 

@@ -40,6 +40,23 @@ const FARM_LIBRARY_HIT = { u0: 0.3021, v0: 0.1475, u1: 0.3887, v1: 0.3906 } as c
 export const PLAYFIELD_TEXTURE = { width: 1536, height: 1024 } as const;
 
 /**
+ * What occupies the grass between the barn and the market.
+ * `library-and-cow` is the live farm: the little library stays up and the
+ * calf wanders. `star-balloons` hides both so shared-goal bunches can sit
+ * on that meadow. The live dashboard keeps `library-and-cow` until the
+ * donate flow moves onto the grass.
+ */
+export const FARM_GRASS_PROPS = {
+  live: "library-and-cow",
+  balloons: "star-balloons",
+} as const;
+
+export type FarmGrassProps = (typeof FARM_GRASS_PROPS)[keyof typeof FARM_GRASS_PROPS];
+
+/** Live farm. Do not switch this until the real donate flow uses balloons. */
+export const LIVE_FARM_GRASS: FarmGrassProps = FARM_GRASS_PROPS.live;
+
+/**
  * Painted produce stand on the v3 playfield (striped awning, tomato / carrot /
  * corn crates, wooden counter). Pixels of `PLAYFIELD_TEXTURE`, the same space
  * as the background sprite — not screen pixels.

@@ -26,10 +26,13 @@ import {
 } from "./plantedCropVisual";
 import { SignAvatarBadge, farmSignBadgeLocal } from "./signAvatar";
 import {
+  FARM_GRASS_PROPS,
+  LIVE_FARM_GRASS,
   PLAYABLE_PLOT_SLOTS,
   PLAYFIELD_TEXTURE,
   PLAYFIELD_LAYOUT,
   cowForbiddenRects,
+  type FarmGrassProps,
   gardenSignFontPx,
   gardenSignName,
   gardenSignPlankLocal,
@@ -52,6 +55,8 @@ export class FarmScene {
   private store: Container;
   private storeOutline: Graphics;
   private library: LittleLibrary;
+  /** Live default keeps the calf and the little library. See `FARM_GRASS_PROPS`. */
+  private grassProps: FarmGrassProps = LIVE_FARM_GRASS;
   private app: Application;
   private onPlayer: (id: string) => void;
   private onStore: () => void;
@@ -186,9 +191,15 @@ export class FarmScene {
     this.library.setJars(jars);
   }
 
-  /** Hide the little-library house. The balloon QA scene sits on its post. */
-  setLibraryHouse(visible: boolean) {
-    this.library.setHouseVisible(visible);
+  /**
+   * `star-balloons` takes the meadow: the little library is hidden and the
+   * calf stops wandering. The live farm never calls this.
+   */
+  setGrassProps(props: FarmGrassProps) {
+    this.grassProps = props;
+    const balloons = props === FARM_GRASS_PROPS.balloons;
+    this.cow.root.visible = !balloons;
+    this.library.setHouseVisible(!balloons);
   }
 
   /** QA only (`/qa/farm?markers=1`). Default off — never drawn on the live farm. */
@@ -222,8 +233,10 @@ export class FarmScene {
 
   private tick(dt: number) {
     this.t += dt;
-    this.cow.update(dt);
-    this.library.update(dt, this.t);
+    if (this.grassProps === LIVE_FARM_GRASS) {
+      this.cow.update(dt);
+      this.library.update(dt, this.t);
+    }
     this.beds.forEach((b) => b.breathe(this.t));
   }
 

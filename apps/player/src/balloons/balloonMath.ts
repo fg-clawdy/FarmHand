@@ -408,8 +408,8 @@ const TEX_W = 1536;
 const TEX_H = 1024;
 
 /**
- * Where the little library's post met the grass. The basket sits on this point.
- * The band is the library column, stopping before the cow's path to the right.
+ * Where the little library's post met the grass. Kept so the live library
+ * spot stays documented. Balloon baskets use `SAFE_GRASS` instead.
  */
 export const LIBRARY_POST = {
   u: (PLAYFIELD_LAYOUT.libraryHit.u0 + PLAYFIELD_LAYOUT.libraryHit.u1) / 2,
@@ -420,10 +420,14 @@ export const LIBRARY_POST = {
 export const BASKET_GROUND = 30;
 
 /**
- * Open grass above the tractor wheel and the name signs, in the library column
- * the calf cannot enter. Edges are already 16px clear of the obstacles at 1280×800.
+ * Open meadow between the tractor wheel and the market, above the name signs.
+ * This is the grass the calf used to wander. Edges are 16px clear of the
+ * barn, tractor, signs, and stand at 1280×800.
  */
-const SAFE_GRASS = { u0: 0.326, v0: 0.05, u1: 0.405, v1: 0.36 } as const;
+const SAFE_GRASS = { u0: 0.322, v0: 0.055, u1: 0.598, v1: 0.372 } as const;
+
+/** Resting bunch height, basket to the top balloon, when one goal has the meadow. */
+export const REST_BUNCH_HEIGHT = { min: 200, max: 260 } as const;
 
 /** How much bigger the resting bunch is than the previous grass-pocket size. */
 export const REST_SIZE_BOOST = 1.5;
@@ -431,8 +435,8 @@ export const REST_SIZE_BOOST = 1.5;
 /**
  * Painted obstacles the resting bunch must clear.
  * Tractor includes the back wheel. Signs are the wooden name boards.
- * The cow's wander box is the roam east of the library post: the calf is
- * blocked from the post itself, so that column is the open grass.
+ * The stand rect includes the crates and the barrel on its right.
+ * The cow is not an obstacle once `FARM_GRASS_PROPS.balloons` hides it.
  */
 export const REST_OBSTACLES = [
   { name: "barn", u0: 0, v0: 0, u1: 0.26, v1: 0.26 },
@@ -440,8 +444,7 @@ export const REST_OBSTACLES = [
   { name: "willow", u0: 0.084, v0: 0.426, u1: 0.285, v1: 0.576 },
   { name: "finn", u0: 0.401, v0: 0.408, u1: 0.589, v1: 0.572 },
   { name: "sage", u0: 0.715, v0: 0.423, u1: 0.901, v1: 0.573 },
-  { name: "cow", u0: 0.42, v0: 0.2, u1: 0.49, v1: 0.36 },
-  { name: "stand", ...standArtUv() },
+  { name: "stand", u0: standArtUv().u0, v0: standArtUv().v0, u1: 0.86, v1: 0.4 },
 ] as const;
 
 /** Pixels of clearance required at a 1280-wide view. Scales with the cover fit. */
@@ -509,15 +512,9 @@ export function restClearance(viewW: number, viewH: number, box: ScreenBox) {
 
 const LABEL_BLOCK_H = 40;
 
-function scaleThatFits(bounds: { width: number; height: number }, room: ScreenBox): number {
-  const roomW = Math.max(24, room.right - room.left);
-  const roomH = Math.max(24, room.bottom - room.top - LABEL_BLOCK_H);
-  return Math.max(0.03, Math.min(roomW / bounds.width, roomH / bounds.height));
-}
-
 /**
- * Largest rest scale that keeps this arrangement inside the safe grass.
- * Capped at the market-stand height when the grass is tall enough.
+ * Largest rest scale that keeps this arrangement in its share of the meadow.
+ * One goal aims for 200–260px from basket to crown. Several goals share the width.
  */
 export function restScaleFor(
   viewW: number,
@@ -529,13 +526,13 @@ export function restScaleFor(
   const safeCount = Math.max(1, count);
   const sharing = Math.min(BUNCH_SHOW_MAX, Math.max(1, goalsSharing));
   const grass = safeGrassRect(viewW, viewH);
-  const bandH = (grass.bottom - grass.top) / sharing;
-  const room = { ...grass, bottom: grass.top + bandH };
+  const gap = 10;
+  const roomW = Math.max(24, (grass.right - grass.left - gap * (sharing - 1)) / sharing);
+  const roomH = Math.max(24, grass.bottom - grass.top - LABEL_BLOCK_H);
   const bounds = arrangementBounds(safeCount, Math.min(activeIndex, safeCount - 1));
-  const fitted = scaleThatFits(bounds, room);
-  const stand = standHeightPx(viewW, viewH);
-  const forStand = stand / Math.max(1, bounds.height);
-  return Math.min(fitted, forStand);
+  const fitted = Math.min(roomW / bounds.width, roomH / bounds.height);
+  const cap = REST_BUNCH_HEIGHT.max / Math.max(1, bounds.height);
+  return Math.max(0.03, Math.min(fitted, cap));
 }
 
 /** Scale that makes the focused balloon's ghost about 45% of the screen height. */
@@ -555,8 +552,8 @@ export function zoomScreenWidth(viewH: number, count: number, focusScale = 1): n
 export type GoalSeat = { x: number; y: number; scale: number };
 
 /**
- * One seat per shown goal, stacked in a gentle arc inside the safe grass.
- * A single bunch is centered. Extra goals step up and slightly sideways.
+ * One seat per shown goal, side by side on the meadow.
+ * The middle basket sits a little lower, so a row of three reads as an arc.
  */
 export function goalSeats(viewW: number, viewH: number, counts: number[], actives: number[] = []): GoalSeat[] {
   const shown = counts.slice(0, BUNCH_SHOW_MAX);
@@ -566,24 +563,27 @@ export function goalSeats(viewW: number, viewH: number, counts: number[], active
     restScaleFor(viewW, viewH, Math.max(1, count), shown.length, actives[index] ?? 0),
   );
   const scale = Math.min(...scales);
-  const bandH = (grass.bottom - grass.top) / shown.length;
+  const gap = 10;
+  const widths = shown.map((count, index) => arrangementBounds(Math.max(1, count), actives[index] ?? 0).width * scale);
+  const total = widths.reduce((sum, width) => sum + width, 0) + gap * (shown.length - 1);
+  let left = grass.left + Math.max(0, grass.right - grass.left - total) / 2;
+  const ground = grass.bottom - LABEL_BLOCK_H;
   return shown.map((count, index) => {
     const bounds = arrangementBounds(Math.max(1, count), actives[index] ?? 0);
-    const bandTop = grass.top + index * bandH;
-    const band = { ...grass, top: bandTop, bottom: bandTop + bandH };
-    const boxW = bounds.width * scale;
-    const boxH = bounds.height * scale;
-    const spareX = Math.max(0, band.right - band.left - boxW);
-    const spareY = Math.max(0, band.bottom - band.top - LABEL_BLOCK_H - boxH);
-    const stagger = (index - (shown.length - 1) / 2) * Math.min(18, spareX * 0.35);
-    const left = band.left + spareX / 2 + stagger;
-    const top = band.top + spareY / 2;
-    return {
+    const mid = arcDrop(shown.length, index);
+    const seat = {
       x: left - bounds.minX * scale,
-      y: top - bounds.minY * scale,
+      y: ground - bounds.maxY * scale + mid,
       scale,
     };
+    left += widths[index]! + gap;
+    return seat;
   });
+}
+
+function arcDrop(count: number, index: number) {
+  if (count < 3) return 0;
+  return index === Math.floor((count - 1) / 2) ? 0 : -16;
 }
 
 export function goalOverflow(goalCount: number): number {
@@ -608,12 +608,11 @@ export function restingBunchRect(
   const right = seat.x + bounds.maxX * seat.scale;
   const top = seat.y + bounds.minY * seat.scale;
   const bottom = seat.y + BASKET_GROUND * seat.scale + LABEL_BLOCK_H;
-  const grass = safeGrassRect(viewW, viewH);
-  const labelHalf = Math.max(28, (grass.right - grass.left) / 2 - 4);
+  const labelHalf = Math.min(64, Math.max(36, (right - left) / 2));
   return {
-    left: Math.min(left, Math.max(grass.left, seat.x - labelHalf)),
+    left: Math.min(left, seat.x - labelHalf),
     top,
-    right: Math.max(right, Math.min(grass.right, seat.x + labelHalf)),
+    right: Math.max(right, seat.x + labelHalf),
     bottom,
   };
 }
