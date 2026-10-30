@@ -14,6 +14,7 @@ import {
   lerpPose,
   lockBounce,
   lockProgress,
+  lockSquash,
   motionDurations,
   restPose,
   sampleDonation,
@@ -23,6 +24,16 @@ import {
 
 const STAGE_W = 2560;
 const STAGE_H = 1600;
+
+test("zoom-in settles with a small overshoot and the return is a full glide", () => {
+  const durations = motionDurations(false);
+  assert.ok(durations.zoomIn >= 0.8 && durations.zoomIn <= 1);
+  assert.ok(durations.zoomOut >= 0.9 && durations.zoomOut <= 1.1);
+  assert.ok(durations.hold >= 0.6 && durations.hold <= 0.75);
+  assert.ok(durations.lock >= 0.38 && durations.lock <= 0.48);
+  assert.equal(durations.cardDelay, 1.2);
+  assert.equal(durations.cardFade, 0.4);
+});
 
 test("zoom ease is planted at both ends", () => {
   assert.equal(easeInOutCubic(0), 0);
@@ -104,11 +115,14 @@ test("a full balloon locks with a bounce that starts and ends at the honest size
   assert.equal(bowOpacity(true, null, 0), 1);
   assert.equal(lockBounce(0), 0);
   assert.equal(lockBounce(1), 0);
-  assert.ok(lockBounce(0.5) > 0);
-  assert.equal(bodyDrawScale(0.5, { index: 0, t: 0 }, 0, true), 0.5);
-  assert.equal(bodyDrawScale(0.5, { index: 0, t: 1 }, 0, true), 0.5);
-  assert.ok(bodyDrawScale(1, { index: 0, t: 0.5 }, 0, true) > 1);
-  assert.equal(bodyDrawScale(1, { index: 0, t: 0.5 }, 0, false), 1);
+  assert.ok(lockBounce(0.2) > 0.05, "squash is visible");
+  const early = lockSquash(0.2);
+  const late = lockSquash(0.7);
+  assert.ok(early.sx > 1 && early.sy < 1, "first half squashes wider");
+  assert.ok(late.sx < 1 && late.sy > 1, "second half stretches taller");
+  assert.deepEqual(lockSquash(0), { sx: 1, sy: 1 });
+  assert.deepEqual(lockSquash(1), { sx: 1, sy: 1 });
+  assert.equal(bodyDrawScale(0.5, { index: 0, t: 0.5 }, 0, true), 0.5);
 });
 
 test("giving 100 to an empty 1100 goal zooms, inflates to 100, and returns to the same rest pose", () => {
@@ -119,8 +133,8 @@ test("giving 100 to an empty 1100 goal zooms, inflates to 100, and returns to th
   assert.equal(state.zoomU, 0);
   assert.deepEqual(before, restPose(STAGE_W, STAGE_H, 6));
 
-  const zoomMs = motionDurations(false).zoom * 1000;
-  state = stepAnim(state, zoomMs, false);
+  const zoomInMs = motionDurations(false).zoomIn * 1000;
+  state = stepAnim(state, zoomInMs, false);
   assert.equal(state.phase, "inflate");
   assert.equal(state.zoomU, 1);
   assert.equal(state.shown, 0);
@@ -134,7 +148,7 @@ test("giving 100 to an empty 1100 goal zooms, inflates to 100, and returns to th
   assert.equal(state.phase, "zoom-out");
   assert.equal(state.shown, 100);
 
-  state = stepAnim(state, state.t0 + zoomMs, false);
+  state = stepAnim(state, state.t0 + motionDurations(false).zoomOut * 1000, false);
   assert.equal(state.phase, "rest");
   assert.equal(state.zoomU, 0);
   assert.equal(state.shown, 100);
@@ -145,8 +159,8 @@ test("filling the goal floats the bunch away instead of shrinking back", () => {
   const plan = planDonation(200, 100, 100);
   assert.equal(plan.reached, true);
   let state = beginDonation(100, plan, false, 0);
-  const zoomMs = motionDurations(false).zoom * 1000;
-  state = stepAnim(state, zoomMs, false);
+  const zoomInMs = motionDurations(false).zoomIn * 1000;
+  state = stepAnim(state, zoomInMs, false);
   state = stepAnim(state, state.t0 + state.timeline!.duration * 1000, false);
   assert.equal(state.shown, 200);
   state = stepAnim(state, state.t0 + motionDurations(false).hold * 1000, false);

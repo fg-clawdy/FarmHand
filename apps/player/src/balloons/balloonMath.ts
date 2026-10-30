@@ -171,16 +171,15 @@ export function restingFootprint(count: number): number {
  */
 export function bunchPoints(count: number): BunchPoint[] {
   if (count <= 0) return [];
-  if (count === 1) return [{ index: 0, x: 0, y: -198 }];
+  if (count === 1) return [{ index: 0, x: 0, y: -128 }];
   const big = count >= 8;
   const golden = 2.399963229728653;
   const points: BunchPoint[] = [];
   for (let i = 0; i < count; i++) {
     const angle = -Math.PI / 2 + i * golden;
-    const radius = big ? 14 + Math.sqrt(i) * 28 : 26 + i * 20;
-    const depth = big ? (i % 5) * 0.08 : (i % 3) * 0.05;
-    const x = Math.cos(angle) * radius * (big ? 0.78 : 1.02);
-    const y = -172 - Math.sin(angle) * radius * (big ? 0.58 : 0.7) - radius * depth;
+    const radius = big ? 16 + Math.sqrt(i) * 20 : 20 + i * 14;
+    const x = Math.cos(angle) * radius * (big ? 0.7 : 0.88);
+    const y = -112 - Math.sin(angle) * radius * (big ? 0.4 : 0.48);
     points.push({ index: i, x, y });
   }
   return points;
@@ -209,7 +208,7 @@ const TEX_H = 1024;
  * Open grass between the cow's roam box (u ≤ 0.49) and the market (u ≥ 0.61),
  * above the garden signs (v ≥ 0.40). The basket sits at the bottom of this pocket.
  */
-const GRASS_POCKET = { u0: 0.53, u1: 0.608, v0: 0.12, v1: 0.34 } as const;
+const GRASS_POCKET = { u0: 0.505, u1: 0.614, v0: 0.055, v1: 0.372 } as const;
 
 /** Share of the screen height the balloon being filled occupies while zoomed. */
 export const ZOOM_HEIGHT = 0.45;
@@ -224,7 +223,7 @@ export function screenUv(viewW: number, viewH: number, u: number, v: number): { 
 
 /** Screen pixels reserved under the basket for the pip row or the "N of 15" tally. */
 export function chromeExtent(viewH: number): number {
-  return Math.min(64, Math.max(28, viewH * 0.04));
+  return Math.min(56, Math.max(40, viewH * 0.055));
 }
 
 export function restScaleFor(viewW: number, viewH: number, count: number): number {

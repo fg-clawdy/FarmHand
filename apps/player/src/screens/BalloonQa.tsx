@@ -11,6 +11,7 @@ import {
 } from "../balloons/balloonMath";
 import {
   sceneDim,
+  cardReveal,
   bunchPose,
   motionDurations,
   restAnim,
@@ -69,6 +70,7 @@ export default function BalloonQa() {
     released: false,
   });
   const [motionChoice, setMotionChoice] = useState<"auto" | "full" | "reduced">("auto");
+  const [dockCollapsed, setDockCollapsed] = useState(false);
   const reduced = motionChoice === "auto" ? prefersReduced : motionChoice === "reduced";
   const reducedRef = useRef(reduced);
   reducedRef.current = reduced;
@@ -176,10 +178,12 @@ export default function BalloonQa() {
   const showConfetti =
     motionDurations(reduced).confetti &&
     !ui.released &&
-    (state.phase === "reward" || (state.phase === "away" && state.awayU > 0.08));
+    (state.phase === "reward" || state.phase === "away");
   const sparkle = motionDurations(reduced).sparkle;
   const bounce = motionDurations(reduced).bounce;
-  const reward = state.phase === "reward" && !ui.released;
+  const card = ui.released ? 0 : cardReveal(state, reduced);
+  const autoHideDock = state.phase !== "rest" && state.phase !== "reward";
+  const dockHidden = autoHideDock || dockCollapsed;
 
   return (
     <div className="balloon-fit-root">
@@ -189,6 +193,8 @@ export default function BalloonQa() {
         data-phase={state.phase}
         data-shown={Math.round(state.shown)}
         data-filled={ui.filled}
+        data-zoom={state.zoomU.toFixed(3)}
+        data-scale={pose.scale.toFixed(2)}
         data-rev={rev}
         style={{ width: "100%", height: "100%" }}
       >
@@ -218,9 +224,15 @@ export default function BalloonQa() {
           )}
 
           {showConfetti && <Confetti width={view.w} height={view.h} />}
-          {reward && <Reward onClose={closeReward} />}
+          {card > 0 && <Reward reveal={card} onClose={closeReward} />}
 
+          {dockHidden && !autoHideDock && (
+            <button type="button" className="balloon-dock-tab" data-qa="dock-show" onClick={() => setDockCollapsed(false)}>
+              Controls
+            </button>
+          )}
           <Dock
+            hidden={dockHidden}
             ui={ui}
             phase={state.phase}
             reduced={reduced}
@@ -231,16 +243,27 @@ export default function BalloonQa() {
             onFinish={finish}
             onReset={reset}
             onToggleReduced={toggleReduced}
+            onCollapse={() => setDockCollapsed(true)}
           />
       </div>
     </div>
   );
 }
 
-function Reward({ onClose }: { onClose: () => void }) {
+function Reward({ reveal, onClose }: { reveal: number; onClose: () => void }) {
   return (
-    <div className="balloon-reward" data-qa="reward" role="dialog" aria-label="Movie night is ready">
-      <div className="balloon-reward-card">
+    <div
+      className="balloon-reward"
+      data-qa="reward"
+      data-reveal={reveal.toFixed(2)}
+      role="dialog"
+      aria-label="Movie night is ready"
+      style={{ pointerEvents: reveal > 0.92 ? "auto" : "none" }}
+    >
+      <div
+        className="balloon-reward-card"
+        style={{ opacity: reveal, transform: `scale(${0.9 + 0.1 * reveal})` }}
+      >
         <div className="balloon-reward-motif" aria-hidden="true">
           <MotifBalloon fill="#ff5f93" deep="#c4285c" />
           <MotifBalloon fill="#ffc233" deep="#d48400" tall />
@@ -326,6 +349,7 @@ function Confetti({ width, height }: { width: number; height: number }) {
 }
 
 const Dock = memo(function Dock({
+  hidden,
   ui,
   phase,
   reduced,
@@ -336,7 +360,9 @@ const Dock = memo(function Dock({
   onFinish,
   onReset,
   onToggleReduced,
+  onCollapse,
 }: {
+  hidden: boolean;
   ui: Ui;
   phase: AnimState["phase"];
   reduced: boolean;
@@ -347,13 +373,17 @@ const Dock = memo(function Dock({
   onFinish: () => void;
   onReset: () => void;
   onToggleReduced: () => void;
+  onCollapse: () => void;
 }) {
   const busy = phase !== "rest" && phase !== "reward";
   const done = ui.filled >= ui.cost || ui.released;
   const noStars = ui.wallet <= 0;
   return (
-    <div className="balloon-dock" data-qa="balloon-dock">
+    <div className={hidden ? "balloon-dock is-hidden" : "balloon-dock"} data-qa="balloon-dock" data-hidden={hidden ? "1" : "0"}>
       <div className="balloon-dock-row">
+        <button type="button" className="btn ghost balloon-dock-hide" data-qa="dock-hide" onClick={onCollapse}>
+          Hide
+        </button>
         <span className="balloon-dock-label">Presets</span>
         {BALLOON_PRESETS.map((preset) => (
           <button

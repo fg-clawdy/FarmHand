@@ -19,13 +19,39 @@ export function easeInOutCubic(t: number): number {
   return x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2;
 }
 
+/**
+ * Ease-in-out whose middle is a glide, not a sprint.
+ * Sine keeps the shrink visible across the whole return instead of dumping it into a few frames.
+ */
+export function easeInOutSoft(t: number): number {
+  const x = clamp01(t);
+  return 0.5 - 0.5 * Math.cos(Math.PI * x);
+}
+
+/**
+ * Ease-out with a small overshoot, then a settle back to 1.
+ * f(0)=0, f(1)=1, and the peak is a little past the resting zoom.
+ */
+export function easeOutSettle(t: number): number {
+  const x = clamp01(t);
+  const c1 = 0.85;
+  const c3 = c1 + 1;
+  return 1 + c3 * (x - 1) ** 3 + c1 * (x - 1) ** 2;
+}
+
 export type Pose = { x: number; y: number; scale: number; opacity: number };
 
 export type MotionDurations = {
+  /** @deprecated Use zoomIn. Kept so older call sites still compile. */
   zoom: number;
+  zoomIn: number;
+  zoomOut: number;
   hold: number;
   away: number;
   lock: number;
+  /** Confetti is on screen this long before the reward card starts fading in. */
+  cardDelay: number;
+  cardFade: number;
   minInflate: number;
   maxInflate: number;
   perStar: number;
@@ -39,9 +65,13 @@ export function motionDurations(reduced: boolean): MotionDurations {
   if (reduced) {
     return {
       zoom: 0.22,
+      zoomIn: 0.22,
+      zoomOut: 0.24,
       hold: 0.12,
       away: 0.28,
       lock: 0.12,
+      cardDelay: 0.08,
+      cardFade: 0.12,
       minInflate: 0.16,
       maxInflate: 0.22,
       perStar: 0.0004,
@@ -52,10 +82,14 @@ export function motionDurations(reduced: boolean): MotionDurations {
     };
   }
   return {
-    zoom: 1.05,
-    hold: 0.5,
-    away: 2.2,
-    lock: 0.52,
+    zoom: 0.95,
+    zoomIn: 0.95,
+    zoomOut: 1.05,
+    hold: 0.65,
+    away: 2.4,
+    lock: 0.42,
+    cardDelay: 1.2,
+    cardFade: 0.4,
     minInflate: 0.95,
     maxInflate: 1.45,
     perStar: 0.009,
@@ -125,15 +159,31 @@ export function lockProgress(timeline: Timeline, elapsed: number): { index: numb
   return null;
 }
 
-/** Smooth pulse. 0 at both ends, derivative 0 at both ends. */
-export function lockBounce(t: number): number {
+/** Squash then stretch, back to the honest size. 1 at both ends. */
+export function lockSquash(t: number): { sx: number; sy: number } {
   const x = clamp01(t);
-  if (x === 0 || x === 1) return 0;
-  return Math.sin(Math.PI * x) ** 2 * 0.1;
+  if (x === 0 || x === 1) return { sx: 1, sy: 1 };
+  const pulse = Math.sin(Math.PI * x);
+  const dir = x < 0.42 ? 1 : -0.7;
+  const amp = 0.2 * pulse * dir;
+  return { sx: 1 + amp, sy: 1 - amp * 0.85 };
 }
 
-export function lerpPose(rest: Pose, zoom: Pose, zoomU: number): Pose {
-  const e = easeInOutCubic(zoomU);
+/** Peak extra scale of the lock squash. 0 at both ends. */
+export function lockBounce(t: number): number {
+  const { sx, sy } = lockSquash(t);
+  return Math.max(Math.abs(sx - 1), Math.abs(sy - 1));
+}
+
+export function lerpPose(
+  rest: Pose,
+  zoom: Pose,
+  zoomU: number,
+  ease: (t: number) => number = easeInOutSoft,
+): Pose {
+  if (zoomU <= 0) return { ...rest };
+  if (zoomU >= 1) return { ...zoom };
+  const e = ease(zoomU);
   return {
     x: rest.x + (zoom.x - rest.x) * e,
     y: rest.y + (zoom.y - rest.y) * e,
@@ -154,8 +204,8 @@ export function awayPose(zoom: Pose, awayU: number, viewH: number): Pose {
 
 export function idleBob(timeSec: number, zoomU: number, reduced: boolean): number {
   if (reduced || !motionDurations(reduced).bob) return 0;
-  const amp = 6 * (1 - easeInOutCubic(clamp01(zoomU)));
-  return Math.sin((timeSec * Math.PI * 2) / 3.6) * amp;
+  const amp = 12 * (1 - easeInOutSoft(clamp01(zoomU)));
+  return Math.sin((timeSec * Math.PI * 2) / 2.8) * amp;
 }
 
 export function restPose(viewW: number, viewH: number, count: number): Pose {
@@ -182,8 +232,8 @@ export function zoomPose(
   const points = bunchPoints(Math.max(1, count));
   const focus = points[Math.min(Math.max(0, focusIndex), points.length - 1)] ?? points[0];
   const scale = zoomScaleFor(viewH, focusScale);
-  // Neck sits above the QA dock so the whole balloon, not just the crown, stays on screen.
-  const neckScreen = viewH * 0.56;
+  // The QA dock hides during the zoom, so the neck can sit low enough for the string and basket.
+  const neckScreen = viewH * 0.64;
   return {
     x: viewW / 2 - (focus?.x ?? 0) * scale,
     y: neckScreen - (focus?.y ?? -198) * scale,
@@ -243,7 +293,7 @@ export function stepAnim(state: AnimState, now: number, reduced: boolean): AnimS
   if (state.phase === "rest" || state.phase === "reward") return state;
 
   if (state.phase === "zoom-in") {
-    const u = clamp01((now - state.t0) / (durations.zoom * 1000));
+    const u = clamp01((now - state.t0) / (durations.zoomIn * 1000));
     if (u >= 1) {
       return { ...state, zoomU: 1, phase: "inflate", t0: now, locking: null };
     }
@@ -288,7 +338,7 @@ export function stepAnim(state: AnimState, now: number, reduced: boolean): AnimS
   }
 
   if (state.phase === "zoom-out") {
-    const u = clamp01((now - state.t0) / (durations.zoom * 1000));
+    const u = clamp01((now - state.t0) / (durations.zoomOut * 1000));
     if (u >= 1) return { ...state, zoomU: 0, phase: "rest" };
     return { ...state, zoomU: 1 - u };
   }
@@ -315,38 +365,54 @@ export function bunchPose(
   if (state.phase === "away" || state.phase === "reward") {
     return awayPose(zoom, state.phase === "reward" ? 1 : state.awayU, viewH);
   }
-  const pose = lerpPose(rest, zoom, state.zoomU);
+  const ease = state.phase === "zoom-in" ? easeOutSettle : easeInOutSoft;
+  const pose = lerpPose(rest, zoom, state.zoomU, ease);
   return { ...pose, y: pose.y + idleBob(timeSec, state.zoomU, reduced) };
 }
 
 /** Farm dim while the bunch is in front. Fades out as the balloons float away. */
 export function sceneDim(state: Pick<AnimState, "phase" | "zoomU" | "awayU">): number {
-  if (state.phase === "away") return 1 - easeInOutCubic(state.awayU);
+  if (state.phase === "away") return 1 - easeInOutSoft(state.awayU);
   if (state.phase === "reward") return 0;
-  return easeInOutCubic(state.zoomU);
+  if (state.phase === "zoom-in") return clamp01(easeOutSettle(state.zoomU));
+  return easeInOutSoft(state.zoomU);
 }
 
-/** Ghost stays until the balloon locks, then fades with the same ease (no pop). */
+/**
+ * 0 until confetti has been up for `cardDelay`, then 0..1 across `cardFade`.
+ * Fully up once the reward phase is showing.
+ */
+export function cardReveal(state: Pick<AnimState, "phase" | "awayU">, reduced: boolean): number {
+  if (state.phase === "reward") return 1;
+  if (state.phase !== "away") return 0;
+  const durations = motionDurations(reduced);
+  const elapsed = state.awayU * durations.away;
+  return clamp01((elapsed - durations.cardDelay) / Math.max(0.05, durations.cardFade));
+}
+
+/** Ghost stays through the start of the lock, then fades. Not an instant swap. */
 export function ghostOpacity(full: boolean, locking: { index: number; t: number } | null, index: number): number {
   if (!full) return 1;
-  if (locking && locking.index === index) return 1 - easeInOutCubic(locking.t);
+  if (locking && locking.index === index) {
+    const u = clamp01((locking.t - 0.28) / 0.72);
+    return 1 - easeInOutSoft(u);
+  }
   return 0;
 }
 
 export function bowOpacity(full: boolean, locking: { index: number; t: number } | null, index: number): number {
   if (!full) return 0;
-  if (locking && locking.index === index) return easeInOutCubic(locking.t);
+  if (locking && locking.index === index) return easeInOutSoft(clamp01((locking.t - 0.08) / 0.92));
   return 1;
 }
 
 export function bodyDrawScale(
   bodyScale: number,
-  locking: { index: number; t: number } | null,
-  index: number,
-  bounce: boolean,
+  _locking: { index: number; t: number } | null,
+  _index: number,
+  _bounce: boolean,
 ): number {
-  const extra = bounce && locking && locking.index === index ? lockBounce(locking.t) : 0;
-  return bodyScale * (1 + extra);
+  return bodyScale;
 }
 
 export function donationPlan(cost: number, filled: number, amount: number, reduced: boolean) {
