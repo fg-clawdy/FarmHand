@@ -6,11 +6,13 @@ import {
   BUNCH_SHOW_MAX,
   GIVE_AMOUNTS,
   START_WALLET,
+  activeBalloonIndex,
   balloonCount,
   chromeExtent,
   formatStarCount,
   goalOverflow,
   goalSeats,
+  safeGrassRect,
   planDonation,
   type QaGoal,
 } from "../balloons/balloonMath";
@@ -215,6 +217,7 @@ export default function BalloonQa() {
     view.w,
     view.h,
     shownGoals.map((goal) => Math.max(1, balloonCount(goal.cost))),
+    shownGoals.map((goal) => activeBalloonIndex(goal.cost, goal.filled)),
   );
   const nowSec = performance.now() / 1000;
   const bob = idleBob(nowSec, state.zoomU, reduced);
@@ -287,7 +290,7 @@ export default function BalloonQa() {
                   layoutScale={pose.scale}
                   timeSec={nowSec}
                   labelPx={chromeExtent(view.h)}
-                  labelBudget={shownGoals.length > 1 ? 60 : undefined}
+                  labelBudget={safeGrassRect(view.w, view.h).right - safeGrassRect(view.w, view.h).left - 8}
                 />
               </div>
             );

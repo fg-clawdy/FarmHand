@@ -1,7 +1,6 @@
 import {
   BALLOON_HALF_W,
   BALLOON_TOP,
-  bunchPoints,
   clamp01,
   goalSeats,
   placedPoints,
@@ -273,16 +272,18 @@ export const ZOOM_LABEL_H = 64;
 /** easeOutSettle peaks a little above 1. Fit the settled pose inside that. */
 const ZOOM_OVERSHOOT = 1.04;
 
-function localBunchBounds(points: BunchPoint[]) {
+function localBunchBounds(count: number) {
   let minX = -36;
   let maxX = 36;
   let minY = -40;
   let maxY = 36;
-  for (const point of points) {
-    minX = Math.min(minX, point.x - BALLOON_HALF_W - 14);
-    maxX = Math.max(maxX, point.x + BALLOON_HALF_W + 14);
-    minY = Math.min(minY, point.y - BALLOON_TOP);
-    maxY = Math.max(maxY, point.y + 8);
+  for (let active = 0; active < count; active++) {
+    for (const point of placedPoints(count, active)) {
+      minX = Math.min(minX, point.x - BALLOON_HALF_W - 14);
+      maxX = Math.max(maxX, point.x + BALLOON_HALF_W + 14);
+      minY = Math.min(minY, point.y - BALLOON_TOP);
+      maxY = Math.max(maxY, point.y + 8);
+    }
   }
   return { minX, maxX, minY, maxY };
 }
@@ -298,8 +299,7 @@ export function zoomPose(
   _focusIndex = 0,
   focusScale = 1,
 ): Pose {
-  const points = bunchPoints(Math.max(1, count));
-  const bounds = localBunchBounds(points);
+  const bounds = localBunchBounds(Math.max(1, count));
   const margin = ZOOM_MARGIN;
   const availW = Math.max(80, viewW - margin * 2);
   const availH = Math.max(80, viewH - margin * 2 - ZOOM_LABEL_H);
@@ -326,7 +326,7 @@ export function zoomBunchRect(
   focusScale = 1,
 ) {
   const pose = zoomPose(viewW, viewH, count, focusIndex, focusScale);
-  const bounds = localBunchBounds(bunchPoints(Math.max(1, count)));
+  const bounds = localBunchBounds(Math.max(1, count));
   return {
     left: pose.x + bounds.minX * pose.scale,
     top: pose.y + bounds.minY * pose.scale,

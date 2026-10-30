@@ -10,10 +10,13 @@ import {
   balloonsFor,
   bunchPoints,
   formatStarCount,
-  BASKET_GROUND,
-  LIBRARY_POST,
-  REST_SIZE_BOOST,
+  MIN_LABEL_PX,
   activeBalloonIndex,
+  arrangementBounds,
+  balloonsFor,
+  restClearance,
+  solidVisibility,
+  standHeightPx,
   chromeExtent,
   goalOverflow,
   goalSeats,
@@ -177,71 +180,59 @@ test("many balloons cluster instead of taking over the farm", () => {
   assert.ok(Math.abs(height / BALLOON_STAGE.height - ZOOM_HEIGHT) < 0.001);
 });
 
-test("the balloon being filled is in front, and finished balloons sit behind it", () => {
-  const frontOf = (filled: number) => {
-    const placed = placedPoints(6, activeBalloonIndex(1100, filled));
-    return placed.reduce((best, point) => (point.y > best.y ? point : best));
-  };
-  assert.equal(activeBalloonIndex(1100, 0), 0);
-  assert.equal(frontOf(0).index, 0);
-  assert.equal(activeBalloonIndex(1100, 100), 0);
-  assert.equal(activeBalloonIndex(1100, 400), 2);
-  const at400 = placedPoints(6, 2);
-  const front = frontOf(400);
-  assert.equal(front.index, 2, "the next empty balloon is in front");
-  assert.ok(at400[0]!.y < front.y && at400[1]!.y < front.y, "both full balloons sit behind");
-  assert.equal(goalOverflow(0), 0);
-  assert.equal(goalOverflow(3), 0);
-  assert.equal(goalOverflow(5), 2);
-});
-
-test("resting baskets sit on the library post and clear the barn, tractor, sign, and cow path", () => {
-  const views = [
-    [1280, 800],
-    [1920, 1080],
-    [1024, 768],
-    [2560, 1600],
-  ] as const;
-  const barn = { u0: 0.0, v0: 0.0, u1: 0.26, v1: 0.26 };
-  const tractor = { u0: 0.14, v0: 0.12, u1: 0.295, v1: 0.38 };
-  const willow = { u0: 0.08, v0: 0.42, u1: 0.28, v1: 0.58 };
-  const cowPath = { u0: 0.4, v0: 0.2, u1: 0.49, v1: 0.36 };
-  for (const [w, h] of views) {
-    const ground = screenUv(w, h, LIBRARY_POST.u, LIBRARY_POST.v);
-    const seat = goalSeats(w, h, [6])[0]!;
-    assert.ok(Math.abs(seat.x - ground.x) < 0.5, "single basket is on the post");
-    assert.ok(Math.abs(seat.y + BASKET_GROUND * seat.scale - ground.y) < 0.5, "shadow meets the ground");
-    assert.equal(goalSeats(w, h, []).length, 0);
-    const two = goalSeats(w, h, [6, 1]);
-    const three = goalSeats(w, h, [6, 1, 5]);
-    assert.equal(two.length, 2);
-    assert.equal(three.length, 3);
-    assert.ok(Math.abs(two[0]!.x - ground.x) < 1, "the first basket stays on the post");
-    assert.ok(two[1]!.x > two[0]!.x + 60);
-    assert.ok(three[0]!.x < three[1]!.x && three[1]!.x < three[2]!.x);
-    assert.ok(three[2]!.x - three[0]!.x > 120, "three goals sit side by side");
-    for (const count of [1, 6, 15]) {
-      const box = restingBunchRect(w, h, count);
-      assert.ok(box.top >= 8, `${w}x${h} n=${count} top ${box.top}`);
-      assert.ok(box.bottom <= h - 8, `${w}x${h} n=${count} bottom ${box.bottom}`);
-      for (const zone of [barn, tractor, willow, cowPath]) {
-        const a = screenUv(w, h, zone.u0, zone.v0);
-        const b = screenUv(w, h, zone.u1, zone.v1);
-        const other = {
-          left: Math.min(a.x, b.x),
-          top: Math.min(a.y, b.y),
-          right: Math.max(a.x, b.x),
-          bottom: Math.max(a.y, b.y),
-        };
-        const hit =
-          box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top;
-        assert.equal(hit, false, `${w}x${h} n=${count} overlaps a blocked zone`);
+test("finished balloons stay in the front row and at least 70% visible", () => {
+  for (const filled of [200, 350, 900, 1050]) {
+    const slots = balloonsFor(1100, filled);
+    const active = activeBalloonIndex(1100, filled);
+    const placed = placedPoints(6, active);
+    const front = placed.reduce((best, point) => (point.y > best.y ? point : best));
+    assert.equal(front.index, active, `${filled} front`);
+    const ghosts = slots.filter((slot) => !slot.full && slot.index !== active);
+    for (const slot of slots.filter((slot) => slot.full)) {
+      const neck = placed[slot.index]!;
+      assert.ok(neck.y > -280, `${filled} balloon ${slot.index} is in the front row`);
+      for (const ghost of ghosts) {
+        assert.ok(placed[ghost.index]!.y < neck.y, `${filled} ghost ${ghost.index} is behind balloon ${slot.index}`);
       }
     }
-    const boosted = restScaleFor(w, h, 6);
-    assert.ok(boosted > 0.03);
-    assert.equal(REST_SIZE_BOOST, 1.5);
+    const visible = solidVisibility(
+      6,
+      active,
+      slots.map((slot) => slot.targetScale),
+      slots.map((slot) => slot.bodyScale),
+    );
+    const solids = slots.filter((slot) => slot.bodyScale > 0.2);
+    assert.ok(solids.length >= slots.filter((slot) => slot.full).length);
+    for (const slot of solids) {
+      assert.ok(visible[slot.index]! >= 0.7, `${filled} balloon ${slot.index} is ${visible[slot.index]} visible`);
+    }
   }
+  assert.equal(goalOverflow(0), 0);
+  assert.equal(goalOverflow(5), 2);
+  assert.equal(MIN_LABEL_PX, 14);
+});
+
+test("resting bunches keep 16px of clearance at 1280x800", () => {
+  const layouts = [
+    { counts: [6], actives: [1] },
+    { counts: [6, 1], actives: [2, 0] },
+    { counts: [6, 1, 5], actives: [0, 0, 0] },
+  ];
+  for (const layout of layouts) {
+    for (let index = 0; index < layout.counts.length; index++) {
+      const box = restingBunchRect(1280, 800, layout.counts[index]!, layout.counts.length, index, layout.actives[index]!);
+      const gaps = restClearance(1280, 800, box);
+      for (const gap of gaps) {
+        assert.ok(gap.gap >= 16, `${layout.counts.length} goals seat ${index} ${gap.name} gap ${gap.gap.toFixed(1)}`);
+      }
+    }
+  }
+  assert.equal(goalSeats(1280, 800, []).length, 0);
+  const one = goalSeats(1280, 800, [6], [1])[0]!;
+  const stand = standHeightPx(1280, 800);
+  const bounds = arrangementBounds(6, 1);
+  const bunchH = bounds.height * one.scale;
+  assert.ok(bunchH > stand * 0.45, `bunch ${bunchH.toFixed(0)} vs stand ${stand.toFixed(0)}`);
   assert.ok(chromeExtent(1600) >= chromeExtent(768));
 });
 

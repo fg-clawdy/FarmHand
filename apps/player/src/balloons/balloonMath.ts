@@ -1,5 +1,5 @@
 import { coverFit } from "../pixi/draw";
-import { PLAYFIELD_LAYOUT } from "../pixi/playfieldLayout";
+import { PLAYFIELD_LAYOUT, standArtUv } from "../pixi/playfieldLayout";
 
 /**
  * Stars in one full-size balloon.
@@ -258,31 +258,47 @@ function smallFan(count: number): BunchPoint[] {
   return points;
 }
 
-/**
- * Slot order: the front neck, then the back row (center first), then the wings.
- * The balloon being filled takes the front. Finished balloons take the back
- * so they stay solid and visible. Empty ghosts take the wings.
- */
-function slotOrder(count: number): BunchPoint[] {
-  const points = bunchPoints(count);
-  if (points.length <= 1) return points;
-  const front = points.reduce((best, point) => (point.y > best.y ? point : best));
-  const rest = points.filter((point) => point !== front);
-  const backLine = Math.min(...rest.map((point) => point.y));
-  const backs = rest
-    .filter((point) => point.y < backLine + 40)
-    .sort((a, b) => Math.abs(a.x) - Math.abs(b.x) || a.x - b.x);
-  const outers = rest
-    .filter((point) => !backs.includes(point))
-    .sort((a, b) => Math.abs(a.x) - Math.abs(b.x) || a.x - b.x);
-  return [front, ...backs, ...outers];
+const FRONT_NECK = { x: 0, y: -156 };
+
+/** Completed balloons, newest first: beside the front balloon, then a step out and up. */
+function ringNecks(completed: number): BunchPoint[] {
+  const necks: BunchPoint[] = [];
+  for (let i = 0; i < completed; i++) {
+    const side = i % 2 === 0 ? 1 : -1;
+    const row = Math.floor(i / 2);
+    necks.push({
+      index: i,
+      x: side * (176 + row * 156),
+      y: FRONT_NECK.y - 4 - row * 22,
+    });
+  }
+  return necks;
 }
 
-/** Where each balloon's neck sits for this active index. Index in the result is the balloon. */
+/** Empty ghosts: a high back arc, behind the front row. */
+function ghostNecks(ghosts: number): BunchPoint[] {
+  const necks: BunchPoint[] = [];
+  for (let i = 0; i < ghosts; i++) {
+    const t = ghosts === 1 ? 0.5 : i / (ghosts - 1);
+    const spread = (t - 0.5) * 2;
+    necks.push({
+      index: i,
+      x: spread * 96,
+      y: -392 - (1 - Math.abs(spread)) * 18,
+    });
+  }
+  return necks;
+}
+
+/**
+ * Where each balloon's neck sits.
+ * The balloon being filled is front-center. Finished balloons take the front
+ * row beside it. Empty ghosts take the back arc.
+ */
 export function placedPoints(count: number, activeIndex: number): BunchPoint[] {
   if (count <= 0) return [];
-  const slots = slotOrder(count);
   const active = Math.min(Math.max(0, activeIndex), count - 1);
+  const slots = [{ index: 0, ...FRONT_NECK }, ...ringNecks(active), ...ghostNecks(count - active - 1)];
   const order = [active];
   for (let index = active - 1; index >= 0; index--) order.push(index);
   for (let index = active + 1; index < count; index++) order.push(index);
@@ -294,13 +310,75 @@ export function placedPoints(count: number, activeIndex: number): BunchPoint[] {
   return placed;
 }
 
+/** Ellipse covering a balloon body. Used to measure how much of a solid balloon stays visible. */
+export function balloonEllipse(point: BunchPoint, targetScale: number) {
+  const scale = Math.max(0.35, targetScale);
+  return {
+    cx: point.x,
+    cy: point.y - 124 * scale,
+    rx: 96 * scale,
+    ry: 108 * scale,
+  };
+}
+
+function insideEllipse(ellipse: { cx: number; cy: number; rx: number; ry: number }, x: number, y: number) {
+  const dx = (x - ellipse.cx) / ellipse.rx;
+  const dy = (y - ellipse.cy) / ellipse.ry;
+  return dx * dx + dy * dy <= 1;
+}
+
+/**
+ * Share of each solid balloon that is not covered by a balloon drawn in front of it.
+ * Ghosts are drawn behind solids, so they do not count. The active balloon is drawn last.
+ */
+export function solidVisibility(
+  count: number,
+  activeIndex: number,
+  targetScales: readonly number[],
+  bodyScales: readonly number[],
+): number[] {
+  const placed = placedPoints(count, activeIndex);
+  const ellipses = placed.map((point, index) => balloonEllipse(point, targetScales[index] ?? 1));
+  const solid = placed.map((_, index) => (bodyScales[index] ?? 0) > 0.2);
+  const order = placed
+    .map((point, index) => ({ index, y: point.y, active: index === activeIndex }))
+    .filter((item) => solid[item.index] || item.active)
+    .sort((a, b) => Number(a.active) - Number(b.active) || a.y - b.y);
+  return placed.map((_point, index) => {
+    if (!solid[index]) return 1;
+    const ellipse = ellipses[index]!;
+    const later = order.filter((item) => item.index !== index).slice(order.findIndex((item) => item.index === index) + 1);
+    let open = 0;
+    let total = 0;
+    const steps = 11;
+    for (let iy = 0; iy < steps; iy++) {
+      for (let ix = 0; ix < steps; ix++) {
+        const x = ellipse.cx + ((ix + 0.5) / steps - 0.5) * 2 * ellipse.rx;
+        const y = ellipse.cy + ((iy + 0.5) / steps - 0.5) * 2 * ellipse.ry;
+        if (!insideEllipse(ellipse, x, y)) continue;
+        total += 1;
+        const covered = later.some((item) => insideEllipse(ellipses[item.index]!, x, y));
+        if (!covered) open += 1;
+      }
+    }
+    return total === 0 ? 1 : open / total;
+  });
+}
+
+function necksForSpan(count: number): BunchPoint[] {
+  if (count <= 0) return [];
+  const necks: BunchPoint[] = [];
+  for (let active = 0; active < count; active++) necks.push(...placedPoints(count, active));
+  return necks;
+}
+
 export function bunchSpan(count: number): { width: number; height: number } {
-  const pts = bunchPoints(count);
+  const pts = necksForSpan(count);
   if (pts.length === 0) return { width: BALLOON_HALF_W * 2, height: BALLOON_TOP + 80 };
   let minX = 0;
   let maxX = 0;
   let minY = 0;
-  let maxY = 110;
+  let maxY = BASKET_GROUND;
   for (const point of pts) {
     minX = Math.min(minX, point.x - BALLOON_HALF_W);
     maxX = Math.max(maxX, point.x + BALLOON_HALF_W);
@@ -308,6 +386,22 @@ export function bunchSpan(count: number): { width: number; height: number } {
     maxY = Math.max(maxY, point.y + 16);
   }
   return { width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
+}
+
+/** Local extent of one arrangement, including the basket shadow. */
+export function arrangementBounds(count: number, activeIndex: number) {
+  const pts = placedPoints(Math.max(1, count), activeIndex);
+  let minX = -40;
+  let maxX = 40;
+  let minY = -40;
+  let maxY = BASKET_GROUND;
+  for (const point of pts) {
+    minX = Math.min(minX, point.x - BALLOON_HALF_W);
+    maxX = Math.max(maxX, point.x + BALLOON_HALF_W);
+    minY = Math.min(minY, point.y - BALLOON_TOP);
+    maxY = Math.max(maxY, BASKET_GROUND);
+  }
+  return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
 }
 
 const TEX_W = 1536;
@@ -322,26 +416,39 @@ export const LIBRARY_POST = {
   v: PLAYFIELD_LAYOUT.libraryHit.v1,
 } as const;
 
-const LIBRARY_BAND = {
-  u0: PLAYFIELD_LAYOUT.libraryHit.u0,
-  u1: 0.398,
-  vTop: PLAYFIELD_LAYOUT.libraryHit.v0,
-} as const;
-
 /** Local y of the basket's ground shadow. The flight origin is the string knot. */
 export const BASKET_GROUND = 30;
+
+/**
+ * Open grass above the tractor wheel and the name signs, in the library column
+ * the calf cannot enter. Edges are already 16px clear of the obstacles at 1280×800.
+ */
+const SAFE_GRASS = { u0: 0.326, v0: 0.05, u1: 0.405, v1: 0.36 } as const;
 
 /** How much bigger the resting bunch is than the previous grass-pocket size. */
 export const REST_SIZE_BOOST = 1.5;
 
-/** Screen width of one bunch when several goals share the library grass. */
-const SHARED_SLOT = 64;
+/**
+ * Painted obstacles the resting bunch must clear.
+ * Tractor includes the back wheel. Signs are the wooden name boards.
+ * The cow's wander box is the roam east of the library post: the calf is
+ * blocked from the post itself, so that column is the open grass.
+ */
+export const REST_OBSTACLES = [
+  { name: "barn", u0: 0, v0: 0, u1: 0.26, v1: 0.26 },
+  { name: "tractor", u0: 0.122, v0: 0.176, u1: 0.309, v1: 0.44 },
+  { name: "willow", u0: 0.084, v0: 0.426, u1: 0.285, v1: 0.576 },
+  { name: "finn", u0: 0.401, v0: 0.408, u1: 0.589, v1: 0.572 },
+  { name: "sage", u0: 0.715, v0: 0.423, u1: 0.901, v1: 0.573 },
+  { name: "cow", u0: 0.42, v0: 0.2, u1: 0.49, v1: 0.36 },
+  { name: "stand", ...standArtUv() },
+] as const;
 
-/** Open grass from just right of the tractor to just left of the cow. */
-const SHARED_GRASS = { u0: 0.312, u1: 0.48 } as const;
+/** Pixels of clearance required at a 1280-wide view. Scales with the cover fit. */
+export const REST_CLEARANCE = 16;
 
-/** The pocket the resting bunch used before it moved onto the library post. */
-const FORMER_POCKET = { u0: 0.545, u1: 0.602, v0: 0.14, v1: 0.392 } as const;
+/** Smallest on-screen star-count type. */
+export const MIN_LABEL_PX = 14;
 
 /** Share of the screen height the balloon being filled occupies while zoomed. */
 export const ZOOM_HEIGHT = 0.45;
@@ -359,68 +466,82 @@ export function chromeExtent(viewH: number): number {
   return Math.min(56, Math.max(40, viewH * 0.055));
 }
 
-/** Scale the bunch used when it sat on the open grass between the cow and the stand. */
-function formerRestScale(viewW: number, viewH: number, count: number): number {
-  const safeCount = Math.max(1, count);
-  const u = (FORMER_POCKET.u0 + FORMER_POCKET.u1) / 2;
-  const anchorY = screenUv(viewW, viewH, u, FORMER_POCKET.v1).y - chromeExtent(viewH);
-  const top = screenUv(viewW, viewH, u, FORMER_POCKET.v0);
-  const left = screenUv(viewW, viewH, FORMER_POCKET.u0, FORMER_POCKET.v1);
-  const right = screenUv(viewW, viewH, FORMER_POCKET.u1, FORMER_POCKET.v1);
-  const span = bunchSpan(safeCount);
-  const pocketW = Math.max(24, Math.abs(right.x - left.x) - 8);
-  const pocketH = Math.max(24, anchorY - top.y - 8);
-  const fit = Math.min(pocketW / span.width, pocketH / span.height);
-  return Math.max(0.03, Math.min(fit, scaleThatKeepsTop(anchorY, safeCount, 12)));
+export type ScreenBox = { left: number; top: number; right: number; bottom: number };
+
+export function uvBox(viewW: number, viewH: number, rect: { u0: number; v0: number; u1: number; v1: number }): ScreenBox {
+  const a = screenUv(viewW, viewH, rect.u0, rect.v0);
+  const b = screenUv(viewW, viewH, rect.u1, rect.v1);
+  return {
+    left: Math.min(a.x, b.x),
+    top: Math.min(a.y, b.y),
+    right: Math.max(a.x, b.x),
+    bottom: Math.max(a.y, b.y),
+  };
 }
 
-function libraryLimits(viewW: number, viewH: number) {
-  const ground = screenUv(viewW, viewH, LIBRARY_POST.u, LIBRARY_POST.v);
-  const left = screenUv(viewW, viewH, LIBRARY_BAND.u0, LIBRARY_POST.v);
-  const right = screenUv(viewW, viewH, LIBRARY_BAND.u1, LIBRARY_POST.v);
-  const roof = screenUv(viewW, viewH, LIBRARY_POST.u, LIBRARY_BAND.vTop);
-  return { ground, left: left.x, right: right.x, headroom: Math.max(48, ground.y - roof.y) };
+/** Market stand, roof to the bottom of the crates, in screen pixels. */
+export function standHeightPx(viewW: number, viewH: number): number {
+  const box = uvBox(viewW, viewH, standArtUv());
+  return box.bottom - box.top;
+}
+
+/** Grass the baskets may use. Already inset from the painted obstacles at 1280×800. */
+export function safeGrassRect(viewW: number, viewH: number): ScreenBox {
+  return uvBox(viewW, viewH, SAFE_GRASS);
+}
+
+/** Gap from a box to an obstacle. Positive means clear space. */
+export function boxGap(box: ScreenBox, obstacle: ScreenBox): number {
+  const dx = Math.max(obstacle.left - box.right, box.left - obstacle.right);
+  const dy = Math.max(obstacle.top - box.bottom, box.top - obstacle.bottom);
+  if (dx > 0 && dy > 0) return Math.hypot(dx, dy);
+  if (dx > 0) return dx;
+  if (dy > 0) return dy;
+  return Math.max(dx, dy);
+}
+
+export function restClearance(viewW: number, viewH: number, box: ScreenBox) {
+  return REST_OBSTACLES.map((obstacle) => ({
+    name: obstacle.name,
+    gap: boxGap(box, uvBox(viewW, viewH, obstacle)),
+  }));
+}
+
+const LABEL_BLOCK_H = 40;
+
+function scaleThatFits(bounds: { width: number; height: number }, room: ScreenBox): number {
+  const roomW = Math.max(24, room.right - room.left);
+  const roomH = Math.max(24, room.bottom - room.top - LABEL_BLOCK_H);
+  return Math.max(0.03, Math.min(roomW / bounds.width, roomH / bounds.height));
 }
 
 /**
- * Resting scale. About 1.5× the old grass-pocket size, clamped so the bunch
- * still fits the library column when several goals share it.
+ * Largest rest scale that keeps this arrangement inside the safe grass.
+ * Capped at the market-stand height when the grass is tall enough.
  */
-export function restScaleFor(viewW: number, viewH: number, count: number, goalsSharing = 1): number {
+export function restScaleFor(
+  viewW: number,
+  viewH: number,
+  count: number,
+  goalsSharing = 1,
+  activeIndex = 0,
+): number {
   const safeCount = Math.max(1, count);
   const sharing = Math.min(BUNCH_SHOW_MAX, Math.max(1, goalsSharing));
-  const boosted = formerRestScale(viewW, viewH, safeCount) * REST_SIZE_BOOST;
-  const limits = libraryLimits(viewW, viewH);
-  const span = bunchSpan(safeCount);
-  const fitH = limits.headroom / span.height;
-  const slotW = sharing === 1 ? Number.POSITIVE_INFINITY : SHARED_SLOT - 8;
-  const fitW = slotW / span.width;
-  let scale = Math.max(0.03, Math.min(boosted, fitW, fitH));
-  if (sharing === 1) {
-    const points = bunchPoints(safeCount);
-    const minX = Math.min(...points.map((point) => point.x - BALLOON_HALF_W));
-    const maxX = Math.max(...points.map((point) => point.x + BALLOON_HALF_W));
-    const leftRoom = limits.ground.x - limits.left;
-    const rightRoom = limits.right - limits.ground.x;
-    if (minX < 0) scale = Math.min(scale, leftRoom / -minX);
-    if (maxX > 0) scale = Math.min(scale, rightRoom / maxX);
-    const topLocal = Math.min(...points.map((point) => point.y - BALLOON_TOP));
-    scale = Math.min(scale, limits.headroom / Math.max(1, BASKET_GROUND - topLocal));
-  }
-  return Math.max(0.03, scale);
+  const grass = safeGrassRect(viewW, viewH);
+  const bandH = (grass.bottom - grass.top) / sharing;
+  const room = { ...grass, bottom: grass.top + bandH };
+  const bounds = arrangementBounds(safeCount, Math.min(activeIndex, safeCount - 1));
+  const fitted = scaleThatFits(bounds, room);
+  const stand = standHeightPx(viewW, viewH);
+  const forStand = stand / Math.max(1, bounds.height);
+  return Math.min(fitted, forStand);
 }
 
 /** Scale that makes the focused balloon's ghost about 45% of the screen height. */
 export function zoomScaleFor(viewH: number, focusScale = 1): number {
   const ghost = BALLOON_TOP * Math.max(0.35, focusScale);
   return (viewH * ZOOM_HEIGHT) / ghost;
-}
-
-/** Largest scale whose highest balloon stays `margin` px below the top of the stage. */
-function scaleThatKeepsTop(anchorY: number, count: number, margin: number): number {
-  const points = bunchPoints(Math.max(1, count));
-  const minY = Math.min(...points.map((point) => point.y)) - BALLOON_TOP;
-  return Math.max(0.03, (anchorY - margin) / Math.max(1, -minY));
 }
 
 export function restingScreenWidth(viewW: number, viewH: number, count: number): number {
@@ -433,27 +554,35 @@ export function zoomScreenWidth(viewH: number, count: number, focusScale = 1): n
 
 export type GoalSeat = { x: number; y: number; scale: number };
 
-/** One seat per shown goal. A single basket sits on the library post. */
-export function goalSeats(viewW: number, viewH: number, counts: number[]): GoalSeat[] {
+/**
+ * One seat per shown goal, stacked in a gentle arc inside the safe grass.
+ * A single bunch is centered. Extra goals step up and slightly sideways.
+ */
+export function goalSeats(viewW: number, viewH: number, counts: number[], actives: number[] = []): GoalSeat[] {
   const shown = counts.slice(0, BUNCH_SHOW_MAX);
   if (shown.length === 0) return [];
-  const scale = Math.min(
-    ...shown.map((count) => restScaleFor(viewW, viewH, Math.max(1, count), shown.length)),
+  const grass = safeGrassRect(viewW, viewH);
+  const scales = shown.map((count, index) =>
+    restScaleFor(viewW, viewH, Math.max(1, count), shown.length, actives[index] ?? 0),
   );
-  const ground = screenUv(viewW, viewH, LIBRARY_POST.u, LIBRARY_POST.v);
-  const y = ground.y - BASKET_GROUND * scale;
-  if (shown.length === 1) return [{ x: ground.x, y, scale }];
-  const gap = 8;
-  const total = shown.length * SHARED_SLOT + (shown.length - 1) * gap;
-  let left = ground.x - SHARED_SLOT / 2;
-  const grassLeft = screenUv(viewW, viewH, SHARED_GRASS.u0, LIBRARY_POST.v).x;
-  const grassRight = screenUv(viewW, viewH, SHARED_GRASS.u1, LIBRARY_POST.v).x;
-  if (left < grassLeft) left = grassLeft;
-  if (left + total > grassRight) left = Math.max(grassLeft, grassRight - total);
-  return shown.map(() => {
-    const seat = { x: left + SHARED_SLOT / 2, y, scale };
-    left += SHARED_SLOT + gap;
-    return seat;
+  const scale = Math.min(...scales);
+  const bandH = (grass.bottom - grass.top) / shown.length;
+  return shown.map((count, index) => {
+    const bounds = arrangementBounds(Math.max(1, count), actives[index] ?? 0);
+    const bandTop = grass.top + index * bandH;
+    const band = { ...grass, top: bandTop, bottom: bandTop + bandH };
+    const boxW = bounds.width * scale;
+    const boxH = bounds.height * scale;
+    const spareX = Math.max(0, band.right - band.left - boxW);
+    const spareY = Math.max(0, band.bottom - band.top - LABEL_BLOCK_H - boxH);
+    const stagger = (index - (shown.length - 1) / 2) * Math.min(18, spareX * 0.35);
+    const left = band.left + spareX / 2 + stagger;
+    const top = band.top + spareY / 2;
+    return {
+      x: left - bounds.minX * scale,
+      y: top - bounds.minY * scale,
+      scale,
+    };
   });
 }
 
@@ -461,30 +590,32 @@ export function goalOverflow(goalCount: number): number {
   return Math.max(0, goalCount - BUNCH_SHOW_MAX);
 }
 
-/** Axis-aligned screen box of one resting bunch, including the tally under the basket. */
+/** Axis-aligned screen box of one resting bunch, including the label under the basket. */
 export function restingBunchRect(
   viewW: number,
   viewH: number,
   count: number,
   goalsSharing = 1,
   seatIndex = 0,
-): { left: number; top: number; right: number; bottom: number } {
-  const seats = goalSeats(
-    viewW,
-    viewH,
-    Array.from({ length: Math.max(1, goalsSharing) }, (_, index) => (index === seatIndex ? count : count)),
-  );
-  const seat = seats[Math.min(seatIndex, seats.length - 1)] ?? goalSeats(viewW, viewH, [count])[0]!;
-  const points = bunchPoints(Math.max(1, count));
-  let left = seat.x;
-  let right = seat.x;
-  let top = seat.y;
-  for (const point of points) {
-    left = Math.min(left, seat.x + (point.x - BALLOON_HALF_W) * seat.scale);
-    right = Math.max(right, seat.x + (point.x + BALLOON_HALF_W) * seat.scale);
-    top = Math.min(top, seat.y + (point.y - BALLOON_TOP) * seat.scale);
-  }
-  return { left, top, right, bottom: seat.y + BASKET_GROUND * seat.scale + chromeExtent(viewH) };
+  activeIndex = 0,
+): ScreenBox {
+  const counts = Array.from({ length: Math.max(1, goalsSharing) }, () => count);
+  const actives = counts.map((_, index) => (index === seatIndex ? activeIndex : 0));
+  const seats = goalSeats(viewW, viewH, counts, actives);
+  const seat = seats[Math.min(seatIndex, seats.length - 1)] ?? goalSeats(viewW, viewH, [count], [activeIndex])[0]!;
+  const bounds = arrangementBounds(Math.max(1, count), activeIndex);
+  const left = seat.x + bounds.minX * seat.scale;
+  const right = seat.x + bounds.maxX * seat.scale;
+  const top = seat.y + bounds.minY * seat.scale;
+  const bottom = seat.y + BASKET_GROUND * seat.scale + LABEL_BLOCK_H;
+  const grass = safeGrassRect(viewW, viewH);
+  const labelHalf = Math.max(28, (grass.right - grass.left) / 2 - 4);
+  return {
+    left: Math.min(left, Math.max(grass.left, seat.x - labelHalf)),
+    top,
+    right: Math.max(right, Math.min(grass.right, seat.x + labelHalf)),
+    bottom,
+  };
 }
 
 /** Basket on the grass where the library post met the ground. */

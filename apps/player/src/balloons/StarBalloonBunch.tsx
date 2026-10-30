@@ -149,16 +149,20 @@ export default function StarBalloonBunch({
   const settledActive = locking?.index ?? activeBalloonIndex(cost, shown);
   const active = handoff ? (handoff.t < 0.5 ? handoff.fromActive : handoff.toActive) : settledActive;
   const points = neckPoints(slots.length, settledActive, locking ? null : handoff);
-  const backToFront = [...points].sort((a, b) => a.y - b.y || a.index - b.index);
+  const backToFront = [...points].sort((a, b) => {
+    const rank = (index: number) => (index === active ? 2 : slots[index]?.full ? 1 : 0);
+    return rank(a.index) - rank(b.index) || a.y - b.y;
+  });
   const big = slots.length > 8;
-  const pipSize = labelBudget ? 14 : 18;
-  const countCss = labelBudget ? 16 : 20;
-  const minCountPx = labelBudget ? 11 : Math.min(18, Math.max(14, labelPx * 0.38));
+  const pipSize = 16;
+  const countCss = 18;
+  const minCountPx = Math.max(14, Math.min(18, labelPx * 0.38));
   const pipWidth = big ? 150 : slots.length * (pipSize + 4) + 24;
   const cssWidth = Math.max(pipWidth, 168);
-  const counter = labelBudget
-    ? labelBudget / (cssWidth * Math.max(layoutScale, 0.04))
-    : minCountPx / (countCss * Math.max(layoutScale, 0.04));
+  const floor = 14 / (countCss * Math.max(layoutScale, 0.04));
+  const natural = minCountPx / (countCss * Math.max(layoutScale, 0.04));
+  const budget = labelBudget ? labelBudget / (cssWidth * Math.max(layoutScale, 0.04)) : natural;
+  const counter = Math.max(floor, Math.min(natural, budget));
   const fullCount = slots.filter((slot) => slot.full).length;
   const shadowRx = Math.min(150, 64 + slots.length * 7);
 
