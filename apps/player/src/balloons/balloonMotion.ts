@@ -1,9 +1,10 @@
 import {
-  boardRect,
+  bunchPoints,
   clamp01,
   farmBasketAnchor,
   planDonation,
   restScaleFor,
+  STARS_PER_BALLOON,
   zoomScaleFor,
   type DonationPlan,
   type FillSegment,
@@ -53,7 +54,7 @@ export function motionDurations(reduced: boolean): MotionDurations {
   return {
     zoom: 1.05,
     hold: 0.5,
-    away: 1.75,
+    away: 2.2,
     lock: 0.52,
     minInflate: 0.95,
     maxInflate: 1.45,
@@ -167,12 +168,26 @@ export function restPose(viewW: number, viewH: number, count: number): Pose {
   };
 }
 
-export function zoomPose(viewW: number, viewH: number, count: number): Pose {
-  const board = boardRect(viewW, viewH);
+/**
+ * The same bunch, brought forward. The balloon being filled is centered
+ * and about 45% of the screen tall. The basket and strings travel with it.
+ */
+export function zoomPose(
+  viewW: number,
+  viewH: number,
+  count: number,
+  focusIndex = 0,
+  focusScale = 1,
+): Pose {
+  const points = bunchPoints(Math.max(1, count));
+  const focus = points[Math.min(Math.max(0, focusIndex), points.length - 1)] ?? points[0];
+  const scale = zoomScaleFor(viewH, focusScale);
+  // Neck sits above the QA dock so the whole balloon, not just the crown, stays on screen.
+  const neckScreen = viewH * 0.56;
   return {
-    x: board.left + board.width * 0.3,
-    y: board.top + board.height * 0.7,
-    scale: zoomScaleFor(viewW, viewH, Math.max(1, count)),
+    x: viewW / 2 - (focus?.x ?? 0) * scale,
+    y: neckScreen - (focus?.y ?? -198) * scale,
+    scale,
     opacity: 1,
   };
 }
@@ -188,6 +203,9 @@ export type AnimState = {
   t0: number;
   timeline: Timeline | null;
   reached: boolean;
+  /** Balloon the zoom centers on. Stays put for the whole gesture so overflow does not jump. */
+  focusIndex: number;
+  focusScale: number;
 };
 
 export function restAnim(shown: number): AnimState {
@@ -200,6 +218,8 @@ export function restAnim(shown: number): AnimState {
     t0: 0,
     timeline: null,
     reached: false,
+    focusIndex: 0,
+    focusScale: 1,
   };
 }
 
@@ -213,6 +233,8 @@ export function beginDonation(shown: number, plan: DonationPlan, reduced: boolea
     t0: now,
     timeline: buildTimeline(plan, reduced),
     reached: plan.reached,
+    focusIndex: plan.segments[0]?.index ?? 0,
+    focusScale: (plan.segments[0]?.capacity ?? STARS_PER_BALLOON) / STARS_PER_BALLOON,
   };
 }
 
@@ -284,12 +306,12 @@ export function bunchPose(
   viewW: number,
   viewH: number,
   count: number,
-  state: Pick<AnimState, "phase" | "zoomU" | "awayU">,
+  state: Pick<AnimState, "phase" | "zoomU" | "awayU"> & Partial<Pick<AnimState, "focusIndex" | "focusScale">>,
   timeSec: number,
   reduced: boolean,
 ): Pose {
   const rest = restPose(viewW, viewH, count);
-  const zoom = zoomPose(viewW, viewH, count);
+  const zoom = zoomPose(viewW, viewH, count, state.focusIndex ?? 0, state.focusScale ?? 1);
   if (state.phase === "away" || state.phase === "reward") {
     return awayPose(zoom, state.phase === "reward" ? 1 : state.awayU, viewH);
   }
@@ -297,7 +319,8 @@ export function bunchPose(
   return { ...pose, y: pose.y + idleBob(timeSec, state.zoomU, reduced) };
 }
 
-export function boardOpacity(state: Pick<AnimState, "phase" | "zoomU" | "awayU">): number {
+/** Farm dim while the bunch is in front. Fades out as the balloons float away. */
+export function sceneDim(state: Pick<AnimState, "phase" | "zoomU" | "awayU">): number {
   if (state.phase === "away") return 1 - easeInOutCubic(state.awayU);
   if (state.phase === "reward") return 0;
   return easeInOutCubic(state.zoomU);

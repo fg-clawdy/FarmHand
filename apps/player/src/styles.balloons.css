@@ -27,6 +27,16 @@
   pointer-events: none;
 }
 
+.balloon-dim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: rgba(16, 32, 10, 0.38);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
 .balloon-board {
   position: absolute;
   z-index: 3;
@@ -142,43 +152,61 @@
   pointer-events: none;
 }
 
-.star-pips {
+.star-chrome {
   position: absolute;
   left: 0;
-  top: 36px;
-  transform: translateX(-50%);
+  top: 16px;
+  transform-origin: top center;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.star-pips {
+  position: static;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: 4px;
+  max-width: 240px;
+  padding: 3px 6px;
   border-radius: 999px;
-  background: rgba(255, 248, 230, 0.82);
-  border: 3px solid rgba(141, 90, 46, 0.85);
+  background: rgba(255, 248, 230, 0.9);
+  border: 3px solid #6b4428;
+}
+
+.star-tally {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(255, 248, 230, 0.92);
+  border: 3px solid #6b4428;
+  color: #5c3a22;
+  font-weight: 800;
+  font-size: 18px;
+  white-space: nowrap;
 }
 
 .star-count {
-  position: absolute;
-  left: 0;
-  top: 108px;
-  transform: translateX(-50%);
+  position: static;
   white-space: nowrap;
-  padding: 2px 14px 5px;
+  padding: 1px 10px 3px;
   border-radius: 999px;
   background: rgba(255, 248, 230, 0.92);
-  border: 3px solid #8d5a2e;
-  color: #5c3d28;
+  border: 3px solid #6b4428;
+  color: #5c3a22;
   line-height: 1;
 }
 
 .star-count-now {
   font-family: "Luckiest Guy", Fredoka, sans-serif;
-  font-size: 42px;
+  font-size: 22px;
   font-weight: 400;
 }
 
 .star-count-of {
-  font-size: 28px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -290,6 +318,7 @@
 .balloon-confetti {
   position: absolute;
   inset: 0;
+  z-index: 5;
   width: 100%;
   height: 100%;
   pointer-events: none;
@@ -312,11 +341,17 @@
   animation: balloon-reward-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.balloon-reward-star {
-  font-size: 92px;
-  line-height: 1;
-  color: #f0b429;
-  text-shadow: 0 6px 0 #c98412, 0 10px 16px rgba(90, 50, 10, 0.25);
+.balloon-reward-motif {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  height: 92px;
+  margin-bottom: 4px;
+}
+
+.balloon-reward-motif svg {
+  overflow: visible;
+  filter: drop-shadow(0 8px 0 rgba(92, 48, 16, 0.12));
 }
 
 .balloon-reward-kicker {

@@ -21,7 +21,7 @@ test("a half-full 200 goal shows a full ghost, a half body, and a half pip", () 
   const markup = html(200, 100);
   assert.match(markup, /data-qa="balloon-ghost"/);
   assert.match(markup, /data-target-scale="1"/);
-  assert.match(markup, /data-body-scale="0.5"/);
+  assert.match(markup, /data-body-scale="0\.707/);
   assert.match(markup, /data-fill="0.5"/);
   assert.match(markup, />100</);
   assert.match(markup, /200/);

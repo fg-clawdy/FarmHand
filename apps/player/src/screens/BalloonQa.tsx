@@ -3,15 +3,14 @@ import type { FarmPlayerCard, PublicPlot } from "@farmhand/shared";
 import {
   BALLOON_GOAL_COSTS,
   BALLOON_PRESETS,
-  BALLOON_STAGE,
   GIVE_AMOUNTS,
   START_WALLET,
-  boardRect,
+  chromeExtent,
   formatStarCount,
   planDonation,
 } from "../balloons/balloonMath";
 import {
-  boardOpacity,
+  sceneDim,
   bunchPose,
   motionDurations,
   restAnim,
@@ -19,7 +18,7 @@ import {
   stepAnim,
   type AnimState,
 } from "../balloons/balloonMotion";
-import StarBalloonBunch, { TvGlyph } from "../balloons/StarBalloonBunch";
+import StarBalloonBunch from "../balloons/StarBalloonBunch";
 import { useFarmPixi } from "../pixi/usePixi";
 import "../styles.balloons.css";
 
@@ -39,20 +38,18 @@ function usePrefersReducedMotion() {
   return reduced;
 }
 
-function useStageScale() {
-  const [scale, setScale] = useState(() => fitStage());
+function useViewSize() {
+  const [view, setView] = useState(() => ({
+    w: typeof window === "undefined" ? 1280 : window.innerWidth,
+    h: typeof window === "undefined" ? 800 : window.innerHeight,
+  }));
   useEffect(() => {
-    const onResize = () => setScale(fitStage());
+    const onResize = () => setView({ w: window.innerWidth, h: window.innerHeight });
     onResize();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
-  return scale;
-}
-
-function fitStage() {
-  if (typeof window === "undefined") return 1;
-  return Math.min(window.innerWidth / BALLOON_STAGE.width, window.innerHeight / BALLOON_STAGE.height);
+  return view;
 }
 
 type Ui = {
@@ -63,7 +60,7 @@ type Ui = {
 };
 
 export default function BalloonQa() {
-  const scale = useStageScale();
+  const view = useViewSize();
   const prefersReduced = usePrefersReducedMotion();
   const [ui, setUi] = useState<Ui>({
     cost: 1100,
@@ -171,51 +168,32 @@ export default function BalloonQa() {
 
   const state = anim.current;
   const count = Math.max(1, Math.ceil(ui.cost / 200));
-  const pose = bunchPose(BALLOON_STAGE.width, BALLOON_STAGE.height, count, state, performance.now() / 1000, reduced);
+  const nowSec = performance.now() / 1000;
+  const pose = bunchPose(view.w, view.h, count, state, nowSec, reduced);
   const opacity = pose.opacity * reveal.current;
-  const wood = boardOpacity(state);
-  const board = boardRect(BALLOON_STAGE.width, BALLOON_STAGE.height);
+  const dim = sceneDim(state);
   const hideBunch = state.phase === "reward" || ui.released;
+  const showConfetti =
+    motionDurations(reduced).confetti &&
+    !ui.released &&
+    (state.phase === "reward" || (state.phase === "away" && state.awayU > 0.08));
   const sparkle = motionDurations(reduced).sparkle;
   const bounce = motionDurations(reduced).bounce;
   const reward = state.phase === "reward" && !ui.released;
 
   return (
     <div className="balloon-fit-root">
-      <div className="balloon-fit" style={{ width: BALLOON_STAGE.width * scale, height: BALLOON_STAGE.height * scale }}>
-        <div
-          className={reduced ? "balloon-stage is-reduced" : "balloon-stage"}
-          data-qa="balloon-stage"
-          data-phase={state.phase}
-          data-shown={Math.round(state.shown)}
-          data-filled={ui.filled}
-          data-rev={rev}
-          style={{ width: BALLOON_STAGE.width, height: BALLOON_STAGE.height, transform: `scale(${scale})` }}
-        >
-          <div className="pixi-host" ref={hostRef} data-qa="farm-pixi" />
-          <div
-            className="balloon-board"
-            data-qa="wood-board"
-            style={{
-              left: board.left,
-              top: board.top,
-              width: board.width,
-              height: board.height,
-              opacity: wood,
-            }}
-          >
-            <div className="balloon-board-copy">
-              <div className="balloon-goal-chip">
-                <TvGlyph size={72} />
-                <span>{GOAL_TITLE}</span>
-              </div>
-              <div className="balloon-board-wallet" data-qa="board-wallet">
-                <span className="balloon-wallet-k">Wallet</span>
-                <span className="balloon-wallet-n">{formatStarCount(ui.wallet)}</span>
-                <span className="balloon-wallet-star">★</span>
-              </div>
-            </div>
-          </div>
+      <div
+        className={reduced ? "balloon-stage is-reduced" : "balloon-stage"}
+        data-qa="balloon-stage"
+        data-phase={state.phase}
+        data-shown={Math.round(state.shown)}
+        data-filled={ui.filled}
+        data-rev={rev}
+        style={{ width: "100%", height: "100%" }}
+      >
+        <div className="pixi-host" ref={hostRef} data-qa="farm-pixi" />
+        <div className="balloon-dim" data-qa="farm-dim" style={{ opacity: dim }} />
 
           {!hideBunch && (
             <div
@@ -233,11 +211,14 @@ export default function BalloonQa() {
                 sparkle={sparkle}
                 bounce={bounce}
                 layoutScale={pose.scale}
+                timeSec={nowSec}
+                labelPx={chromeExtent(view.h)}
               />
             </div>
           )}
 
-          {reward && <Reward reduced={reduced} onClose={closeReward} />}
+          {showConfetti && <Confetti width={view.w} height={view.h} />}
+          {reward && <Reward onClose={closeReward} />}
 
           <Dock
             ui={ui}
@@ -251,23 +232,23 @@ export default function BalloonQa() {
             onReset={reset}
             onToggleReduced={toggleReduced}
           />
-        </div>
       </div>
     </div>
   );
 }
 
-function Reward({ reduced, onClose }: { reduced: boolean; onClose: () => void }) {
+function Reward({ onClose }: { onClose: () => void }) {
   return (
     <div className="balloon-reward" data-qa="reward" role="dialog" aria-label="Movie night is ready">
-      {!reduced && <Confetti />}
       <div className="balloon-reward-card">
-        <div className="balloon-reward-star" aria-hidden="true">
-          ★
+        <div className="balloon-reward-motif" aria-hidden="true">
+          <MotifBalloon fill="#ff5f93" deep="#c4285c" />
+          <MotifBalloon fill="#ffc233" deep="#d48400" tall />
+          <MotifBalloon fill="#4eb6ff" deep="#1d74c9" />
         </div>
         <p className="balloon-reward-kicker">Every balloon is full</p>
         <h2>You did it!</h2>
-        <p className="balloon-reward-copy">Movie night is ready.</p>
+        <p className="balloon-reward-copy">{GOAL_TITLE} is ready.</p>
         <button type="button" className="btn gold" data-qa="reward-close" onClick={onClose}>
           Back to the farm
         </button>
@@ -276,15 +257,32 @@ function Reward({ reduced, onClose }: { reduced: boolean; onClose: () => void })
   );
 }
 
-function Confetti() {
+function MotifBalloon({ fill, deep, tall }: { fill: string; deep: string; tall?: boolean }) {
+  const h = tall ? 78 : 64;
+  return (
+    <svg width="54" height={h} viewBox="0 0 54 86">
+      <path
+        d="M 27 70 C 18 66 14 58 14 50 C 6 46 2 34 2 26 C 2 12 13 2 27 2 C 41 2 52 12 52 26 C 52 34 48 46 40 50 C 40 58 36 66 27 70 Z"
+        fill={fill}
+        stroke="#5c3a22"
+        strokeWidth="3"
+      />
+      <ellipse cx="18" cy="16" rx="8" ry="4" fill="#fff" opacity="0.8" transform="rotate(-28 18 16)" />
+      <path d="M 22 70 C 20 76 24 80 27 76 C 30 80 34 76 32 70" fill={deep} stroke="#5c3a22" strokeWidth="2" />
+      <path d="M 27 76 C 20 82 14 80 12 86 M 27 76 C 34 82 40 80 42 86" fill="none" stroke="#5c3a22" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function Confetti({ width, height }: { width: number; height: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    canvas.width = BALLOON_STAGE.width;
-    canvas.height = BALLOON_STAGE.height;
+    canvas.width = Math.max(1, width);
+    canvas.height = Math.max(1, height);
     const colors = ["#f0b429", "#d6453d", "#7dbe4a", "#f4b7c4", "#b9ddf5", "#fff6e4", "#e6c07a", "#8fd0c6"];
     const bits = Array.from({ length: 86 }, () => ({
       x: Math.random() * canvas.width,
@@ -323,7 +321,7 @@ function Confetti() {
     };
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [width, height]);
   return <canvas ref={ref} className="balloon-confetti" data-qa="confetti" />;
 }
 

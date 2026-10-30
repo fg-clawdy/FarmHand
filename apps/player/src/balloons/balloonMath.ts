@@ -40,7 +40,8 @@ export type BalloonSlot = {
   targetScale: number;
   /**
    * Colored body size relative to a full 200★ balloon.
-   * Exact: stars / STARS_PER_BALLOON. Empty is 0 (ghost + nub still draw).
+   * Linear scale is the square root of the filled area, so 100/200
+   * covers half the ghost instead of a quarter of it.
    */
   bodyScale: number;
   full: boolean;
@@ -88,14 +89,15 @@ export function balloonsFor(cost: number, filled: number): BalloonSlot[] {
     const stars = Math.min(capacity, Math.max(0, remaining));
     remaining -= stars;
     const targetScale = capacity / STARS_PER_BALLOON;
+    const fill = capacity === 0 ? 0 : stars / capacity;
     const full = capacity > 0 && stars >= capacity - 1e-4;
     slots.push({
       index,
       capacity,
       stars,
-      fill: capacity === 0 ? 0 : stars / capacity,
+      fill,
       targetScale,
-      bodyScale: stars / STARS_PER_BALLOON,
+      bodyScale: bodyScaleFor(fill, targetScale),
       full,
     });
   }
@@ -133,6 +135,11 @@ export function planDonation(cost: number, filled: number, amount: number): Dona
   };
 }
 
+/** Linear scale of the colored body. Area ratio to the ghost equals `fill`. */
+export function bodyScaleFor(fill: number, targetScale: number): number {
+  return targetScale * Math.sqrt(clamp01(fill));
+}
+
 /** 0 stars still has a nub. It fades out as the colored body takes the neck. */
 export function nubOpacity(bodyScale: number, targetScale: number): number {
   const fadeOver = Math.max(0.04, targetScale * 0.22);
@@ -151,47 +158,31 @@ export function formatStarCount(n: number): string {
  */
 export function restingFootprint(count: number): number {
   if (count <= 1) return 1;
-  if (count <= 3) return 0.98;
-  if (count <= 6) return 0.92;
-  if (count <= 10) return 0.8;
-  return 0.68;
+  if (count <= 3) return 0.92;
+  if (count <= 6) return 0.78;
+  if (count <= 10) return 0.62;
+  return 0.48;
 }
 
-/** Back row first so the front row (drawn last, filled last) stays readable. Counts up to 6 stay on one row. */
-export function rowPattern(count: number): number[] {
-  if (count <= 0) return [];
-  if (count <= 6) return [count];
-  if (count <= 10) {
-    const front = Math.ceil(count / 2);
-    return [count - front, front];
-  }
-  const rows = 3;
-  const base = Math.floor(count / rows);
-  const extra = count % rows;
-  const out = Array.from({ length: rows }, () => base);
-  for (let i = 0; i < extra; i++) out[rows - 1 - i] += 1;
-  return out;
-}
-
-/** Neck positions relative to the basket at (0, 0). Y is up (negative). Gaps stay wide enough that ghosts stay countable. */
+/**
+ * Neck positions relative to the basket at (0, 0). Y is up (negative).
+ * A golden-angle bouquet: overlapping, varied depth, strings meet at the basket.
+ * Index 0 (the balloon that fills first) sits at the front of the bunch.
+ */
 export function bunchPoints(count: number): BunchPoint[] {
-  const rows = rowPattern(count);
-  const colGap = 196;
-  const rowGap = 228;
+  if (count <= 0) return [];
+  if (count === 1) return [{ index: 0, x: 0, y: -198 }];
+  const big = count >= 8;
+  const golden = 2.399963229728653;
   const points: BunchPoint[] = [];
-  let index = 0;
-  const nRows = rows.length;
-  rows.forEach((n, rowFromBack) => {
-    const depthFromFront = nRows - 1 - rowFromBack;
-    for (let col = 0; col < n; col++) {
-      const x = (col - (n - 1) / 2) * colGap;
-      const along = n <= 1 ? 0 : (col / (n - 1)) * Math.PI;
-      const arch = Math.sin(along) * (nRows === 1 ? 36 : 10);
-      const y = -(156 + depthFromFront * rowGap) - arch;
-      points.push({ index, x, y });
-      index += 1;
-    }
-  });
+  for (let i = 0; i < count; i++) {
+    const angle = -Math.PI / 2 + i * golden;
+    const radius = big ? 14 + Math.sqrt(i) * 28 : 26 + i * 20;
+    const depth = big ? (i % 5) * 0.08 : (i % 3) * 0.05;
+    const x = Math.cos(angle) * radius * (big ? 0.78 : 1.02);
+    const y = -172 - Math.sin(angle) * radius * (big ? 0.58 : 0.7) - radius * depth;
+    points.push({ index: i, x, y });
+  }
   return points;
 }
 
@@ -211,63 +202,91 @@ export function bunchSpan(count: number): { width: number; height: number } {
   return { width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
 }
 
+const TEX_W = 1536;
+const TEX_H = 1024;
+
+/**
+ * Open grass between the cow's roam box (u ≤ 0.49) and the market (u ≥ 0.61),
+ * above the garden signs (v ≥ 0.40). The basket sits at the bottom of this pocket.
+ */
+const GRASS_POCKET = { u0: 0.53, u1: 0.608, v0: 0.12, v1: 0.34 } as const;
+
+/** Share of the screen height the balloon being filled occupies while zoomed. */
+export const ZOOM_HEIGHT = 0.45;
+
+export function screenUv(viewW: number, viewH: number, u: number, v: number): { x: number; y: number } {
+  const fit = coverFit(viewW, viewH, TEX_W, TEX_H);
+  return {
+    x: fit.x + u * TEX_W * fit.scale,
+    y: fit.y + v * TEX_H * fit.scale,
+  };
+}
+
+/** Screen pixels reserved under the basket for the pip row or the "N of 15" tally. */
+export function chromeExtent(viewH: number): number {
+  return Math.min(64, Math.max(28, viewH * 0.04));
+}
+
 export function restScaleFor(viewW: number, viewH: number, count: number): number {
   const safeCount = Math.max(1, count);
-  const span = Math.max(1, bunchSpan(safeCount).width);
-  const target =
-    safeCount <= 1
-      ? Math.min(viewW * 0.11, 280)
-      : safeCount <= 6
-        ? Math.min(viewW * 0.19, 480)
-        : safeCount <= 10
-          ? Math.min(viewW * 0.16, 400)
-          : Math.min(viewW * 0.13, 320);
   const anchor = farmBasketAnchor(viewW, viewH);
-  return Math.min(target / span, scaleThatKeepsTop(anchor.y, safeCount, 280));
+  const u = (GRASS_POCKET.u0 + GRASS_POCKET.u1) / 2;
+  const top = screenUv(viewW, viewH, u, GRASS_POCKET.v0);
+  const left = screenUv(viewW, viewH, GRASS_POCKET.u0, GRASS_POCKET.v1);
+  const right = screenUv(viewW, viewH, GRASS_POCKET.u1, GRASS_POCKET.v1);
+  const span = bunchSpan(safeCount);
+  const pocketW = Math.max(24, Math.abs(right.x - left.x) - 8);
+  const pocketH = Math.max(24, anchor.y - top.y - 8);
+  const fit = Math.min(pocketW / span.width, pocketH / span.height);
+  return Math.max(0.03, Math.min(fit, scaleThatKeepsTop(anchor.y, safeCount, 12)));
 }
 
-export function boardRect(viewW: number, viewH: number) {
-  const width = Math.min(Math.round(viewW * 0.78), 1680);
-  const height = Math.min(Math.round(viewH * 0.7), 1040);
-  const left = Math.round((viewW - width) / 2);
-  const top = Math.round((viewH - height) / 2 - 10);
-  return { left, top, width, height };
-}
-
-export function zoomScaleFor(viewW: number, viewH: number, count: number): number {
-  const safeCount = Math.max(1, count);
-  const span = Math.max(1, bunchSpan(safeCount).width);
-  const board = boardRect(viewW, viewH);
-  const fit = (board.width * (safeCount >= 12 ? 0.46 : 0.48)) / span;
-  const rest = restScaleFor(viewW, viewH, safeCount);
-  const anchorY = board.top + board.height * 0.7;
-  return Math.min(fit, rest * 2.15, scaleThatKeepsTop(anchorY, safeCount, 56));
+/** Scale that makes the focused balloon's ghost about 45% of the screen height. */
+export function zoomScaleFor(viewH: number, focusScale = 1): number {
+  const ghost = BALLOON_TOP * Math.max(0.35, focusScale);
+  return (viewH * ZOOM_HEIGHT) / ghost;
 }
 
 /** Largest scale whose highest balloon stays `margin` px below the top of the stage. */
 function scaleThatKeepsTop(anchorY: number, count: number, margin: number): number {
   const points = bunchPoints(Math.max(1, count));
   const minY = Math.min(...points.map((point) => point.y)) - BALLOON_TOP;
-  return Math.max(0.05, (anchorY - margin) / Math.max(1, -minY));
+  return Math.max(0.03, (anchorY - margin) / Math.max(1, -minY));
 }
 
-export function restingScreenWidth(viewW: number, count: number): number {
-  return bunchSpan(count).width * restScaleFor(viewW, BALLOON_STAGE.height, count);
+export function restingScreenWidth(viewW: number, viewH: number, count: number): number {
+  return bunchSpan(count).width * restScaleFor(viewW, viewH, count);
 }
 
-export function zoomScreenWidth(viewW: number, viewH: number, count: number): number {
-  return bunchSpan(count).width * zoomScaleFor(viewW, viewH, count);
+export function zoomScreenWidth(viewH: number, count: number, focusScale = 1): number {
+  return bunchSpan(count).width * zoomScaleFor(viewH, focusScale);
 }
 
-/** Basket anchor on the painted playfield, in the open grass above the center garden sign. */
+/** Axis-aligned screen box of the resting bunch, including the tally under the basket. */
+export function restingBunchRect(
+  viewW: number,
+  viewH: number,
+  count: number,
+): { left: number; top: number; right: number; bottom: number } {
+  const anchor = farmBasketAnchor(viewW, viewH);
+  const scale = restScaleFor(viewW, viewH, count);
+  const points = bunchPoints(Math.max(1, count));
+  let left = anchor.x;
+  let right = anchor.x;
+  let top = anchor.y;
+  for (const point of points) {
+    left = Math.min(left, anchor.x + (point.x - BALLOON_HALF_W) * scale);
+    right = Math.max(right, anchor.x + (point.x + BALLOON_HALF_W) * scale);
+    top = Math.min(top, anchor.y + (point.y - BALLOON_TOP) * scale);
+  }
+  return { left, top, right, bottom: anchor.y + chromeExtent(viewH) };
+}
+
+/** Basket on open grass: right of the calf's path, left of the market, above the signs. */
 export function farmBasketAnchor(viewW: number, viewH: number): { x: number; y: number } {
-  const fit = coverFit(viewW, viewH, 1536, 1024);
-  const u = 0.55;
-  const v = 0.45;
-  return {
-    x: fit.x + u * 1536 * fit.scale,
-    y: fit.y + v * 1024 * fit.scale,
-  };
+  const u = (GRASS_POCKET.u0 + GRASS_POCKET.u1) / 2;
+  const bottom = screenUv(viewW, viewH, u, GRASS_POCKET.v1);
+  return { x: bottom.x, y: bottom.y - chromeExtent(viewH) };
 }
 
 export function clamp01(n: number): number {

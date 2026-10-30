@@ -15,15 +15,16 @@ import { bodyDrawScale, bowOpacity, ghostOpacity } from "./balloonMotion";
  * The camera is the farm's 3/4 view — basket rim seen from above, balloons facing us.
  */
 
-const INK = "#5c3d28";
+const INK = "#5c3a22";
 
+/** Saturated-but-soft pastels. They stay readable on the green grass. */
 const PASTELS = [
-  { base: "#f3b4c4", deep: "#d8889e", light: "#fff1f4" },
-  { base: "#d4c2f2", deep: "#b196d6", light: "#f7f2ff" },
-  { base: "#b5e2c4", deep: "#79c498", light: "#f2fff6" },
-  { base: "#f6d78a", deep: "#e0ae45", light: "#fff8e6" },
-  { base: "#b7daf4", deep: "#7eb4de", light: "#f3fbff" },
-  { base: "#f6c6a6", deep: "#e39a72", light: "#fff3ea" },
+  { base: "#ff5f93", deep: "#c4285c", light: "#ffd0e0" },
+  { base: "#b07cff", deep: "#6d3ec4", light: "#ead4ff" },
+  { base: "#3dce8a", deep: "#148a52", light: "#c8f6df" },
+  { base: "#ffc233", deep: "#d48400", light: "#ffe7a8" },
+  { base: "#4eb6ff", deep: "#1d74c9", light: "#cce9ff" },
+  { base: "#ff8a45", deep: "#d45a12", light: "#ffd2b8" },
 ] as const;
 
 /** Neck at (0,0), body above. Shared by the ghost and the colored balloon so they meet exactly. */
@@ -113,25 +114,31 @@ export default function StarBalloonBunch({
   sparkle,
   bounce,
   layoutScale,
+  timeSec = 0,
+  labelPx = 56,
 }: {
   cost: number;
   shown: number;
   locking: LockVisual;
   sparkle: boolean;
   bounce: boolean;
-  /** Outer flight scale. Pips and the star count stay a readable size instead of blowing up with a hero balloon. */
+  /** Outer flight scale. The tally stays inside the grass pocket instead of covering a sign. */
   layoutScale: number;
+  timeSec?: number;
+  /** Screen pixels reserved under the basket for pips or the tally. */
+  labelPx?: number;
 }) {
   const raw = useId();
   const uid = `b${raw.replace(/:/g, "")}`;
   const slots = balloonsFor(cost, shown);
   const points = bunchPoints(slots.length);
   const draw = [...points].sort((a, b) => a.y - b.y || a.index - b.index);
-  const pipSize = slots.length > 10 ? 28 : slots.length > 6 ? 36 : 44;
-  const lift = Math.max(layoutScale, 0.35);
-  const chrome = slots.length > 10 ? 0.82 : 0.92;
-  const pipTop = -58 / lift;
-  const countTop = (-58 + pipSize * chrome + 2) / lift;
+  const big = slots.length > 8;
+  const pipSize = big ? 18 : slots.length > 6 ? 22 : 26;
+  const stack = big ? 40 : pipSize + 28;
+  const counter = Math.min(8, Math.max(0.2, (labelPx - 6) / (stack * Math.max(layoutScale, 0.04))));
+  const fullCount = slots.filter((slot) => slot.full).length;
+  const shadowRx = Math.min(150, 64 + slots.length * 7);
 
   return (
     <div
@@ -144,35 +151,30 @@ export default function StarBalloonBunch({
       <svg className="star-bunch-svg" width={1600} height={1200} viewBox="-800 -900 1600 1200" overflow="visible">
         <defs>
           {PASTELS.map((pastel, index) => (
-            <radialGradient key={pastel.base} id={`${uid}-light-${index}`} cx="30%" cy="26%" r="72%">
-              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.92" />
-              <stop offset="24%" stopColor="#ffffff" stopOpacity="0.22" />
-              <stop offset="58%" stopColor={pastel.base} stopOpacity="0" />
-              <stop offset="100%" stopColor={pastel.deep} stopOpacity="0.72" />
+            <radialGradient key={pastel.base} id={`${uid}-light-${index}`} cx="28%" cy="24%" r="78%">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
+              <stop offset="16%" stopColor="#ffffff" stopOpacity="0.55" />
+              <stop offset="38%" stopColor={pastel.light} stopOpacity="0.28" />
+              <stop offset="62%" stopColor={pastel.base} stopOpacity="0" />
+              <stop offset="100%" stopColor={pastel.deep} stopOpacity="0.82" />
             </radialGradient>
           ))}
         </defs>
 
-        <ellipse cx="14" cy="22" rx="78" ry="18" fill="rgba(32, 58, 16, 0.28)" />
+        <ellipse cx="22" cy="30" rx={shadowRx} ry="16" fill="rgba(20, 36, 10, 0.38)" />
 
-        {draw.map((point) => (
-          <g key={`string-${point.index}`}>
-            <path
-              d={`M ${point.x} ${point.y} Q ${point.x * 0.22} ${point.y * 0.55} 0 2`}
-              fill="none"
-              stroke="#6b4428"
-              strokeWidth="5"
-              strokeLinecap="round"
-            />
-            <path
-              d={`M ${point.x} ${point.y} Q ${point.x * 0.22} ${point.y * 0.55} 0 2`}
-              fill="none"
-              stroke="#f0d7a6"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-            />
-          </g>
-        ))}
+        {draw.map((point) => {
+          const sway = Math.sin(timeSec * 1.35 + point.index * 0.85) * 12;
+          const cpx = point.x * 0.28 + sway;
+          const cpy = point.y * 0.48;
+          const d = `M ${point.x} ${point.y} Q ${cpx} ${cpy} 0 4`;
+          return (
+            <g key={`string-${point.index}`}>
+              <path d={d} fill="none" stroke="#6b4428" strokeWidth="5.5" strokeLinecap="round" />
+              <path d={d} fill="none" stroke="#f0d7a6" strokeWidth="1.7" strokeLinecap="round" />
+            </g>
+          );
+        })}
 
         {draw.map((point) => {
           const slot = slots[point.index];
@@ -182,7 +184,6 @@ export default function StarBalloonBunch({
           const scale = bodyDrawScale(slot.bodyScale, locking, slot.index, bounce);
           const nub = nubOpacity(slot.bodyScale, slot.targetScale);
           const showSpark = sparkle && locking?.index === slot.index;
-          const iconOpacity = clamp01((slot.fill - 0.28) / 0.22);
           return (
             <g
               key={slot.index}
@@ -200,21 +201,21 @@ export default function StarBalloonBunch({
                 data-qa="balloon-ghost"
                 data-ghost={ghost}
               >
-                <path d={BALLOON_PATH} fill={pastel.light} fillOpacity="0.94" />
+                <path d={BALLOON_PATH} fill={pastel.light} fillOpacity="0.55" />
                 <path
                   d={BALLOON_PATH}
                   fill="none"
-                  stroke={pastel.deep}
-                  strokeWidth="6"
-                  strokeDasharray="11 9"
+                  stroke="#3a2412"
+                  strokeWidth="8"
+                  strokeDasharray="9 7"
                   strokeLinecap="round"
                 />
                 <path
                   d={BALLOON_PATH}
                   fill="none"
-                  stroke="#fffaf0"
-                  strokeWidth="2.4"
-                  strokeDasharray="11 9"
+                  stroke={pastel.deep}
+                  strokeWidth="3.5"
+                  strokeDasharray="8 7"
                   strokeLinecap="round"
                 />
               </g>
@@ -223,13 +224,27 @@ export default function StarBalloonBunch({
                 transform={`translate(${point.x} ${point.y}) scale(${Math.max(scale, 0.0001)})`}
                 opacity={scale <= 0 ? 0 : Math.min(1, scale / 0.04)}
               >
-                <path d={BALLOON_PATH} transform="translate(8 12)" fill="rgba(70, 42, 24, 0.16)" />
                 <path d={BALLOON_PATH} fill={pastel.base} />
                 <path d={BALLOON_PATH} fill={`url(#${uid}-light-${slot.index % PASTELS.length})`} />
-                <path d={BALLOON_PATH} fill="none" stroke={INK} strokeWidth="5" strokeLinejoin="round" />
-                <ellipse cx="-40" cy="-176" rx="30" ry="16" fill="#ffffff" opacity="0.72" transform="rotate(-28 -40 -176)" />
-                <ellipse cx="-52" cy="-150" rx="10" ry="6" fill="#ffffff" opacity="0.45" />
-                <svg x="-28" y="-168" width="56" height="50" viewBox="0 0 64 56" opacity={iconOpacity}>
+                <path d={BALLOON_PATH} fill="none" stroke={INK} strokeWidth="6" strokeLinejoin="round" />
+                <path
+                  d="M -78 -210 C -108 -168 -112 -128 -96 -88"
+                  fill="none"
+                  stroke="#fffaf4"
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                  opacity="0.72"
+                />
+                <ellipse cx="-46" cy="-186" rx="34" ry="16" fill="#ffffff" opacity="0.88" transform="rotate(-32 -46 -186)" />
+                <ellipse cx="-58" cy="-158" rx="9" ry="5" fill="#ffffff" opacity="0.55" />
+                <path
+                  d="M -8 -2 C -11 8 -4 14 0 9 C 4 14 11 8 8 -2 C 4 2 -4 2 -8 -2 Z"
+                  fill={pastel.deep}
+                  stroke={INK}
+                  strokeWidth="2.4"
+                  strokeLinejoin="round"
+                />
+                <svg x="-28" y="-168" width="56" height="50" viewBox="0 0 64 56" opacity={bow}>
                   <TvInner />
                 </svg>
               </g>
@@ -260,31 +275,32 @@ export default function StarBalloonBunch({
         })}
 
         <g data-qa="balloon-basket">
-          <ellipse cx="7" cy="14" rx="34" ry="10" fill="rgba(32, 58, 16, 0.26)" />
-          <path d="M -32 1 C -36 26 36 26 32 1" fill="#c9843c" stroke={INK} strokeWidth="3.5" />
-          <path d="M -28 6 C -30 22 30 22 28 6" fill="#e8b86a" />
-          <path d="M -18 7 V 20 M -6 9 V 22 M 6 9 V 22 M 18 7 V 20" stroke="#8d5a2e" strokeWidth="2.4" strokeLinecap="round" />
-          <ellipse cx="0" cy="1" rx="32" ry="11" fill="#f2d09a" stroke={INK} strokeWidth="3.5" />
-          <ellipse cx="-9" cy="-2" rx="12" ry="4" fill="rgba(255, 248, 230, 0.75)" />
+          <path d="M -34 2 C -40 30 40 30 34 2" fill="#c9843c" stroke={INK} strokeWidth="4" />
+          <path d="M -28 8 C -32 24 32 24 28 8" fill="#e7b56a" />
+          <path d="M -20 8 V 22 M -7 10 V 24 M 7 10 V 24 M 20 8 V 22" stroke="#8a5428" strokeWidth="2.6" strokeLinecap="round" />
+          <path d="M -16 6 C -8 16 8 16 16 6" fill="none" stroke="#f6e2bc" strokeWidth="2" strokeLinecap="round" />
+          <ellipse cx="0" cy="2" rx="34" ry="12" fill="#f2d09a" stroke={INK} strokeWidth="4" />
+          <ellipse cx="-10" cy="-1" rx="12" ry="4" fill="rgba(255, 248, 230, 0.8)" />
+          <path d="M -6 8 V 16 M 6 8 V 16" stroke="#6b4428" strokeWidth="2" strokeLinecap="round" />
         </g>
       </svg>
 
-      <div
-        className="star-pips"
-        data-qa="pips"
-        style={{ top: pipTop, transform: `translateX(-50%) scale(${chrome / lift})` }}
-      >
-        {slots.map((slot) => (
-          <Pip key={slot.index} slot={slot} pastel={PASTELS[slot.index % PASTELS.length]} size={pipSize} />
-        ))}
-      </div>
-      <div
-        className="star-count"
-        data-qa="balloon-progress"
-        style={{ top: countTop, transform: `translateX(-50%) scale(${chrome / lift})` }}
-      >
-        <span className="star-count-now">{formatStarCount(shown)}</span>
-        <span className="star-count-of"> ★ / {formatStarCount(cost)}</span>
+      <div className="star-chrome" style={{ transform: `translateX(-50%) scale(${counter})` }}>
+        {big ? (
+          <div className="star-tally" data-qa="balloon-tally">
+            filled {fullCount} of {slots.length}
+          </div>
+        ) : (
+          <div className="star-pips" data-qa="pips">
+            {slots.map((slot) => (
+              <Pip key={slot.index} slot={slot} pastel={PASTELS[slot.index % PASTELS.length]} size={pipSize} />
+            ))}
+          </div>
+        )}
+        <div className="star-count" data-qa="balloon-progress">
+          <span className="star-count-now">{formatStarCount(shown)}</span>
+          <span className="star-count-of"> ★ / {formatStarCount(cost)}</span>
+        </div>
       </div>
     </div>
   );

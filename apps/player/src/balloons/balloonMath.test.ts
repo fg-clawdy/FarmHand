@@ -3,18 +3,21 @@ import test from "node:test";
 import {
   BALLOON_PRESETS,
   BALLOON_STAGE,
+  BALLOON_TOP,
   STARS_PER_BALLOON,
+  ZOOM_HEIGHT,
   balloonCount,
   balloonsFor,
   bunchPoints,
   formatStarCount,
+  chromeExtent,
   nubOpacity,
   planDonation,
+  restingBunchRect,
   restingFootprint,
-  restingScreenWidth,
-  rowPattern,
+  screenUv,
   slotCapacity,
-  zoomScreenWidth,
+  zoomScaleFor,
 } from "./balloonMath.ts";
 
 test("one full balloon is 200 stars, in a single constant", () => {
@@ -43,13 +46,14 @@ test("the last balloon keeps only the remainder", () => {
   assert.equal(slotCapacity(3000, 14), 200);
 });
 
-test("100 stars in a 200 goal is exactly half of a full-size ghost", () => {
+test("100 stars in a 200 goal covers half the ghost by area", () => {
   const [slot] = balloonsFor(200, 100);
   assert.equal(slot.capacity, 200);
   assert.equal(slot.stars, 100);
   assert.equal(slot.fill, 0.5);
-  assert.equal(slot.bodyScale, 0.5);
   assert.equal(slot.targetScale, 1);
+  assert.ok(Math.abs(slot.bodyScale - Math.sqrt(0.5)) < 1e-12);
+  assert.ok(Math.abs(slot.bodyScale * slot.bodyScale - 0.5) < 1e-12);
   assert.equal(slot.full, false);
   assert.equal(BALLOON_PRESETS.find((preset) => preset.id === "half")?.filled, 100);
 });
@@ -68,7 +72,7 @@ test("empty balloons stay in the bunch and the 1100 remainder is a half-size gho
   assert.equal(partial[5].stars, 50);
   assert.equal(partial[5].fill, 0.5);
   assert.equal(partial[5].targetScale, 0.5);
-  assert.equal(partial[5].bodyScale, 0.25);
+  assert.ok(Math.abs(partial[5].bodyScale - 0.5 * Math.sqrt(0.5)) < 1e-12);
   assert.equal(partial[5].full, false);
 });
 
@@ -86,7 +90,7 @@ test("stars fill balloons in order", () => {
     [200, 50, 0, 0, 0, 0],
   );
   assert.equal(slots[0].full, true);
-  assert.equal(slots[1].bodyScale, 0.25);
+  assert.ok(Math.abs(slots[1].bodyScale - Math.sqrt(0.25)) < 1e-12);
   assert.equal(slots[1].full, false);
 });
 
@@ -129,17 +133,60 @@ test("an empty balloon keeps a visible nub and a full one does not", () => {
 test("many balloons cluster instead of taking over the farm", () => {
   assert.ok(restingFootprint(15) < restingFootprint(6));
   assert.ok(restingFootprint(6) < restingFootprint(1));
-  assert.equal(rowPattern(6).length, 1);
-  assert.equal(rowPattern(15).reduce((sum, row) => sum + row, 0), 15);
-  assert.equal(bunchPoints(15).length, 15);
-  const wide = BALLOON_STAGE.width;
-  const tall = BALLOON_STAGE.height;
-  const cluster = restingScreenWidth(wide, 15);
-  assert.ok(cluster < wide * 0.28, `15-balloon bunch is ${cluster}px wide`);
-  assert.ok(zoomScreenWidth(wide, tall, 1) > restingScreenWidth(wide, 1) * 1.5);
-  assert.ok(zoomScreenWidth(wide, tall, 6) > restingScreenWidth(wide, 6) * 1.5);
-  assert.ok(zoomScreenWidth(wide, tall, 15) > restingScreenWidth(wide, 15) * 1.5);
-  assert.ok(zoomScreenWidth(wide, tall, 15) < wide * 0.42);
+  const pts = bunchPoints(15);
+  assert.equal(pts.length, 15);
+  let close = 0;
+  const xs = new Set<number>();
+  for (let i = 0; i < pts.length; i++) {
+    xs.add(Math.round(pts[i].x / 18));
+    for (let j = i + 1; j < pts.length; j++) {
+      const dx = pts[i].x - pts[j].x;
+      const dy = pts[i].y - pts[j].y;
+      if (Math.hypot(dx, dy) < 150) close += 1;
+    }
+  }
+  assert.ok(close >= 8, `overlapping pairs ${close}`);
+  assert.ok(xs.size >= 6, `columns ${xs.size}`);
+  const height = BALLOON_TOP * zoomScaleFor(BALLOON_STAGE.height, 1);
+  assert.ok(Math.abs(height / BALLOON_STAGE.height - ZOOM_HEIGHT) < 0.001);
+});
+
+test("the resting bunch stays on open grass at tablet, desktop, and small landscape", () => {
+  const views = [
+    [2560, 1600],
+    [1920, 1080],
+    [1024, 768],
+  ] as const;
+  const signs = [
+    { u0: 0.1, v0: 0.42, u1: 0.24, v1: 0.56 },
+    { u0: 0.42, v0: 0.42, u1: 0.58, v1: 0.56 },
+    { u0: 0.72, v0: 0.42, u1: 0.88, v1: 0.56 },
+  ];
+  const cow = { u0: 0.12, v0: 0.2, u1: 0.49, v1: 0.36 };
+  const market = { u0: 0.62, v0: 0.0, u1: 0.99, v1: 0.4 };
+  for (const [w, h] of views) {
+    for (const count of [1, 6, 15]) {
+      const box = restingBunchRect(w, h, count);
+      assert.ok(box.top >= 8, `${w}x${h} n=${count} top ${box.top}`);
+      assert.ok(box.left >= 8, `${w}x${h} n=${count} left ${box.left}`);
+      assert.ok(box.right <= w - 8, `${w}x${h} n=${count} right ${box.right}`);
+      assert.ok(box.bottom <= h - 8, `${w}x${h} n=${count} bottom ${box.bottom}`);
+      for (const zone of [cow, market, ...signs]) {
+        const a = screenUv(w, h, zone.u0, zone.v0);
+        const b = screenUv(w, h, zone.u1, zone.v1);
+        const other = {
+          left: Math.min(a.x, b.x),
+          top: Math.min(a.y, b.y),
+          right: Math.max(a.x, b.x),
+          bottom: Math.max(a.y, b.y),
+        };
+        const hit =
+          box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top;
+        assert.equal(hit, false, `${w}x${h} n=${count} overlaps a blocked zone`);
+      }
+    }
+  }
+  assert.ok(chromeExtent(1600) >= chromeExtent(768));
 });
 
 test("star labels group thousands and stay secondary-friendly", () => {
