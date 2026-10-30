@@ -10,9 +10,17 @@ import {
   balloonsFor,
   bunchPoints,
   formatStarCount,
+  BASKET_GROUND,
+  LIBRARY_POST,
+  REST_SIZE_BOOST,
+  activeBalloonIndex,
   chromeExtent,
+  goalOverflow,
+  goalSeats,
   nubOpacity,
+  placedPoints,
   planDonation,
+  restScaleFor,
   restingBunchRect,
   restingFootprint,
   screenUv,
@@ -55,7 +63,7 @@ test("100 stars in a 200 goal covers half the ghost by area", () => {
   assert.ok(Math.abs(slot.bodyScale - Math.sqrt(0.5)) < 1e-12);
   assert.ok(Math.abs(slot.bodyScale * slot.bodyScale - 0.5) < 1e-12);
   assert.equal(slot.full, false);
-  assert.equal(BALLOON_PRESETS.find((preset) => preset.id === "half")?.filled, 100);
+  assert.equal(BALLOON_PRESETS.find((preset) => preset.id === "handoff")?.goals[0]?.filled, 100);
 });
 
 test("empty balloons stay in the bunch and the 1100 remainder is a half-size ghost", () => {
@@ -169,27 +177,54 @@ test("many balloons cluster instead of taking over the farm", () => {
   assert.ok(Math.abs(height / BALLOON_STAGE.height - ZOOM_HEIGHT) < 0.001);
 });
 
-test("the resting bunch stays on open grass at tablet, desktop, and small landscape", () => {
+test("the balloon being filled is in front, and finished balloons sit behind it", () => {
+  const frontOf = (filled: number) => {
+    const placed = placedPoints(6, activeBalloonIndex(1100, filled));
+    return placed.reduce((best, point) => (point.y > best.y ? point : best));
+  };
+  assert.equal(activeBalloonIndex(1100, 0), 0);
+  assert.equal(frontOf(0).index, 0);
+  assert.equal(activeBalloonIndex(1100, 100), 0);
+  assert.equal(activeBalloonIndex(1100, 400), 2);
+  const at400 = placedPoints(6, 2);
+  const front = frontOf(400);
+  assert.equal(front.index, 2, "the next empty balloon is in front");
+  assert.ok(at400[0]!.y < front.y && at400[1]!.y < front.y, "both full balloons sit behind");
+  assert.equal(goalOverflow(0), 0);
+  assert.equal(goalOverflow(3), 0);
+  assert.equal(goalOverflow(5), 2);
+});
+
+test("resting baskets sit on the library post and clear the barn, tractor, sign, and cow path", () => {
   const views = [
-    [2560, 1600],
+    [1280, 800],
     [1920, 1080],
     [1024, 768],
+    [2560, 1600],
   ] as const;
-  const signs = [
-    { u0: 0.1, v0: 0.42, u1: 0.24, v1: 0.56 },
-    { u0: 0.42, v0: 0.42, u1: 0.58, v1: 0.56 },
-    { u0: 0.72, v0: 0.42, u1: 0.88, v1: 0.56 },
-  ];
-  const cow = { u0: 0.12, v0: 0.2, u1: 0.49, v1: 0.36 };
-  const market = { u0: 0.62, v0: 0.0, u1: 0.99, v1: 0.4 };
+  const barn = { u0: 0.0, v0: 0.0, u1: 0.26, v1: 0.26 };
+  const tractor = { u0: 0.14, v0: 0.12, u1: 0.295, v1: 0.38 };
+  const willow = { u0: 0.08, v0: 0.42, u1: 0.28, v1: 0.58 };
+  const cowPath = { u0: 0.4, v0: 0.2, u1: 0.49, v1: 0.36 };
   for (const [w, h] of views) {
+    const ground = screenUv(w, h, LIBRARY_POST.u, LIBRARY_POST.v);
+    const seat = goalSeats(w, h, [6])[0]!;
+    assert.ok(Math.abs(seat.x - ground.x) < 0.5, "single basket is on the post");
+    assert.ok(Math.abs(seat.y + BASKET_GROUND * seat.scale - ground.y) < 0.5, "shadow meets the ground");
+    assert.equal(goalSeats(w, h, []).length, 0);
+    const two = goalSeats(w, h, [6, 1]);
+    const three = goalSeats(w, h, [6, 1, 5]);
+    assert.equal(two.length, 2);
+    assert.equal(three.length, 3);
+    assert.ok(Math.abs(two[0]!.x - ground.x) < 1, "the first basket stays on the post");
+    assert.ok(two[1]!.x > two[0]!.x + 60);
+    assert.ok(three[0]!.x < three[1]!.x && three[1]!.x < three[2]!.x);
+    assert.ok(three[2]!.x - three[0]!.x > 120, "three goals sit side by side");
     for (const count of [1, 6, 15]) {
       const box = restingBunchRect(w, h, count);
       assert.ok(box.top >= 8, `${w}x${h} n=${count} top ${box.top}`);
-      assert.ok(box.left >= 8, `${w}x${h} n=${count} left ${box.left}`);
-      assert.ok(box.right <= w - 8, `${w}x${h} n=${count} right ${box.right}`);
       assert.ok(box.bottom <= h - 8, `${w}x${h} n=${count} bottom ${box.bottom}`);
-      for (const zone of [cow, market, ...signs]) {
+      for (const zone of [barn, tractor, willow, cowPath]) {
         const a = screenUv(w, h, zone.u0, zone.v0);
         const b = screenUv(w, h, zone.u1, zone.v1);
         const other = {
@@ -203,6 +238,9 @@ test("the resting bunch stays on open grass at tablet, desktop, and small landsc
         assert.equal(hit, false, `${w}x${h} n=${count} overlaps a blocked zone`);
       }
     }
+    const boosted = restScaleFor(w, h, 6);
+    assert.ok(boosted > 0.03);
+    assert.equal(REST_SIZE_BOOST, 1.5);
   }
   assert.ok(chromeExtent(1600) >= chromeExtent(768));
 });

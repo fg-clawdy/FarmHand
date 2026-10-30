@@ -122,6 +122,21 @@
   font-size: 36px;
 }
 
+.balloon-more {
+  position: absolute;
+  z-index: 6;
+  transform: translate(-50%, -50%);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 248, 230, 0.95);
+  border: 3px solid #6b4428;
+  color: #5c3a22;
+  font-family: "Luckiest Guy", Fredoka, sans-serif;
+  font-size: 22px;
+  line-height: 1;
+  pointer-events: none;
+}
+
 .balloon-flight {
   position: absolute;
   left: 0;

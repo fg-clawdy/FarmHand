@@ -3,17 +3,23 @@ import type { FarmPlayerCard, PublicPlot } from "@farmhand/shared";
 import {
   BALLOON_GOAL_COSTS,
   BALLOON_PRESETS,
+  BUNCH_SHOW_MAX,
   GIVE_AMOUNTS,
   START_WALLET,
+  balloonCount,
   chromeExtent,
   formatStarCount,
+  goalOverflow,
+  goalSeats,
   planDonation,
+  type QaGoal,
 } from "../balloons/balloonMath";
 import {
   sceneDim,
   cardReveal,
-  bunchPose,
+  idleBob,
   motionDurations,
+  poseFromRest,
   restAnim,
   beginDonation,
   stepAnim,
@@ -54,18 +60,24 @@ function useViewSize() {
 }
 
 type Ui = {
-  cost: number;
-  filled: number;
+  goals: QaGoal[];
+  focus: number;
   wallet: number;
   released: boolean;
 };
+
+const START_GOALS: QaGoal[] = [{ id: "movie", title: "Movie night", cost: 1100, filled: 0 }];
+
+function focusedGoal(ui: Ui): QaGoal | null {
+  return ui.goals[ui.focus] ?? ui.goals[0] ?? null;
+}
 
 export default function BalloonQa() {
   const view = useViewSize();
   const prefersReduced = usePrefersReducedMotion();
   const [ui, setUi] = useState<Ui>({
-    cost: 1100,
-    filled: 0,
+    goals: START_GOALS,
+    focus: 0,
     wallet: START_WALLET,
     released: false,
   });
@@ -91,6 +103,7 @@ export default function BalloonQa() {
     if (!scene || !ready) return;
     scene.setPlayers(qaPlayers());
     scene.setFamilyJars([]);
+    scene.setLibraryHouse(false);
   }, [ready, sceneRef]);
 
   useEffect(() => {
@@ -112,50 +125,75 @@ export default function BalloonQa() {
 
   const give = useCallback((amount: number) => {
     const current = uiRef.current;
-    if (anim.current.phase !== "rest" || current.released) return;
+    const goal = focusedGoal(current);
+    if (!goal || anim.current.phase !== "rest" || current.released) return;
     const spend = Math.min(amount, current.wallet);
-    const plan = planDonation(current.cost, current.filled, spend);
+    const plan = planDonation(goal.cost, goal.filled, spend);
     if (plan.accepted <= 0) return;
     anim.current = beginDonation(anim.current.shown, plan, reducedRef.current, performance.now());
-    setUi((prev) => ({ ...prev, wallet: prev.wallet - plan.accepted, filled: plan.to }));
+    setUi((prev) => ({
+      ...prev,
+      wallet: prev.wallet - plan.accepted,
+      goals: prev.goals.map((item, index) =>
+        index === (prev.goals[prev.focus] ? prev.focus : 0) ? { ...item, filled: plan.to } : item,
+      ),
+    }));
   }, []);
 
-  const applyPreset = useCallback((cost: number, filled: number) => {
+  const applyPreset = useCallback((goals: readonly QaGoal[]) => {
     const phase = anim.current.phase;
     if (phase !== "rest" && phase !== "reward") return;
     const comingBack = uiRef.current.released || anim.current.phase === "reward";
-    anim.current = restAnim(filled);
+    const next = goals.map((goal) => ({ ...goal }));
+    anim.current = restAnim(next[0]?.filled ?? 0);
     reveal.current = comingBack ? 0 : 1;
-    setUi((prev) => ({ ...prev, cost, filled, released: false }));
+    setUi((prev) => ({ ...prev, goals: next, focus: 0, released: false }));
   }, []);
 
   const setCost = useCallback((cost: number) => {
     if (anim.current.phase !== "rest" || uiRef.current.released) return;
-    const filled = Math.min(uiRef.current.filled, cost);
+    const goal = focusedGoal(uiRef.current);
+    if (!goal) return;
+    const filled = Math.min(goal.filled, cost);
     anim.current = restAnim(filled);
-    setUi((prev) => ({ ...prev, cost, filled }));
+    setUi((prev) => ({
+      ...prev,
+      goals: prev.goals.map((item, index) => (index === prev.focus ? { ...item, cost, filled } : item)),
+    }));
   }, []);
 
   const setProgress = useCallback((filled: number) => {
     if (anim.current.phase !== "rest" || uiRef.current.released) return;
-    const next = Math.max(0, Math.min(Math.round(filled), uiRef.current.cost));
+    const goal = focusedGoal(uiRef.current);
+    if (!goal) return;
+    const next = Math.max(0, Math.min(Math.round(filled), goal.cost));
     anim.current = restAnim(next);
-    setUi((prev) => ({ ...prev, filled: next }));
+    setUi((prev) => ({
+      ...prev,
+      goals: prev.goals.map((item, index) => (index === prev.focus ? { ...item, filled: next } : item)),
+    }));
   }, []);
 
   const finish = useCallback(() => {
-    const current = uiRef.current;
-    give(Math.max(0, current.cost - current.filled));
+    const goal = focusedGoal(uiRef.current);
+    if (!goal) return;
+    give(Math.max(0, goal.cost - goal.filled));
   }, [give]);
 
   const reset = useCallback(() => {
     anim.current = restAnim(0);
     reveal.current = uiRef.current.released ? 0 : 1;
-    setUi((prev) => ({ ...prev, filled: 0, wallet: START_WALLET, released: false }));
+    setUi((prev) => ({
+      ...prev,
+      wallet: START_WALLET,
+      released: false,
+      goals: prev.goals.map((item, index) => (index === prev.focus ? { ...item, filled: 0 } : item)),
+    }));
   }, []);
 
   const closeReward = useCallback(() => {
-    anim.current = restAnim(uiRef.current.filled);
+    const goal = focusedGoal(uiRef.current);
+    anim.current = restAnim(goal?.filled ?? 0);
     setUi((prev) => ({ ...prev, released: true }));
   }, []);
 
@@ -169,12 +207,19 @@ export default function BalloonQa() {
   }, []);
 
   const state = anim.current;
-  const count = Math.max(1, Math.ceil(ui.cost / 200));
+  const focus = ui.goals[ui.focus] ? ui.focus : 0;
+  const focusGoal = ui.goals[focus] ?? null;
+  const shownGoals = ui.goals.slice(0, BUNCH_SHOW_MAX);
+  const overflow = goalOverflow(ui.goals.length);
+  const seats = goalSeats(
+    view.w,
+    view.h,
+    shownGoals.map((goal) => Math.max(1, balloonCount(goal.cost))),
+  );
   const nowSec = performance.now() / 1000;
-  const pose = bunchPose(view.w, view.h, count, state, nowSec, reduced);
-  const opacity = pose.opacity * reveal.current;
+  const bob = idleBob(nowSec, state.zoomU, reduced);
   const dim = sceneDim(state);
-  const hideBunch = state.phase === "reward" || ui.released;
+  const hideFocus = state.phase === "reward" || ui.released;
   const showConfetti =
     motionDurations(reduced).confetti &&
     !ui.released &&
@@ -192,34 +237,71 @@ export default function BalloonQa() {
         data-qa="balloon-stage"
         data-phase={state.phase}
         data-shown={Math.round(state.shown)}
-        data-filled={ui.filled}
+        data-filled={focusGoal?.filled ?? 0}
+        data-goals={ui.goals.length}
+        data-handoff={state.handoff ? state.handoff.t.toFixed(3) : ""}
         data-zoom={state.zoomU.toFixed(3)}
-        data-scale={pose.scale.toFixed(2)}
         data-rev={rev}
         style={{ width: "100%", height: "100%" }}
       >
         <div className="pixi-host" ref={hostRef} data-qa="farm-pixi" />
         <div className="balloon-dim" data-qa="farm-dim" style={{ opacity: dim }} />
 
-          {!hideBunch && (
+          {shownGoals.map((goal, index) => {
+            const seat = seats[index];
+            if (!seat) return null;
+            const isFocus = index === focus;
+            if (isFocus && hideFocus) return null;
+            const pose = isFocus
+              ? poseFromRest(
+                  { x: seat.x, y: seat.y, scale: seat.scale, opacity: 1 },
+                  view.w,
+                  view.h,
+                  Math.max(1, balloonCount(goal.cost)),
+                  state,
+                  nowSec,
+                  reduced,
+                )
+              : { x: seat.x, y: seat.y + bob, scale: seat.scale, opacity: state.phase === "rest" ? 1 : 0.55 };
+            const shown = isFocus ? state.shown : goal.filled;
+            return (
+              <div
+                key={goal.id}
+                className="balloon-flight"
+                data-qa="balloon-flight"
+                data-goal={index}
+                style={{
+                  transform: `translate3d(${pose.x}px, ${pose.y}px, 0) scale(${pose.scale})`,
+                  opacity: pose.opacity * (isFocus ? reveal.current : 1),
+                  zIndex: isFocus ? 6 : 4,
+                }}
+              >
+                <StarBalloonBunch
+                  cost={goal.cost}
+                  shown={shown}
+                  title={goal.title}
+                  locking={isFocus ? state.locking : null}
+                  handoff={isFocus ? state.handoff : null}
+                  sparkle={sparkle && isFocus}
+                  bounce={bounce && isFocus}
+                  layoutScale={pose.scale}
+                  timeSec={nowSec}
+                  labelPx={chromeExtent(view.h)}
+                  labelBudget={shownGoals.length > 1 ? 60 : undefined}
+                />
+              </div>
+            );
+          })}
+          {overflow > 0 && seats[seats.length - 1] && (
             <div
-              className="balloon-flight"
-              data-qa="balloon-flight"
+              className="balloon-more"
+              data-qa="balloon-more"
               style={{
-                transform: `translate3d(${pose.x}px, ${pose.y}px, 0) scale(${pose.scale})`,
-                opacity,
+                left: seats[seats.length - 1]!.x + 36,
+                top: seats[seats.length - 1]!.y - 8,
               }}
             >
-              <StarBalloonBunch
-                cost={ui.cost}
-                shown={state.shown}
-                locking={state.locking}
-                sparkle={sparkle}
-                bounce={bounce}
-                layoutScale={pose.scale}
-                timeSec={nowSec}
-                labelPx={chromeExtent(view.h)}
-              />
+              +{overflow}
             </div>
           )}
 
@@ -236,7 +318,7 @@ export default function BalloonQa() {
             ui={ui}
             phase={state.phase}
             reduced={reduced}
-            onPreset={applyPreset}
+            onPreset={(goals) => applyPreset(goals)}
             onCost={setCost}
             onProgress={setProgress}
             onGive={give}
@@ -366,7 +448,7 @@ const Dock = memo(function Dock({
   ui: Ui;
   phase: AnimState["phase"];
   reduced: boolean;
-  onPreset: (cost: number, filled: number) => void;
+  onPreset: (goals: readonly QaGoal[]) => void;
   onCost: (cost: number) => void;
   onProgress: (filled: number) => void;
   onGive: (amount: number) => void;
@@ -375,8 +457,9 @@ const Dock = memo(function Dock({
   onToggleReduced: () => void;
   onCollapse: () => void;
 }) {
+  const goal = ui.goals[ui.focus] ?? ui.goals[0] ?? null;
   const busy = phase !== "rest" && phase !== "reward";
-  const done = ui.filled >= ui.cost || ui.released;
+  const done = !goal || goal.filled >= goal.cost || ui.released;
   const noStars = ui.wallet <= 0;
   return (
     <div className={hidden ? "balloon-dock is-hidden" : "balloon-dock"} data-qa="balloon-dock" data-hidden={hidden ? "1" : "0"}>
@@ -392,7 +475,7 @@ const Dock = memo(function Dock({
             className="btn ghost"
             data-qa={`preset-${preset.id}`}
             disabled={busy}
-            onClick={() => onPreset(preset.cost, preset.filled)}
+            onClick={() => onPreset(preset.goals)}
           >
             {preset.label}
           </button>
@@ -409,9 +492,9 @@ const Dock = memo(function Dock({
           <button
             key={cost}
             type="button"
-            className={cost === ui.cost ? "btn gold" : "btn ghost"}
+            className={cost === goal?.cost ? "btn gold" : "btn ghost"}
             data-qa={`cost-${cost}`}
-            disabled={busy || ui.released}
+            disabled={busy || ui.released || !goal}
             onClick={() => onCost(cost)}
           >
             {formatStarCount(cost)}
@@ -423,18 +506,18 @@ const Dock = memo(function Dock({
             data-qa="progress-input"
             type="number"
             min={0}
-            max={ui.cost}
-            value={ui.filled}
-            disabled={busy || ui.released}
+            max={goal?.cost ?? 0}
+            value={goal?.filled ?? 0}
+            disabled={busy || ui.released || !goal}
             onChange={(event) => onProgress(Number(event.target.value))}
           />
           <input
             data-qa="progress-slider"
             type="range"
             min={0}
-            max={ui.cost}
-            value={ui.filled}
-            disabled={busy || ui.released}
+            max={goal?.cost ?? 0}
+            value={goal?.filled ?? 0}
+            disabled={busy || ui.released || !goal}
             onChange={(event) => onProgress(Number(event.target.value))}
           />
         </label>

@@ -186,6 +186,11 @@ export class FarmScene {
     this.library.setJars(jars);
   }
 
+  /** Hide the little-library house. The balloon QA scene sits on its post. */
+  setLibraryHouse(visible: boolean) {
+    this.library.setHouseVisible(visible);
+  }
+
   /** QA only (`/qa/farm?markers=1`). Default off — never drawn on the live farm. */
   setMoundMarkers(on: boolean) {
     this.beds.forEach((bed) => bed.setMoundMarkers(on));

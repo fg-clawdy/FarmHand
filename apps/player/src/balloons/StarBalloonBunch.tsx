@@ -1,13 +1,20 @@
 import { useId } from "react";
 import {
+  activeBalloonIndex,
   balloonsFor,
-  bunchPoints,
   clamp01,
   formatStarCount,
   nubOpacity,
   type BalloonSlot,
 } from "./balloonMath";
-import { bodyDrawScale, bowOpacity, ghostOpacity, lockSquash } from "./balloonMotion";
+import {
+  bodyDrawScale,
+  bowOpacity,
+  ghostOpacity,
+  lockSquash,
+  neckPoints,
+  type Handoff,
+} from "./balloonMotion";
 
 /**
  * Painted balloon bunch.
@@ -111,38 +118,47 @@ export default function StarBalloonBunch({
   cost,
   shown,
   locking,
+  handoff = null,
   sparkle,
   bounce,
   layoutScale,
   timeSec = 0,
   labelPx = 56,
+  labelBudget,
+  title = "Movie night",
 }: {
   cost: number;
   shown: number;
   locking: LockVisual;
+  /** Full balloon sliding back while the next ghost slides forward. */
+  handoff?: Handoff | null;
   sparkle: boolean;
   bounce: boolean;
-  /** Outer flight scale. The tally stays inside the grass pocket instead of covering a sign. */
+  /** Outer flight scale. The tally stays a readable size instead of covering a sign. */
   layoutScale: number;
   timeSec?: number;
   /** Screen pixels reserved under the basket for pips or the tally. */
   labelPx?: number;
+  /** When several goals share the grass, the label stays inside this many screen pixels. */
+  labelBudget?: number;
+  title?: string;
 }) {
   const raw = useId();
   const uid = `b${raw.replace(/:/g, "")}`;
   const slots = balloonsFor(cost, shown);
-  const points = bunchPoints(slots.length);
-  const active = locking?.index ?? slots.find((slot) => !slot.full)?.index ?? 0;
+  const settledActive = locking?.index ?? activeBalloonIndex(cost, shown);
+  const active = handoff ? (handoff.t < 0.5 ? handoff.fromActive : handoff.toActive) : settledActive;
+  const points = neckPoints(slots.length, settledActive, locking ? null : handoff);
   const backToFront = [...points].sort((a, b) => a.y - b.y || a.index - b.index);
-  const bodies = [...points].sort((a, b) => {
-    const rank = (index: number) => (index === active ? 2 : slots[index]?.full ? 1 : 0);
-    return rank(a.index) - rank(b.index) || a.y - b.y;
-  });
   const big = slots.length > 8;
-  const pipSize = 18;
-  const countCss = 20;
-  const minCountPx = Math.min(18, Math.max(14, labelPx * 0.38));
-  const counter = minCountPx / (countCss * Math.max(layoutScale, 0.04));
+  const pipSize = labelBudget ? 14 : 18;
+  const countCss = labelBudget ? 16 : 20;
+  const minCountPx = labelBudget ? 11 : Math.min(18, Math.max(14, labelPx * 0.38));
+  const pipWidth = big ? 150 : slots.length * (pipSize + 4) + 24;
+  const cssWidth = Math.max(pipWidth, 168);
+  const counter = labelBudget
+    ? labelBudget / (cssWidth * Math.max(layoutScale, 0.04))
+    : minCountPx / (countCss * Math.max(layoutScale, 0.04));
   const fullCount = slots.filter((slot) => slot.full).length;
   const shadowRx = Math.min(150, 64 + slots.length * 7);
 
@@ -152,7 +168,9 @@ export default function StarBalloonBunch({
       data-qa="balloon-bunch"
       data-count={slots.length}
       role="img"
-      aria-label={`Movie night, ${formatStarCount(shown)} of ${formatStarCount(cost)} stars`}
+      aria-label={`${title}, ${formatStarCount(shown)} of ${formatStarCount(cost)} stars`}
+      data-front={active}
+      data-handoff={handoff ? handoff.t.toFixed(3) : ""}
     >
       <svg className="star-bunch-svg" width={1600} height={1200} viewBox="-800 -900 1600 1200" overflow="visible">
         <defs>
@@ -170,7 +188,7 @@ export default function StarBalloonBunch({
         <ellipse cx="22" cy="30" rx={shadowRx} ry="16" fill="rgba(20, 36, 10, 0.38)" />
 
         {backToFront.map((point) => {
-          const sway = Math.sin(timeSec * 1.35 + point.index * 0.85) * 12;
+          const sway = Math.sin(timeSec * 1.35 + point.index * 0.85) * (handoff ? 2 : 12);
           const cpx = point.x * 0.28 + sway;
           const cpy = point.y * 0.48;
           const d = `M ${point.x} ${point.y} Q ${cpx} ${cpy} 0 4`;
@@ -184,34 +202,9 @@ export default function StarBalloonBunch({
 
         {backToFront.map((point) => {
           const slot = slots[point.index];
+          if (!slot) return null;
           const pastel = PASTELS[slot.index % PASTELS.length];
           const ghost = ghostOpacity(slot.full, locking, slot.index);
-          return (
-            <g
-              key={`ghost-${slot.index}`}
-              transform={`translate(${point.x} ${point.y}) scale(${slot.targetScale})`}
-              opacity={ghost}
-              data-qa="balloon-ghost"
-              data-index={slot.index}
-              data-ghost={ghost}
-            >
-              <path d={BALLOON_PATH} fill="#fffdf8" stroke="#fffdf8" strokeWidth="12" />
-              <path d={BALLOON_PATH} fill={pastel.light} fillOpacity="0.2" />
-              <path
-                d={BALLOON_PATH}
-                fill="none"
-                stroke="#5c3a22"
-                strokeWidth="4.5"
-                strokeDasharray="11 9"
-                strokeLinecap="round"
-              />
-            </g>
-          );
-        })}
-
-        {bodies.map((point) => {
-          const slot = slots[point.index];
-          const pastel = PASTELS[slot.index % PASTELS.length];
           const bow = bowOpacity(slot.full, locking, slot.index);
           const scale = bodyDrawScale(slot.bodyScale, locking, slot.index, bounce);
           const squash = bounce && locking?.index === slot.index ? lockSquash(locking.t) : { sx: 1, sy: 1 };
@@ -223,6 +216,8 @@ export default function StarBalloonBunch({
               key={slot.index}
               data-qa="balloon"
               data-index={slot.index}
+              data-neck-x={point.x.toFixed(1)}
+              data-neck-y={point.y.toFixed(1)}
               data-stars={slot.stars}
               data-capacity={slot.capacity}
               data-full={slot.full ? "1" : "0"}
@@ -231,6 +226,24 @@ export default function StarBalloonBunch({
               data-target-scale={slot.targetScale}
               style={{ filter: hue === 0 ? undefined : `hue-rotate(${hue}deg)` }}
             >
+              <g
+                transform={`translate(${point.x} ${point.y}) scale(${slot.targetScale})`}
+                opacity={ghost}
+                data-qa="balloon-ghost"
+                data-index={slot.index}
+                data-ghost={ghost}
+              >
+                <path d={BALLOON_PATH} fill="#fffdf8" stroke="#fffdf8" strokeWidth="12" />
+                <path d={BALLOON_PATH} fill={pastel.light} fillOpacity="0.2" />
+                <path
+                  d={BALLOON_PATH}
+                  fill="none"
+                  stroke="#5c3a22"
+                  strokeWidth="4.5"
+                  strokeDasharray="11 9"
+                  strokeLinecap="round"
+                />
+              </g>
               <g
                 transform={`translate(${point.x} ${point.y}) scale(${Math.max(scale, 0.0001) * squash.sx}, ${Math.max(scale, 0.0001) * squash.sy})`}
                 opacity={scale <= 0 ? 0 : Math.min(1, scale / 0.04)}
@@ -259,12 +272,10 @@ export default function StarBalloonBunch({
                   strokeLinejoin="round"
                 />
               </g>
-
               <g transform={`translate(${point.x} ${point.y})`} opacity={nub} data-qa="balloon-nub">
                 <ellipse cx="0" cy="-1" rx="16" ry="11" fill="#fffaf4" stroke={INK} strokeWidth="3" />
                 <path d="M -8 -1 Q 0 4 8 -1" fill="none" stroke={INK} strokeWidth="2" strokeLinecap="round" />
               </g>
-
               <g transform={`translate(${point.x} ${point.y})`} opacity={bow} data-qa="balloon-bow">
                 <path
                   d="M 0 2 C -18 -12 -28 -2 -14 6 C -26 14 -12 20 0 8 C 12 20 26 14 14 6 C 28 -2 18 -12 0 2 Z"
@@ -275,7 +286,6 @@ export default function StarBalloonBunch({
                 />
                 <circle cx="0" cy="6" r="3.2" fill="#e7c48a" stroke={INK} strokeWidth="2" />
               </g>
-
               {showSpark && locking && (
                 <g transform={`translate(${point.x} ${point.y})`}>
                   <StarBurst t={locking.t} targetScale={slot.targetScale} />

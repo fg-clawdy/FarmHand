@@ -3,9 +3,9 @@ import {
   BALLOON_TOP,
   bunchPoints,
   clamp01,
-  farmBasketAnchor,
+  goalSeats,
+  placedPoints,
   planDonation,
-  restScaleFor,
   STARS_PER_BALLOON,
   zoomScaleFor,
   type BunchPoint,
@@ -52,6 +52,8 @@ export type MotionDurations = {
   hold: number;
   away: number;
   lock: number;
+  /** Full balloon glides to a back slot and the next ghost glides to the front. */
+  handoff: number;
   /** Confetti is on screen this long before the reward card starts fading in. */
   cardDelay: number;
   cardFade: number;
@@ -73,6 +75,7 @@ export function motionDurations(reduced: boolean): MotionDurations {
       hold: 0.12,
       away: 0.28,
       lock: 0.12,
+      handoff: 0.16,
       cardDelay: 0.08,
       cardFade: 0.12,
       minInflate: 0.16,
@@ -91,6 +94,7 @@ export function motionDurations(reduced: boolean): MotionDurations {
     hold: 0.65,
     away: 2.4,
     lock: 0.42,
+    handoff: 0.6,
     cardDelay: 1.2,
     cardFade: 0.4,
     minInflate: 0.95,
@@ -103,7 +107,12 @@ export function motionDurations(reduced: boolean): MotionDurations {
   };
 }
 
-export type SegmentWindow = FillSegment & { start: number; end: number };
+export type SegmentWindow = FillSegment & {
+  start: number;
+  end: number;
+  /** This balloon glides back before the next one is allowed to grow. */
+  handsOff: boolean;
+};
 
 export type Timeline = {
   from: number;
@@ -117,13 +126,16 @@ export function buildTimeline(plan: DonationPlan, reduced: boolean): Timeline {
   const durations = motionDurations(reduced);
   let cursor = 0;
   const windows: SegmentWindow[] = [];
-  for (const segment of plan.segments) {
+  plan.segments.forEach((segment, segmentIndex) => {
     const stars = Math.max(0, segment.toStars - segment.fromStars);
     const span = Math.min(durations.maxInflate, Math.max(durations.minInflate, stars * durations.perStar));
-    windows.push({ ...segment, start: cursor, end: cursor + span });
+    const last = segmentIndex === plan.segments.length - 1;
+    const handsOff = segment.completes && !(last && plan.reached);
+    windows.push({ ...segment, start: cursor, end: cursor + span, handsOff });
     cursor += span;
     if (segment.completes) cursor += durations.lock;
-  }
+    if (handsOff) cursor += durations.handoff;
+  });
   return {
     from: plan.from,
     to: plan.to,
@@ -157,6 +169,28 @@ export function lockProgress(timeline: Timeline, elapsed: number): { index: numb
     const end = window.end + lock;
     if (elapsed >= window.end && elapsed < end) {
       return { index: window.index, t: (elapsed - window.end) / lock };
+    }
+  }
+  return null;
+}
+
+export type Handoff = { fromActive: number; toActive: number; t: number };
+
+/** Glide after the lock, before the next balloon is allowed to grow. */
+export function handoffProgress(timeline: Timeline, elapsed: number, reduced: boolean): Handoff | null {
+  const lock = timeline.lock;
+  const handoff = motionDurations(reduced).handoff;
+  if (handoff <= 0) return null;
+  for (const window of timeline.windows) {
+    if (!window.handsOff) continue;
+    const start = window.end + lock;
+    const end = start + handoff;
+    if (elapsed >= start && elapsed < end) {
+      return {
+        fromActive: window.index,
+        toActive: window.index + 1,
+        t: (elapsed - start) / handoff,
+      };
     }
   }
   return null;
@@ -212,13 +246,24 @@ export function idleBob(timeSec: number, zoomU: number, reduced: boolean): numbe
 }
 
 export function restPose(viewW: number, viewH: number, count: number): Pose {
-  const anchor = farmBasketAnchor(viewW, viewH);
-  return {
-    x: anchor.x,
-    y: anchor.y,
-    scale: restScaleFor(viewW, viewH, Math.max(1, count)),
-    opacity: 1,
-  };
+  const seat = goalSeats(viewW, viewH, [Math.max(1, count)])[0]!;
+  return { x: seat.x, y: seat.y, scale: seat.scale, opacity: 1 };
+}
+
+/** Neck of every balloon. During a hand-off the two roles glide with ease-in-out. */
+export function neckPoints(count: number, activeIndex: number, handoff: Handoff | null): BunchPoint[] {
+  if (!handoff) return placedPoints(count, activeIndex);
+  const from = placedPoints(count, handoff.fromActive);
+  const to = placedPoints(count, handoff.toActive);
+  const e = easeInOutSoft(handoff.t);
+  return from.map((point, index) => {
+    const next = to[index] ?? point;
+    return {
+      index,
+      x: point.x + (next.x - point.x) * e,
+      y: point.y + (next.y - point.y) * e,
+    };
+  });
 }
 
 /** Inset so the overshoot (~4%) still leaves the bunch 40px inside the frame. */
@@ -304,6 +349,7 @@ export type AnimState = {
   /** Balloon the zoom centers on. Stays put for the whole gesture so overflow does not jump. */
   focusIndex: number;
   focusScale: number;
+  handoff: Handoff | null;
 };
 
 export function restAnim(shown: number): AnimState {
@@ -318,6 +364,7 @@ export function restAnim(shown: number): AnimState {
     reached: false,
     focusIndex: 0,
     focusScale: 1,
+    handoff: null,
   };
 }
 
@@ -333,6 +380,7 @@ export function beginDonation(shown: number, plan: DonationPlan, reduced: boolea
     reached: plan.reached,
     focusIndex: plan.segments[0]?.index ?? 0,
     focusScale: (plan.segments[0]?.capacity ?? STARS_PER_BALLOON) / STARS_PER_BALLOON,
+    handoff: null,
   };
 }
 
@@ -343,20 +391,21 @@ export function stepAnim(state: AnimState, now: number, reduced: boolean): AnimS
   if (state.phase === "zoom-in") {
     const u = clamp01((now - state.t0) / (durations.zoomIn * 1000));
     if (u >= 1) {
-      return { ...state, zoomU: 1, phase: "inflate", t0: now, locking: null };
+      return { ...state, zoomU: 1, phase: "inflate", t0: now, locking: null, handoff: null };
     }
-    return { ...state, zoomU: u };
+    return { ...state, zoomU: u, handoff: null };
   }
 
   if (state.phase === "inflate") {
     const timeline = state.timeline;
-    if (!timeline) return { ...state, phase: "hold", t0: now, zoomU: 1 };
+    if (!timeline) return { ...state, phase: "hold", t0: now, zoomU: 1, handoff: null };
     const elapsed = (now - state.t0) / 1000;
     if (elapsed >= timeline.duration) {
       return {
         ...state,
         shown: timeline.to,
         locking: null,
+        handoff: null,
         phase: "hold",
         t0: now,
         zoomU: 1,
@@ -366,6 +415,7 @@ export function stepAnim(state: AnimState, now: number, reduced: boolean): AnimS
       ...state,
       shown: sampleDonation(timeline.from, timeline.windows, elapsed),
       locking: lockProgress(timeline, elapsed),
+      handoff: handoffProgress(timeline, elapsed, reduced),
       zoomU: 1,
     };
   }
@@ -380,6 +430,7 @@ export function stepAnim(state: AnimState, now: number, reduced: boolean): AnimS
         zoomU: 1,
         shown: state.timeline?.to ?? state.shown,
         locking: null,
+        handoff: null,
       };
     }
     return state;
@@ -400,6 +451,24 @@ export function stepAnim(state: AnimState, now: number, reduced: boolean): AnimS
   return state;
 }
 
+export function poseFromRest(
+  rest: Pose,
+  viewW: number,
+  viewH: number,
+  count: number,
+  state: Pick<AnimState, "phase" | "zoomU" | "awayU"> & Partial<Pick<AnimState, "focusIndex" | "focusScale">>,
+  timeSec: number,
+  reduced: boolean,
+): Pose {
+  const zoom = zoomPose(viewW, viewH, count, state.focusIndex ?? 0, state.focusScale ?? 1);
+  if (state.phase === "away" || state.phase === "reward") {
+    return awayPose(zoom, state.phase === "reward" ? 1 : state.awayU, viewH);
+  }
+  const ease = state.phase === "zoom-in" ? easeOutSettle : easeInOutSoft;
+  const pose = lerpPose(rest, zoom, state.zoomU, ease);
+  return { ...pose, y: pose.y + idleBob(timeSec, state.zoomU, reduced) };
+}
+
 export function bunchPose(
   viewW: number,
   viewH: number,
@@ -408,14 +477,7 @@ export function bunchPose(
   timeSec: number,
   reduced: boolean,
 ): Pose {
-  const rest = restPose(viewW, viewH, count);
-  const zoom = zoomPose(viewW, viewH, count, state.focusIndex ?? 0, state.focusScale ?? 1);
-  if (state.phase === "away" || state.phase === "reward") {
-    return awayPose(zoom, state.phase === "reward" ? 1 : state.awayU, viewH);
-  }
-  const ease = state.phase === "zoom-in" ? easeOutSettle : easeInOutSoft;
-  const pose = lerpPose(rest, zoom, state.zoomU, ease);
-  return { ...pose, y: pose.y + idleBob(timeSec, state.zoomU, reduced) };
+  return poseFromRest(restPose(viewW, viewH, count), viewW, viewH, count, state, timeSec, reduced);
 }
 
 /** Farm dim while the bunch is in front. Fades out as the balloons float away. */

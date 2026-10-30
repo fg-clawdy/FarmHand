@@ -431,6 +431,7 @@ export class LittleLibrary {
   private readonly lids = new Map<string, Texture>();
   private jars: PublicSharedGoal[] = [];
   private lidToken = 0;
+  private showHouse = true;
   private readonly w: number;
   private readonly h: number;
 
@@ -461,9 +462,14 @@ export class LittleLibrary {
 
   setJars(jars: PublicSharedGoal[]) {
     this.jars = jars.filter((jar) => jar.status === "OPEN" || jar.status === "READY");
-    this.root.visible = true;
     this.apply();
     void this.syncLids(this.jars);
+  }
+
+  /** QA balloon scene takes this spot. The live farm leaves the house up. */
+  setHouseVisible(visible: boolean) {
+    this.showHouse = visible;
+    this.apply();
   }
 
   update(dt: number, t: number) {
@@ -483,7 +489,7 @@ export class LittleLibrary {
     const windowed = libraryWindow(this.jars);
     const interior = this.interiorOrigin();
     const layout = libraryShelfLayout({ w: interior.w, h: interior.h }, windowed.shown.length, windowed.overflow);
-    this.root.visible = layout.visible;
+    this.root.visible = this.showHouse && layout.visible;
     this.slots.forEach((slot, index) => {
       const frame: LibrarySlot | undefined = layout.slots[index];
       if (!frame) {

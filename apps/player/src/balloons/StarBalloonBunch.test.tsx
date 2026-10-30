@@ -28,6 +28,14 @@ test("a half-full 200 goal shows a full ghost, a half body, and a half pip", () 
   assert.doesNotMatch(markup, /Londra|Willow|Finn|Sage|Netflix|donor/i);
 });
 
+test("at 400 of 1,100 the next empty balloon is in front of the two full ones", () => {
+  const markup = html(1100, 400);
+  assert.match(markup, /data-front="2"/);
+  assert.match(markup, /data-index="2"[^>]*data-active="1"/);
+  assert.doesNotMatch(markup, /data-index="0"[^>]*data-active="1"/);
+  assert.equal(markup.match(/data-qa="balloon"[^>]*data-full="1"/g)?.length, 2);
+});
+
 test("an empty 1100 goal shows six ghosts, a half-size last ghost, and a nub on every string", () => {
   const markup = html(1100, 0);
   assert.equal(markup.match(/data-qa="balloon-ghost"/g)?.length, 6);

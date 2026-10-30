@@ -10,12 +10,14 @@ import {
   bunchPose,
   easeInOutCubic,
   ghostOpacity,
+  handoffProgress,
   idleBob,
   lerpPose,
   lockBounce,
   lockProgress,
   lockSquash,
   motionDurations,
+  neckPoints,
   restPose,
   sampleDonation,
   stepAnim,
@@ -32,6 +34,7 @@ test("zoom-in settles with a small overshoot and the return is a full glide", ()
   assert.ok(durations.zoomOut >= 0.9 && durations.zoomOut <= 1.1);
   assert.ok(durations.hold >= 0.6 && durations.hold <= 0.75);
   assert.ok(durations.lock >= 0.38 && durations.lock <= 0.48);
+  assert.ok(Math.abs(durations.handoff - 0.6) < 0.02);
   assert.equal(durations.cardDelay, 1.2);
   assert.equal(durations.cardFade, 0.4);
 });
@@ -112,6 +115,16 @@ test("inflation eases, holds while a balloon locks, and lands on the real total"
   const first = timeline.windows[0];
   assert.equal(first.completes, true);
   assert.equal(sampleDonation(plan.from, timeline.windows, first.end + timeline.lock / 2), 200);
+  assert.equal(first.handsOff, true);
+  const glideAt = first.end + timeline.lock + motionDurations(false).handoff / 2;
+  assert.equal(sampleDonation(plan.from, timeline.windows, glideAt), 200);
+  const glide = handoffProgress(timeline, glideAt, false);
+  assert.equal(glide?.fromActive, 0);
+  assert.equal(glide?.toActive, 1);
+  assert.ok(glide && glide.t > 0.45 && glide.t < 0.55);
+  assert.equal(lockProgress(timeline, glideAt), null);
+  const second = timeline.windows[1];
+  assert.ok(second && second.start >= first.end + timeline.lock + motionDurations(false).handoff - 1e-6);
   const locking = lockProgress(timeline, first.end + timeline.lock / 2);
   assert.equal(locking?.index, 0);
   assert.ok(locking && locking.t > 0.45 && locking.t < 0.55);
@@ -122,6 +135,26 @@ test("inflation eases, holds while a balloon locks, and lands on the real total"
     prev = value;
   }
   assert.equal(prev, 350);
+});
+
+test("a hand-off glides the full balloon back and the next ghost forward", () => {
+  const before = neckPoints(6, 0, null);
+  const after = neckPoints(6, 1, null);
+  const mid = neckPoints(6, 1, { fromActive: 0, toActive: 1, t: 0.5 });
+  const frontBefore = before.reduce((best, point) => (point.y > best.y ? point : best));
+  const frontAfter = after.reduce((best, point) => (point.y > best.y ? point : best));
+  assert.equal(frontBefore.index, 0);
+  assert.equal(frontAfter.index, 1);
+  assert.ok(Math.abs(mid[0]!.y - (before[0]!.y + after[0]!.y) / 2) < 1e-6);
+  assert.ok(Math.abs(mid[1]!.x - (before[1]!.x + after[1]!.x) / 2) < 1e-6);
+  const samples = Array.from({ length: 10 }, (_, i) => neckPoints(6, 0, { fromActive: 0, toActive: 1, t: i / 9 })[0]!);
+  const steps = samples.slice(1).map((point, i) => Math.hypot(point.x - samples[i]!.x, point.y - samples[i]!.y));
+  assert.ok(steps[0]! < steps[4]!, "the glide eases in");
+  assert.ok(steps[steps.length - 1]! < steps[4]!, "the glide eases out");
+  let traveled = 0;
+  for (const step of steps) traveled += step;
+  const direct = Math.hypot(after[0]!.x - before[0]!.x, after[0]!.y - before[0]!.y);
+  assert.ok(Math.abs(traveled - direct) < 1, "the full balloon moves in a straight glide");
 });
 
 test("a full balloon locks with a bounce that starts and ends at the honest size", () => {
