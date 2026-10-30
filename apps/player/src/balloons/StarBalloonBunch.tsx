@@ -132,7 +132,12 @@ export default function StarBalloonBunch({
   const uid = `b${raw.replace(/:/g, "")}`;
   const slots = balloonsFor(cost, shown);
   const points = bunchPoints(slots.length);
-  const draw = [...points].sort((a, b) => a.y - b.y || a.index - b.index);
+  const active = locking?.index ?? slots.find((slot) => !slot.full)?.index ?? 0;
+  const backToFront = [...points].sort((a, b) => a.y - b.y || a.index - b.index);
+  const bodies = [...points].sort((a, b) => {
+    const rank = (index: number) => (index === active ? 2 : slots[index]?.full ? 1 : 0);
+    return rank(a.index) - rank(b.index) || a.y - b.y;
+  });
   const big = slots.length > 8;
   const pipSize = 18;
   const countCss = 20;
@@ -164,7 +169,7 @@ export default function StarBalloonBunch({
 
         <ellipse cx="22" cy="30" rx={shadowRx} ry="16" fill="rgba(20, 36, 10, 0.38)" />
 
-        {draw.map((point) => {
+        {backToFront.map((point) => {
           const sway = Math.sin(timeSec * 1.35 + point.index * 0.85) * 12;
           const cpx = point.x * 0.28 + sway;
           const cpy = point.y * 0.48;
@@ -177,10 +182,36 @@ export default function StarBalloonBunch({
           );
         })}
 
-        {draw.map((point) => {
+        {backToFront.map((point) => {
           const slot = slots[point.index];
           const pastel = PASTELS[slot.index % PASTELS.length];
           const ghost = ghostOpacity(slot.full, locking, slot.index);
+          return (
+            <g
+              key={`ghost-${slot.index}`}
+              transform={`translate(${point.x} ${point.y}) scale(${slot.targetScale})`}
+              opacity={ghost}
+              data-qa="balloon-ghost"
+              data-index={slot.index}
+              data-ghost={ghost}
+            >
+              <path d={BALLOON_PATH} fill="#fffaf4" fillOpacity="0.72" />
+              <path d={BALLOON_PATH} fill={pastel.light} fillOpacity="0.18" />
+              <path
+                d={BALLOON_PATH}
+                fill="none"
+                stroke="#5c3a22"
+                strokeWidth="5"
+                strokeDasharray="11 9"
+                strokeLinecap="round"
+              />
+            </g>
+          );
+        })}
+
+        {bodies.map((point) => {
+          const slot = slots[point.index];
+          const pastel = PASTELS[slot.index % PASTELS.length];
           const bow = bowOpacity(slot.full, locking, slot.index);
           const scale = bodyDrawScale(slot.bodyScale, locking, slot.index, bounce);
           const squash = bounce && locking?.index === slot.index ? lockSquash(locking.t) : { sx: 1, sy: 1 };
@@ -195,28 +226,11 @@ export default function StarBalloonBunch({
               data-stars={slot.stars}
               data-capacity={slot.capacity}
               data-full={slot.full ? "1" : "0"}
+              data-active={slot.index === active ? "1" : "0"}
               data-body-scale={slot.bodyScale}
               data-target-scale={slot.targetScale}
-              style={{ filter: `hue-rotate(${hue}deg)` }}
+              style={{ filter: hue === 0 ? undefined : `hue-rotate(${hue}deg)` }}
             >
-              <g
-                transform={`translate(${point.x} ${point.y}) scale(${slot.targetScale})`}
-                opacity={ghost}
-                data-qa="balloon-ghost"
-                data-ghost={ghost}
-              >
-                <path d={BALLOON_PATH} fill={pastel.light} fillOpacity="0.96" />
-                <path d={BALLOON_PATH} fill={pastel.base} fillOpacity="0.28" />
-                <path
-                  d={BALLOON_PATH}
-                  fill="none"
-                  stroke="#4a2c16"
-                  strokeWidth="5.5"
-                  strokeDasharray="10 8"
-                  strokeLinecap="round"
-                />
-              </g>
-
               <g
                 transform={`translate(${point.x} ${point.y}) scale(${Math.max(scale, 0.0001) * squash.sx}, ${Math.max(scale, 0.0001) * squash.sy})`}
                 opacity={scale <= 0 ? 0 : Math.min(1, scale / 0.04)}
@@ -250,7 +264,7 @@ export default function StarBalloonBunch({
               </g>
 
               <g transform={`translate(${point.x} ${point.y})`} opacity={nub} data-qa="balloon-nub">
-                <ellipse cx="0" cy="-1" rx="16" ry="11" fill={pastel.light} stroke={INK} strokeWidth="3" />
+                <ellipse cx="0" cy="-1" rx="16" ry="11" fill="#fffaf4" stroke={INK} strokeWidth="3" />
                 <path d="M -8 -1 Q 0 4 8 -1" fill="none" stroke={INK} strokeWidth="2" strokeLinecap="round" />
               </g>
 

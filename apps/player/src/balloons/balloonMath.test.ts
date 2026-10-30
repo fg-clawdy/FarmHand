@@ -130,6 +130,24 @@ test("an empty balloon keeps a visible nub and a full one does not", () => {
   assert.equal(nubOpacity(1, 1), 0);
 });
 
+test("a six-balloon goal fans out so the front balloon and the half-size one stay visible", () => {
+  const pts = bunchPoints(6);
+  assert.equal(pts.length, 6);
+  const front = pts.reduce((best, point) => (point.y > best.y ? point : best));
+  assert.equal(front.index, 0);
+  const half = pts.find((point) => point.index === 5);
+  const lead = pts.find((point) => point.index === 0);
+  assert.ok(half && lead);
+  const gap = Math.hypot(half.x - lead.x, half.y - lead.y);
+  assert.ok(gap > 90, `half balloon sits ${gap}px from the front balloon`);
+  for (let i = 0; i < pts.length; i++) {
+    for (let j = i + 1; j < pts.length; j++) {
+      const apart = Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y);
+      assert.ok(apart > 60, `balloons ${pts[i].index} and ${pts[j].index} are ${apart}px apart`);
+    }
+  }
+});
+
 test("many balloons cluster instead of taking over the farm", () => {
   assert.ok(restingFootprint(15) < restingFootprint(6));
   assert.ok(restingFootprint(6) < restingFootprint(1));

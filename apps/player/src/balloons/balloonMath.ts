@@ -166,22 +166,50 @@ export function restingFootprint(count: number): number {
 
 /**
  * Neck positions relative to the basket at (0, 0). Y is up (negative).
- * A golden-angle bouquet: overlapping, varied depth, strings meet at the basket.
- * Index 0 (the balloon that fills first) sits at the front of the bunch.
+ * Up to six balloons are a fan so each crown stays countable.
+ * Index 0, the one that fills first, sits front and center.
+ * Bigger goals are a tighter bouquet with that same balloon in front.
  */
 export function bunchPoints(count: number): BunchPoint[] {
   if (count <= 0) return [];
-  if (count === 1) return [{ index: 0, x: 0, y: -128 }];
-  const big = count >= 8;
+  if (count === 1) return [{ index: 0, x: 0, y: -150 }];
+  if (count <= 6) return smallFan(count);
   const golden = 2.399963229728653;
   const points: BunchPoint[] = [];
   for (let i = 0; i < count; i++) {
     const angle = -Math.PI / 2 + i * golden;
-    const radius = big ? 16 + Math.sqrt(i) * 20 : 20 + i * 14;
-    const x = Math.cos(angle) * radius * (big ? 0.7 : 0.88);
-    const y = -112 - Math.sin(angle) * radius * (big ? 0.4 : 0.48);
+    const radius = 18 + Math.sqrt(i) * 22;
+    const x = Math.cos(angle) * radius * 0.72;
+    const y = -118 - Math.sin(angle) * radius * 0.42;
     points.push({ index: i, x, y });
   }
+  const front = points.reduce((best, point) => (point.y > best.y ? point : best));
+  const lead = points[0];
+  if (lead && front !== lead) {
+    lead.x = 0;
+    lead.y = front.y + 36;
+  }
+  return points;
+}
+
+/** A countable fan. Larger y sits closer to the basket and in front. */
+function smallFan(count: number): BunchPoint[] {
+  const points: BunchPoint[] = [{ index: 0, x: 0, y: -142 }];
+  const last = count - 1;
+  const back: number[] = [];
+  for (let index = 1; index < count; index++) {
+    if (index !== last) back.push(index);
+  }
+  back.forEach((index, n) => {
+    const t = back.length === 1 ? 0.5 : n / (back.length - 1);
+    const spread = (t - 0.5) * 1.5;
+    points.push({
+      index,
+      x: spread * 140,
+      y: -262 - Math.cos(spread) * 16,
+    });
+  });
+  if (last > 0) points.push({ index: last, x: 126, y: -170 });
   return points;
 }
 
