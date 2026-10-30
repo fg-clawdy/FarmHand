@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { FarmPlayerCard, PublicPlot, PublicSharedGoal } from "@farmhand/shared";
-import FamilyJarSheet from "../components/FamilyJarSheet";
+import FamilyJarSheet, { jarDonorFromCard } from "../components/FamilyJarSheet";
 import { useFarmPixi } from "../pixi/usePixi";
 
 /**
  * Live Pixi farm — no API.
  * `?jars=0|1|2|3|8|overflow` previews little-library shelves on the farm overview.
  * `?sheet=<jar id>` opens the donate sheet over that preview.
+ * `?who=<name or id>` preselects that kid, the way a garden session would.
  */
 export default function FarmQa() {
   const [params] = useSearchParams();
@@ -16,6 +17,13 @@ export default function FarmQa() {
   const jarMode = params.get("jars");
   const jars = useMemo(() => qaJars(jarMode), [jarMode]);
   const sheet = params.get("sheet");
+  const who = params.get("who");
+  const players = useMemo(() => qaPlayers(pack), [pack]);
+  const sessionPlayer = useMemo(() => {
+    if (!who) return null;
+    const card = players.find((player) => player.id === who || player.name.toLowerCase() === who.toLowerCase());
+    return card ? jarDonorFromCard(card) : null;
+  }, [players, who]);
   const celebrate = Number(params.get("celebrate") || 0);
   const [openId, setOpenId] = useState<string | null>(sheet && jars.some((jar) => jar.id === sheet) ? sheet : null);
   const selected = jars.find((jar) => jar.id === openId) ?? null;
@@ -31,10 +39,10 @@ export default function FarmQa() {
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene || !ready) return;
-    scene.setPlayers(qaPlayers(pack));
+    scene.setPlayers(players);
     scene.setMoundMarkers(markers);
     scene.setFamilyJars(jars);
-  }, [ready, pack, markers, sceneRef, jars]);
+  }, [ready, pack, markers, sceneRef, jars, players]);
 
   return (
     <div className="scene farm-hybrid">
@@ -42,8 +50,9 @@ export default function FarmQa() {
       {selected && (
         <FamilyJarSheet
           jar={selected}
-          players={qaPlayers(pack)}
-          preview={{ availablePoints: 24, celebrate: celebrate > 0 ? celebrate : undefined }}
+          players={players}
+          sessionPlayer={sessionPlayer}
+          preview={{ availablePoints: 570, celebrate: celebrate > 0 ? celebrate : undefined }}
           onClose={() => setOpenId(null)}
           onUpdated={() => undefined}
         />
@@ -118,7 +127,7 @@ function card(id: string, name: string, plots: PublicPlot[]): FarmPlayerCard {
     seedShards: 0,
     canWater: true,
     plots,
-    hasPin: false,
+    hasPin: id === "l",
     unlocked: true,
     isActive: true,
   };

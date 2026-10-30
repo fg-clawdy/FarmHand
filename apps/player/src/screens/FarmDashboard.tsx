@@ -193,6 +193,7 @@ export default function FarmDashboard() {
         </Sheet>
       )}
       {selectedJar && (
+        // Farm overview has no kid in context. Do not pass sessionPlayer from the tablet cookie.
         <FamilyJarSheet
           jar={selectedJar}
           players={players}
