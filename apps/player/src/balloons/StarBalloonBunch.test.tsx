@@ -36,6 +36,34 @@ test("at 400 of 1,100 the next empty balloon is in front of the two full ones", 
   assert.equal(markup.match(/data-qa="balloon"[^>]*data-full="1"/g)?.length, 2);
 });
 
+test("goal names stay at least 14px and a huge goal counts every balloon", () => {
+  const layoutScale = 0.3;
+  const markup = renderToString(
+    createElement(StarBalloonBunch, {
+      cost: 5000,
+      shown: 400,
+      starsPer: 200,
+      locking: null,
+      sparkle: false,
+      bounce: false,
+      layoutScale,
+      labelPx: 40,
+      labelBudget: 80,
+      title: "Movie night",
+    }),
+  );
+  const text = markup.replace(/<!-- -->/g, "");
+  const scale = Number(text.match(/data-label-scale="([^"]+)"/)?.[1]);
+  assert.ok(scale > 0);
+  assert.ok(16 * scale * layoutScale >= 14 - 0.05);
+  assert.match(markup, /data-qa="balloon-title"/);
+  assert.match(markup, /Movie night/);
+  assert.match(markup, /data-count="15"/);
+  assert.match(markup, /data-total="25"/);
+  assert.match(text, /filled 2 of 25/);
+  assert.doesNotMatch(markup, /Willow|Finn|Sage|donor/i);
+});
+
 test("an empty 1100 goal shows six ghosts, a half-size last ghost, and a nub on every string", () => {
   const markup = html(1100, 0);
   assert.equal(markup.match(/data-qa="balloon-ghost"/g)?.length, 6);

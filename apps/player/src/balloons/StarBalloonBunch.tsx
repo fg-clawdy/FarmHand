@@ -3,6 +3,8 @@ import {
   activeBalloonIndex,
   balloonsFor,
   clamp01,
+  drawnBalloonWindow,
+  STARS_PER_BALLOON,
   formatStarCount,
   nubOpacity,
   type BalloonSlot,
@@ -126,6 +128,7 @@ export default function StarBalloonBunch({
   labelPx = 56,
   labelBudget,
   title = "Movie night",
+  starsPer = STARS_PER_BALLOON,
 }: {
   cost: number;
   shown: number;
@@ -142,28 +145,39 @@ export default function StarBalloonBunch({
   /** When several goals share the grass, the label stays inside this many screen pixels. */
   labelBudget?: number;
   title?: string;
+  /** Stars in one full balloon. Comes from the admin game setting. */
+  starsPer?: number;
 }) {
   const raw = useId();
   const uid = `b${raw.replace(/:/g, "")}`;
-  const slots = balloonsFor(cost, shown);
-  const settledActive = locking?.index ?? activeBalloonIndex(cost, shown);
-  const active = handoff ? (handoff.t < 0.5 ? handoff.fromActive : handoff.toActive) : settledActive;
-  const points = neckPoints(slots.length, settledActive, locking ? null : handoff);
+  const allSlots = balloonsFor(cost, shown, starsPer);
+  const slots = drawnBalloonWindow(allSlots);
+  const settledGlobal = locking?.index ?? activeBalloonIndex(cost, shown, starsPer);
+  const localOf = (global: number) => slots.findIndex((slot) => slot.index === global);
+  const settledActive = Math.max(0, localOf(settledGlobal));
+  const localHandoff =
+    handoff && localOf(handoff.fromActive) >= 0 && localOf(handoff.toActive) >= 0
+      ? { fromActive: localOf(handoff.fromActive), toActive: localOf(handoff.toActive), t: handoff.t }
+      : null;
+  const active = localHandoff ? (localHandoff.t < 0.5 ? localHandoff.fromActive : localHandoff.toActive) : settledActive;
+  const points = neckPoints(slots.length, settledActive, locking ? null : localHandoff);
   const backToFront = [...points].sort((a, b) => {
     const rank = (index: number) => (index === active ? 2 : slots[index]?.full ? 1 : 0);
     return rank(a.index) - rank(b.index) || a.y - b.y;
   });
-  const big = slots.length > 8;
+  const big = allSlots.length > 8;
   const pipSize = 16;
   const countCss = 18;
+  /** Smallest chrome type (title and the "/ cost" suffix) is 16px before scale. */
+  const smallestCss = 16;
   const minCountPx = Math.max(14, Math.min(18, labelPx * 0.38));
   const pipWidth = big ? 150 : slots.length * (pipSize + 4) + 24;
-  const cssWidth = Math.max(pipWidth, 168);
-  const floor = 14 / (countCss * Math.max(layoutScale, 0.04));
+  const cssWidth = Math.max(pipWidth, 220);
+  const floor = 14 / (smallestCss * Math.max(layoutScale, 0.04));
   const natural = minCountPx / (countCss * Math.max(layoutScale, 0.04));
   const budget = labelBudget ? labelBudget / (cssWidth * Math.max(layoutScale, 0.04)) : natural;
   const counter = Math.max(floor, Math.min(natural, budget));
-  const fullCount = slots.filter((slot) => slot.full).length;
+  const fullCount = allSlots.filter((slot) => slot.full).length;
   const shadowRx = Math.min(150, 64 + slots.length * 7);
 
   return (
@@ -171,6 +185,7 @@ export default function StarBalloonBunch({
       className="star-bunch"
       data-qa="balloon-bunch"
       data-count={slots.length}
+      data-total={allSlots.length}
       role="img"
       aria-label={`${title}, ${formatStarCount(shown)} of ${formatStarCount(cost)} stars`}
       data-front={active}
@@ -310,10 +325,18 @@ export default function StarBalloonBunch({
         </g>
       </svg>
 
-      <div className="star-chrome" style={{ transform: `translateX(-50%) scale(${counter})` }}>
+      <div
+        className="star-chrome"
+        data-qa="balloon-chrome"
+        data-label-scale={counter.toFixed(4)}
+        style={{ transform: `translateX(-50%) scale(${counter})` }}
+      >
+        <p className="star-title" data-qa="balloon-title">
+          {title}
+        </p>
         {big ? (
           <div className="star-tally" data-qa="balloon-tally">
-            filled {fullCount} of {slots.length}
+            filled {fullCount} of {allSlots.length}
           </div>
         ) : (
           <div className="star-pips" data-qa="pips">

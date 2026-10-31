@@ -55,7 +55,7 @@ export class FarmScene {
   private store: Container;
   private storeOutline: Graphics;
   private library: LittleLibrary;
-  /** Live default keeps the calf and the little library. See `FARM_GRASS_PROPS`. */
+  /** Live meadow is star balloons: no calf and no little library. */
   private grassProps: FarmGrassProps = LIVE_FARM_GRASS;
   private app: Application;
   private onPlayer: (id: string) => void;
@@ -133,6 +133,7 @@ export class FarmScene {
     this.app.stage.addChild(this.root);
     exposeFarmDebug(this);
 
+    this.setGrassProps(LIVE_FARM_GRASS);
     this.layout();
     this.onResize = () => this.layout();
     this.onTick = (ticker: { deltaMS: number }) => this.tick(ticker.deltaMS / 1000);
@@ -193,7 +194,7 @@ export class FarmScene {
 
   /**
    * `star-balloons` takes the meadow: the little library is hidden and the
-   * calf stops wandering. The live farm never calls this.
+   * calf stops wandering. The live farm starts in that mode.
    */
   setGrassProps(props: FarmGrassProps) {
     this.grassProps = props;
@@ -233,7 +234,7 @@ export class FarmScene {
 
   private tick(dt: number) {
     this.t += dt;
-    if (this.grassProps === LIVE_FARM_GRASS) {
+    if (this.grassProps !== FARM_GRASS_PROPS.balloons) {
       this.cow.update(dt);
       this.library.update(dt, this.t);
     }

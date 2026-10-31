@@ -203,7 +203,7 @@ export function buildJarArtPrompt(input: { title: string; emoji: string; notes?:
 }
 
 /** Pour chip amounts shown to kids. */
-export const GIVE_CHIP_AMOUNTS = [5, 10, 25, 50, 100] as const;
+export const GIVE_CHIP_AMOUNTS = [5, 10, 25, 50, 100, 250] as const;
 
 /** Largest chip a kid can tap. Chips above the wallet, ceiling, or room left are hidden. */
 export const MAX_GIVE_CHIP = GIVE_CHIP_AMOUNTS[GIVE_CHIP_AMOUNTS.length - 1]!;

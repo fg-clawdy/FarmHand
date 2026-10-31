@@ -57,6 +57,7 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   plotCount: PLOTS_PER_GARDEN,
   mixYield: 1,
   jobBoardPosterDwellSeconds: 18,
+  starsPerBalloon: 200,
   balanceGoals: DEFAULT_BALANCE_GOALS,
   ingredients: [
     { id: "moonDew", name: "Moon Dew", emoji: "🌙" },
@@ -245,6 +246,7 @@ export function mergeGameConfig(raw: unknown): GameConfig {
     jobBoardPosterDwellSeconds: clampJobBoardPosterDwell(
       incoming.jobBoardPosterDwellSeconds ?? DEFAULT_GAME_CONFIG.jobBoardPosterDwellSeconds,
     ),
+    starsPerBalloon: clampInt(incoming.starsPerBalloon, 20, 2000, DEFAULT_GAME_CONFIG.starsPerBalloon),
     balanceGoals:
       typeof incoming.balanceGoals === "string" ? incoming.balanceGoals : DEFAULT_GAME_CONFIG.balanceGoals,
     tiers,

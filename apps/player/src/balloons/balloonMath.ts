@@ -2,8 +2,8 @@ import { coverFit } from "../pixi/draw";
 import { PLAYFIELD_LAYOUT, standArtUv } from "../pixi/playfieldLayout";
 
 /**
- * Stars in one full-size balloon.
- * One constant so it can move to an admin tunable later without hunting call sites.
+ * Default stars in one full balloon.
+ * The live farm passes the admin setting (`GameConfig.starsPerBalloon`) instead.
  */
 export const STARS_PER_BALLOON = 200;
 
@@ -96,34 +96,46 @@ export type DonationPlan = {
   accepted: number;
   reached: boolean;
   segments: FillSegment[];
+  /** Stars in one full balloon for this plan. */
+  per: number;
 };
 
 export type BunchPoint = { index: number; x: number; y: number };
 
-export function balloonCount(cost: number): number {
-  if (cost <= 0) return 0;
-  return Math.ceil(cost / STARS_PER_BALLOON);
+/** Admin-tunable balloon size. Values outside 20–2,000 snap back to 200. */
+export function starsPerFrom(value: unknown): number {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return STARS_PER_BALLOON;
+  return Math.min(2000, Math.max(20, n));
 }
 
-export function slotCapacity(cost: number, index: number): number {
-  const count = balloonCount(cost);
+export function balloonCount(cost: number, per = STARS_PER_BALLOON): number {
+  const size = starsPerFrom(per);
+  if (cost <= 0) return 0;
+  return Math.ceil(cost / size);
+}
+
+export function slotCapacity(cost: number, index: number, per = STARS_PER_BALLOON): number {
+  const size = starsPerFrom(per);
+  const count = balloonCount(cost, size);
   if (index < 0 || index >= count) return 0;
-  const start = index * STARS_PER_BALLOON;
-  return Math.min(STARS_PER_BALLOON, Math.max(0, cost - start));
+  const start = index * size;
+  return Math.min(size, Math.max(0, cost - start));
 }
 
 /** Fill balloons in order. Floats are allowed so an in-flight donation can ease. */
-export function balloonsFor(cost: number, filled: number): BalloonSlot[] {
+export function balloonsFor(cost: number, filled: number, per = STARS_PER_BALLOON): BalloonSlot[] {
+  const size = starsPerFrom(per);
   const safeCost = Math.max(0, cost);
   const clamped = Math.max(0, Math.min(filled, safeCost));
-  const count = balloonCount(safeCost);
+  const count = balloonCount(safeCost, size);
   let remaining = clamped;
   const slots: BalloonSlot[] = [];
   for (let index = 0; index < count; index++) {
-    const capacity = slotCapacity(safeCost, index);
+    const capacity = slotCapacity(safeCost, index, size);
     const stars = Math.min(capacity, Math.max(0, remaining));
     remaining -= stars;
-    const targetScale = capacity / STARS_PER_BALLOON;
+    const targetScale = capacity / size;
     const fill = capacity === 0 ? 0 : stars / capacity;
     const full = capacity > 0 && stars >= capacity - 1e-4;
     slots.push({
@@ -139,7 +151,8 @@ export function balloonsFor(cost: number, filled: number): BalloonSlot[] {
   return slots;
 }
 
-export function planDonation(cost: number, filled: number, amount: number): DonationPlan {
+export function planDonation(cost: number, filled: number, amount: number, per = STARS_PER_BALLOON): DonationPlan {
+  const size = starsPerFrom(per);
   const safeCost = Math.max(0, Math.round(cost));
   const from = Math.max(0, Math.min(Math.round(filled), safeCost));
   const accepted = Math.max(0, Math.min(Math.round(amount), safeCost - from));
@@ -147,7 +160,7 @@ export function planDonation(cost: number, filled: number, amount: number): Dona
   const segments: FillSegment[] = [];
   let cursor = from;
   while (cursor < to) {
-    const slots = balloonsFor(safeCost, cursor);
+    const slots = balloonsFor(safeCost, cursor, size);
     const active = slots.find((slot) => slot.stars < slot.capacity - 1e-6);
     if (!active) break;
     const step = Math.min(active.capacity - active.stars, to - cursor);
@@ -167,6 +180,7 @@ export function planDonation(cost: number, filled: number, amount: number): Dona
     accepted,
     reached: safeCost > 0 && to >= safeCost,
     segments,
+    per: size,
   };
 }
 
@@ -203,8 +217,19 @@ export function restingFootprint(count: number): number {
  * The balloon a child is filling, or the next empty one when nothing is underway.
  * A finished goal keeps its last balloon in front for the float-away.
  */
-export function activeBalloonIndex(cost: number, filled: number): number {
-  const slots = balloonsFor(cost, filled);
+export const MAX_DRAWN_BALLOONS = 15;
+
+/** At most 15 drawn balloons, always including the one being filled. */
+export function drawnBalloonWindow(slots: BalloonSlot[], max = MAX_DRAWN_BALLOONS): BalloonSlot[] {
+  if (slots.length <= max) return slots;
+  const active = slots.findIndex((slot) => !slot.full);
+  const focus = active < 0 ? slots.length - 1 : active;
+  const start = Math.max(0, Math.min(focus - 1, slots.length - max));
+  return slots.slice(start, start + max);
+}
+
+export function activeBalloonIndex(cost: number, filled: number, per = STARS_PER_BALLOON): number {
+  const slots = balloonsFor(cost, filled, per);
   if (slots.length === 0) return 0;
   const open = slots.find((slot) => slot.stars < slot.capacity - 1e-6);
   return open?.index ?? slots.length - 1;

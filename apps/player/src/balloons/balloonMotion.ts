@@ -5,7 +5,6 @@ import {
   goalSeats,
   placedPoints,
   planDonation,
-  STARS_PER_BALLOON,
   zoomScaleFor,
   type BunchPoint,
   type DonationPlan,
@@ -379,7 +378,7 @@ export function beginDonation(shown: number, plan: DonationPlan, reduced: boolea
     timeline: buildTimeline(plan, reduced),
     reached: plan.reached,
     focusIndex: plan.segments[0]?.index ?? 0,
-    focusScale: (plan.segments[0]?.capacity ?? STARS_PER_BALLOON) / STARS_PER_BALLOON,
+    focusScale: (plan.segments[0]?.capacity ?? plan.per) / Math.max(1, plan.per),
     handoff: null,
   };
 }

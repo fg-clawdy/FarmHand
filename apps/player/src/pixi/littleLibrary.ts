@@ -466,7 +466,7 @@ export class LittleLibrary {
     void this.syncLids(this.jars);
   }
 
-  /** QA balloon scene takes this spot. The live farm leaves the house up. */
+  /** Hidden on the live meadow. The QA farm route can still show the house. */
   setHouseVisible(visible: boolean) {
     this.showHouse = visible;
     this.apply();

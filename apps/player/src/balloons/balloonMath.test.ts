@@ -5,6 +5,7 @@ import {
   BALLOON_STAGE,
   BALLOON_TOP,
   STARS_PER_BALLOON,
+  starsPerFrom,
   ZOOM_HEIGHT,
   balloonCount,
   balloonsFor,
@@ -13,7 +14,6 @@ import {
   MIN_LABEL_PX,
   activeBalloonIndex,
   arrangementBounds,
-  balloonsFor,
   restClearance,
   solidVisibility,
   chromeExtent,
@@ -22,6 +22,7 @@ import {
   nubOpacity,
   placedPoints,
   planDonation,
+  drawnBalloonWindow,
   restScaleFor,
   restingBunchRect,
   restingFootprint,
@@ -32,6 +33,37 @@ import {
 
 test("one full balloon is 200 stars, in a single constant", () => {
   assert.equal(STARS_PER_BALLOON, 200);
+  assert.equal(starsPerFrom(undefined), 200);
+  assert.equal(starsPerFrom(80), 80);
+  assert.equal(balloonCount(250, 100), 3);
+  assert.equal(slotCapacity(250, 2, 100), 50);
+});
+
+test("a tunable balloon size changes the count and the leftover balloon", () => {
+  assert.equal(balloonCount(1100, 250), 5);
+  assert.deepEqual(
+    [0, 1, 2, 3, 4].map((index) => slotCapacity(1100, index, 250)),
+    [250, 250, 250, 250, 100],
+  );
+  const slots = balloonsFor(250, 200, 200);
+  assert.equal(slots.length, 2);
+  assert.equal(slots[1]?.capacity, 50);
+  assert.equal(slots[1]?.stars, 0);
+  const plan = planDonation(1100, 100, 250, 250);
+  assert.equal(plan.per, 250);
+  assert.equal(plan.segments[0]?.completes, true);
+  assert.equal(plan.segments[0]?.capacity, 250);
+  assert.equal(plan.to, 350);
+});
+
+test("a very large goal draws at most 15 balloons and still counts every one", () => {
+  const slots = balloonsFor(5000, 400, 200);
+  assert.equal(slots.length, 25);
+  assert.equal(slots.filter((slot) => slot.full).length, 2);
+  const drawn = drawnBalloonWindow(slots);
+  assert.equal(drawn.length, 15);
+  assert.ok(drawn.some((slot) => slot.index === 2 && !slot.full));
+  assert.equal(drawn[0]?.index, 1);
 });
 
 test("balloon counts follow ceil(cost / 200)", () => {

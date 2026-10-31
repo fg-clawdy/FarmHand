@@ -122,6 +122,32 @@
   font-size: 36px;
 }
 
+.farm-balloons {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.farm-balloons .balloon-more {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.balloon-hit {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.farm-balloons .balloon-reward,
+.farm-balloons .balloon-reward button {
+  pointer-events: auto;
+}
+
 .balloon-more {
   position: absolute;
   z-index: 6;
@@ -201,6 +227,22 @@
   font-weight: 800;
   font-size: 18px;
   white-space: nowrap;
+}
+
+.star-title {
+  margin: 0;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #5c3a22;
+  background: rgba(255, 248, 230, 0.92);
+  border: 3px solid #6b4428;
+  border-radius: 999px;
+  padding: 2px 10px 3px;
 }
 
 .star-count {

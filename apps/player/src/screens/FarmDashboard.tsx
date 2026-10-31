@@ -1,20 +1,28 @@
-import { compactJarTitle, jarProgressLabel, type FarmPlayerCard, type PublicSharedGoal } from "@farmhand/shared";
+import { compactJarTitle, jarProgressLabel, type FarmPlayerCard, type GameConfig, type PublicSharedGoal } from "@farmhand/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type FarmPlaybookMission } from "../api";
+import { BUNCH_SHOW_MAX, starsPerFrom } from "../balloons/balloonMath";
+import FarmBalloonLayer from "../balloons/FarmBalloonLayer";
+import { displayFilled, enqueueDonation, type BalloonJob } from "../balloons/balloonQueue";
+import "../styles.balloons.css";
 import AvatarPicker from "../components/AvatarPicker";
 import FamilyJarSheet from "../components/FamilyJarSheet";
 import PinPad from "../components/PinPad";
 import PlaybookCoach, { type CoachMission } from "../components/PlaybookCoach";
 import Sheet from "../components/Sheet";
 import StoreSheet from "../components/StoreSheet";
-import { familyJarVisible, libraryWindow } from "../pixi/libraryShelfLayout";
+import { familyJarVisible } from "../pixi/libraryShelfLayout";
+import { LIVE_FARM_GRASS } from "../pixi/playfieldLayout";
 import { useFarmPixi } from "../pixi/usePixi";
 
 export default function FarmDashboard() {
   const navigate = useNavigate();
   const [players, setPlayers] = useState<FarmPlayerCard[]>([]);
   const [familyJars, setFamilyJars] = useState<PublicSharedGoal[]>([]);
+  const [config, setConfig] = useState<GameConfig | null>(null);
+  const [queue, setQueue] = useState<BalloonJob[]>([]);
+  const [released, setReleased] = useState<string[]>([]);
   const [jarId, setJarId] = useState<string | null>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [storeOpen, setStoreOpen] = useState(false);
@@ -102,19 +110,13 @@ export default function FarmDashboard() {
     onAvatar: (id) => {
       void handleAvatarTap(id);
     },
-    onLibrary: {
-      onJar: (id) => {
-        setOverflowOpen(false);
-        setJarId(id);
-      },
-      onOverflow: () => setOverflowOpen(true),
-    },
   });
 
   async function load() {
     try {
       const farm = await api.farm();
       setPlayers(farm.players);
+      setConfig(farm.config);
       setFamilyJars((prev) => {
         const incoming = (farm.familyJars ?? (farm.familyJar ? [farm.familyJar] : [])).filter(familyJarVisible);
         return incoming.map((jar) => {
@@ -143,19 +145,29 @@ export default function FarmDashboard() {
     return () => clearInterval(t);
   }, [pinPlayer]);
 
+  const finishJob = useCallback(() => {
+    setQueue((jobs) => {
+      const done = jobs[0];
+      if (done && done.to >= done.cost) {
+        setReleased((ids) => (ids.includes(done.goalId) ? ids : [...ids, done.goalId]));
+      }
+      return jobs.slice(1);
+    });
+  }, []);
+
   useEffect(() => {
-    sceneRef.current?.setPlayers(players);
+    const scene = sceneRef.current;
+    if (!scene || !ready) return;
+    scene.setGrassProps(LIVE_FARM_GRASS);
+    scene.setPlayers(players);
   }, [players, ready, sceneRef]);
 
   useEffect(() => {
-    sceneRef.current?.setFamilyJars(familyJars);
-  }, [familyJars, ready, sceneRef]);
-
-  useEffect(() => {
     if (jarId && !familyJars.some((jar) => jar.id === jarId)) setJarId(null);
-    if (libraryWindow(familyJars).overflow === 0) setOverflowOpen(false);
-  }, [familyJars, jarId]);
+    if (familyJars.filter((jar) => !released.includes(jar.id)).length <= BUNCH_SHOW_MAX) setOverflowOpen(false);
+  }, [familyJars, jarId, released]);
 
+  const meadowJars = familyJars.filter((jar) => !released.includes(jar.id) || queue[0]?.goalId === jar.id);
   const selectedJar = familyJars.find((jar) => jar.id === jarId) ?? null;
 
   const coachMissions: CoachMission[] = missions.map((mission) => ({
@@ -176,7 +188,7 @@ export default function FarmDashboard() {
       {overflowOpen && (
         <Sheet title="More goals" onClose={() => setOverflowOpen(false)}>
           <div className="sheet-actions">
-            {libraryWindow(familyJars).hidden.map((jar) => (
+            {meadowJars.slice(BUNCH_SHOW_MAX).map((jar) => (
               <button
                 key={jar.id}
                 className="btn gold"
@@ -192,12 +204,40 @@ export default function FarmDashboard() {
           </div>
         </Sheet>
       )}
+      <FarmBalloonLayer
+        goals={meadowJars.map((jar) => ({
+            id: jar.id,
+            title: jar.title,
+            cost: jar.targetPoints,
+            filled: displayFilled(jar.id, jar.filledPoints, queue, queue[0] ?? null),
+          }))}
+        starsPer={starsPerFrom(config?.starsPerBalloon)}
+        job={queue[0] ?? null}
+        onOpen={(id) => {
+          setOverflowOpen(false);
+          setJarId(id);
+        }}
+        onOverflow={() => setOverflowOpen(true)}
+        onFinished={finishJob}
+      />
       {selectedJar && (
         // Farm overview has no kid in context. Do not pass sessionPlayer from the tablet cookie.
         <FamilyJarSheet
           jar={selectedJar}
           players={players}
           onClose={() => setJarId(null)}
+          onDonated={({ from, to }) => {
+            setQueue((jobs) =>
+              enqueueDonation(jobs, {
+                goalId: selectedJar.id,
+                title: selectedJar.title,
+                cost: selectedJar.targetPoints,
+                from,
+                to,
+              }),
+            );
+            setJarId(null);
+          }}
           onUpdated={(next) =>
             setFamilyJars((list) => {
               const stillVisible = next.status === "OPEN" || next.status === "READY";
