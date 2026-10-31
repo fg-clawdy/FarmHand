@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { coverFit } from "./draw.ts";
 import {
+  LIVE_FARM_GRASS,
   PLAYFIELD_LAYOUT,
   PLAYFIELD_TEXTURE,
   STAND_ART_PX,
@@ -96,6 +97,10 @@ test("farm store hit is the painted stand, not the barrel and trees", () => {
     assert.ok(Math.abs(back(fit.x + local.x1 * fit.scale, fit.x, 1536) - hit.u1) < 1e-9, `u1 ${w}x${h}`);
     assert.ok(Math.abs(back(fit.y + local.y1 * fit.scale, fit.y, 1024) - hit.v1) < 1e-9, `v1 ${w}x${h}`);
   }
+});
+
+test("the live farm meadow is star balloons", () => {
+  assert.equal(LIVE_FARM_GRASS, "star-balloons");
 });
 
 test("farm overview shows the little library and not a job board or tube chip", () => {

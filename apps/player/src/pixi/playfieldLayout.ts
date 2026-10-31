@@ -40,6 +40,22 @@ const FARM_LIBRARY_HIT = { u0: 0.3021, v0: 0.1475, u1: 0.3887, v1: 0.3906 } as c
 export const PLAYFIELD_TEXTURE = { width: 1536, height: 1024 } as const;
 
 /**
+ * What occupies the grass between the barn and the market.
+ * `library-and-cow` keeps the little library and the wandering calf.
+ * `star-balloons` hides both so shared-goal bunches sit on that meadow.
+ * The live farm uses `star-balloons`.
+ */
+export const FARM_GRASS_PROPS = {
+  live: "library-and-cow",
+  balloons: "star-balloons",
+} as const;
+
+export type FarmGrassProps = (typeof FARM_GRASS_PROPS)[keyof typeof FARM_GRASS_PROPS];
+
+/** Live farm overview: balloons on the meadow, no calf, no little library. */
+export const LIVE_FARM_GRASS: FarmGrassProps = FARM_GRASS_PROPS.balloons;
+
+/**
  * Painted produce stand on the v3 playfield (striped awning, tomato / carrot /
  * corn crates, wooden counter). Pixels of `PLAYFIELD_TEXTURE`, the same space
  * as the background sprite — not screen pixels.

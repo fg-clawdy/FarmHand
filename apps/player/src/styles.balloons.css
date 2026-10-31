@@ -1,0 +1,478 @@
+/* Star-balloon QA prototype. Authored at the 2560×1600 tablet stage. */
+
+.balloon-fit-root {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #3d8a32;
+}
+
+.balloon-fit {
+  position: relative;
+  overflow: hidden;
+}
+
+.balloon-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: top left;
+  overflow: hidden;
+  background: #3d8a32;
+}
+
+.balloon-stage .pixi-host {
+  pointer-events: none;
+}
+
+.balloon-dim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: rgba(16, 32, 10, 0.38);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+.balloon-board {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  border-radius: 36px;
+  border: 10px solid #8d5a2e;
+  box-shadow:
+    inset 0 3px 0 rgba(255, 244, 214, 0.85),
+    inset 0 -18px 28px rgba(92, 48, 16, 0.22),
+    0 22px 40px rgba(48, 28, 8, 0.28);
+  background-color: #e2b56a;
+  background-image:
+    repeating-linear-gradient(
+      180deg,
+      #f6d7a0 0px,
+      #f0c98a 18px,
+      #e2b15f 36px,
+      #c99245 38px,
+      #e8bc72 40px
+    );
+}
+
+.balloon-board-copy {
+  position: absolute;
+  right: 6%;
+  top: 16%;
+  width: 38%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 28px;
+}
+
+.balloon-goal-chip {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  align-self: flex-end;
+  padding: 10px 22px 10px 12px;
+  border-radius: 999px;
+  background: linear-gradient(#fff8ea, #f3e0b8);
+  border: 4px solid #8d5a2e;
+  box-shadow: 0 6px 0 rgba(92, 48, 16, 0.18);
+  color: #5c3d28;
+  font-size: 40px;
+  font-weight: 700;
+}
+
+.balloon-board-wallet,
+.balloon-wallet {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 12px;
+  color: #3d2918;
+}
+
+.balloon-board-wallet {
+  align-self: flex-end;
+  padding: 16px 26px;
+  border-radius: 28px;
+  background: linear-gradient(#4a3424, #2e2118);
+  color: #fff6e4;
+  box-shadow: inset 0 2px 0 rgba(255, 236, 200, 0.18), 0 8px 0 rgba(40, 24, 10, 0.25);
+}
+
+.balloon-wallet-k {
+  font-size: 22px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+.balloon-wallet-n {
+  font-family: "Luckiest Guy", Fredoka, sans-serif;
+  font-size: 48px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.balloon-wallet-star,
+.balloon-wallet > span:last-child {
+  color: #f0b429;
+  font-size: 36px;
+}
+
+.farm-balloons {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.farm-balloons .balloon-more {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.balloon-hit {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.farm-balloons .balloon-reward,
+.farm-balloons .balloon-reward button {
+  pointer-events: auto;
+}
+
+.balloon-more {
+  position: absolute;
+  z-index: 6;
+  transform: translate(-50%, -50%);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 248, 230, 0.95);
+  border: 3px solid #6b4428;
+  color: #5c3a22;
+  font-family: "Luckiest Guy", Fredoka, sans-serif;
+  font-size: 22px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.balloon-flight {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 4;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  transform-origin: 0 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.star-bunch {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  overflow: visible;
+}
+
+.star-bunch-svg {
+  position: absolute;
+  left: -800px;
+  top: -900px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.star-chrome {
+  position: absolute;
+  left: 0;
+  top: 16px;
+  transform-origin: top center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.star-pips {
+  position: static;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  max-width: 240px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: rgba(255, 248, 230, 0.9);
+  border: 3px solid #6b4428;
+}
+
+.star-tally {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(255, 248, 230, 0.92);
+  border: 3px solid #6b4428;
+  color: #5c3a22;
+  font-weight: 800;
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+.star-title {
+  margin: 0;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #5c3a22;
+  background: rgba(255, 248, 230, 0.92);
+  border: 3px solid #6b4428;
+  border-radius: 999px;
+  padding: 2px 10px 3px;
+}
+
+.star-count {
+  position: static;
+  white-space: nowrap;
+  padding: 1px 10px 3px;
+  border-radius: 999px;
+  background: rgba(255, 248, 230, 0.92);
+  border: 3px solid #6b4428;
+  color: #5c3a22;
+  line-height: 1;
+}
+
+.star-count-now {
+  font-family: "Luckiest Guy", Fredoka, sans-serif;
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.star-count-of {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.balloon-dock {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  bottom: 18px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  border-radius: 28px;
+  border: 6px solid #8d5a2e;
+  background:
+    linear-gradient(180deg, rgba(255, 248, 230, 0.2), rgba(90, 48, 16, 0.08)),
+    linear-gradient(180deg, #f0c98a, #d79a48);
+  box-shadow: 0 12px 0 rgba(70, 36, 12, 0.18);
+  transition: transform 0.35s ease, opacity 0.35s ease;
+}
+
+.balloon-dock.is-hidden {
+  transform: translateY(130%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.balloon-dock-tab {
+  position: absolute;
+  right: 28px;
+  bottom: 18px;
+  z-index: 6;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 4px solid #8d5a2e;
+  background: #f0c98a;
+  color: #5c3a22;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.balloon-dock-hide {
+  min-height: 40px;
+  padding: 0 12px;
+  font-size: 18px;
+}
+
+.balloon-dock-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.balloon-dock-label {
+  min-width: 92px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #5c3d28;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.balloon-dock .btn {
+  min-height: 64px;
+  min-width: 0;
+  padding: 0 18px;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.balloon-dock .balloon-wallet {
+  margin-left: auto;
+  padding: 8px 18px;
+  border-radius: 18px;
+  background: #2e2118;
+  color: #fff6e4;
+}
+
+.balloon-dock .balloon-wallet-n {
+  font-size: 36px;
+}
+
+.balloon-progress-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 8px;
+  color: #5c3d28;
+  font-weight: 700;
+  font-size: 22px;
+}
+
+.balloon-progress-field input[type="number"] {
+  width: 120px;
+  min-height: 56px;
+  border-radius: 14px;
+  border: 3px solid #8d5a2e;
+  background: #fffaf0;
+  color: #3d2918;
+  font-weight: 700;
+  font-size: 26px;
+  text-align: center;
+}
+
+.balloon-progress-field input[type="range"] {
+  width: 280px;
+  accent-color: #3f8a3a;
+}
+
+.balloon-reduced {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  color: #5c3d28;
+  font-weight: 700;
+  font-size: 22px;
+}
+
+.balloon-reduced input {
+  width: 28px;
+  height: 28px;
+}
+
+.balloon-reward {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  background: transparent;
+}
+
+.balloon-confetti {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.balloon-reward-card {
+  position: relative;
+  z-index: 1;
+  width: min(760px, 70%);
+  padding: 36px 42px 32px;
+  text-align: center;
+  border-radius: 36px;
+  border: 8px solid #8d5a2e;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 240, 0.35), transparent 30%),
+    linear-gradient(180deg, #fff6e4, #f3ddb0);
+  box-shadow:
+    0 18px 0 rgba(70, 36, 12, 0.18),
+    0 28px 50px rgba(30, 20, 8, 0.28);
+  transform-origin: center;
+}
+
+.balloon-reward-motif {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  height: 92px;
+  margin-bottom: 4px;
+}
+
+.balloon-reward-motif svg {
+  overflow: visible;
+  filter: drop-shadow(0 8px 0 rgba(92, 48, 16, 0.12));
+}
+
+.balloon-reward-kicker {
+  margin: 8px 0 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8a5a32;
+}
+
+.balloon-reward-card h2 {
+  margin: 6px 0 0;
+  font-family: "Luckiest Guy", Fredoka, sans-serif;
+  font-size: 84px;
+  font-weight: 400;
+  color: #d6453d;
+  text-shadow: 0 4px 0 #fff, 0 8px 0 rgba(140, 40, 30, 0.18);
+}
+
+.balloon-reward-copy {
+  margin: 8px 0 22px;
+  font-size: 36px;
+  font-weight: 700;
+  color: #5c3d28;
+}
+
+@keyframes balloon-reward-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+.balloon-stage.is-reduced .balloon-reward-card {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .balloon-reward-card { animation: none; }
+}
