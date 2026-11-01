@@ -82,6 +82,8 @@ export type GameConfig = {
    * Admin-tunable; tear/pin animations stay short.
    */
   jobBoardPosterDwellSeconds: number;
+  /** Stars that fill one balloon on the meadow. Default 200. */
+  starsPerBalloon: number;
   /** Parent-authored “what good play looks like” for AI balance review. */
   balanceGoals: string;
   ingredients: IngredientDef[];

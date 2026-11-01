@@ -88,6 +88,7 @@ export default function FamilyJarSheet({
   players,
   onClose,
   onUpdated,
+  onDonated,
   preview,
   sessionPlayer = null,
 }: {
@@ -105,6 +106,7 @@ export default function FamilyJarSheet({
    * The farm overview must leave this empty: a leftover tablet session is not a choice.
    */
   sessionPlayer?: JarDonor | null;
+  onDonated?: (event: { from: number; to: number }) => void;
 }) {
   const [kid, setKid] = useState<JarDonor | null>(sessionPlayer);
   const [spendPin, setSpendPin] = useState<string | null>(null);
@@ -176,6 +178,7 @@ export default function FamilyJarSheet({
       preview={preview}
       onClose={onClose}
       onUpdated={onUpdated}
+      onDonated={onDonated}
       onIdentify={switchKid}
       onKid={(next) => setKid(next)}
     />
@@ -249,6 +252,7 @@ function PourBody({
   preview,
   onClose,
   onUpdated,
+  onDonated,
   onIdentify,
   onKid,
 }: {
@@ -258,6 +262,7 @@ function PourBody({
   preview?: { availablePoints: number; celebrate?: number };
   onClose: () => void;
   onUpdated: (jar: PublicSharedGoal) => void;
+  onDonated?: (event: { from: number; to: number }) => void;
   onIdentify: () => void;
   onKid: (kid: JarDonor) => void;
 }) {
@@ -407,13 +412,17 @@ function PourBody({
       const originEl = document.querySelector<HTMLButtonElement>("[data-pour-origin]");
       const origin = originEl?.getBoundingClientRect();
       setPending(null);
+      onUpdated({ ...jar, filledPoints: toFilled, status: toFilled >= jar.targetPoints ? "READY" : jar.status });
+      if (onDonated) {
+        onDonated({ from: fromFilled, to: toFilled });
+        return;
+      }
       playCelebration(
         fromFilled,
         toFilled,
         amount,
         origin ? { x: origin.left + origin.width / 2, y: origin.top + origin.height / 2 } : undefined,
       );
-      onUpdated({ ...jar, filledPoints: toFilled, status: toFilled >= jar.targetPoints ? "READY" : jar.status });
       return;
     }
     if (!kid) return;
@@ -443,6 +452,10 @@ function PourBody({
       setAvailable(result.availablePoints);
       setPending(null);
       const amount = result.amount ?? pending;
+      if (onDonated) {
+        onDonated({ from: fromFilled, to: next.filledPoints });
+        return;
+      }
       const giveKey = result.giveKey ?? `give:${jar.id}:${kid.id}:${requestId}`;
       setPutBack({ giveKey, until: Date.now() + PUT_BACK_WINDOW_SECONDS * 1000 });
       if (next.status === "READY") setForcedReady(true);

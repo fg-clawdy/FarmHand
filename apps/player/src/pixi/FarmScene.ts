@@ -26,10 +26,13 @@ import {
 } from "./plantedCropVisual";
 import { SignAvatarBadge, farmSignBadgeLocal } from "./signAvatar";
 import {
+  FARM_GRASS_PROPS,
+  LIVE_FARM_GRASS,
   PLAYABLE_PLOT_SLOTS,
   PLAYFIELD_TEXTURE,
   PLAYFIELD_LAYOUT,
   cowForbiddenRects,
+  type FarmGrassProps,
   gardenSignFontPx,
   gardenSignName,
   gardenSignPlankLocal,
@@ -52,6 +55,8 @@ export class FarmScene {
   private store: Container;
   private storeOutline: Graphics;
   private library: LittleLibrary;
+  /** Live meadow is star balloons: no calf and no little library. */
+  private grassProps: FarmGrassProps = LIVE_FARM_GRASS;
   private app: Application;
   private onPlayer: (id: string) => void;
   private onStore: () => void;
@@ -128,6 +133,7 @@ export class FarmScene {
     this.app.stage.addChild(this.root);
     exposeFarmDebug(this);
 
+    this.setGrassProps(LIVE_FARM_GRASS);
     this.layout();
     this.onResize = () => this.layout();
     this.onTick = (ticker: { deltaMS: number }) => this.tick(ticker.deltaMS / 1000);
@@ -186,6 +192,17 @@ export class FarmScene {
     this.library.setJars(jars);
   }
 
+  /**
+   * `star-balloons` takes the meadow: the little library is hidden and the
+   * calf stops wandering. The live farm starts in that mode.
+   */
+  setGrassProps(props: FarmGrassProps) {
+    this.grassProps = props;
+    const balloons = props === FARM_GRASS_PROPS.balloons;
+    this.cow.root.visible = !balloons;
+    this.library.setHouseVisible(!balloons);
+  }
+
   /** QA only (`/qa/farm?markers=1`). Default off — never drawn on the live farm. */
   setMoundMarkers(on: boolean) {
     this.beds.forEach((bed) => bed.setMoundMarkers(on));
@@ -217,8 +234,10 @@ export class FarmScene {
 
   private tick(dt: number) {
     this.t += dt;
-    this.cow.update(dt);
-    this.library.update(dt, this.t);
+    if (this.grassProps !== FARM_GRASS_PROPS.balloons) {
+      this.cow.update(dt);
+      this.library.update(dt, this.t);
+    }
     this.beds.forEach((b) => b.breathe(this.t));
   }
 

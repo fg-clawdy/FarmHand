@@ -177,6 +177,7 @@ export function balanceKnobs(config: GameConfig) {
     mixYield: config.mixYield,
     plotCount: config.plotCount,
     jobBoardPosterDwellSeconds: config.jobBoardPosterDwellSeconds,
+    starsPerBalloon: config.starsPerBalloon,
     tiers: config.tiers.map((tier) => ({
       tier: tier.tier,
       kind: tier.kind,

@@ -127,5 +127,9 @@ describe("v2 differentiated tier economy", () => {
     assert.equal(mergeGameConfig({ jobBoardPosterDwellSeconds: 30 }).jobBoardPosterDwellSeconds, 30);
     assert.equal(mergeGameConfig({ jobBoardPosterDwellSeconds: 4.2 }).jobBoardPosterDwellSeconds, 5);
     assert.equal(mergeGameConfig({ jobBoardPosterDwellSeconds: 200 }).jobBoardPosterDwellSeconds, 120);
+    assert.equal(mergeGameConfig({}).starsPerBalloon, 200);
+    assert.equal(mergeGameConfig({ starsPerBalloon: 150 }).starsPerBalloon, 150);
+    assert.equal(mergeGameConfig({ starsPerBalloon: 5 }).starsPerBalloon, 20);
+    assert.equal(mergeGameConfig({ starsPerBalloon: 9000 }).starsPerBalloon, 2000);
   });
 });

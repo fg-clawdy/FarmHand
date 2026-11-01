@@ -82,6 +82,13 @@ export default function ConfigPage() {
             onChange={(v) => num("mixYield", v)}
           />
           <Num label="Session minutes" hint="How long a PIN login lasts" value={config.sessionMinutes} onChange={(v) => num("sessionMinutes", v)} />
+          <Num
+            label="Stars per balloon"
+            hint="How many stars fill one meadow balloon. Default 200. Allowed 20 to 2,000."
+            value={config.starsPerBalloon}
+            qa="stars-per-balloon"
+            onChange={(v) => num("starsPerBalloon", v)}
+          />
           <Num label="Plot count (3×3, min 9)" value={config.plotCount} onChange={(v) => num("plotCount", v)} />
         </div>
         <label className="field">
@@ -215,16 +222,18 @@ function Num({
   value,
   onChange,
   hint,
+  qa,
 }: {
   label: string;
   value: number;
   onChange: (v: string) => void;
   hint?: string;
+  qa?: string;
 }) {
   return (
     <label className="field">
       {label}
-      <input type="number" value={value} onChange={(e) => onChange(e.target.value)} />
+      <input data-qa={qa} type="number" value={value} onChange={(e) => onChange(e.target.value)} />
       {hint && <span className="muted">{hint}</span>}
     </label>
   );

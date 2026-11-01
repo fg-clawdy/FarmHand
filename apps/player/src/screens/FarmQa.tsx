@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { FarmPlayerCard, PublicPlot, PublicSharedGoal } from "@farmhand/shared";
 import FamilyJarSheet, { jarDonorFromCard } from "../components/FamilyJarSheet";
+import { FARM_GRASS_PROPS } from "../pixi/playfieldLayout";
 import { useFarmPixi } from "../pixi/usePixi";
 
 /**
@@ -40,6 +41,7 @@ export default function FarmQa() {
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene || !ready) return;
+    scene.setGrassProps(FARM_GRASS_PROPS.live);
     scene.setPlayers(players);
     scene.setMoundMarkers(markers);
     scene.setFamilyJars(jars);
